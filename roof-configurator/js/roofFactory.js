@@ -1,4 +1,4 @@
-import { defaultLayout, layoutBounds, layoutMetrics } from './roofLayout.js?v=layout-3';
+import { defaultLayout, layoutBounds, layoutMetrics, roofSurfaceGroups } from './roofLayout.js?v=layout-4';
 import * as THREE from 'three';
 
 console.info('[RoofLab] roofFactory build 14 loaded');
@@ -298,7 +298,7 @@ function distanceToPolygonEdges(point, polygon) {
 }
 
 function roofFaceGeometry(points, covering, preferredCourseDirection = null, options = {}) {
-  const normal = faceNormal(points);
+  const normal = options.surfaceNormal?.clone() ?? faceNormal(points);
   let edgeIndex = 0;
   let edgeScore = Number.POSITIVE_INFINITY;
   for (let index = 0; index < points.length; index += 1) {
@@ -321,9 +321,17 @@ function roofFaceGeometry(points, covering, preferredCourseDirection = null, opt
   });
   if (polygonAreaUv(clipPolygon) < 0) clipPolygon.reverse();
 
+  const reliefEdges = options.boundarySegments?.map(segment => segment.map(point => {
+    const relative = point.clone().sub(origin);
+    return new THREE.Vector2(relative.dot(courseDirection), relative.dot(slopeDirection));
+  }));
   const specification = covering === 'teclado'
     ? { moduleWidth: 0.36, course: 0.25, uSteps: 8, vSteps: 7 }
-    : { moduleWidth: 0.72, course: 0.42, uSteps: 7, vSteps: 5 };
+    : {
+        moduleWidth: 0.72, course: 0.42,
+        uSteps: options.detailedProfile ? 14 : 7,
+        vSteps: options.detailedProfile ? 10 : 5,
+      };
   const stepU = specification.moduleWidth / specification.uSteps;
   const stepV = specification.course / specification.vSteps;
   const minU = Math.min(...clipPolygon.map((point) => point.x));
@@ -345,12 +353,28 @@ function roofFaceGeometry(points, covering, preferredCourseDirection = null, opt
       // The shallow slate profile already meets cleanly and should retain its
       // crisp rectangular perimeter.
       reliefScale = 1;
+    } else if (reliefEdges) {
+      let minimum = Infinity;
+      for (const [a, b] of reliefEdges) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const lengthSquared = dx * dx + dy * dy;
+        const t = lengthSquared > 1e-12
+          ? clamp01(((uv.x - a.x) * dx + (uv.y - a.y) * dy) / lengthSquared)
+          : 0;
+        minimum = Math.min(minimum, Math.hypot(uv.x - a.x - dx * t, uv.y - a.y - dy * t));
+      }
+      reliefScale = smoothstep(0, 0.14, minimum);
     } else if (options.reliefScaleAtPoint) {
       reliefScale = clamp01(options.reliefScaleAtPoint(basePoint));
     } else if (options.fadeAtBoundary !== false) {
       reliefScale = smoothstep(0, 0.14, distanceToPolygonEdges(uv, clipPolygon));
     }
-    return roofProfileHeight(covering, uv.x, uv.y) * reliefScale;
+    // Clipping two triangles can return the same course boundary with opposite
+    // floating-point roundoff. Canonicalize profile coordinates so modulo-based
+    // tile steps never choose different heights on the two sides of that seam.
+    const profileU = reliefEdges ? Math.round(uv.x * 1e8) / 1e8 : uv.x;
+    const profileV = reliefEdges ? Math.round(uv.y * 1e8) / 1e8 : uv.y;
+    return roofProfileHeight(covering, profileU, profileV) * reliefScale;
   };
 
   const addVertex = (uv) => {
@@ -506,8 +530,8 @@ function materialSet(state) {
   return { roof, wall, slab, trim, underlay, edge, seam, covering: state.covering };
 }
 
-function makeFace(points, materials, name = 'roof-face') {
-  const geometry = roofFaceGeometry(points, materials.covering);
+function makeFace(points, materials, name = 'roof-face', options = {}) {
+  const geometry = roofFaceGeometry(points, materials.covering, options.courseDirection, options);
 
   const mesh = new THREE.Mesh(geometry, materials.roof);
   mesh.name = name;
@@ -1689,8 +1713,28 @@ function buildDrawnRoof(group, state, materials) {
     state.wallHeight + ROOF_OFFSET_Y + point.h,
     point.z - centerZ,
   ));
-  metrics.triangles.forEach((triangle, index) => {
-    addRoofFace(group, triangle.map(id => points[id]), materials, `drawn-slope-${index}`);
+  const surfaces = roofSurfaceGroups(layout);
+  surfaces.forEach((surface, surfaceIndex) => {
+    const normal = new THREE.Vector3(surface.normal.x, surface.normal.y, surface.normal.z);
+    // Tile rows follow the horizontal contour of the slope, never a triangle's
+    // arbitrary diagonal. The same origin, grid and normals span the whole plane.
+    const courseDirection = new THREE.Vector3(normal.z, 0, -normal.x);
+    if (courseDirection.lengthSq() < 1e-12) courseDirection.set(1, 0, 0);
+    courseDirection.normalize();
+    const firstPoint = points[surface.triangles[0][0]];
+    const options = {
+      courseDirection,
+      surfaceNormal: normal,
+      profileOrigin: normal.clone().multiplyScalar(normal.dot(firstPoint)),
+      boundarySegments: surface.boundary.map(edge => edge.map(id => points[id])),
+      detailedProfile: true,
+    };
+    surface.patches.forEach((patch, patchIndex) => {
+      const vertices = patch.map(id => points[id]);
+      const name = `drawn-slope-${surfaceIndex}-${patchIndex}`;
+      group.add(makePlanarRoofBacking(vertices, materials.underlay, `${name}-underlay`));
+      group.add(makeFace(vertices, materials, name, options));
+    });
   });
   // The drawn perimeter is the roof edge. Walls follow it in this first version;
   // automatic wall offsets and gutters are intentionally not inferred.
@@ -1702,8 +1746,7 @@ function buildDrawnRoof(group, state, materials) {
     ], materials.wall));
   });
   const uniqueEdges = new Map();
-  layout.faces.forEach(face => face.forEach((a, index) => {
-    const b = face[(index + 1) % face.length];
+  surfaces.forEach(surface => surface.boundary.forEach(([a, b]) => {
     uniqueEdges.set([a, b].sort((x, y) => x - y).join(':'), [points[a], points[b]]);
   }));
   addPerimeterTrim(group, [...uniqueEdges.values()], materials, 0.065);

@@ -264,3 +264,79 @@ export function lShapedLayout() {
     ],
   });
 }
+
+// Rendering patches share one plane even when editing/topology splits that
+// plane into several faces. Only the patch perimeter is a physical roof edge.
+export function roofSurfaceGroups(layout) {
+  const triangles = layout.faces.flatMap(face => triangulate(face, layout.vertices));
+  const groups = [];
+  for (const triangle of triangles) {
+    const [a, b, c] = triangle.map(id => layout.vertices[id]);
+    const u = { x: b.x - a.x, y: b.h - a.h, z: b.z - a.z };
+    const v = { x: c.x - a.x, y: c.h - a.h, z: c.z - a.z };
+    const normal = {
+      x: u.y * v.z - u.z * v.y,
+      y: u.z * v.x - u.x * v.z,
+      z: u.x * v.y - u.y * v.x,
+    };
+    const length = Math.hypot(normal.x, normal.y, normal.z);
+    const sign = normal.y < 0 ? -1 : 1;
+    for (const axis of ['x', 'y', 'z']) normal[axis] *= sign / length;
+    const constant = normal.x * a.x + normal.y * a.h + normal.z * a.z;
+    let group = groups.find(candidate =>
+      Math.hypot(candidate.normal.x - normal.x, candidate.normal.y - normal.y,
+        candidate.normal.z - normal.z) < 1e-8 &&
+      Math.abs(candidate.constant - constant) < 1e-7);
+    if (!group) {
+      group = { normal, constant, triangles: [], boundary: [] };
+      groups.push(group);
+    }
+    group.triangles.push(triangle);
+  }
+  groups.forEach(group => {
+    const edges = new Map();
+    group.triangles.forEach(triangle => triangle.forEach((a, index) => {
+      const b = triangle[(index + 1) % triangle.length];
+      const key = [a, b].sort((x, y) => x - y).join(':');
+      if (edges.has(key)) edges.delete(key);
+      else edges.set(key, [a, b]);
+    }));
+    group.boundary = [...edges.values()];
+    group.patches = mergeConvexPatches(group.triangles, layout.vertices);
+  });
+  return groups;
+}
+
+// Render convex coplanar regions as whole polygons. Besides reducing geometry,
+// this avoids introducing a second tessellation through curved tile profiles.
+function mergeConvexPatches(triangles, vertices) {
+  const patches = triangles.map(triangle => [...triangle]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    outer: for (let i = 0; i < patches.length; i++) {
+      for (let j = i + 1; j < patches.length; j++) {
+        const a = patches[i], b = patches[j];
+        for (let edge = 0; edge < a.length; edge++) {
+          const start = a[edge], end = a[(edge + 1) % a.length];
+          const reverse = b.findIndex((id, k) => id === end && b[(k + 1) % b.length] === start);
+          if (reverse < 0) continue;
+          const merged = [
+            ...Array.from({ length: a.length }, (_, k) => a[(edge + 1 + k) % a.length]),
+            ...Array.from({ length: b.length - 2 }, (_, k) => b[(reverse + 2 + k) % b.length]),
+          ];
+          if (new Set(merged).size !== merged.length) continue;
+          const convex = merged.every((id, k) => cross(vertices[id],
+            vertices[merged[(k + 1) % merged.length]],
+            vertices[merged[(k + 2) % merged.length]]) >= -EPS);
+          if (!convex) continue;
+          patches[i] = merged;
+          patches.splice(j, 1);
+          changed = true;
+          break outer;
+        }
+      }
+    }
+  }
+  return patches;
+}

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
-  insertPoint, cloneLayout, pitchedFootprint, lShapedLayout,
+  insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
 } from '../js/roofLayout.js';
 const rectangle = () => footprintLayout([
   { x: -5, z: -3 }, { x: 5, z: -3 }, { x: 5, z: 3 }, { x: -5, z: 3 },
@@ -127,4 +127,26 @@ test('L-shaped example has planar intersecting wings, level eaves and an inside 
       assert.ok(Math.abs(deviation) < 1e-8, 'Every roof face must be planar');
     }
   }
+});
+
+
+test('rendering groups remove triangulation diagonals but preserve real slope boundaries', () => {
+  const roof = lShapedLayout();
+  const groups = roofSurfaceGroups(roof);
+  assert.equal(groups.length, 6);
+  assert.ok(groups.every(group => group.patches.length === 1));
+  assert.equal(groups.reduce((sum, g) => sum + g.boundary.length, 0), 22);
+  for (const group of groups) {
+    assert.ok(group.normal.y > 0);
+    for (const [a, b] of group.boundary) {
+      assert.ok(roof.faces.some(face => face.some((id, i) =>
+        (id === a && face[(i + 1) % face.length] === b) ||
+        (id === b && face[(i + 1) % face.length] === a))));
+    }
+  }
+  const flat = splitSurface(rectangle(), [{x:-5,z:-3},{x:5,z:3}]);
+  assert.equal(roofSurfaceGroups(flat).length, 1);
+  assert.equal(roofSurfaceGroups(flat)[0].boundary.length, 4);
+  flat.vertices[0].h = 1;
+  assert.equal(roofSurfaceGroups(flat).length, 2, 'A real fold must remain distinct');
 });

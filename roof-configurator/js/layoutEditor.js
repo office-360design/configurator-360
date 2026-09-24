@@ -1,7 +1,7 @@
 import {
   cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-3';
+} from './roofLayout.js?v=layout-4';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
