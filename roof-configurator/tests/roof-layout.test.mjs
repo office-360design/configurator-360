@@ -1,7 +1,8 @@
 import test from 'node:test';
+import { alignmentFixture } from './alignment-fixture.mjs';
 import assert from 'node:assert/strict';
 import {
-  joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, layoutStepWalls, moveLayoutPoint, linkedPlanPoints,
+  meetRoofSlope, joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, layoutStepWalls, moveLayoutPoint, linkedPlanPoints,
   deleteLayoutPoint, deleteLayoutEdge,
   layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
@@ -348,4 +349,46 @@ test('joining a point reconnects multiple copies and rejects invalid selections'
   assert.equal(joined.planLinks, undefined);
   assert.throws(() => joinLayoutInPlace(defaultLayout(), [2]));
   assert.throws(() => joinLayoutInPlace(first.layout, [0, 2]));
+});
+
+test('meet slope at fixed height moves along the ridge and restores the target plane', () => {
+  const { layout, pointId } = alignmentFixture();
+  const before = JSON.stringify(layout);
+  const result = meetRoofSlope(layout, { pointId, faceIndex: 0, mode: 'height', height: 1, directionId: 3 });
+  assert.equal(result.position.x, 8);
+  assert.ok(Math.abs(result.position.z - 5 / 3) < 1e-9);
+  assert.equal(result.position.h, 1);
+  assert.equal(result.reconnected, true);
+  assert.equal(result.layout.vertices.length, 12);
+  assert.equal(result.layout.planLinks, undefined);
+  result.layout.faces[0].forEach(id => {
+    const p = result.layout.vertices[id];
+    assert.ok(Math.abs(p.h - 0.6 * p.z) < 1e-9);
+  });
+  for (const id of [0, 1, 6, 10]) assert.deepEqual(result.layout.vertices[id], layout.vertices[id]);
+  assert.equal(JSON.stringify(layout), before);
+});
+
+test('meet slope at fixed position changes height without moving the plan', () => {
+  const { layout, pointId } = alignmentFixture();
+  const result = meetRoofSlope(layout, { pointId, faceIndex: 0, mode: 'position' });
+  assert.equal(result.position.x, 8);
+  assert.equal(result.position.z, 1.25);
+  assert.equal(result.position.h, 0.75);
+  assert.equal(result.distance, 0);
+  validateLayout(result.layout);
+});
+
+test('alignment rejects ambiguous planes, impossible directions and invalid geometry', () => {
+  const { layout, pointId } = alignmentFixture();
+  const base = { pointId, faceIndex: 0, mode: 'height', height: 1, directionId: 3 };
+  assert.throws(() => meetRoofSlope(layout, { ...base, directionId: null }), /connected edge/);
+  assert.throws(() => meetRoofSlope(layout, { ...base, faceIndex: 3 }), /three fixed/);
+  assert.throws(() => meetRoofSlope(layout, { ...base, height: 10 }), /invalid roof/);
+  const bent = cloneLayout(layout);
+  bent.vertices[6].h = 1.4;
+  assert.throws(() => meetRoofSlope(bent, base), /not on one plane/);
+  const flat = cloneLayout(layout);
+  for (const id of [0, 1, 6, 10]) flat.vertices[id].h = 0;
+  assert.throws(() => meetRoofSlope(flat, base), /never reaches/);
 });
