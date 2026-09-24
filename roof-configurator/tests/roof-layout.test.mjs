@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  deleteLayoutPoint, deleteLayoutEdge,
   layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
   insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
@@ -181,4 +182,45 @@ test('narrow footprints limit overhang before edges collapse', () => {
   assert.ok(walls.overhang > 0 && walls.overhang < 0.5);
   validatePolygon(walls.points);
   assert.ok(layoutWallSegments(layout, walls.points).flat().every(p => p.h === 0));
+});
+
+
+test('deleting a dividing edge merges surfaces without mutating the source', () => {
+  const source = defaultLayout();
+  const before = JSON.stringify(source);
+  const next = deleteLayoutEdge(source, 2, 5);
+  assert.equal(next.faces.length, 1);
+  assert.equal(layoutMetrics(next).footprint, 70);
+  assert.equal(JSON.stringify(source), before);
+  assert.throws(() => deleteLayoutEdge(source, 0, 1), /perimeter must stay closed/);
+});
+
+test('deleting an inserted point preserves faces and a corner reshapes the perimeter', () => {
+  const source = defaultLayout();
+  const id = insertPoint(source, { x: 0, z: 0 });
+  const restored = deleteLayoutPoint(source, id);
+  assert.deepEqual(restored, defaultLayout());
+  const corner = deleteLayoutPoint(rectangle(), 0);
+  assert.equal(corner.boundary.length, 3);
+  assert.equal(layoutMetrics(corner).footprint, 30);
+  assert.throws(() => deleteLayoutPoint(corner, 0), /at least three/);
+});
+
+test('deleting an interior ridge junction closes the roof and compacts indices', () => {
+  const source = lShapedLayout();
+  const next = deleteLayoutPoint(source, 6);
+  validateLayout(next);
+  assert.ok(next.faces.length < source.faces.length);
+  assert.equal(next.vertices.length, source.vertices.length - 1);
+  assert.equal(layoutMetrics(next).footprint, layoutMetrics(source).footprint);
+});
+
+test('deleting a polyline dividing edge removes orphaned interior points', () => {
+  const source = splitSurface(rectangle(), [{ x: -5, z: 0 }, { x: 0, z: 1 }, { x: 5, z: 0 }]);
+  const middle = source.vertices.findIndex(p => p.x === 0 && p.z === 1);
+  const start = source.vertices.findIndex(p => p.x === -5 && p.z === 0);
+  const next = deleteLayoutEdge(source, start, middle);
+  assert.equal(next.faces.length, 1);
+  assert.ok(!next.vertices.some(p => p.x === 0 && p.z === 1));
+  validateLayout(next);
 });
