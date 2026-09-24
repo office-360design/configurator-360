@@ -196,3 +196,42 @@ export function layoutMetrics(layout) {
   });
   return { triangles, roofArea, footprint: Math.abs(signedArea(layout.boundary.map(i => layout.vertices[i]))) };
 }
+
+// A predictable two-slope starter, clipped to the user's perimeter. Splitting
+// every interior ridge interval also handles concave outlines with several wings.
+export function pitchedFootprint(points, pitch = 30) {
+  let layout = footprintLayout(points);
+  if (!Number.isFinite(pitch) || pitch < 5 || pitch > 60) {
+    throw new Error('Starter pitch must be between 5° and 60°.');
+  }
+  const bounds = layoutBounds(layout);
+  const across = bounds.maxX - bounds.minX >= bounds.maxZ - bounds.minZ ? 'z' : 'x';
+  const along = across === 'z' ? 'x' : 'z';
+  const values = points.map(p => p[across]);
+  const low = Math.min(...values), high = Math.max(...values);
+  const middle = (low + high) / 2;
+  const halfSpan = (high - low) / 2;
+  const slope = Math.tan(pitch * Math.PI / 180);
+  if (halfSpan * slope > 30) throw new Error('Reduce the pitch to keep the roof height within 30 m.');
+  const crossings = [];
+  points.forEach((a, index) => {
+    const b = points[(index + 1) % points.length];
+    if (Math.abs(a[across] - middle) < EPS) crossings.push({ x: a.x, z: a.z });
+    if ((a[across] - middle) * (b[across] - middle) < -EPS) {
+      const t = (middle - a[across]) / (b[across] - a[across]);
+      crossings.push({ x: a.x + t * (b.x - a.x), z: a.z + t * (b.z - a.z) });
+    }
+  });
+  crossings.sort((a, b) => a[along] - b[along]);
+  const unique = crossings.filter((p, i) => !i || distance(p, crossings[i - 1]) > EPS);
+  for (let i = 0; i + 1 < unique.length; i++) {
+    const a = unique[i], b = unique[i + 1];
+    const mid = { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 };
+    const onBoundary = points.some((p, j) => onSegment(mid, p, points[(j + 1) % points.length]));
+    if (inside(mid, points) && !onBoundary) layout = splitSurface(layout, [a, b]);
+  }
+  layout.vertices.forEach(p => {
+    p.h = Math.max(0, halfSpan - Math.abs(p[across] - middle)) * slope;
+  });
+  return validateLayout(layout);
+}

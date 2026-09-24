@@ -1,7 +1,7 @@
 import {
   cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
-  layoutBounds, layoutMetrics, splitSurface, validateLayout,
-} from './roofLayout.js';
+  layoutBounds, layoutMetrics, pitchedFootprint, splitSurface, validateLayout,
+} from './roofLayout.js?v=layout-2';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -21,7 +21,7 @@ export class RoofLayoutEditor {
       <header><div><small>ROOF DESIGN STUDIO</small><h2 id="layoutTitle">Draw your roof</h2></div>
         <button type="button" data-action="cancel" aria-label="Close layout editor">×</button></header>
       <div class="layout-toolbar" aria-label="Drawing tools">
-        <button type="button" data-action="select">Select point</button>
+        <button type="button" data-action="select">Move points</button>
         <button type="button" data-action="draw">New perimeter</button>
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert edge point</button>
@@ -48,6 +48,9 @@ export class RoofLayoutEditor {
             <label>Height above wall (m)<input id="layoutH" type="number" min="0" max="30" step="any"></label>
             <button type="button" data-action="point">Update point</button>
           </fieldset>
+          <label>Starter pitch (degrees)<input id="layoutPitch" type="number" min="5" max="60" step="any" value="30"></label>
+          <button type="button" data-action="pitch">Generate pitched roof</button>
+          <p>New perimeters start with two slopes. Generate pitched roof replaces the current divisions and heights; Undo restores them.</p>
           <label>Example<select id="layoutExample"><option value="gable">Two slopes</option>
             <option value="hip">Hip roof</option><option value="lshape">L-shaped footprint</option>
             <option value="saw">Consecutive slopes</option></select></label>
@@ -67,6 +70,11 @@ export class RoofLayoutEditor {
       button.addEventListener('click', () => this.action(button.dataset.action));
     });
     this.svg.addEventListener('pointerdown', event => this.click(event));
+    this.svg.addEventListener('pointermove', event => this.movePoint(event));
+    this.svg.addEventListener('pointerup', event => this.endDrag(event));
+    this.svg.addEventListener('pointercancel', event => this.endDrag(event, true));
+    this.svg.addEventListener('lostpointercapture', event => this.endDrag(event, true));
+    this.dialog.addEventListener('cancel', () => this.endDrag(null, true));
     this.dialog.querySelector('#layoutPointSelect').addEventListener('change', event => {
       this.selected = event.target.value === '' ? null : Number(event.target.value);
       this.mode = 'select';
@@ -96,6 +104,8 @@ export class RoofLayoutEditor {
     this.path = [];
     this.mode = 'select';
     this.selected = null;
+    this.drag = null;
+    this.dialog.querySelector('#layoutPitch').value = Math.max(5, Math.min(60, this.state.pitch || 30));
     this.fit();
     this.render();
     this.status('Changes are a draft until you apply the roof.');
@@ -125,6 +135,7 @@ export class RoofLayoutEditor {
   }
 
   action(action) {
+    this.endDrag(null, true);
     try {
       if (['select', 'draw', 'split', 'insert'].includes(action)) {
         this.mode = action;
@@ -138,10 +149,16 @@ export class RoofLayoutEditor {
         this.mode = 'select';
       } else if (action === 'finish') {
         if (this.mode !== 'draw') return;
-        this.commit(footprintLayout(this.path));
+        this.commit(pitchedFootprint(this.path, this.starterPitch()));
         this.path = [];
         this.mode = 'select';
         this.selected = null;
+      } else if (action === 'pitch') {
+        if (this.path.length) throw new Error('Finish or cancel the drawing first.');
+        const perimeter = this.layout.boundary.map(id => this.layout.vertices[id]);
+        this.commit(pitchedFootprint(perimeter, this.starterPitch()));
+        this.selected = null;
+        this.mode = 'select';
       } else if (action === 'undo' || action === 'redo') {
         if (this.path.length) this.path.pop();
         else {
@@ -171,7 +188,7 @@ export class RoofLayoutEditor {
         const type = this.dialog.querySelector('#layoutExample').value;
         let next = defaultLayout();
         if (type === 'lshape') {
-          next = footprintLayout([
+          next = pitchedFootprint([
             { x: -5, z: -4 }, { x: 5, z: -4 }, { x: 5, z: 0 },
             { x: 0, z: 0 }, { x: 0, z: 4 }, { x: -5, z: 4 },
           ]);
@@ -211,10 +228,66 @@ export class RoofLayoutEditor {
     }
   }
 
+  starterPitch() {
+    const input = this.dialog.querySelector('#layoutPitch');
+    if (!input.value || !input.checkValidity()) throw new Error('Enter a starter pitch between 5° and 60°.');
+    return Number(input.value);
+  }
+
+  rawPointer(event) {
+    const point = new DOMPoint(event.clientX, event.clientY)
+      .matrixTransform(this.svg.getScreenCTM().inverse());
+    return {
+      x: this.center.x + (point.x - 400) / this.scale,
+      z: this.center.z + (point.y - 300) / this.scale,
+    };
+  }
+
+  movePoint(event) {
+    const drag = this.drag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    if (!drag.moved && Math.hypot(event.clientX - drag.screenX, event.clientY - drag.screenY) < 3) return;
+    drag.moved = true;
+    const raw = this.rawPointer(event);
+    const next = cloneLayout(drag.original);
+    const point = next.vertices[drag.id];
+    const snap = Number(this.dialog.querySelector('#layoutSnap').value);
+    if (drag.heightMode) {
+      point.h = Math.round((point.h + drag.start.z - raw.z) / snap) * snap;
+    } else {
+      point.x = Math.round((point.x + raw.x - drag.start.x) / snap) * snap;
+      point.z = Math.round((point.z + raw.z - drag.start.z) / snap) * snap;
+    }
+    try {
+      validateLayout(next);
+      this.layout = next;
+      drag.valid = true;
+      this.render();
+      this.status(drag.heightMode ? 'Release to set the height.' : 'Release to move the point. Shift-drag adjusts height.');
+    } catch (error) {
+      drag.valid = false;
+      this.status(`${error.message} Release to cancel this move.`);
+    }
+  }
+
+  endDrag(event, cancel = false) {
+    const drag = this.drag;
+    if (!drag || (event && drag.pointerId !== event.pointerId)) return;
+    this.drag = null;
+    if (this.svg.hasPointerCapture(drag.pointerId)) this.svg.releasePointerCapture(drag.pointerId);
+    const next = this.layout;
+    this.layout = drag.original;
+    if (drag.moved && drag.valid && !cancel) this.commit(next);
+    else {
+      this.render();
+      if (drag.moved) this.status('Move cancelled; the original point has been restored.');
+    }
+  }
+
   // Convert with the SVG screen matrix so touch and letterboxed canvases agree.
   pointer(event) {
-    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(this.svg.getScreenCTM().inverse());
-    const raw = { x: this.center.x + (point.x - 400) / this.scale, z: this.center.z + (point.y - 300) / this.scale };
+    const raw = this.rawPointer(event);
     const tolerance = (this.svg.clientWidth < 500 ? 28 : 14) / this.scale;
     if (this.mode !== 'draw') {
       const id = this.layout.vertices.findIndex(p => distance(p, raw) < tolerance);
@@ -234,12 +307,21 @@ export class RoofLayoutEditor {
   }
 
   click(event) {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || this.drag || event.isPrimary === false) return;
     event.preventDefault();
     const point = this.pointer(event);
     try {
       if (this.mode === 'select') {
         this.selected = point.id ?? null;
+        if (this.selected !== null) {
+          this.drag = {
+            pointerId: event.pointerId, id: this.selected,
+            original: cloneLayout(this.layout), start: this.rawPointer(event),
+            screenX: event.clientX, screenY: event.clientY,
+            heightMode: event.shiftKey, moved: false, valid: true,
+          };
+          this.svg.setPointerCapture(event.pointerId);
+        }
       } else if (this.mode === 'draw') {
         if (this.path.length >= 3 && distance(point, this.path[0]) < 14 / this.scale) {
           this.action('finish');
@@ -316,8 +398,8 @@ export class RoofLayoutEditor {
       });
     }
     const hints = {
-      select: 'Click a point, then edit its coordinates or height. Shared points update all adjacent surfaces.',
-      draw: 'Click around the outer roof edge. Click the first point or Close perimeter to finish. This replaces the current draft.',
+      select: 'Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
+      draw: 'Click around the outer roof edge. Click the first point or Close perimeter to finish. This creates a pitched roof at the starter pitch and replaces the current draft.',
       split: 'Start on a surface edge, add optional interior points, then finish on another edge of the same surface. Raise the new points to form ridges, or lower them for valleys.',
       insert: 'Click an existing edge to add a shared point. Then set its height or coordinates.',
     };

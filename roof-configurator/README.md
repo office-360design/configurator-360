@@ -105,11 +105,17 @@ five presets and the separate file-upload placeholder remain available.
 
 1. Start from an example or choose **New perimeter** and click around the outer
    roof edge. Close it by clicking the first point, pressing Enter, or selecting
-   **Close perimeter**. Concave and angled outlines are supported.
+   **Close perimeter**. Concave and angled outlines are supported. Closing the
+   perimeter generates a two-slope roof at the selected **Starter pitch**, with
+   a ridge along the longer footprint axis. The ridge is clipped to the outline.
 2. Choose **Divide surface**. Start on an existing edge or point, add optional
    interior points, and finish on another edge of that same surface. Repeat for
    additional slopes, ridges, hips and valleys. Crossings and gaps are rejected.
-3. Select a point on the plan or from the point dropdown. Edit X, Z and its height
+3. Drag a point to move it on the plan; Shift-drag up/down changes its height.
+   Mouse and touch dragging snap to the grid and update adjoining surfaces.
+   Invalid drops and cancelled gestures restore the original point; a completed
+   drag is one undo step. You can also select a point from the dropdown and edit
+   X, Z and its height
    above the wall top, then choose **Update point**. Shared points affect every
    adjoining surface. **Insert edge point** adds a point to all incident faces.
 4. Use grid snapping, edge-length labels, zoom, Fit and Undo/Redo to refine the
@@ -131,7 +137,10 @@ Current boundaries:
 - Up to 160 points/surfaces and a 40 × 40 m footprint, with heights from 0–30 m
   above the wall. One continuous perimeter; holes and vertical roof steps are
   not supported yet.
-- Slopes are controlled by point heights, not by an automatic roof solver.
+- New perimeters start with two generated slopes. **Generate pitched roof** can
+  rebuild an existing flat layout from its perimeter at the chosen pitch. This
+  replaces manual divisions/heights and can be undone. This is a gable starter,
+  not a general hip-roof solver. Further slopes are controlled by point heights.
   Non-planar faces are triangulated; dashed plan lines show the triangulation.
 - The drawn perimeter is the roof edge. Walls currently follow that same outline;
   independent wall footprints and automatic eaves offsets are not implemented.
