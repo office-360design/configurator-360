@@ -75,3 +75,5 @@
   .layout-toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .layout-toolbar button { padding: 6px; font-size: 12px; }
 }
+.layout-node { cursor: grab; }
+.layout-drawing svg:active .layout-node.selected { cursor: grabbing; }

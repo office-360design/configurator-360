@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
-  insertPoint, cloneLayout,
+  insertPoint, cloneLayout, pitchedFootprint,
 } from '../js/roofLayout.js';
 const rectangle = () => footprintLayout([
   { x: -5, z: -3 }, { x: 5, z: -3 }, { x: 5, z: 3 }, { x: -5, z: 3 },
@@ -73,4 +73,33 @@ test('JSON round-trip preserves topology, heights and area', () => {
   const source = defaultLayout();
   const restored = validateLayout(JSON.parse(JSON.stringify(source)));
   assert.deepEqual(layoutMetrics(source), layoutMetrics(restored));
+});
+
+
+test('drawn rectangle starts with two pitched surfaces and a raised ridge', () => {
+  const source = rectangle();
+  const roof = pitchedFootprint(source.vertices, 30);
+  assert.equal(roof.faces.length, 2);
+  assert.ok(Math.abs(Math.max(...roof.vertices.map(p => p.h)) - 3 * Math.tan(Math.PI / 6)) < 1e-8);
+  assert.ok(Math.abs(layoutMetrics(roof).roofArea - 60 / Math.cos(Math.PI / 6)) < 1e-7);
+});
+
+test('pitched concave outlines handle boundary-aligned and disconnected ridge intervals', () => {
+  const outlines = [
+    [[-5,-4],[5,-4],[5,0],[0,0],[0,4],[-5,4]],
+    [[-6,-4],[6,-4],[6,4],[2,4],[2,-2],[-2,-2],[-2,4],[-6,4]],
+    [[0,0],[8,0],[6,6],[3,8],[-2,3]],
+  ];
+  for (const coords of outlines) {
+    for (const points of [coords, [...coords].reverse()]) {
+      const roof = pitchedFootprint(points.map(([x,z]) => ({x,z})), 35);
+      validateLayout(roof);
+      const metrics = layoutMetrics(roof);
+      assert.ok(metrics.roofArea > metrics.footprint);
+      assert.ok(Math.max(...roof.vertices.map(p => p.h)) > 0);
+      assert.equal(roof.faces.length >= 2, true);
+      const regenerated = pitchedFootprint(roof.boundary.map(i => roof.vertices[i]), 35);
+      assert.ok(Math.abs(layoutMetrics(regenerated).roofArea - metrics.roofArea) < 1e-7);
+    }
+  }
 });
