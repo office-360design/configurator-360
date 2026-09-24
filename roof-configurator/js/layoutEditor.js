@@ -1,7 +1,7 @@
 import {
   cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-4';
+} from './roofLayout.js?v=layout-5';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -56,7 +56,7 @@ export class RoofLayoutEditor {
             <option value="saw">Consecutive slopes</option></select></label>
           <button type="button" data-action="example">Load example</button>
           <output class="layout-summary"></output>
-          <p>Draw the outer roof edge, including any overhang. Non-planar surfaces are divided into triangular slopes; dashed lines show these divisions.</p>
+          <p>Draw the outer roof edge. The Eaves overhang control sets the walls back beneath it; zero places walls at the roof edge. Non-planar surfaces are divided into triangular slopes; dashed lines show these divisions.</p>
           <p>Layout mode does not yet calculate flashings, gutters or a price estimate.</p>
         </aside>
       </div>
