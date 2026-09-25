@@ -1,11 +1,39 @@
 import {
-  meetRoofSlope, alignmentDirections, inside,
+  meetRoofSlope, alignmentDirections, inside, triangulate,
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-11';
+} from './roofLayout.js?v=layout-12';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-11';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-12';
+
+function surfaceLetter(index) {
+  let label = '';
+  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) {
+    label = String.fromCharCode(65 + (n - 1) % 26) + label;
+  }
+  return label;
+}
+
+// Use the polygon centroid, falling back inside a triangle for concave faces.
+function surfaceLabelPosition(face, vertices) {
+  const points = face.map(id => vertices[id]);
+  let area = 0, x = 0, z = 0;
+  points.forEach((a, i) => {
+    const b = points[(i + 1) % points.length];
+    const cross = a.x * b.z - b.x * a.z;
+    area += cross;
+    x += (a.x + b.x) * cross;
+    z += (a.z + b.z) * cross;
+  });
+  const center = { x: x / (3 * area), z: z / (3 * area) };
+  if (inside(center, points)) return center;
+  const triangles = triangulate(face, vertices).map(ids => ids.map(id => vertices[id]));
+  const size = ([a, b, c]) => Math.abs((b.x - a.x) * (c.z - a.z) - (c.x - a.x) * (b.z - a.z));
+  const triangle = triangles.reduce((best, current) => size(current) > size(best) ? current : best);
+  return { x: triangle.reduce((sum, p) => sum + p.x, 0) / 3,
+    z: triangle.reduce((sum, p) => sum + p.z, 0) / 3 };
+}
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -61,7 +89,7 @@ export class RoofLayoutEditor {
         <aside aria-label="Roof properties">
           <div class="layout-panel-heading">Roof properties
             ${help('Coordinates', 'All coordinates are in metres. Heights are measured above the wall top. Drag points to move them; Shift-drag changes height.')}</div>
-          <fieldset class="layout-meet" hidden><legend>Meet roof slope ${help('Meet roof slope', "Keep position adjusts height. Keep height moves the point along a connected edge. The target’s other points stay fixed. Split copies share X/Z; the selected copy and target copy reconnect at the meeting height.")}</legend>
+          <fieldset class="layout-meet" aria-labelledby="layoutMeetTitle" hidden><div class="layout-section-heading"><span id="layoutMeetTitle">Meet roof slope</span> ${help('Meet roof slope', "Keep position adjusts height. Keep height moves the point along a connected edge. The target’s other points stay fixed. Split copies share X/Z; the selected copy and target copy reconnect at the meeting height.")}</div>
             <label>Target slope<select id="meetTarget"></select></label>
             <button type="button" data-action="pickTarget">Pick slope on plan</button>
             <label>Alignment<select id="meetMode"><option value="position">Keep position</option>
@@ -115,7 +143,10 @@ export class RoofLayoutEditor {
       icon.className = 'layout-tool-icon';
       icon.setAttribute('aria-hidden', 'true');
       icon.textContent = icons[button.dataset.action];
-      button.prepend(icon);
+      const label = document.createElement('span');
+      label.className = 'layout-tool-label';
+      label.textContent = button.textContent;
+      button.replaceChildren(icon, label);
     });
     document.body.appendChild(this.dialog);
     this.dialog.querySelectorAll('.layout-info').forEach(button => {
@@ -374,7 +405,7 @@ export class RoofLayoutEditor {
     const targets = this.dialog.querySelector('#meetTarget');
     targets.replaceChildren(new Option('Choose a slope or click it on the plan', ''));
     this.layout.faces.forEach((face, index) => targets.add(new Option(
-      `Surface ${index + 1} · points ${face.map(id => id + 1).join(', ')}`, index)));
+      `Surface ${surfaceLetter(index)} · points ${face.map(id => id + 1).join(', ')}`, index)));
     const directions = this.dialog.querySelector('#meetDirection');
     directions.replaceChildren(new Option('Choose a connected edge', ''));
     alignmentDirections(this.layout, this.selected).forEach(id => directions.add(new Option(
@@ -614,6 +645,15 @@ export class RoofLayoutEditor {
           points: coords(triangle.map(id => this.layout.vertices[id])), class: 'layout-triangle',
         }));
       });
+      this.layout.faces.forEach((face, index) => {
+        const point = project(surfaceLabelPosition(face, this.layout.vertices));
+        const label = svgElement('text', { x: point.x, y: point.y,
+          'text-anchor': 'middle', 'dominant-baseline': 'central',
+          class: 'layout-surface-label', 'pointer-events': 'none',
+          'aria-label': `Surface ${surfaceLetter(index)}` });
+        label.textContent = surfaceLetter(index);
+        this.svg.append(label);
+      });
       this.layout.boundary.forEach((id, index) => {
         const a = this.layout.vertices[id];
         const b = this.layout.vertices[this.layout.boundary[(index + 1) % this.layout.boundary.length]];
@@ -683,12 +723,12 @@ export class RoofLayoutEditor {
       input.value = index;
       input.checked = i === 0;
       input.disabled = incident.length < 2;
-      label.append(input, `Surface ${index + 1} (points ${this.layout.faces[index].map(id => id + 1).join(', ')})`);
+      label.append(input, `Surface ${surfaceLetter(index)} (points ${this.layout.faces[index].map(id => id + 1).join(', ')})`);
       splitFaces.append(label);
     });
     const copies = this.selectionCopies();
     this.dialog.querySelector('#layoutCopyInfo').textContent = copies.length > 1
-      ? `${copies.length} copies here. Selected ${this.selected !== null ? 'point' : 'edge'}: ${this.selectionIds().map(id => id + 1).join('–')}. Attached surfaces: ${incident.map(i => i + 1).join(', ')}.`
+      ? `${copies.length} copies here. Selected ${this.selected !== null ? 'point' : 'edge'}: ${this.selectionIds().map(id => id + 1).join('–')}. Attached surfaces: ${incident.map(surfaceLetter).join(', ')}.`
       : 'Select a shared point or dividing edge to split it.';
     this.dialog.querySelector('.layout-point').disabled = this.selected === null || Boolean(this.meet);
     this.dialog.querySelector('#layoutPointName').textContent = this.selected === null ? '—' : this.selected + 1;

@@ -148,3 +148,13 @@
   .layout-status { font-size: 12px; min-width: 100%; }
   .roof-layout-dialog footer { justify-content: flex-end; gap: 6px; }
 }
+
+/* Explicit icon boxes keep wide glyphs clear of their button labels. */
+.roof-layout-dialog .layout-tool-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 22px; width: 22px; font-size: 18px; }
+.layout-toolbar .layout-tool-label { display: inline-block; }
+.layout-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-weight: 600; font-size: 13px; }
+.layout-drawing .layout-surface-label { font: 700 20px system-ui, sans-serif; fill: #244763; stroke: #ffffffed; stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }
+@media (max-width: 680px) {
+  .roof-layout-dialog .layout-tool-icon { flex-basis: 18px; width: 18px; font-size: 16px; }
+  .layout-drawing .layout-surface-label { font-size: 25px; }
+}
