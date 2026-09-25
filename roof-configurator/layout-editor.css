@@ -171,3 +171,10 @@
 @media (max-width: 680px) { .layout-overlays { right: 8px; top: 62px; } }
 
 .roof-type-grid [data-roof-type="layout"] { grid-column: 1 / -1; }
+
+.layout-drawing > svg.pan-enabled, .layout-drawing > svg.pan-enabled .layout-node { cursor: grab; }
+.layout-drawing > svg.panning, .layout-drawing > svg.panning .layout-node { cursor: grabbing; }
+@media (max-width: 680px) {
+  .layout-history button { font-size: 11px; min-width: 30px; padding-inline: 4px; }
+  .layout-zoom button { min-width: 30px; padding-inline: 4px; font-size: 12px; }
+}

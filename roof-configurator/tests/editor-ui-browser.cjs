@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   await page.route('**/editor-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/layout-editor.css"><body></body>' }));
   await page.goto('http://127.0.0.1:8080/editor-fixture');
   await page.evaluate(async () => {
-    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-17');
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-18');
     window.editor = new RoofLayoutEditor({ pitch: 30 }, () => {});
     window.editor.open();
   });
@@ -27,6 +27,27 @@ const assert = require('node:assert/strict');
     assert.ok(box.x >= drawing.x && box.y >= drawing.y && box.y < drawing.y + 60);
   }
   assert.ok(await action('undo').isDisabled());
+  const originalView = await page.evaluate(() => ({ center: window.editor.center, layout: window.editor.layout }));
+  for (const method of ['tool', 'middle', 'space']) {
+    if (method === 'tool') await action('pan').click();
+    const canvas = page.locator('.layout-drawing > svg');
+    await canvas.focus();
+    if (method === 'space') await page.keyboard.down('Space');
+    const box = await canvas.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down({ button: method === 'middle' ? 'middle' : 'left' });
+    await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2 + 40, { steps: 4 });
+    await page.mouse.up({ button: method === 'middle' ? 'middle' : 'left' });
+    if (method === 'space') await page.keyboard.up('Space');
+    const moved = await page.evaluate(() => ({ center: window.editor.center, layout: window.editor.layout }));
+    assert.ok(moved.center.x < originalView.center.x && moved.center.z < originalView.center.z);
+    assert.deepEqual(moved.layout, originalView.layout);
+    assert.ok(await action('undo').isDisabled());
+    if (method === 'tool') await action('pan').click();
+    await action('fit').click();
+    assert.deepEqual(await page.evaluate(() => window.editor.center), originalView.center);
+  }
+
   assert.equal(await page.locator('.layout-triangle').count(), 0);
   await action('slopeArrows').click();
   assert.equal(await page.locator('.layout-slope-arrow').count(), 4);
@@ -110,6 +131,20 @@ const assert = require('node:assert/strict');
     await checkBounds();
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  await action('pan').click();
+  const touchBefore = await page.evaluate(() => ({ center: window.editor.center, layout: window.editor.layout }));
+  const touchCanvas = await page.locator('.layout-drawing > svg').boundingBox();
+  const touchX = touchCanvas.x + touchCanvas.width / 2, touchY = touchCanvas.y + touchCanvas.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchX, y: touchY }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchX + 40, y: touchY + 20 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const touchAfter = await page.evaluate(() => ({ center: window.editor.center, layout: window.editor.layout }));
+  assert.ok(touchAfter.center.x < touchBefore.center.x);
+  assert.deepEqual(touchAfter.layout, touchBefore.layout);
+  await action('pan').click();
+  await action('fit').click();
+
   await checkBounds();
   await page.screenshot({ path: '/tmp/roof-editor-mobile.png' });
   await page.locator('.layout-setup summary').click();
