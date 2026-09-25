@@ -26,7 +26,7 @@ import {
 } from "../lib/scenes/extended-builders";
 import { loadGeographicEnvironment } from "../lib/scenes/solar-environment-loader.js";
 import { solarDirection } from "../lib/scenes/solar-position";
-import type { ConfiguratorSlug } from "../lib/configurators";
+import type { LegacyConfiguratorSlug as ConfiguratorSlug } from "../lib/configurators";
 
 type SceneKey = ConfiguratorSlug | "engine";
 
@@ -752,10 +752,17 @@ export function WebGLStage() {
       if (detail.zoom) state.zoom = THREE.MathUtils.clamp(state.zoom * Math.exp(detail.zoom * 0.0008), 0.58, 1.65);
     }
     const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-scene]"));
+    const independentSections = Array.from(document.querySelectorAll<HTMLElement>(".showcase-lite"));
     const hero = document.querySelector<HTMLElement>("[data-scene='engine']");
     let sceneSelectionDirty = true;
     let hasSpatialSectionInView = true;
     function updateActiveScene() {
+      // The new previews own their canvas. Never leave a previous fixed scene
+      // behind them when a legacy section is still at the viewport edge.
+      if (independentSections.some((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.top <= innerHeight / 2 && rect.bottom >= innerHeight / 2;
+      })) return false;
       let closest: { key: SceneKey; distance: number } | null = null;
       sections.forEach((element) => {
         const rect = element.getBoundingClientRect();
@@ -844,6 +851,9 @@ export function WebGLStage() {
       pointerY += (targetPointerY - pointerY) * 0.035;
       if (sceneSelectionDirty || desiredActive !== active) {
         hasSpatialSectionInView = updateActiveScene();
+        container.style.visibility = hasSpatialSectionInView ? "visible" : "hidden";
+        const hud = container.nextElementSibling as HTMLElement | null;
+        if (hud?.classList.contains("renderer-hud")) hud.style.visibility = container.style.visibility;
         sceneSelectionDirty = false;
       }
       if (!hasSpatialSectionInView) {

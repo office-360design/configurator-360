@@ -7,6 +7,7 @@ import type { Locale } from "../lib/i18n";
 import { useMobileDeckSwipe } from "./use-mobile-deck-swipe";
 import { modulePresets } from "../lib/scenes/solar-state.js";
 import { deriveFenceMetrics } from "../../fence-configurator/js/state.js";
+import { RangeControl as Range } from "./scene-control-primitives";
 
 type SolarMetrics = {
   requestedPanels: number;
@@ -37,44 +38,6 @@ const dispatch = (
 
 const bearingCardinal = (degrees: number) =>
   ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round((((degrees % 360) + 360) % 360) / 45) % 8];
-
-function Range({
-  label,
-  value,
-  min,
-  max,
-  step,
-  unit = "",
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  unit?: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="scene-range">
-      <span>
-        {label}
-        <b>
-          {value}
-          {unit}
-        </b>
-      </span>
-      <input
-        type="range"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
-  );
-}
 
 const copy = {
   en: {

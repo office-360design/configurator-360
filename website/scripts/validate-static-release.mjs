@@ -8,6 +8,9 @@ const websiteRoot = path.resolve(scriptDirectory, "..");
 const workspaceRoot = path.resolve(websiteRoot, "..");
 const releaseRoot = path.join(websiteRoot, "outputs", "release-site");
 const failures = [];
+// Local website-only work may not have compiled sibling apps. This explicit mode
+// validates their source paths; CI/default validation still requires built apps.
+const sourceApps = process.argv.includes("--source-apps");
 
 // The website-only release is composed with these sibling applications/assets
 // later in the Pages/Cloud Run workflows. Validate references against the exact
@@ -20,7 +23,7 @@ const composedSiteMounts = Object.freeze([
   }),
   Object.freeze({
     prefix: "/window-configurator/",
-    root: path.join(workspaceRoot, "dist", "window-configurator-build"),
+    root: sourceApps ? path.join(workspaceRoot, "window-configurator", "src", "client") : path.join(workspaceRoot, "dist", "window-configurator-build"),
   }),
   Object.freeze({
     prefix: "/fence-configurator/",
@@ -168,7 +171,7 @@ const sitemapExpectations = {
     apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/", "/karton-konfigurator/", "/stuhl-konfigurator/"],
   },
 };
-const marketingSlugs = ["pergola", "roof", "window", "hall", "solar", "fence"];
+const marketingSlugs = ["pergola", "roof", "window", "hall", "solar", "fence", "chair", "cardbox", "bookshelf", "tiles"];
 const allOrigins = Object.values(sitemapExpectations).map(({ origin }) => origin);
 
 for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
@@ -203,5 +206,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log(`Validated ${pageRoutes.length} website pages, ${metadataRoutes.length} metadata routes, ${htmlFiles.length} HTML files, canonical metadata, and internal/composed-site links.`);
+  console.log(`Validated ${pageRoutes.length} website pages, ${metadataRoutes.length} metadata routes, ${htmlFiles.length} HTML files, canonical metadata, and internal/composed-site links${sourceApps ? " (window app source paths; compiled app not validated)" : ""}.`);
 }

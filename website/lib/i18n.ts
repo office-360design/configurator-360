@@ -20,6 +20,7 @@ export const configuratorPublicPaths = {
     solar: "/solar-configurator/",
     fence: "/fence-configurator/",
     cardbox: "/cardbox-configurator/",
+    chair: "/chair-configurator/", bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
   },
   ro: {
     pergola: "/configurator-pergola/",
@@ -29,6 +30,7 @@ export const configuratorPublicPaths = {
     solar: "/configurator-solar/",
     fence: "/configurator-garduri/",
     cardbox: "/configurator-cutii-carton/",
+    chair: "/configurator-scaune/", bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
   },
   de: {
     pergola: "/pergola-konfigurator/",
@@ -38,6 +40,7 @@ export const configuratorPublicPaths = {
     solar: "/solar-konfigurator/",
     fence: "/zaun-konfigurator/",
     cardbox: "/karton-konfigurator/",
+    chair: "/stuhl-konfigurator/", bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
   },
 } as const;
 

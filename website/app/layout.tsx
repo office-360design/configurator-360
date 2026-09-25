@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./lite-previews.css";
 import "./critical-polish.css";
 import { languageAlternates, SITE_URL } from "../lib/seo";
 import { GoogleAnalytics } from "../components/google-analytics";

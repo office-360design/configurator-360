@@ -6,6 +6,14 @@ import { clipConvex } from '../js/interlocking.js';
 import { houseGeometry } from '../js/house.js';
 import { patternPreview } from '../js/patternPreview.js';
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`);
+test('clipping through an existing corner leaves a triangulatable polygon', () => {
+  const clipped = clipConvex(
+    [{ x: 0, z: 0 }, { x: 2, z: 0 }, { x: 0, z: 2 }],
+    [{ x: 0, z: 0 }, { x: 1, z: 1 }, { x: 0, z: 2 }],
+  );
+  assert.equal(clipped.length, 3);
+  near(triangulate(clipped).reduce((sum, tri) => sum + polygonArea(tri), 0), 1);
+});
 for (const rotation of [0, 90])
   test(`H-Beton ${rotation}: exact coverage, interlocking without overlap`, () => {
     const s = normalize({ tile: 'hbeton', length: 1.13, width: 1.07, rotation }),
@@ -15,7 +23,7 @@ for (const rotation of [0, 90])
       s.length * s.width,
     );
     const triangles = pieces.map((p) =>
-      p.fragments.flatMap((poly) => triangulate(rotation === 90 ? [...poly].reverse() : poly)),
+      p.fragments.flatMap((poly) => triangulate(poly)),
     );
     for (let i = 0; i < pieces.length; i++) {
       const a = pieces[i];
@@ -26,7 +34,8 @@ for (const rotation of [0, 90])
         }
       for (let j = i + 1; j < pieces.length; j++) {
         const b = pieces[j];
-        if (Math.abs(a.x - b.x) >= (a.l + b.l) / 2 || Math.abs(a.z - b.z) >= (a.w + b.w) / 2)
+        if (Math.abs(a.x - b.x) >= (rotation === 90 ? a.w + b.w : a.l + b.l) / 2 ||
+            Math.abs(a.z - b.z) >= (rotation === 90 ? a.l + b.l : a.w + b.w) / 2)
           continue;
         for (const p of triangles[i])
           for (const q of triangles[j]) near(polygonArea(clipConvex(p, q)), 0);

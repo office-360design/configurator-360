@@ -11,7 +11,13 @@ export const polygonArea = (p) =>
 const distance = (a, b) => Math.hypot(b.x - a.x, b.z - a.z);
 export function areaGeometry(s) {
   let points;
-  if (!s.shape || s.shape === 'rectangle')
+  if (s.shape === 'custom') {
+    if (!Array.isArray(s.areaPoints) || s.areaPoints.length < 3 || s.areaPoints.length > 64)
+      throw new Error('invalidArea');
+    points = s.areaPoints.map((p) => ({ x: Number(p?.x), z: Number(p?.z) }));
+    if (points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.z)))
+      throw new Error('invalidArea');
+  } else if (!s.shape || s.shape === 'rectangle')
     points = [
       { x: 0, z: 0 },
       { x: s.length, z: 0 },
@@ -64,18 +70,22 @@ export function areaGeometry(s) {
   const signed =
     points.reduce((a, p, i) => a + p.x * points[(i + 1) % n].z - p.z * points[(i + 1) % n].x, 0) /
     2;
-  if (signed < 0.1) throw new Error('invalidArea');
+  if (signed < (s.shape === 'custom' ? 1 : 0.1)) throw new Error('invalidArea');
   const minX = Math.min(...points.map((p) => p.x)),
     minZ = Math.min(...points.map((p) => p.z));
   points = points.map((p) => ({ x: p.x - minX, z: p.z - minZ }));
-  const lengths = points.map((p, i) => distance(p, points[(i + 1) % n]));
+  const lengths = points.map((p, i) => distance(p, points[(i + 1) % n])),
+    width = Math.max(...points.map((p) => p.x)),
+    depth = Math.max(...points.map((p) => p.z));
+  if (s.shape === 'custom' && (width < 1 || depth < 1 || width > 20 || depth > 20))
+    throw new Error('invalidArea');
   return {
     points,
     lengths,
     area: signed,
     perimeter: lengths.reduce((a, b) => a + b, 0),
-    width: Math.max(...points.map((p) => p.x)),
-    depth: Math.max(...points.map((p) => p.z)),
+    width,
+    depth,
   };
 }
 

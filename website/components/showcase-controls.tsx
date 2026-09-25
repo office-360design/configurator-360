@@ -9,6 +9,7 @@ import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
 import { bomToCsv } from "../../roof-configurator/js/bom.js";
 import { formatCurrency } from "../../roof-configurator/js/preferences.js";
 import { FenceControls, HallControls, SolarControls } from "./extended-showcase-controls";
+import { RangeControl, ColourControl } from "./scene-control-primitives";
 
 type ControlValue = string | number | boolean | Record<string, string>;
 
@@ -48,18 +49,6 @@ function defaultSideClosings(width: number, depth: number) {
 
 function emit(scene: ConfiguratorSlug, control: string, value: ControlValue) {
   window.dispatchEvent(new CustomEvent("configurator-control", { detail: { scene, control, value } }));
-}
-
-function RangeControl({ label, value, min, max, step, unit, onChange }: {
-  label: string; value: number; min: number; max: number; step: number; unit: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="scene-range">
-      <span>{label}<b>{value}{unit}</b></span>
-      <input type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
-  );
 }
 
 function RoofBomModal({ bom, locale, onClose }: { bom: RoofBom; locale: Locale; onClose: () => void }) {
@@ -244,7 +233,7 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
         </div>
         {coveringOpen && <div className="roof-covering-editor">
           <div><span className="control-section-label">{text.materialPreset}</span><div className="scene-preset-row material-row" aria-label={text.materialPreset}>{materials.map(([value, label]) => <button key={value} className={roofCovering === value ? "active" : ""} onClick={() => selectCovering(value)}>{label}</button>)}</div></div>
-          <div><span className="control-section-label">{text.roofColour}</span><div className="roof-color-row" aria-label={text.roofColour}>{roofColors.map(([value, label]) => <button key={value} className={roofColor === value ? "active" : ""} type="button" title={label} aria-label={label} aria-pressed={roofColor === value} onClick={() => { setRoofColor(value); emit(scene, "roofColor", value); }}><i style={{ background: value }} /><span>{label}</span></button>)}</div></div>
+          <ColourControl label={text.roofColour} value={roofColor} options={roofColors as [string,string][]} onChange={value => {setRoofColor(value);emit(scene,"roofColor",value);}} />
         </div>}
         </div>
       </div>

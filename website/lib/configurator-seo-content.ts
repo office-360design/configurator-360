@@ -1,4 +1,4 @@
-import type { ConfiguratorSlug } from "./configurators";
+import type { LegacyConfiguratorSlug as ConfiguratorSlug } from "./configurators";
 import type { Locale } from "./i18n";
 import { pergolaSeoContent, type ConfiguratorSeoContent } from "./pergola-seo-content";
 

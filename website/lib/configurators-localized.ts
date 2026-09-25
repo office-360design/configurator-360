@@ -1,9 +1,11 @@
-import { configurators, type Configurator, type ConfiguratorSlug } from "./configurators";
+import { configurators, type Configurator, type LegacyConfiguratorSlug } from "./configurators";
+import { isLiteSlug } from "./lite-products";
+import { newConfigurator } from "./new-configurators";
 import { configuratorUrl, type Locale } from "./i18n";
 
 type Translation = Pick<Configurator, "category" | "title" | "shortTitle" | "statement" | "description" | "controls" | "features" | "outputs" | "seoH1" | "seoTitle" | "seoDescription">;
 
-const ro: Record<ConfiguratorSlug, Translation> = {
+const ro: Record<LegacyConfiguratorSlug, Translation> = {
   pergola: {
     category: "Amenajări exterioare", title: "Pergole bioclimatice 3D", shortTitle: "Pergole",
     statement: "Configurează pergola. Vezi imediat lumina și umbra.",
@@ -114,7 +116,7 @@ const ro: Record<ConfiguratorSlug, Translation> = {
   },
 };
 
-const de: Record<ConfiguratorSlug, Translation> = {
+const de: Record<LegacyConfiguratorSlug, Translation> = {
   pergola: {
     category: "Outdoor-Architektur", title: "Pergola & Outdoor-Architektur", shortTitle: "Pergola",
     statement: "Tageslicht planen. Atmosphäre konfigurieren.",
@@ -229,7 +231,7 @@ export function getLocalizedConfigurators(locale: Locale): Configurator[] {
   const translations = locale === "ro" ? ro : locale === "de" ? de : null;
   return configurators.map((item) => ({
     ...item,
-    ...(translations ? translations[item.slug] : {}),
+    ...(isLiteSlug(item.slug) ? newConfigurator(item.slug, locale) : translations ? translations[item.slug] : {}),
     launchUrl: configuratorUrl(locale, item.slug),
   }));
 }
