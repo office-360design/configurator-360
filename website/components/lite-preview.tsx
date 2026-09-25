@@ -39,6 +39,10 @@ type TilesScreenPoint = {x:number;y:number};
 
 const TILES_PHOTO_WIDTH = 768;
 const TILES_PHOTO_HEIGHT = 422;
+const TILES_YARD_IMAGE = 'https://www.360configurator.com/tiles-configurator/assets/sample-yards/4.jpg';
+// Crop to the lower-house / lawn region the preview is meant to showcase.
+// Projection coordinates still use the full 768 × 422 calibrated photo plane.
+const TILES_PHOTO_CROP = {x:121,y:170,width:439,height:200} as const;
 // The 1 m × 1 m white reference square in sample yard 4, measured in the
 // 768 × 422 photo frame. These four points define the ground-plane perspective.
 const TILES_GROUND_H = [
@@ -48,7 +52,7 @@ const TILES_GROUND_H = [
 ] as const;
 // Put the default paving immediately to the left/front of the reference square.
 // Length grows in +X (right); width grows in +Z (toward the camera).
-const TILES_PAVING_ORIGIN = {x:-2.4,z:-1};
+const TILES_PAVING_ORIGIN = {x:-3,z:-1.8};
 
 function projectTilesGround(point:TilesGroundPoint):TilesScreenPoint {
   const x=point.x,z=point.z;
@@ -136,12 +140,19 @@ function TilesPhotoPreview({state}: {state: LiteState}) {
   const jointPath=tilesJointPath(length,width,tile,pattern,rotation);
 
   return <div className="tiles-photo-scene" aria-hidden="true">
-    <div className="tiles-photo-scene__yard"/>
     <svg
       className="tiles-photo-scene__overlay"
-      viewBox={`0 0 ${TILES_PHOTO_WIDTH} ${TILES_PHOTO_HEIGHT}`}
+      viewBox={`${TILES_PHOTO_CROP.x} ${TILES_PHOTO_CROP.y} ${TILES_PHOTO_CROP.width} ${TILES_PHOTO_CROP.height}`}
       preserveAspectRatio="xMidYMid slice"
     >
+      <image
+        href={TILES_YARD_IMAGE}
+        x="0"
+        y="0"
+        width={TILES_PHOTO_WIDTH}
+        height={TILES_PHOTO_HEIGHT}
+        preserveAspectRatio="none"
+      />
       <defs>
         <linearGradient id="tiles-photo-light" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".17"/>
