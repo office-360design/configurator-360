@@ -2,10 +2,10 @@ import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout,
-  layoutSlopeDirections, layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-15';
+  layoutFoldEdges, layoutSlopeDirections, layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
+} from './roofLayout.js?v=layout-16';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-15';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-16';
 
 function surfaceLetter(index) {
   let label = '';
@@ -670,9 +670,9 @@ export class RoofLayoutEditor {
         }));
       });
       const metrics = layoutMetrics(this.layout);
-      metrics.triangles.forEach(triangle => {
-        this.svg.append(svgElement('polygon', {
-          points: coords(triangle.map(id => this.layout.vertices[id])), class: 'layout-triangle',
+      layoutFoldEdges(this.layout).forEach(edge => {
+        this.svg.append(svgElement('polyline', {
+          points: coords(edge.map(id => this.layout.vertices[id])), class: 'layout-triangle',
         }));
       });
       if (this.showSlopeArrows) {

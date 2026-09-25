@@ -795,3 +795,28 @@ export function layoutSlopeDirections(layout) {
     return [{ faceIndex, center, direction: { x: -dx / magnitude, z: -dz / magnitude }, clearance }];
   }));
 }
+
+// Internal triangulation edges only matter in the plan when the roof folds.
+export function layoutFoldEdges(layout) {
+  return layout.faces.flatMap(face => {
+    const edges = new Map();
+    const folds = [];
+    for (const triangle of triangulate(face, layout.vertices)) {
+      const [a, b, c] = triangle.map(id => layout.vertices[id]);
+      const nx = (b.h - a.h) * (c.z - a.z) - (b.z - a.z) * (c.h - a.h);
+      const ny = (b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z);
+      const nz = (b.x - a.x) * (c.h - a.h) - (b.h - a.h) * (c.x - a.x);
+      const length = Math.hypot(nx, ny, nz);
+      for (let i = 0; i < 3; i++) {
+        const edge = [triangle[i], triangle[(i + 1) % 3]];
+        const key = [...edge].sort((x, y) => x - y).join(':');
+        const previous = edges.get(key);
+        if (previous) {
+          const p = layout.vertices[previous.find(id => !edge.includes(id))];
+          if (Math.abs(nx * (p.x - a.x) + ny * (p.h - a.h) + nz * (p.z - a.z)) / length > 1e-7) folds.push(edge);
+        } else edges.set(key, triangle);
+      }
+    }
+    return folds;
+  });
+}
