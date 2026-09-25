@@ -3,11 +3,13 @@ import {
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout,
   layoutFoldEdges, layoutSlopeDirections, layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-18';
+} from './roofLayout.js?v=layout-19';
 
-import { presetRoofLayout } from './presetLayout.js?v=layout-18';
+import { addDormer } from './roofFeatures.js?v=layout-19';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-18';
+import { presetRoofLayout } from './presetLayout.js?v=layout-19';
+
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-19';
 
 function surfaceLetter(index) {
   let label = '';
@@ -66,6 +68,7 @@ export class RoofLayoutEditor {
         <button type="button" data-action="draw">New perimeter</button>
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert point</button>
+        <button type="button" data-action="dormer">Add dormer</button>
         <button type="button" data-action="meet">Meet roof slope</button>
         <button type="button" data-action="splitPlace">Split in place</button>
         <button type="button" data-action="joinPlace">Join in place</button>
@@ -95,6 +98,27 @@ export class RoofLayoutEditor {
         <aside aria-label="Roof properties">
           <div class="layout-panel-heading">Roof properties
             ${help('Coordinates', 'All coordinates are in metres. Heights are relative to the wall top; negative values place eaves below it. Drag points to move them; Shift-drag changes height.')}</div>
+          <fieldset class="layout-dormer" hidden aria-labelledby="dormerTitle">
+            <div class="layout-section-heading"><span id="dormerTitle">Add gable dormer</span>
+              ${help('Dormer', 'Choose a planar slope, then place the centre of the dormer’s front wall. It faces downhill and meets the roof uphill automatically. Width, front wall rise and roof pitch control its size. Apply adds editable surfaces and closing walls.')}</div>
+            <label>Roof surface<select id="dormerSurface"></select></label>
+            <button type="button" data-action="pickDormer">Place front on plan</button>
+            <div class="layout-select-row">
+              <label>Width (m)<input id="dormerWidth" type="number" min="0.5" max="8" step="0.1" value="1.4"></label>
+              <label>Front wall rise (m)<input id="dormerRise" type="number" min="0.15" max="5" step="0.05" value="0.3"></label>
+            </div>
+            <label>Dormer pitch (°)<input id="dormerPitch" type="number" min="5" max="60" step="1" value="25"></label>
+            <div class="layout-select-row">
+              <label>Front X (m)<input id="dormerX" type="number" step="any"></label>
+              <label>Front Z (m)<input id="dormerZ" type="number" step="any"></label>
+            </div>
+            <div class="layout-feature-actions">
+              <button type="button" data-action="applyDormer" class="layout-primary">Add dormer</button>
+              <button type="button" data-action="cancelDormer">Cancel</button>
+            </div>
+            <output id="dormerResult" aria-live="polite"></output>
+            <svg id="dormerPreview" role="img" aria-label="Dormer preview" hidden></svg>
+          </fieldset>
           <fieldset class="layout-meet" aria-labelledby="layoutMeetTitle" hidden><div class="layout-section-heading"><span id="layoutMeetTitle">Meet roof slope</span> ${help('Meet roof slope', "Keep position adjusts height. Keep height moves the point along a connected edge. The target’s other points stay fixed. Split copies share X/Z; the selected copy and target copy reconnect at the meeting height.")}</div>
             <label>Target slope<select id="meetTarget"></select></label>
             <button type="button" data-action="pickTarget">Pick slope on plan</button>
@@ -143,7 +167,7 @@ export class RoofLayoutEditor {
         <button type="button" data-action="abort">Cancel drawing</button>
         <button type="button" data-action="cancel">Cancel</button>
         <button type="button" data-action="apply" class="layout-primary">Apply roof</button></footer>`;
-    const icons = { select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
+    const icons = { dormer: '⌂', select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
       splitPlace: '⇉', joinPlace: '⋈', cycleCopy: '⇄', delete: '×', finish: '✓' };
     this.dialog.querySelectorAll('.layout-toolbar button').forEach(button => {
       const icon = document.createElement('span');
@@ -176,6 +200,10 @@ export class RoofLayoutEditor {
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       button.addEventListener('click', () => this.action(button.dataset.action));
     });
+    this.dialog.querySelector('#dormerSurface').addEventListener('change', () => this.placeDormerAtCenter());
+    ['dormerWidth', 'dormerRise', 'dormerPitch', 'dormerX', 'dormerZ'].forEach(id => {
+      this.dialog.querySelector(`#${id}`).addEventListener('input', () => this.previewDormer());
+    });
     this.dialog.addEventListener('keyup', event => {
       if (event.code === 'Space') { this.spacePan = false; this.updatePanCursor(); }
     });
@@ -190,7 +218,7 @@ export class RoofLayoutEditor {
     this.svg.addEventListener('pointerup', event => this.endDrag(event));
     this.svg.addEventListener('pointercancel', event => this.endDrag(event, true));
     this.svg.addEventListener('lostpointercapture', event => this.endDrag(event, true));
-    this.dialog.addEventListener('cancel', () => { this.endDrag(null, true); this.stopMeet(); });
+    this.dialog.addEventListener('cancel', () => { this.endDrag(null, true); this.stopMeet(); this.stopDormer(); });
     ['meetTarget', 'meetMode', 'meetDirection', 'meetHeight'].forEach(id => {
       this.dialog.querySelector(`#${id}`).addEventListener('input', () => this.previewMeet());
     });
@@ -228,6 +256,7 @@ export class RoofLayoutEditor {
 
   open() {
     this.stopMeet();
+    this.stopDormer();
     this.layout = cloneLayout(this.state.roofType === 'layout' || !this.state.roofType
       ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state));
     this.pickingSplitFaces = false;
@@ -278,12 +307,42 @@ export class RoofLayoutEditor {
     this.endDrag(null, true);
     if (!['pan', 'slopeArrows', 'pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
     try {
+      if (this.dormer && !['dormer', 'pickDormer', 'applyDormer', 'cancelDormer', 'pan', 'fit', 'zoomIn', 'zoomOut', 'slopeArrows'].includes(action)) {
+        if (action === 'apply') throw new Error('Add or cancel the dormer preview before applying the roof.');
+        this.stopDormer();
+      }
       const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'pan', 'slopeArrows', 'fit', 'zoomIn', 'zoomOut'];
       if (this.meet && !meetActions.includes(action)) {
         if (action === 'apply') throw new Error('Apply or cancel the alignment preview first.');
         this.stopMeet();
       }
-      if (action === 'pan') {
+      if (action === 'dormer') {
+        this.stopMeet();
+        this.path = [];
+        this.mode = 'select';
+        this.panEnabled = false;
+        this.dormer = { picking: true, result: null };
+        const select = this.dialog.querySelector('#dormerSurface');
+        select.replaceChildren(...this.layout.faces.map((_, i) => new Option(`Surface ${surfaceLetter(i)}`, i)));
+        this.dialog.querySelector('.layout-dormer').hidden = false;
+        this.placeDormerAtCenter();
+        this.status('Click the front of the dormer on a slope, adjust its size, then Add dormer.');
+      } else if (action === 'pickDormer') {
+        this.dormer.picking = true;
+        this.panEnabled = false;
+        this.status('Click inside a roof surface to place the centre of the dormer’s front wall.');
+      } else if (action === 'cancelDormer') {
+        this.stopDormer();
+        this.status('Dormer cancelled. The roof is unchanged.');
+      } else if (action === 'applyDormer') {
+        if (!this.dormer?.result) return;
+        const next = this.dormer.result.layout;
+        this.stopDormer();
+        this.selected = null;
+        this.selectedEdge = null;
+        this.commit(next);
+        this.status('Dormer added. Its points and surfaces are editable; Undo removes the addition.');
+      } else if (action === 'pan') {
         this.panEnabled = !this.panEnabled;
         this.svg.focus();
       } else if (action === 'slopeArrows') {
@@ -427,6 +486,43 @@ export class RoofLayoutEditor {
     } catch (error) {
       this.status(error.message);
     }
+  }
+
+  stopDormer() {
+    this.dormer = null;
+    this.dialog.querySelector('.layout-dormer').hidden = true;
+  }
+
+  placeDormerAtCenter() {
+    const index = Number(this.dialog.querySelector('#dormerSurface').value);
+    const p = surfaceLabelPosition(this.layout.faces[index], this.layout.vertices);
+    this.dialog.querySelector('#dormerX').value = p.x.toFixed(3);
+    this.dialog.querySelector('#dormerZ').value = p.z.toFixed(3);
+    this.previewDormer();
+  }
+
+  previewDormer() {
+    if (!this.dormer) return;
+    const read = id => {
+      const input = this.dialog.querySelector(`#${id}`);
+      return input.value === '' ? NaN : Number(input.value);
+    };
+    const preview = this.dialog.querySelector('#dormerPreview');
+    const output = this.dialog.querySelector('#dormerResult');
+    try {
+      const result = addDormer(this.layout, { faceIndex: read('dormerSurface'), x: read('dormerX'), z: read('dormerZ'),
+        width: read('dormerWidth'), wallRise: read('dormerRise'), pitch: read('dormerPitch') });
+      this.dormer.result = result;
+      output.textContent = `Depth ${result.depth.toFixed(2)} m · Ridge ${result.ridgeHeight.toFixed(2)} m above wall datum. Ready to add.`;
+      preview.removeAttribute('hidden');
+      drawAlignmentPreview(preview, result.layout, result.roofFaces[0], result.previewPoint);
+    } catch (error) {
+      this.dormer.result = null;
+      output.textContent = error.message;
+      preview.setAttribute('hidden', '');
+    }
+    this.dialog.querySelector('[data-action="applyDormer"]').disabled = !this.dormer.result;
+    this.render();
   }
 
   stopMeet() {
@@ -628,7 +724,16 @@ export class RoofLayoutEditor {
     event.preventDefault();
     const point = this.pointer(event);
     try {
-      if (this.meet) {
+      if (this.dormer) {
+        if (!this.dormer.picking) return;
+        const raw = this.rawPointer(event);
+        const faceIndex = this.layout.faces.findIndex(face => inside(raw, face.map(id => this.layout.vertices[id])));
+        if (faceIndex < 0) throw new Error('Place the dormer inside a roof surface.');
+        this.dialog.querySelector('#dormerSurface').value = faceIndex;
+        this.dialog.querySelector('#dormerX').value = point.x;
+        this.dialog.querySelector('#dormerZ').value = point.z;
+        this.previewDormer();
+      } else if (this.meet) {
         if (this.mode === 'meetDirection') {
           const linked = linkedPlanPoints(this.layout, this.meet.pointId);
           const ids = point.edgeIds;
@@ -798,6 +903,9 @@ export class RoofLayoutEditor {
         this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 8, class: 'layout-node division-path' }));
       });
     }
+    if (this.dormer?.result) {
+      this.svg.append(svgElement('polygon', { points: coords(this.dormer.result.outline), class: 'layout-dormer-outline' }));
+    }
     if (this.meet?.result) {
       const original = project(this.layout.vertices[this.meet.pointId]);
       const ghost = project(this.meet.result.position);
@@ -818,6 +926,7 @@ export class RoofLayoutEditor {
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
     this.dialog.querySelector('#layoutModeLabel').textContent = { select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    if (this.dormer) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click to place dormer front · Adjust size in the panel';
     if (this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag to pan · Turn Pan off to edit · Fit to recenter';
     if (this.pickingSplitFaces && !this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click surfaces to toggle · Split in place to confirm';
     this.dialog.querySelector('.layout-detach').hidden = incident.length < 2 && this.selectionCopies().length < 2;

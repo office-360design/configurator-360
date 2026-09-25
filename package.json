@@ -47,7 +47,7 @@
     "check:tenant-domains": "node scripts/build/sync-tenant-domains.mjs --check && node --test scripts/validation/tenant-domains.test.mjs",
     "check:tenant-domains:browser": "node scripts/validation/tenant-domains.browser.mjs",
     "check:tenant-domains:nginx": "python3 scripts/validation/tenant-domains.nginx.py",
-    "check:roof": "node --test roof-configurator/tests/roof-layout.test.mjs && node --check roof-configurator/js/layoutEditor.js && node --check roof-configurator/js/roofFactory.js && node --check roof-configurator/js/app.js && node --check roof-configurator/js/ui.js",
+    "check:roof": "node --test roof-configurator/tests/roof-layout.test.mjs roof-configurator/tests/roof-features.test.mjs && node --check roof-configurator/js/layoutEditor.js && node --check roof-configurator/js/roofFactory.js && node --check roof-configurator/js/app.js && node --check roof-configurator/js/ui.js",
     "check:roof:browser": "node roof-configurator/tests/layout-browser.cjs"
   },
   "dependencies": {
