@@ -35,17 +35,28 @@ function Poster({slug}: {slug: LiteSlug}) {
 
 
 function TilesPhotoPreview({state}: {state: LiteState}) {
-  const length = Math.min(4,Math.max(1,Number(state.length)||3));
-  const width = Math.min(3,Math.max(1,Number(state.width)||2));
+  const length = Math.min(4,Math.max(1,Number(state.length)||3.25));
+  const width = Math.min(3,Math.max(1,Number(state.width)||1.75));
   const rotation = Number(state.rotation)||0;
   const colour = String(state.colour||'#969a98');
-  const centreX = 555;
-  const frontY = 586;
-  const depth = 86 + ((width-1)/2)*105;
-  const backY = frontY-depth;
-  const frontHalf = 150 + ((length-1)/3)*145;
-  const backHalf = frontHalf*(.63 + (3-width)*.035);
-  const points = `${centreX-backHalf},${backY} ${centreX+backHalf},${backY} ${centreX+frontHalf},${frontY} ${centreX-frontHalf},${frontY}`;
+
+  // Keep the back-left corner fixed on the lawn. Length grows to the right,
+  // while width grows toward the camera/down-left, matching the perspective
+  // already present in the sample-yard photo.
+  const backLeft = {x:255,y:443};
+  const backEdgePerMetre = 365/3.25;
+  const leftDepthPerMetre = {x:-117/1.75,y:53/1.75};
+  const rightDepthPerMetre = {x:-30/1.75,y:53/1.75};
+  const backRight = {x:backLeft.x+length*backEdgePerMetre,y:backLeft.y};
+  const frontLeft = {
+    x:backLeft.x+width*leftDepthPerMetre.x,
+    y:backLeft.y+width*leftDepthPerMetre.y,
+  };
+  const frontRight = {
+    x:backRight.x+width*rightDepthPerMetre.x,
+    y:backRight.y+width*rightDepthPerMetre.y,
+  };
+  const points = `${backLeft.x},${backLeft.y} ${backRight.x},${backRight.y} ${frontRight.x},${frontRight.y} ${frontLeft.x},${frontLeft.y}`;
   const curbs = state.curbs === 'yes';
   const tile = String(state.tile||'parket');
   const pattern = String(state.pattern||'running');
@@ -53,26 +64,26 @@ function TilesPhotoPreview({state}: {state: LiteState}) {
     <div className="tiles-photo-scene__yard"/>
     <svg className="tiles-photo-scene__overlay" viewBox="0 0 1000 600" preserveAspectRatio="none">
       <defs>
-        <pattern id="tiles-running-parket" width="132" height="54" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="132" height="54" fill={colour}/><path d="M0 0H132M0 27H132M0 54H132M0 0V27M66 0V27M33 27V54M99 27V54" className="tiles-joint"/>
+        <pattern id="tiles-running-parket" width="66" height="28" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="66" height="28" fill={colour}/><path d="M0 0H66M0 14H66M0 28H66M0 0V14M33 0V14M16.5 14V28M49.5 14V28" className="tiles-joint"/>
         </pattern>
-        <pattern id="tiles-herringbone" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="90" height="90" fill={colour}/><path d="M-18 18L18-18M0 45L45 0M45 90L90 45M72 108L108 72M18 0L63 45M0 18L45 63M27 90L72 45M45 108L90 63" className="tiles-joint"/>
+        <pattern id="tiles-herringbone" width="48" height="48" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="48" height="48" fill={colour}/><path d="M-10 10L10-10M0 24L24 0M24 48L48 24M38 58L58 38M10 0L34 24M0 10L24 34M14 48L38 24M24 58L48 34" className="tiles-joint"/>
         </pattern>
-        <pattern id="tiles-basket" width="96" height="96" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="96" height="96" fill={colour}/><path d="M0 0H96V96H0ZM48 0V48M0 24H48M48 72H96M72 48V96" className="tiles-joint"/>
+        <pattern id="tiles-basket" width="52" height="52" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="52" height="52" fill={colour}/><path d="M0 0H52V52H0ZM26 0V26M0 13H26M26 39H52M39 26V52" className="tiles-joint"/>
         </pattern>
-        <pattern id="tiles-square" width="72" height="72" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="72" height="72" fill={colour}/><path d="M0 0H72V72H0Z" className="tiles-joint"/>
+        <pattern id="tiles-square" width="36" height="36" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="36" height="36" fill={colour}/><path d="M0 0H36V36H0Z" className="tiles-joint"/>
         </pattern>
-        <pattern id="tiles-granit" width="112" height="82" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="112" height="82" fill={colour}/><path d="M0 0H112V82H0ZM0 39H112M31 0V39M79 0V39M51 39V82M94 39V82" className="tiles-joint"/>
-          <circle cx="16" cy="17" r="1.6" className="tiles-speck"/><circle cx="68" cy="23" r="1.2" className="tiles-speck"/><circle cx="101" cy="60" r="1.5" className="tiles-speck"/><circle cx="37" cy="68" r="1.1" className="tiles-speck"/>
+        <pattern id="tiles-granit" width="56" height="41" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="56" height="41" fill={colour}/><path d="M0 0H56V41H0ZM0 19.5H56M15.5 0V19.5M39.5 0V19.5M25.5 19.5V41M47 19.5V41" className="tiles-joint"/>
+          <circle cx="8" cy="8.5" r=".9" className="tiles-speck"/><circle cx="34" cy="11.5" r=".7" className="tiles-speck"/><circle cx="50.5" cy="30" r=".8" className="tiles-speck"/><circle cx="18.5" cy="34" r=".65" className="tiles-speck"/>
         </pattern>
-        <linearGradient id="tiles-photo-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".23"/><stop offset="1" stopColor="#000" stopOpacity=".08"/></linearGradient>
+        <linearGradient id="tiles-photo-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".19"/><stop offset="1" stopColor="#000" stopOpacity=".06"/></linearGradient>
       </defs>
-      {curbs && <polygon points={points} fill="none" stroke="#b9b4aa" strokeWidth="20" strokeLinejoin="round"/>}
-      <polygon points={points} fill={`url(#${tile==='parket'?(pattern==='herringbone'?'tiles-herringbone':pattern==='basket'?'tiles-basket':'tiles-running-parket'):tile==='square'?'tiles-square':'tiles-granit'})`} stroke="rgba(35,42,42,.45)" strokeWidth="2" strokeLinejoin="round"/>
+      {curbs && <polygon points={points} fill="none" stroke="#b9b4aa" strokeWidth="12" strokeLinejoin="round"/>}
+      <polygon points={points} fill={`url(#${tile==='parket'?(pattern==='herringbone'?'tiles-herringbone':pattern==='basket'?'tiles-basket':'tiles-running-parket'):tile==='square'?'tiles-square':'tiles-granit'})`} stroke="rgba(35,42,42,.45)" strokeWidth="1.5" strokeLinejoin="round"/>
       <polygon points={points} fill="url(#tiles-photo-light)"/>
     </svg>
   </div>;

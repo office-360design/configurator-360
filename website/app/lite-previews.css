@@ -24,7 +24,7 @@
 .tiles-photo-scene__yard{position:absolute;inset:0;background:url("https://www.360configurator.com/tiles-configurator/assets/sample-yards/4.jpg") center center/cover no-repeat;filter:saturate(.93) contrast(.98)}
 .tiles-photo-scene__yard::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.02),rgba(18,25,22,.035))}
 .tiles-photo-scene__overlay{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.tiles-photo-scene__overlay .tiles-joint{fill:none;stroke:rgba(28,34,34,.32);stroke-width:2}
+.tiles-photo-scene__overlay .tiles-joint{fill:none;stroke:rgba(28,34,34,.32);stroke-width:1.35}
 .tiles-photo-scene__overlay .tiles-speck{fill:rgba(255,255,255,.27)}
 .lite-preview-badge{position:absolute;left:24px;top:22px;font-size:9px;color:var(--ink-faint);pointer-events:none;z-index:1}
 .lite-preview-badge i{display:inline-block;width:5px;height:5px;margin-right:8px;border-radius:50%;background:var(--brand)}
@@ -34,6 +34,7 @@
 .lite-activation button{background:rgba(var(--canvas-rgb),.92);cursor:pointer;color:var(--ink)}
 .lite-activation p{font-size:12px;line-height:1.5;color:var(--ink-soft);background:var(--canvas);padding:10px}
 .lite-preview .lite-instrument.scene-controls.scene-controls-panel{position:relative;grid-row:2;inset:auto;transform:none;width:calc(100% - 28px);margin:0 14px 14px;max-height:390px;min-height:0;padding:12px 14px;z-index:4;display:block;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.lite-preview[data-lite-product=tiles] .lite-instrument.scene-controls.scene-controls-panel:not(.is-collapsed){height:340px;max-height:340px}
 .lite-preview .lite-instrument .console-header{grid-template-columns:1fr auto;gap:8px;min-height:28px;align-items:center}
 .lite-preview .lite-instrument .console-header>span{display:block;font-size:10px;letter-spacing:.1em;color:var(--brand)}
 .lite-preview .lite-instrument .console-header>b{display:none}
@@ -79,6 +80,7 @@
  .detail-lite .detail-viewport{height:650px!important;min-height:650px;flex:none;margin-bottom:0!important}
  .detail-lite .detail-title h1{font-size:clamp(32px,10vw,52px)}
  .lite-preview .lite-instrument.scene-controls.scene-controls-panel{padding:10px;margin:0 8px 8px;width:calc(100% - 16px);max-height:420px;clip-path:none}
+ .lite-preview[data-lite-product=tiles] .lite-instrument.scene-controls.scene-controls-panel:not(.is-collapsed){height:auto;max-height:420px}
  .lite-preview .lite-instrument .console-header{position:relative;inset:auto;margin:0;padding:0 0 5px;background:none}
  .lite-preview .lite-instrument .scene-preset-row button,.lite-preview .lite-instrument .console-tabs button{min-height:42px}
  .lite-preview .lite-instrument .scene-colour-row button{min-height:48px}
