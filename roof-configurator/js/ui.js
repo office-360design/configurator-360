@@ -1,8 +1,8 @@
-import { RoofLayoutEditor } from './layoutEditor.js?v=layout-15';
-import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-15';
+import { RoofLayoutEditor } from './layoutEditor.js?v=layout-16';
+import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-16';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { pitchRules } from './state.js?v=layout-15';
-import { bomToCsv, calculateBom } from './bom.js?v=layout-15';
+import { pitchRules } from './state.js?v=layout-16';
+import { bomToCsv, calculateBom } from './bom.js?v=layout-16';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -13,7 +13,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=layout-15';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=layout-16';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 

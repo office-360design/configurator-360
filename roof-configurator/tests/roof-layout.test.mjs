@@ -6,7 +6,7 @@ import {
   deleteLayoutPoint, deleteLayoutEdge,
   layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
-  layoutSlopeDirections, addLayoutPoint, insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
+  layoutFoldEdges, layoutSlopeDirections, addLayoutPoint, insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
 } from '../js/roofLayout.js';
 const rectangle = () => footprintLayout([
   { x: -5, z: -3 }, { x: 5, z: -3 }, { x: 5, z: 3 }, { x: -5, z: 3 },
@@ -473,4 +473,16 @@ test('slope arrows point downhill and omit flat triangles', () => {
     assert.ok(arrow.direction.x < 0 && arrow.direction.z < 0);
     assert.ok(Math.abs(arrow.direction.x / arrow.direction.z - 2 / 3) < 1e-9);
   }
+});
+
+test('dotted diagonals appear only across real folds', () => {
+  assert.deepEqual(layoutFoldEdges(defaultLayout()), []);
+  assert.deepEqual(layoutFoldEdges(lShapedLayout()), []);
+  const roof = rectangle();
+  roof.vertices.forEach(p => { p.h = 10 + p.x * 0.2 + p.z * 0.3; });
+  assert.deepEqual(layoutFoldEdges(roof), []);
+  roof.vertices[0].h += 1;
+  assert.equal(layoutFoldEdges(roof).length, 1);
+  roof.vertices[0].h -= 1;
+  assert.deepEqual(layoutFoldEdges(roof), []);
 });
