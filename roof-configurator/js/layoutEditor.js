@@ -3,11 +3,11 @@ import {
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout,
   layoutFoldEdges, layoutSlopeDirections, layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-17';
+} from './roofLayout.js?v=layout-18';
 
-import { presetRoofLayout } from './presetLayout.js?v=layout-17';
+import { presetRoofLayout } from './presetLayout.js?v=layout-18';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-17';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-18';
 
 function surfaceLetter(index) {
   let label = '';
@@ -81,6 +81,7 @@ export class RoofLayoutEditor {
             <button type="button" data-action="redo" title="Redo (Ctrl/⌘ Shift Z)"><span aria-hidden="true">↷</span> Redo</button>
           </div>
           <div class="layout-canvas-controls layout-zoom" role="group" aria-label="View controls">
+            <button type="button" data-action="pan" aria-pressed="false" title="Pan view · or middle-drag / Space-drag">✥ Pan</button>
             <button type="button" data-action="zoomOut" aria-label="Zoom out" title="Zoom out">−</button>
             <button type="button" data-action="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>
             <button type="button" data-action="fit" title="Fit roof in view">Fit</button>
@@ -175,6 +176,15 @@ export class RoofLayoutEditor {
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       button.addEventListener('click', () => this.action(button.dataset.action));
     });
+    this.dialog.addEventListener('keyup', event => {
+      if (event.code === 'Space') { this.spacePan = false; this.updatePanCursor(); }
+    });
+    window.addEventListener('blur', () => {
+      this.spacePan = false;
+      if (this.dialog.open) this.endDrag(null, true);
+      this.updatePanCursor();
+    });
+    this.svg.addEventListener('auxclick', event => { if (event.button === 1) event.preventDefault(); });
     this.svg.addEventListener('pointerdown', event => this.click(event));
     this.svg.addEventListener('pointermove', event => this.movePoint(event));
     this.svg.addEventListener('pointerup', event => this.endDrag(event));
@@ -193,6 +203,12 @@ export class RoofLayoutEditor {
     });
     this.dialog.addEventListener('keydown', event => {
       if (event.target.matches('input, select')) return;
+      if (event.code === 'Space' && event.target === this.svg) {
+        event.preventDefault();
+        this.spacePan = true;
+        this.updatePanCursor();
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         this.action(event.shiftKey ? 'redo' : 'undo');
@@ -215,6 +231,8 @@ export class RoofLayoutEditor {
     this.layout = cloneLayout(this.state.roofType === 'layout' || !this.state.roofType
       ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state));
     this.pickingSplitFaces = false;
+    this.panEnabled = false;
+    this.spacePan = false;
     this.splitSelectionKey = null;
     this.history = [];
     this.future = [];
@@ -258,14 +276,17 @@ export class RoofLayoutEditor {
 
   action(action) {
     this.endDrag(null, true);
-    if (!['slopeArrows', 'pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
+    if (!['pan', 'slopeArrows', 'pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
     try {
-      const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'slopeArrows', 'fit', 'zoomIn', 'zoomOut'];
+      const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'pan', 'slopeArrows', 'fit', 'zoomIn', 'zoomOut'];
       if (this.meet && !meetActions.includes(action)) {
         if (action === 'apply') throw new Error('Apply or cancel the alignment preview first.');
         this.stopMeet();
       }
-      if (action === 'slopeArrows') {
+      if (action === 'pan') {
+        this.panEnabled = !this.panEnabled;
+        this.svg.focus();
+      } else if (action === 'slopeArrows') {
         this.showSlopeArrows = !this.showSlopeArrows;
       } else if (action === 'pickSplitFaces') {
         this.pickingSplitFaces = !this.pickingSplitFaces;
@@ -286,6 +307,7 @@ export class RoofLayoutEditor {
         this.commit(next);
         this.status('Roof aligned. Undo restores the previous junction.');
       } else if (['select', 'draw', 'split', 'insert'].includes(action)) {
+        this.panEnabled = false;
         this.mode = action;
         this.path = [];
         this.selected = null;
@@ -502,10 +524,24 @@ export class RoofLayoutEditor {
     };
   }
 
+  updatePanCursor() {
+    this.svg.classList.toggle('pan-enabled', Boolean(this.panEnabled || this.spacePan));
+    this.svg.classList.toggle('panning', this.drag?.kind === 'pan');
+  }
+
   movePoint(event) {
     const drag = this.drag;
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
+    if (drag.kind === 'pan') {
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(drag.inverse);
+      this.center = {
+        x: drag.center.x - (point.x - drag.start.x) / this.scale,
+        z: drag.center.z - (point.y - drag.start.y) / this.scale,
+      };
+      this.render();
+      return;
+    }
     if (!drag.moved && Math.hypot(event.clientX - drag.screenX, event.clientY - drag.screenY) < 3) return;
     drag.moved = true;
     const raw = this.rawPointer(event);
@@ -536,6 +572,11 @@ export class RoofLayoutEditor {
     if (!drag || (event && drag.pointerId !== event.pointerId)) return;
     this.drag = null;
     if (this.svg.hasPointerCapture(drag.pointerId)) this.svg.releasePointerCapture(drag.pointerId);
+    if (drag.kind === 'pan') {
+      if (cancel) this.center = drag.center;
+      this.render();
+      return;
+    }
     const next = this.layout;
     this.layout = drag.original;
     if (drag.moved && drag.valid && !cancel) this.commit(next);
@@ -572,7 +613,18 @@ export class RoofLayoutEditor {
   }
 
   click(event) {
-    if (event.button !== 0 || this.drag || event.isPrimary === false) return;
+    if (this.drag || event.isPrimary === false) return;
+    if (event.button === 1 || (event.button === 0 && (this.panEnabled || this.spacePan))) {
+      event.preventDefault();
+      this.svg.focus();
+      const inverse = this.svg.getScreenCTM().inverse();
+      this.drag = { kind: 'pan', pointerId: event.pointerId, inverse,
+        start: new DOMPoint(event.clientX, event.clientY).matrixTransform(inverse), center: { ...this.center } };
+      this.svg.setPointerCapture(event.pointerId);
+      this.updatePanCursor();
+      return;
+    }
+    if (event.button !== 0) return;
     event.preventDefault();
     const point = this.pointer(event);
     try {
@@ -754,6 +806,7 @@ export class RoofLayoutEditor {
       }));
       this.svg.append(svgElement('circle', { cx: ghost.x, cy: ghost.y, r: 11, class: 'layout-meet-ghost' }));
     }
+    this.updatePanCursor();
     const hints = {
       meetTarget: 'Click the target slope, then choose Keep position or Keep height. Review the ghost point and 3D preview before applying.',
       meetDirection: 'Click the connected ridge or edge to follow. The point can move along its line in either direction.',
@@ -765,7 +818,8 @@ export class RoofLayoutEditor {
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
     this.dialog.querySelector('#layoutModeLabel').textContent = { select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
-    if (this.pickingSplitFaces) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click surfaces to toggle · Split in place to confirm';
+    if (this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag to pan · Turn Pan off to edit · Fit to recenter';
+    if (this.pickingSplitFaces && !this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click surfaces to toggle · Split in place to confirm';
     this.dialog.querySelector('.layout-detach').hidden = incident.length < 2 && this.selectionCopies().length < 2;
     const splitFaces = this.dialog.querySelector('#layoutSplitFaces');
     splitFaces.replaceChildren();
@@ -804,6 +858,7 @@ export class RoofLayoutEditor {
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
       if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
+      if (action === 'pan') button.setAttribute('aria-pressed', String(Boolean(this.panEnabled)));
       if (action === 'slopeArrows') button.setAttribute('aria-pressed', String(Boolean(this.showSlopeArrows)));
       if (action === 'meet') button.disabled = this.mode !== 'select' || this.selected === null;
       if (action === 'pickSplitFaces') {

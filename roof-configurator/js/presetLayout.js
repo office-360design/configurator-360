@@ -1,4 +1,4 @@
-import { validateLayout, signedArea, onSegment, distance, cross } from './roofLayout.js?v=layout-17';
+import { validateLayout, signedArea, onSegment, distance, cross } from './roofLayout.js?v=layout-18';
 
 const key = p => `${p.x.toFixed(7)},${p.z.toFixed(7)}`;
 const rect = (x0, x1, z0, z1) => [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
