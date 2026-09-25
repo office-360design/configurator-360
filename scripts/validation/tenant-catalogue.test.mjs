@@ -180,7 +180,7 @@ test('renderer entry points are gated independently; bookshelf remains quotation
     const source = read(`${product}-configurator/js/app.js`);
     const gate = source.indexOf(`await requireTenantConfiguratorAccess('${product}')`);
     assert.ok(gate >= 0, `${product} is missing its app-level gate`);
-    const firstSideEffect = source.search(/document\.|new THREE\.|new ChairScene\(|mountLocationPicker\(/);
+    const firstSideEffect = source.search(/document\.|new THREE\.|new ChairScene\(|mountLocationPicker\(|installAreaEditor\(|installPhotoFlowShell\(/);
     assert.ok(firstSideEffect > gate, `${product} initializes before the entitlement gate`);
   }
   for (const product of ['bookshelf', 'cardbox']) {

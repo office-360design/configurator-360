@@ -20,7 +20,12 @@ export function clipConvex(points, boundary) {
       }
     }
   }
-  return result;
+  // A corner lying on the clipping boundary can be emitted both as an
+  // intersection and as a retained vertex. Keep one copy for triangulation.
+  return result.filter((point, i) => {
+    const previous = result[(i + result.length - 1) % result.length];
+    return Math.hypot(point.x - previous.x, point.z - previous.z) > 1e-10;
+  });
 }
 
 // Simplified nominal H profile. Half-staggered rows tessellate exactly;

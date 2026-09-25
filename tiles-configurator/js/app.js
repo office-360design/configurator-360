@@ -19,10 +19,10 @@ import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
+const tenant = await requireTenantConfiguratorAccess('tiles');
 const $ = (id) => document.getElementById(id);
 installAreaEditor();
 installPhotoFlowShell();
-const tenant = await requireTenantConfiguratorAccess('tiles');
 let state = normalize(),
   locale = 'en-US',
   t = translator(locale),

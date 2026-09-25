@@ -3,9 +3,9 @@ import {
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-9';
+} from './roofLayout.js?v=layout-10';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-9';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-10';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {

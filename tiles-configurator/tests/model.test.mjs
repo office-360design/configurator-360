@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { polygonArea } from '../js/area.js';
+import { clipConvex } from '../js/interlocking.js';
 import { DEFAULTS, TILES, CURBS, normalize, layout, curbLayout, estimate } from '../js/model.js';
 for (const [tile, t] of Object.entries(TILES).filter(([, t]) => !t.profile))
   for (const pattern of t.patterns)
@@ -7,22 +9,18 @@ for (const [tile, t] of Object.entries(TILES).filter(([, t]) => !t.profile))
       test(`${tile} ${pattern} ${rotation}: coverage, clipping and no overlap`, () => {
         const s = normalize({ ...DEFAULTS, tile, pattern, rotation, length: 1.13, width: 1.07 }),
           p = layout(s);
-        assert.ok(Math.abs(p.reduce((a, b) => a + b.l * b.w, 0) - s.length * s.width) < 1e-8);
+        const polygons = p.map((piece) => piece.fragments || [piece.polygon]);
+        assert.ok(Math.abs(p.reduce((sum, piece) => sum + piece.area, 0) - s.length * s.width) < 1e-8);
         for (let i = 0; i < p.length; i++) {
-          const a = p[i];
-          assert.ok(
-            a.x - a.l / 2 >= -1e-9 &&
-              a.x + a.l / 2 <= s.length + 1e-9 &&
-              a.z - a.w / 2 >= -1e-9 &&
-              a.z + a.w / 2 <= s.width + 1e-9,
-          );
-          for (let j = i + 1; j < p.length; j++) {
-            const b = p[j];
-            assert.ok(
-              Math.abs(a.x - b.x) >= (a.l + b.l) / 2 - 1e-8 ||
-                Math.abs(a.z - b.z) >= (a.w + b.w) / 2 - 1e-8,
-            );
-          }
+          for (const poly of polygons[i])
+            for (const point of poly) {
+              assert.ok(point.x >= -1e-9 && point.x <= s.length + 1e-9);
+              assert.ok(point.z >= -1e-9 && point.z <= s.width + 1e-9);
+            }
+          for (let j = i + 1; j < p.length; j++)
+            for (const a of polygons[i])
+              for (const b of polygons[j])
+                assert.ok(polygonArea(clipConvex(a, b)) < 1e-8);
         }
         const e = estimate(s, p);
         assert.ok(
@@ -124,5 +122,5 @@ test('untrusted saved-state limits and compatible patterns', () => {
 test('largest rectangle remains bounded', () => {
   const p = layout({ ...DEFAULTS, length: 20, width: 20, pattern: 'herringbone' });
   assert.ok(p.length < 21000);
-  assert.ok(Math.abs(p.reduce((a, b) => a + b.l * b.w, 0) - 400) < 1e-6);
+  assert.ok(Math.abs(p.reduce((a, b) => a + b.area, 0) - 400) < 1e-6);
 });
