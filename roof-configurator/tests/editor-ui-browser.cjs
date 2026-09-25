@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   await page.route('**/editor-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/layout-editor.css"><body></body>' }));
   await page.goto('http://127.0.0.1:8080/editor-fixture');
   await page.evaluate(async () => {
-    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-14');
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-15');
     window.editor = new RoofLayoutEditor({ pitch: 30 }, () => {});
     window.editor.open();
   });
@@ -27,6 +27,13 @@ const assert = require('node:assert/strict');
     assert.ok(box.x >= drawing.x && box.y >= drawing.y && box.y < drawing.y + 60);
   }
   assert.ok(await action('undo').isDisabled());
+  await action('slopeArrows').click();
+  assert.equal(await page.locator('.layout-slope-arrow').count(), 4);
+  assert.equal(await action('slopeArrows').getAttribute('aria-pressed'), 'true');
+  assert.ok(await action('undo').isDisabled(), 'Overlay does not change roof history');
+  await action('slopeArrows').click();
+  assert.equal(await page.locator('.layout-slope-arrow').count(), 0);
+  await action('slopeArrows').click();
   for (const kind of ['point', 'edge']) {
     if (kind === 'point') await page.locator('#layoutPointSelect').selectOption('2');
     else {

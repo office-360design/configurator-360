@@ -778,3 +778,20 @@ export function meetRoofSlope(source, { pointId, faceIndex, mode, height, direct
   return { layout: compactLayout(next), position, distance: distance(selected, position),
     heightChange: position.h - selected.h, reconnected: reconnect.length > 1 };
 }
+
+// Downhill plan directions for each actual triangular slope (including folded
+// non-planar surfaces). The clearance keeps arrows within their own triangle.
+export function layoutSlopeDirections(layout) {
+  return layout.faces.flatMap((face, faceIndex) => triangulate(face, layout.vertices).flatMap(ids => {
+    const [a, b, c] = ids.map(id => layout.vertices[id]);
+    const determinant = cross(a, b, c);
+    const dx = ((b.h - a.h) * (c.z - a.z) - (c.h - a.h) * (b.z - a.z)) / determinant;
+    const dz = ((b.x - a.x) * (c.h - a.h) - (c.x - a.x) * (b.h - a.h)) / determinant;
+    const magnitude = Math.hypot(dx, dz);
+    if (magnitude < 1e-8) return [];
+    const center = { x: (a.x + b.x + c.x) / 3, z: (a.z + b.z + c.z) / 3 };
+    const clearance = Math.min(...[[a, b], [b, c], [c, a]].map(([p, q]) =>
+      Math.abs(cross(p, q, center)) / distance(p, q)));
+    return [{ faceIndex, center, direction: { x: -dx / magnitude, z: -dz / magnitude }, clearance }];
+  }));
+}
