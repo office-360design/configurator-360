@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   await page.route('**/editor-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/layout-editor.css"><body></body>' }));
   await page.goto('http://127.0.0.1:8080/editor-fixture');
   await page.evaluate(async () => {
-    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-13');
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-14');
     window.editor = new RoofLayoutEditor({ pitch: 30 }, () => {});
     window.editor.open();
   });
@@ -27,6 +27,32 @@ const assert = require('node:assert/strict');
     assert.ok(box.x >= drawing.x && box.y >= drawing.y && box.y < drawing.y + 60);
   }
   assert.ok(await action('undo').isDisabled());
+  for (const kind of ['point', 'edge']) {
+    if (kind === 'point') await page.locator('#layoutPointSelect').selectOption('2');
+    else {
+      const middle = await page.locator('.layout-drawing > svg').evaluate(svg => {
+        const p = new DOMPoint(400, 300).matrixTransform(svg.getScreenCTM());
+        return { x: p.x, y: p.y };
+      });
+      await page.mouse.click(middle.x, middle.y);
+    }
+    await action('pickSplitFaces').click();
+    const clickSurface = async index => {
+      const box = await page.locator('.layout-surface-label').nth(index).boundingBox();
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    };
+    await clickSurface(1);
+    assert.ok(await action('splitPlace').isDisabled(), 'Cannot detach every adjoining surface');
+    await clickSurface(0);
+    assert.deepEqual(await page.locator('#layoutSplitFaces input:checked').evaluateAll(inputs => inputs.map(input => input.value)), ['1']);
+    await action('zoomIn').click();
+    assert.equal(await page.locator('.detach-selected').count(), 1);
+    await action('splitPlace').click();
+    assert.equal(await page.evaluate(() => window.editor.layout.vertices.length), kind === 'point' ? 7 : 8);
+    await action('undo').click();
+    await action('fit').click();
+  }
+
   await action('split').click();
   assert.equal(await page.locator('.division-eligible').count(), 6);
   const first = await page.locator('.division-eligible').first().boundingBox();
