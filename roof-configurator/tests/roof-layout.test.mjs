@@ -6,7 +6,7 @@ import {
   deleteLayoutPoint, deleteLayoutEdge,
   layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
-  insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
+  addLayoutPoint, insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
 } from '../js/roofLayout.js';
 const rectangle = () => footprintLayout([
   { x: -5, z: -3 }, { x: 5, z: -3 }, { x: 5, z: 3 }, { x: -5, z: 3 },
@@ -417,4 +417,43 @@ test('deleting an outer triangular tip removes its collapsed face and keeps adjo
 test('removing a triangular tip cannot leave the entire roof without a surface', () => {
   const triangle = footprintLayout([{ x: 0, z: 0 }, { x: 3, z: 0 }, { x: 0, z: 3 }]);
   assert.throws(() => deleteLayoutPoint(triangle, 0), /at least three/);
+});
+
+test('interior points preserve roof shape, including triangulation diagonals', () => {
+  for (const point of [{ x: 0, z: -1.75 }, { x: -2, z: -2 }]) {
+    const source = defaultLayout(), original = cloneLayout(source);
+    const { layout, id } = addLayoutPoint(source, point);
+    validateLayout(layout);
+    assert.deepEqual(source, original);
+    assert.ok(Math.abs(layout.vertices[id].h - (point.z + 3.5) * 2 / 3.5) < 1e-9);
+    assert.ok(Math.abs(layoutMetrics(layout).roofArea - layoutMetrics(source).roofArea) < 1e-8);
+    assert.ok(layout.faces.filter(face => face.includes(id)).length >= 3);
+    layout.vertices[id].h += 1;
+    validateLayout(layout);
+    assert.ok(layoutMetrics(layout).roofArea > layoutMetrics(source).roofArea);
+  }
+});
+test('inserting on concave roofs, shared edges and outside the roof', () => {
+  const source = lShapedLayout();
+  const before = cloneLayout(source);
+  const { layout } = addLayoutPoint(source, { x: -4, z: -3 });
+  validateLayout(layout);
+  assert.ok(Math.abs(layoutMetrics(layout).roofArea - layoutMetrics(source).roofArea) < 1e-8);
+  const edge = addLayoutPoint(defaultLayout(), { x: 0, z: 0 });
+  assert.equal(edge.layout.faces.filter(face => face.includes(edge.id)).length, 2);
+  assert.throws(() => addLayoutPoint(source, { x: 99, z: 99 }), /inside a roof surface/);
+  assert.deepEqual(source, before);
+});
+
+test('interior insertion retains non-planar heights and works inside a concave face', () => {
+  const nonPlanar = rectangle();
+  nonPlanar.vertices[0].h = 2;
+  const concave = footprintLayout([{ x: 0, z: 0 }, { x: 8, z: 0 },
+    { x: 8, z: 3 }, { x: 3, z: 3 }, { x: 3, z: 7 }, { x: 0, z: 7 }]);
+  for (const [source, point] of [[nonPlanar, { x: 1, z: 1 }], [concave, { x: 1, z: 5 }]]) {
+    const { layout } = addLayoutPoint(source, point);
+    validateLayout(layout);
+    assert.ok(Math.abs(layoutMetrics(layout).roofArea - layoutMetrics(source).roofArea) < 1e-8);
+    assert.deepEqual(layout.boundary, source.boundary);
+  }
 });

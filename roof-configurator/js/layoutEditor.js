@@ -1,11 +1,11 @@
 import {
-  meetRoofSlope, alignmentDirections, inside, triangulate,
+  meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
-  deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
+  deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-12';
+} from './roofLayout.js?v=layout-13';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-12';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-13';
 
 function surfaceLetter(index) {
   let label = '';
@@ -63,7 +63,7 @@ export class RoofLayoutEditor {
         <button type="button" data-action="select">Select / move</button>
         <button type="button" data-action="draw">New perimeter</button>
         <button type="button" data-action="split">Divide surface</button>
-        <button type="button" data-action="insert">Insert edge point</button>
+        <button type="button" data-action="insert">Insert point</button>
         <button type="button" data-action="meet">Meet roof slope</button>
         <button type="button" data-action="splitPlace">Split in place</button>
         <button type="button" data-action="joinPlace">Join in place</button>
@@ -600,9 +600,9 @@ export class RoofLayoutEditor {
         if (this.path.length >= 160) throw new Error('Maximum 160 perimeter points.');
         this.path.push(point);
       } else if (this.mode === 'insert') {
-        const next = cloneLayout(this.layout);
-        this.selected = insertPoint(next, point);
-        this.commit(next);
+        const added = addLayoutPoint(this.layout, point);
+        this.selected = added.id;
+        this.commit(added.layout);
         this.mode = 'select';
       } else if (this.mode === 'split') {
         if (!this.path.length && !point.edge) throw new Error('Start on an existing surface edge or point.');
@@ -669,12 +669,17 @@ export class RoofLayoutEditor {
           stroke: '#dc2626', 'stroke-width': 5, 'pointer-events': 'none',
         }));
       }
+      const dividingFaces = this.mode === 'split' ? this.layout.faces.filter(face =>
+        !this.path.length || (face.some((id, i) => onSegment(this.path[0], this.layout.vertices[id],
+          this.layout.vertices[face[(i + 1) % face.length]])) &&
+          this.path.every(point => inside(point, face.map(id => this.layout.vertices[id]))))) : [];
+      const eligible = new Set(dividingFaces.flat());
       this.layout.vertices.forEach((p, id) => {
         const copies = linkedPlanPoints(this.layout, id);
         const visible = copies.includes(this.selected) ? this.selected : copies[0];
         if (id !== visible) return;
         const v = project(p);
-        this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 7, class: id === this.selected ? 'layout-node selected' : 'layout-node' }));
+        this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 7, class: `layout-node${id === this.selected ? ' selected' : ''}${this.mode === 'split' ? (eligible.has(id) ? ' division-eligible' : ' division-muted') : ''}` }));
         const rightSide = v.x > 600;
         const label = svgElement('text', {
           x: v.x + (rightSide ? -11 : 11), y: v.y - 10,
@@ -690,7 +695,7 @@ export class RoofLayoutEditor {
       this.svg.append(svgElement('polyline', { points: coords(this.path), class: 'layout-path' }));
       this.path.forEach(p => {
         const v = project(p);
-        this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 6, class: 'layout-node' }));
+        this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 8, class: 'layout-node division-path' }));
       });
     }
     if (this.meet?.result) {
@@ -708,10 +713,10 @@ export class RoofLayoutEditor {
       select: 'Split in place detaches chosen adjoining surfaces for independent height control. Next copy cycles stacked points or edges; attached surfaces are highlighted. Select a point or edge, then Delete selected (or Delete/Backspace). Removing a dividing edge merges its adjoining surfaces. Outer edges must stay closed. Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
       draw: 'Click around the outer roof edge. Click the first point or Close perimeter to finish. This creates a pitched roof at the starter pitch and replaces the current draft.',
       split: 'Start on a surface edge, add optional interior points, then finish on another edge of the same surface. Raise the new points to form ridges, or lower them for valleys.',
-      insert: 'Click an existing edge to add a shared point. Then set its height or coordinates.',
+      insert: 'Click an edge or inside a surface to add a point. Interior points connect to surrounding corners and keep the current roof height. Move or raise the point to shape the roof.',
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
-    this.dialog.querySelector('#layoutModeLabel').textContent = { select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    this.dialog.querySelector('#layoutModeLabel').textContent = { select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
     const incident = selectionSurfaces(this.layout, this.selectionIds());
     this.dialog.querySelector('.layout-detach').hidden = incident.length < 2 && this.selectionCopies().length < 2;
     const splitFaces = this.dialog.querySelector('#layoutSplitFaces');
