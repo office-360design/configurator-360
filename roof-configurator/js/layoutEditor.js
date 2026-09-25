@@ -3,9 +3,11 @@ import {
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout,
   layoutFoldEdges, layoutSlopeDirections, layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-16';
+} from './roofLayout.js?v=layout-17';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-16';
+import { presetRoofLayout } from './presetLayout.js?v=layout-17';
+
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-17';
 
 function surfaceLetter(index) {
   let label = '';
@@ -91,14 +93,14 @@ export class RoofLayoutEditor {
         </div>
         <aside aria-label="Roof properties">
           <div class="layout-panel-heading">Roof properties
-            ${help('Coordinates', 'All coordinates are in metres. Heights are measured above the wall top. Drag points to move them; Shift-drag changes height.')}</div>
+            ${help('Coordinates', 'All coordinates are in metres. Heights are relative to the wall top; negative values place eaves below it. Drag points to move them; Shift-drag changes height.')}</div>
           <fieldset class="layout-meet" aria-labelledby="layoutMeetTitle" hidden><div class="layout-section-heading"><span id="layoutMeetTitle">Meet roof slope</span> ${help('Meet roof slope', "Keep position adjusts height. Keep height moves the point along a connected edge. The target’s other points stay fixed. Split copies share X/Z; the selected copy and target copy reconnect at the meeting height.")}</div>
             <label>Target slope<select id="meetTarget"></select></label>
             <button type="button" data-action="pickTarget">Pick slope on plan</button>
             <label>Alignment<select id="meetMode"><option value="position">Keep position</option>
               <option value="height">Keep height</option></select></label>
             <div id="meetHeightControls" hidden>
-              <label>Height above wall (m)<input id="meetHeight" type="number" min="0" max="30" step="any"></label>
+              <label>Height above wall (m)<input id="meetHeight" type="number" min="-30" max="30" step="any"></label>
               <label>Edge direction<select id="meetDirection"></select></label>
               <button type="button" data-action="pickDirection">Pick connected edge</button>
             </div>
@@ -115,7 +117,7 @@ export class RoofLayoutEditor {
           <fieldset class="layout-point"><legend>Selected point <span id="layoutPointName">—</span></legend>
             <div class="layout-coordinate-row"><label>X (m)<input id="layoutX" type="number" min="-100" max="100" step="any"></label>
             <label>Z (m)<input id="layoutZ" type="number" min="-100" max="100" step="any"></label>
-            <label>Height (m)<input id="layoutH" type="number" min="0" max="30" step="any"></label></div>
+            <label>Height (m)<input id="layoutH" type="number" min="-30" max="30" step="any"></label></div>
             <button type="button" data-action="point">Update point</button>
           </fieldset>
           <fieldset class="layout-detach"><legend>Connected surfaces
@@ -210,7 +212,8 @@ export class RoofLayoutEditor {
 
   open() {
     this.stopMeet();
-    this.layout = cloneLayout(this.state.roofLayout || defaultLayout());
+    this.layout = cloneLayout(this.state.roofType === 'layout' || !this.state.roofType
+      ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state));
     this.pickingSplitFaces = false;
     this.splitSelectionKey = null;
     this.history = [];
@@ -352,7 +355,7 @@ export class RoofLayoutEditor {
         if (this.selected === null) return;
         const fields = ['X', 'Z', 'H'].map(axis => this.dialog.querySelector(`#layout${axis}`));
         if (fields.some(input => input.value === '' || !input.checkValidity())) {
-          throw new Error('Enter valid coordinates and a height between 0 and 30 m.');
+          throw new Error('Enter valid coordinates and a height between -30 and 30 m.');
         }
         const next = cloneLayout(this.layout);
         const [x, z, h] = fields.map(input => Number(input.value));

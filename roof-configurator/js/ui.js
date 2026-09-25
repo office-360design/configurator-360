@@ -1,8 +1,8 @@
-import { RoofLayoutEditor } from './layoutEditor.js?v=layout-16';
-import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-16';
+import { RoofLayoutEditor } from './layoutEditor.js?v=layout-17';
+import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-17';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { pitchRules } from './state.js?v=layout-16';
-import { bomToCsv, calculateBom } from './bom.js?v=layout-16';
+import { pitchRules } from './state.js?v=layout-17';
+import { bomToCsv, calculateBom } from './bom.js?v=layout-17';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -13,7 +13,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=layout-16';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=layout-17';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -32,7 +32,12 @@ export class RoofUI {
       this.onChange({ fitCamera: true });
       this.applyStateToControls();
     });
-    document.querySelector('#editRoofLayout').addEventListener('click', () => this.layoutEditor.open());
+    document.querySelector('#editRoofLayout').addEventListener('click', () => {
+      try { this.layoutEditor.open(); }
+      catch (error) {
+        document.querySelector('#layoutLaunch p').textContent = `This preset cannot be edited at its current settings: ${error.message} Try adjusting its dimensions or pitch.`;
+      }
+    });
     this.bindRoofTypes();
     this.bindRanges();
     this.bindCovering();
@@ -217,7 +222,10 @@ export class RoofUI {
 
   updateCustomMode() {
     const isLayout = this.state.roofType === 'layout';
-    document.querySelector('#layoutLaunch').hidden = !isLayout;
+    document.querySelector('#layoutLaunch').hidden = this.state.roofType === 'custom';
+    document.querySelector('#layoutLaunch p').textContent = isLayout
+      ? 'Edit points, edges and slopes. Changes stay a draft until you apply the roof.'
+      : 'Start from this roof’s shape, dimensions and pitch. Apply roof saves it as a drawn layout; Cancel keeps the preset.';
     ['length', 'depth', 'pitch'].forEach(key => {
       document.querySelector(`[data-control="${key}"]`).hidden = isLayout;
     });

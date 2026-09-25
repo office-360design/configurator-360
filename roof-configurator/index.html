@@ -23,7 +23,7 @@
     import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js?v=platform-18';
     applyConfiguratorSeo('roof');
   </script>
-  <link rel="stylesheet" href="./layout-editor.css?v=layout-16" />
+  <link rel="stylesheet" href="./layout-editor.css?v=layout-17" />
 </head>
 <body>
   <main class="app-shell">
@@ -62,10 +62,6 @@
               <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M7 38 40 12l33 26"/><path d="m31 31 10-10 10 10"/><path d="M15 37v9h50v-9"/><path class="accent" d="M7 38 40 12l33 26M31 31l10-10 10 10"/></svg>
               <span>Dormer</span>
             </button>
-            <button class="roof-card choice-card" type="button" data-roof-type="layout" aria-pressed="false">
-              <svg viewBox="0 0 80 52" aria-hidden="true"><path class="accent" d="M12 42V10h30v14h26v18zM12 42l15-15V10m0 17h15l26 15"/></svg>
-              <span>Draw layout</span>
-            </button>
             <button class="roof-card choice-card" type="button" data-roof-type="custom" aria-pressed="false">
               <svg viewBox="0 0 80 52" aria-hidden="true">
                 <path d="M17 7h31l15 15v23H17z"/>
@@ -73,6 +69,10 @@
                 <path class="accent" d="M17 7h31l15 15v23H17zM28 35l12-12 12 12M40 23v18"/>
               </svg>
               <span>Custom</span>
+            </button>
+            <button class="roof-card choice-card" type="button" data-roof-type="layout" aria-pressed="false">
+              <svg viewBox="0 0 80 52" aria-hidden="true"><path class="accent" d="M12 42V10h30v14h26v18zM12 42l15-15V10m0 17h15l26 15"/></svg>
+              <span>Draw layout</span>
             </button>
           </div>
 
@@ -585,7 +585,7 @@
     })();
   </script>
   <script type="module" src="./js/sharedShell.js?v=tenant-branding-1"></script>
-  <script type="module" src="./js/app.js?v=layout-16"></script>
+  <script type="module" src="./js/app.js?v=layout-17"></script>
 </body>
 </html>
 

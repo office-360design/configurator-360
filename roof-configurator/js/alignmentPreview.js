@@ -1,4 +1,4 @@
-import { triangulate, layoutStepWalls } from './roofLayout.js?v=layout-16';
+import { triangulate, layoutStepWalls } from './roofLayout.js?v=layout-17';
 
 // Lightweight isometric preview: no second WebGL context or covering rebuild
 // while the user is choosing a constraint. Coordinates use the real roof heights.

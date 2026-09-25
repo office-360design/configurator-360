@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { presetRoofLayout } from '../js/presetLayout.js';
 import { alignmentFixture } from './alignment-fixture.mjs';
 import assert from 'node:assert/strict';
 import {
@@ -485,4 +486,28 @@ test('dotted diagonals appear only across real folds', () => {
   assert.equal(layoutFoldEdges(roof).length, 1);
   roof.vertices[0].h -= 1;
   assert.deepEqual(layoutFoldEdges(roof), []);
+});
+
+for (const roofType of ['gable', 'shed', 'hip', 'lshape', 'dormer']) {
+  test(`convert ${roofType} preset into editable surfaces`, () => {
+    for (const [length, depth] of [[10, 7], [7, 10], [8, 8]]) {
+      const state = { roofType, length, depth, pitch: 30, overhang: 0.45, wallHeight: 3 };
+      const layout = presetRoofLayout(state);
+      validateLayout(layout);
+      const xs = layout.vertices.map(p => p.x), zs = layout.vertices.map(p => p.z);
+      assert.ok(Math.abs(Math.max(...xs) - Math.min(...xs) - length - 0.9) < 1e-7);
+      assert.ok(Math.abs(Math.max(...zs) - Math.min(...zs) - depth - 0.9) < 1e-7);
+      const expected = (length + 0.9) * (depth + 0.9) / Math.cos(Math.PI / 6);
+      if (['gable', 'shed', 'hip'].includes(roofType)) assert.ok(Math.abs(layoutMetrics(layout).roofArea - expected) < 1e-7);
+      if (roofType === 'dormer') assert.ok(layout.planLinks.length > 0);
+      assert.ok(Math.min(...layout.vertices.map(p => p.h)) < 0, 'Preserve eaves below wall level');
+    }
+  });
+}
+
+test('preset conversion reports details below editor limits without changing the source', () => {
+  const state = { roofType: 'dormer', length: 10, depth: 7, pitch: 5, overhang: 0.45, wallHeight: 3 };
+  const before = structuredClone(state);
+  assert.throws(() => presetRoofLayout(state), /Dormer details/);
+  assert.deepEqual(state, before);
 });

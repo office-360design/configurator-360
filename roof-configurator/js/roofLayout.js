@@ -75,8 +75,8 @@ export function validateLayout(layout) {
   }
   layout.vertices.forEach(p => {
     if (!p || ![p.x, p.z, p.h].every(Number.isFinite) ||
-      Math.abs(p.x) > 100 || Math.abs(p.z) > 100 || p.h < 0 || p.h > 30) {
-      throw new Error('Coordinates must be within ±100 m and heights between 0 and 30 m.');
+      Math.abs(p.x) > 100 || Math.abs(p.z) > 100 || p.h < -30 || p.h > 30) {
+      throw new Error('Coordinates must be within ±100 m and heights between -30 and 30 m.');
     }
   });
   const rings = [layout.boundary, ...layout.faces];
@@ -734,8 +734,8 @@ export function meetRoofSlope(source, { pointId, faceIndex, mode, height, direct
   if (mode === 'position') {
     position.h = planeHeight(position);
   } else if (mode === 'height') {
-    if (!Number.isFinite(height) || height < 0 || height > 30) {
-      throw new Error('Enter a height between 0 and 30 m.');
+    if (!Number.isFinite(height) || height < -30 || height > 30) {
+      throw new Error('Enter a height between -30 and 30 m.');
     }
     if (!alignmentDirections(source, pointId).includes(directionId)) {
       throw new Error('Choose a connected edge to follow.');
