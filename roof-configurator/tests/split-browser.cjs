@@ -19,7 +19,7 @@ const assert = require('node:assert/strict');
   const editor = page.locator('.roof-layout-dialog');
   const button = action => editor.locator(`[data-action="${action}"]`);
   const initial = await page.evaluate(async () => {
-    const { defaultLayout } = await import('../roof-configurator/js/roofLayout.js?v=layout-11');
+    const { defaultLayout } = await import('../roof-configurator/js/roofLayout.js?v=layout-12');
     const api = window.ROOF_CONFIGURATOR_API;
     const state = { ...api.captureState(), roofType: 'layout', roofLayout: defaultLayout(), overhang: 0 };
     api.restoreState(state);
@@ -73,7 +73,7 @@ const assert = require('node:assert/strict');
   assert.equal(saved.roofLayout.planLinks.length, 2);
   for (const covering of ['generic', 'roca', 'teclado']) {
     const result = await page.evaluate(async ({ saved, covering }) => {
-      const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-11');
+      const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-12');
       const state = { ...saved, covering };
       window.ROOF_CONFIGURATOR_API.restoreState(state);
       const { group } = buildRoofModel(state);
