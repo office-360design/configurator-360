@@ -553,7 +553,7 @@ async function releaseFixture(run) {
   const release = 'website/outputs/release-site/';
   try {
     const routesSource = await read('website/scripts/static-routes.mjs');
-    const { pageRoutes, routeOutputPath } = await import(dataUrl(routesSource));
+    const { configurators, pageRoutes, routeOutputPath } = await import(dataUrl(routesSource));
     await put('website/scripts/static-routes.mjs', routesSource);
     await put('website/scripts/validate-static-release.mjs', await read('website/scripts/validate-static-release.mjs'));
     const domains = { en: 'https://www.360configurator.com', ro: 'https://www.360configurator.ro', de: 'https://www.360konfigurator.de' };
@@ -568,7 +568,7 @@ async function releaseFixture(run) {
       de: ['/pergola-konfigurator/', '/dach-konfigurator/', '/fenster-konfigurator/', '/hallen-konfigurator/', '/solar-konfigurator/', '/zaun-konfigurator/', '/karton-konfigurator/', '/stuhl-konfigurator/'],
     };
     for (const [locale, domain] of Object.entries(domains)) {
-      const urls = ['/', '/about', '/contact', '/pricing', '/book-a-demo', ...['pergola', 'roof', 'window', 'hall', 'solar', 'fence'].map(id => `/configurators/${id}`), ...apps[locale]];
+      const urls = ['/', '/about', '/contact', '/pricing', '/book-a-demo', ...configurators.map(id => `/configurators/${id}`), ...apps[locale]];
       const xml = `<urlset>${urls.map(url => `<url><loc>${domain}${url}</loc></url>`).join('')}</urlset>`;
       await put(`${release}sitemap-${locale}.xml`, xml);
       if (locale === 'en') await put(`${release}sitemap.xml`, xml);
@@ -588,6 +588,14 @@ async function releaseFixture(run) {
 }
 test('website-only release validates all three editors against the real composed-site mount paths', () => releaseFixture(async ({ validate }) => {
   const result = validate(); assert.equal(result.status, 0, result.stdout + result.stderr);
+}));
+test('release validation rejects a missing configurator sitemap entry', () => releaseFixture(async ({ temporary, release, put, validate }) => {
+  const sitemap = `${release}sitemap-ro.xml`;
+  const xml = await readFile(path.join(temporary, sitemap), 'utf8');
+  await put(sitemap, xml.replace('<url><loc>https://www.360configurator.ro/configurators/tiles</loc></url>', ''));
+  const result = validate();
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('sitemap-ro.xml is missing https://www.360configurator.ro/configurators/tiles'), result.stderr);
 }));
 for (const [file, reference] of [
   ['fence-configurator/index.html', '/fence-configurator/'],
