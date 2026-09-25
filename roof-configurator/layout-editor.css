@@ -158,3 +158,7 @@
   .roof-layout-dialog .layout-tool-icon { flex-basis: 18px; width: 18px; font-size: 16px; }
   .layout-drawing .layout-surface-label { font-size: 25px; }
 }
+
+.layout-node.division-eligible { fill: #0891b2; stroke: #cffafe; stroke-width: 4; r: 10; cursor: crosshair; }
+.layout-node.division-muted { opacity: .35; }
+.layout-node.division-path { fill: #ea580c; stroke: white; stroke-width: 3; pointer-events: none; }

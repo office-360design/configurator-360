@@ -191,6 +191,34 @@ export function insertPoint(layout, point) {
   return (point.edgeIds && copies.get(key(...point.edgeIds))) ?? [...copies.values()][0];
 }
 
+// Interior points inherit the existing piecewise-planar roof height. Splitting
+// every triangle containing the point also handles points on hidden diagonals.
+export function addLayoutPoint(source, point) {
+  const layout = cloneLayout(source);
+  const onEdge = layout.faces.some(face => face.some((id, i) =>
+    onSegment(point, layout.vertices[id], layout.vertices[face[(i + 1) % face.length]])));
+  if (onEdge) {
+    const id = insertPoint(layout, point);
+    return { layout: validateLayout(layout), id };
+  }
+  const faceIndex = layout.faces.findIndex(face => inside(point, face.map(id => layout.vertices[id])));
+  if (faceIndex < 0) throw new Error('Click inside a roof surface or on an edge to add a point.');
+  const triangles = triangulate(layout.faces[faceIndex], layout.vertices);
+  const containing = triangles.find(ids => inside(point, ids.map(id => layout.vertices[id])));
+  const [a, b, c] = containing.map(id => layout.vertices[id]);
+  const area = cross(a, b, c);
+  const h = (cross(point, b, c) * a.h + cross(a, point, c) * b.h + cross(a, b, point) * c.h) / area;
+  const id = layout.vertices.length;
+  layout.vertices.push({ x: point.x, z: point.z, h });
+  const faces = triangles.flatMap(triangle => {
+    if (!inside(point, triangle.map(vertex => layout.vertices[vertex]))) return [triangle];
+    return triangle.map((vertex, i) => [vertex, triangle[(i + 1) % 3], id])
+      .filter(ids => Math.abs(cross(...ids.map(vertex => layout.vertices[vertex]))) > EPS);
+  });
+  layout.faces.splice(faceIndex, 1, ...faces);
+  return { layout: validateLayout(layout), id };
+}
+
 export function splitSurface(source, path) {
   if (path.length < 2) throw new Error('Choose the start and end of a dividing line.');
   const layout = cloneLayout(source);

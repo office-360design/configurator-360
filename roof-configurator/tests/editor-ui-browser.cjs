@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   await page.route('**/editor-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/layout-editor.css"><body></body>' }));
   await page.goto('http://127.0.0.1:8080/editor-fixture');
   await page.evaluate(async () => {
-    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-12');
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-13');
     window.editor = new RoofLayoutEditor({ pitch: 30 }, () => {});
     window.editor.open();
   });
@@ -27,6 +27,29 @@ const assert = require('node:assert/strict');
     assert.ok(box.x >= drawing.x && box.y >= drawing.y && box.y < drawing.y + 60);
   }
   assert.ok(await action('undo').isDisabled());
+  await action('split').click();
+  assert.equal(await page.locator('.division-eligible').count(), 6);
+  const first = await page.locator('.division-eligible').first().boundingBox();
+  await page.mouse.click(first.x + first.width / 2, first.y + first.height / 2);
+  assert.equal(await page.locator('.division-path').count(), 1);
+  assert.equal(await page.locator('.division-eligible').count(), 4);
+  await action('select').click();
+  await action('insert').click();
+  const position = await page.locator('.layout-drawing > svg').evaluate(svg => {
+    const editor = window.editor;
+    const p = new DOMPoint(400 + (-2 - editor.center.x) * editor.scale,
+      300 + (-2 - editor.center.z) * editor.scale).matrixTransform(svg.getScreenCTM());
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.click(position.x, position.y);
+  assert.equal(await page.evaluate(() => window.editor.layout.vertices.length), 7);
+  assert.equal(await page.locator('#layoutPointSelect').inputValue(), '6');
+  await action('undo').click();
+  assert.equal(await page.evaluate(() => window.editor.layout.vertices.length), 6);
+  await action('redo').click();
+  assert.equal(await page.evaluate(() => window.editor.layout.vertices.length), 7);
+  await action('undo').click();
+
   await action('zoomIn').click();
   const zoomed = await page.evaluate(() => window.editor.span);
   await action('zoomOut').click();

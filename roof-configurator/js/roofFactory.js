@@ -1,7 +1,7 @@
 import {
   defaultLayout, layoutBounds, layoutMetrics, roofSurfaceGroups,
   layoutWallFootprint, layoutWallSegments, layoutStepWalls, signedArea,
-} from './roofLayout.js?v=layout-12';
+} from './roofLayout.js?v=layout-13';
 import * as THREE from 'three';
 
 console.info('[RoofLab] roofFactory build 14 loaded');
