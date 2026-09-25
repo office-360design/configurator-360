@@ -162,3 +162,6 @@
 .layout-node.division-eligible { fill: #0891b2; stroke: #cffafe; stroke-width: 4; r: 10; cursor: crosshair; }
 .layout-node.division-muted { opacity: .35; }
 .layout-node.division-path { fill: #ea580c; stroke: white; stroke-width: 3; pointer-events: none; }
+
+.layout-face.detach-selected { fill: #fed7aa; stroke: #ea580c; stroke-width: 4; }
+.layout-face.detach-unavailable { opacity: .35; }
