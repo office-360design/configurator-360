@@ -6,7 +6,7 @@ import {
   deleteLayoutPoint, deleteLayoutEdge,
   layoutWallFootprint, layoutWallSegments, signedArea, validatePolygon,
   defaultLayout, footprintLayout, splitSurface, layoutMetrics, validateLayout,
-  addLayoutPoint, insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
+  layoutSlopeDirections, addLayoutPoint, insertPoint, cloneLayout, pitchedFootprint, lShapedLayout, roofSurfaceGroups,
 } from '../js/roofLayout.js';
 const rectangle = () => footprintLayout([
   { x: -5, z: -3 }, { x: 5, z: -3 }, { x: 5, z: 3 }, { x: -5, z: 3 },
@@ -455,5 +455,22 @@ test('interior insertion retains non-planar heights and works inside a concave f
     validateLayout(layout);
     assert.ok(Math.abs(layoutMetrics(layout).roofArea - layoutMetrics(source).roofArea) < 1e-8);
     assert.deepEqual(layout.boundary, source.boundary);
+  }
+});
+
+test('slope arrows point downhill and omit flat triangles', () => {
+  assert.equal(layoutSlopeDirections(rectangle()).length, 0);
+  const arrows = layoutSlopeDirections(defaultLayout());
+  assert.equal(arrows.length, 4);
+  for (const arrow of arrows) {
+    assert.ok(Math.abs(arrow.direction.x) < 1e-9);
+    assert.equal(arrow.direction.z, arrow.faceIndex === 0 ? -1 : 1);
+    assert.ok(arrow.clearance > 0);
+  }
+  const roof = rectangle();
+  roof.vertices.forEach(p => { p.h = 10 + p.x * 0.2 + p.z * 0.3; });
+  for (const arrow of layoutSlopeDirections(roof)) {
+    assert.ok(arrow.direction.x < 0 && arrow.direction.z < 0);
+    assert.ok(Math.abs(arrow.direction.x / arrow.direction.z - 2 / 3) < 1e-9);
   }
 });

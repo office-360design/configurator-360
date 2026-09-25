@@ -2,10 +2,10 @@ import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout,
-  layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-14';
+  layoutSlopeDirections, layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
+} from './roofLayout.js?v=layout-15';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-14';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-15';
 
 function surfaceLetter(index) {
   let label = '';
@@ -82,6 +82,9 @@ export class RoofLayoutEditor {
             <button type="button" data-action="zoomOut" aria-label="Zoom out" title="Zoom out">−</button>
             <button type="button" data-action="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>
             <button type="button" data-action="fit" title="Fit roof in view">Fit</button>
+          </div>
+          <div class="layout-canvas-controls layout-overlays">
+            <button type="button" data-action="slopeArrows" aria-pressed="false" title="Show downhill slope directions">↘ Slope arrows</button>
           </div>
           <div class="layout-mode-hint"><span id="layoutModeLabel">Select / move</span>
             ${help('Drawing tools', '<span class="layout-help"></span>')}</div>
@@ -252,14 +255,16 @@ export class RoofLayoutEditor {
 
   action(action) {
     this.endDrag(null, true);
-    if (!['pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
+    if (!['slopeArrows', 'pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
     try {
-      const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'fit', 'zoomIn', 'zoomOut'];
+      const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'slopeArrows', 'fit', 'zoomIn', 'zoomOut'];
       if (this.meet && !meetActions.includes(action)) {
         if (action === 'apply') throw new Error('Apply or cancel the alignment preview first.');
         this.stopMeet();
       }
-      if (action === 'pickSplitFaces') {
+      if (action === 'slopeArrows') {
+        this.showSlopeArrows = !this.showSlopeArrows;
+      } else if (action === 'pickSplitFaces') {
         this.pickingSplitFaces = !this.pickingSplitFaces;
         this.status(this.pickingSplitFaces ? 'Click adjoining surfaces to toggle them. Highlighted surfaces will detach; then choose Split in place.' : 'Surface selection ready. Choose Split in place to detach the highlighted surfaces.');
       } else if (action === 'meet') {
@@ -670,6 +675,21 @@ export class RoofLayoutEditor {
           points: coords(triangle.map(id => this.layout.vertices[id])), class: 'layout-triangle',
         }));
       });
+      if (this.showSlopeArrows) {
+        layoutSlopeDirections(this.layout).forEach(({ center, direction, clearance, faceIndex }) => {
+          const p = project(center);
+          const length = Math.min(28, clearance * this.scale * 0.7);
+          if (length < 3) return;
+          const dx = direction.x, dy = direction.z;
+          const tip = { x: p.x + dx * length, y: p.y + dy * length };
+          const wing = length * 0.38;
+          const arrow = svgElement('path', {
+            d: `M ${p.x - dx * length} ${p.y - dy * length} L ${tip.x} ${tip.y} M ${tip.x - dx * wing - dy * wing} ${tip.y - dy * wing + dx * wing} L ${tip.x} ${tip.y} L ${tip.x - dx * wing + dy * wing} ${tip.y - dy * wing - dx * wing}`,
+            class: 'layout-slope-arrow', 'aria-label': `Downhill on surface ${surfaceLetter(faceIndex)}`,
+          });
+          this.svg.append(arrow);
+        });
+      }
       this.layout.faces.forEach((face, index) => {
         const point = project(surfaceLabelPosition(face, this.layout.vertices));
         const label = svgElement('text', { x: point.x, y: point.y,
@@ -781,6 +801,7 @@ export class RoofLayoutEditor {
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
       if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
+      if (action === 'slopeArrows') button.setAttribute('aria-pressed', String(Boolean(this.showSlopeArrows)));
       if (action === 'meet') button.disabled = this.mode !== 'select' || this.selected === null;
       if (action === 'pickSplitFaces') {
         button.disabled = this.mode !== 'select' || incident.length < 2;
