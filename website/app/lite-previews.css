@@ -18,16 +18,14 @@
 .lite-canvas canvas{position:absolute;inset:0;width:100%;height:100%}
 .lite-poster{position:absolute;width:100%;height:100%;color:var(--brand);opacity:.5}
 .lite-preview.is-ready .lite-poster{visibility:hidden}
-.lite-preview[data-lite-product=tiles] .lite-canvas{
-  background:
-    linear-gradient(to bottom,rgba(var(--canvas-rgb),.05),rgba(var(--canvas-rgb),.01)),
-    url("https://www.360configurator.com/tiles-configurator/assets/sample-yards/4.jpg") center center/cover no-repeat;
-}
-.lite-preview[data-lite-product=tiles] .lite-canvas canvas{
-  transform:translateY(14%);
-  transform-origin:center center;
-}
-.lite-preview[data-lite-product=tiles] .lite-poster{display:none}
+.lite-preview[data-lite-product=tiles] .lite-canvas{cursor:default;background:#dfe4df}
+.lite-preview[data-lite-product=tiles] .lite-canvas:active{cursor:default}
+.tiles-photo-scene{position:absolute;inset:0;overflow:hidden;background:#dfe4df}
+.tiles-photo-scene__yard{position:absolute;inset:0;background:url("https://www.360configurator.com/tiles-configurator/assets/sample-yards/4.jpg") center center/cover no-repeat;filter:saturate(.93) contrast(.98)}
+.tiles-photo-scene__yard::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.02),rgba(18,25,22,.035))}
+.tiles-photo-scene__overlay{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.tiles-photo-scene__overlay .tiles-joint{fill:none;stroke:rgba(28,34,34,.32);stroke-width:2}
+.tiles-photo-scene__overlay .tiles-speck{fill:rgba(255,255,255,.27)}
 .lite-preview-badge{position:absolute;left:24px;top:22px;font-size:9px;color:var(--ink-faint);pointer-events:none;z-index:1}
 .lite-preview-badge i{display:inline-block;width:5px;height:5px;margin-right:8px;border-radius:50%;background:var(--brand)}
 .lite-view-tools{position:absolute;right:24px;top:44px;display:flex;align-items:center;gap:10px;z-index:2;font:9px var(--font-geist-mono);color:var(--ink-faint)}
@@ -87,5 +85,4 @@
  .lite-preview .lite-instrument .console-collapse{min-height:40px!important}
  .lite-preview-badge{left:18px;font-size:8px}
  .lite-preview .lite-instrument::before{display:none}
- .lite-preview[data-lite-product=tiles] .lite-canvas canvas{transform:translateY(10%)}
 }

@@ -33,6 +33,51 @@ function Poster({slug}: {slug: LiteSlug}) {
   </svg>;
 }
 
+
+function TilesPhotoPreview({state}: {state: LiteState}) {
+  const length = Math.min(4,Math.max(1,Number(state.length)||3));
+  const width = Math.min(3,Math.max(1,Number(state.width)||2));
+  const rotation = Number(state.rotation)||0;
+  const colour = String(state.colour||'#969a98');
+  const centreX = 555;
+  const frontY = 586;
+  const depth = 86 + ((width-1)/2)*105;
+  const backY = frontY-depth;
+  const frontHalf = 150 + ((length-1)/3)*145;
+  const backHalf = frontHalf*(.63 + (3-width)*.035);
+  const points = `${centreX-backHalf},${backY} ${centreX+backHalf},${backY} ${centreX+frontHalf},${frontY} ${centreX-frontHalf},${frontY}`;
+  const curbs = state.curbs === 'yes';
+  const tile = String(state.tile||'parket');
+  const pattern = String(state.pattern||'running');
+  return <div className="tiles-photo-scene" aria-hidden="true">
+    <div className="tiles-photo-scene__yard"/>
+    <svg className="tiles-photo-scene__overlay" viewBox="0 0 1000 600" preserveAspectRatio="none">
+      <defs>
+        <pattern id="tiles-running-parket" width="132" height="54" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="132" height="54" fill={colour}/><path d="M0 0H132M0 27H132M0 54H132M0 0V27M66 0V27M33 27V54M99 27V54" className="tiles-joint"/>
+        </pattern>
+        <pattern id="tiles-herringbone" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="90" height="90" fill={colour}/><path d="M-18 18L18-18M0 45L45 0M45 90L90 45M72 108L108 72M18 0L63 45M0 18L45 63M27 90L72 45M45 108L90 63" className="tiles-joint"/>
+        </pattern>
+        <pattern id="tiles-basket" width="96" height="96" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="96" height="96" fill={colour}/><path d="M0 0H96V96H0ZM48 0V48M0 24H48M48 72H96M72 48V96" className="tiles-joint"/>
+        </pattern>
+        <pattern id="tiles-square" width="72" height="72" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="72" height="72" fill={colour}/><path d="M0 0H72V72H0Z" className="tiles-joint"/>
+        </pattern>
+        <pattern id="tiles-granit" width="112" height="82" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
+          <rect width="112" height="82" fill={colour}/><path d="M0 0H112V82H0ZM0 39H112M31 0V39M79 0V39M51 39V82M94 39V82" className="tiles-joint"/>
+          <circle cx="16" cy="17" r="1.6" className="tiles-speck"/><circle cx="68" cy="23" r="1.2" className="tiles-speck"/><circle cx="101" cy="60" r="1.5" className="tiles-speck"/><circle cx="37" cy="68" r="1.1" className="tiles-speck"/>
+        </pattern>
+        <linearGradient id="tiles-photo-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".23"/><stop offset="1" stopColor="#000" stopOpacity=".08"/></linearGradient>
+      </defs>
+      {curbs && <polygon points={points} fill="none" stroke="#b9b4aa" strokeWidth="20" strokeLinejoin="round"/>}
+      <polygon points={points} fill={`url(#${tile==='parket'?(pattern==='herringbone'?'tiles-herringbone':pattern==='basket'?'tiles-basket':'tiles-running-parket'):tile==='square'?'tiles-square':'tiles-granit'})`} stroke="rgba(35,42,42,.45)" strokeWidth="2" strokeLinejoin="round"/>
+      <polygon points={points} fill="url(#tiles-photo-light)"/>
+    </svg>
+  </div>;
+}
+
 type Handle = {update: (state: LiteState) => void; release: () => void; resetView: () => void; setInteraction: (enabled:boolean) => void};
 function changedState(state:LiteState,slug:LiteSlug,key:string,value:string|number):LiteState {
   if(slug==='cardbox'&&key==='style'){
@@ -55,8 +100,9 @@ export function LitePreview({slug,locale}: {slug:LiteSlug;locale:Locale}) {
   const [state,setState] = useState<LiteState>(() => ({...liteDefaults[slug]}));
   const stateRef = useRef(state);
   const [visible,setVisible] = useState(false);
-  const [requested,setRequested] = useState(false);
-  const [ready,setReady] = useState(false);
+  const isTiles = slug === 'tiles';
+  const [requested,setRequested] = useState(isTiles);
+  const [ready,setReady] = useState(isTiles);
   const [failed,setFailed] = useState(false);
   const [attempt,setAttempt] = useState(0);
   const [metrics,setMetrics] = useState<Record<string,number>>({});
@@ -77,7 +123,7 @@ export function LitePreview({slug,locale}: {slug:LiteSlug;locale:Locale}) {
     observer.observe(target.closest('.lite-preview') || target); return () => observer.disconnect();
   },[]);
   useEffect(() => {
-    if (!visible || !requested || !host.current) return;
+    if (isTiles || !visible || !requested || !host.current) return;
     let cancelled = false;
     let owned: Handle | null = null;
     let mountedState = stateRef.current;
@@ -94,24 +140,24 @@ export function LitePreview({slug,locale}: {slug:LiteSlug;locale:Locale}) {
       else setRequested(false);
     }).catch(() => {if (!cancelled) setFailed(true);});
     return () => { cancelled = true; owned?.release(); handle.current = null; setReady(false); };
-  },[visible,requested,slug,attempt]);
+  },[visible,requested,slug,attempt,isTiles]);
   const change = (key:string,value:string|number) => {
     const next = changedState(state,slug,key,value);
     stateRef.current = next; setState(next); handle.current?.update(next);
-    if (!requested) setRequested(true);
+    if (!isTiles && !requested) setRequested(true);
   };
   const select = (key:string,label:string,options:[string,string][]) => <PresetControl label={label} value={String(state[key])} options={options} onChange={value=>change(key,value)} />;
   const range = (key:string,label:string,min:number,max:number,step:number,unit:string) => <RangeControl label={label} value={Number(state[key])} min={min} max={max} step={step} unit={unit ? ` ${unit}` : ''} onChange={value=>change(key,value)} />;
   // The callback reaches the renderer ref only on click, never during render.
   // eslint-disable-next-line react-hooks/refs
   const colour = (key:string,label:string,options:[string,string][]) => <ColourControl label={label} value={String(state[key])} options={options} onChange={value=>change(key,value)} />;
-  const metric = slug === 'chair' ? '500 × 470 × 790 mm' : slug === 'cardbox' ? `${(Number(state.width)*Number(state.depth)*Number(state.height)/1e6).toFixed(1)} L` : slug === 'bookshelf' ? `${state.count} ${copy.count.toLowerCase()} · ${Number(state.count)-1} ${copy.connections}` : `${(ready ? metrics.area || 0 : Number(state.length)*Number(state.width)).toFixed(2)} m²${ready ? ` · ${metrics.pieces || 0} ${copy.pieces}` : ''}`;
+  const metric = slug === 'chair' ? '500 × 470 × 790 mm' : slug === 'cardbox' ? `${(Number(state.width)*Number(state.depth)*Number(state.height)/1e6).toFixed(1)} L` : slug === 'bookshelf' ? `${state.count} ${copy.count.toLowerCase()} · ${Number(state.count)-1} ${copy.connections}` : `${(Number(state.length)*Number(state.width)).toFixed(2)} m²`;
   return <div className={`lite-preview ${ready && !failed ? 'is-ready' : ''} ${collapsed ? 'is-deck-collapsed' : ''} ${interacting ? 'is-interacting' : ''}`} data-lite-product={slug}>
-    <div className="lite-canvas" ref={host} aria-label={`${labels[slug]} 3D`}><Poster slug={slug}/></div>
+    <div className="lite-canvas" ref={host} aria-label={`${labels[slug]} ${isTiles ? labels.preview : '3D'}`}>{isTiles ? <TilesPhotoPreview state={state}/> : <Poster slug={slug}/>}</div>
     <div className="lite-preview-badge mono-label"><i/>{labels.preview} / {slug.toUpperCase()}</div>
-    {ready && !failed && <div className="lite-view-tools"><span>{copy.hint}</span><button type="button" onClick={()=>handle.current?.resetView()} title={labels.reset} aria-label={labels.reset}>↺</button></div>}
-    {ready && <MobileSceneActions active={interacting} locale={locale} onToggle={()=>{const next=!interacting;setInteracting(next);interactionRef.current=next;handle.current?.setInteraction(next);}} />}
-    {(!ready || failed) && <div className="lite-activation"><button className="launch-link" type="button" onClick={()=>{setRequested(true);setAttempt(n=>n+1);}}>{failed ? copy.retry : requested && visible ? copy.loading : copy.start}<span>↗</span></button>{failed && <p role="status">{copy.error}</p>}</div>}
+    {!isTiles && ready && !failed && <div className="lite-view-tools"><span>{copy.hint}</span><button type="button" onClick={()=>handle.current?.resetView()} title={labels.reset} aria-label={labels.reset}>↺</button></div>}
+    {!isTiles && ready && <MobileSceneActions active={interacting} locale={locale} onToggle={()=>{const next=!interacting;setInteracting(next);interactionRef.current=next;handle.current?.setInteraction(next);}} />}
+    {!isTiles && (!ready || failed) && <div className="lite-activation"><button className="launch-link" type="button" onClick={()=>{setRequested(true);setAttempt(n=>n+1);}}>{failed ? copy.retry : requested && visible ? copy.loading : copy.start}<span>↗</span></button>{failed && <p role="status">{copy.error}</p>}</div>}
     <div className={`scene-controls scene-controls-panel instrument-console lite-instrument ${collapsed ? 'is-collapsed' : ''}`} aria-label={`${labels[slug]} ${labels.customize}`} data-lenis-prevent>
       <div className="console-header" {...deckSwipe}><span>{labels[slug]} / LIVE</span><b>{labels.form}</b><button className="console-collapse" type="button" onClick={()=>setCollapsed(value=>!value)} aria-expanded={!collapsed} aria-controls={`lite-controls-${slug}`}>{collapsed ? labels.customize : labels.hide}</button></div>
       <div className="console-body" id={`lite-controls-${slug}`} hidden={collapsed} inert={collapsed || undefined}>
