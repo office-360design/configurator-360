@@ -42,7 +42,7 @@ const TILES_PHOTO_HEIGHT = 422;
 const TILES_YARD_IMAGE = 'https://www.360configurator.com/tiles-configurator/assets/sample-yards/4.jpg';
 // Crop to the lower-house / lawn region the preview is meant to showcase.
 // Projection coordinates still use the full 768 × 422 calibrated photo plane.
-const TILES_PHOTO_CROP = {x:121,y:170,width:439,height:200} as const;
+const TILES_PHOTO_CROP = {x:72,y:156,width:603,height:259} as const;
 // The 1 m × 1 m white reference square in sample yard 4, measured in the
 // 768 × 422 photo frame. These four points define the ground-plane perspective.
 const TILES_GROUND_H = [
@@ -52,7 +52,7 @@ const TILES_GROUND_H = [
 ] as const;
 // Put the default paving immediately to the left/front of the reference square.
 // Length grows in +X (right); width grows in +Z (toward the camera).
-const TILES_PAVING_ORIGIN = {x:-3,z:-1.8};
+const TILES_PAVING_ORIGIN = {x:-3.2,z:-1.55};
 
 function projectTilesGround(point:TilesGroundPoint):TilesScreenPoint {
   const x=point.x,z=point.z;
