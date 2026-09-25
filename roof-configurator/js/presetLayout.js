@@ -1,4 +1,4 @@
-import { validateLayout, signedArea, onSegment, distance, cross } from './roofLayout.js?v=layout-19';
+import { validateLayout, signedArea, onSegment, distance, cross } from './roofLayout.js?v=layout-20';
 
 const rounded = value => Math.round(value * 1e7) / 1e7;
 const key = p => `${rounded(p.x)},${rounded(p.z)}`;

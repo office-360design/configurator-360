@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   await page.route('**/editor-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/layout-editor.css"><body></body>' }));
   await page.goto('http://127.0.0.1:8080/editor-fixture');
   await page.evaluate(async () => {
-    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-19');
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-20');
     window.editor = new RoofLayoutEditor({ pitch: 30 }, () => {});
     window.editor.open();
   });

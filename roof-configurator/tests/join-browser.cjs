@@ -17,7 +17,7 @@ const assert = require('node:assert/strict');
   await page.goto('http://127.0.0.1:8080/roof-configurator/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.ROOF_CONFIGURATOR_API);
   const saved = await page.evaluate(async () => {
-    const { defaultLayout, splitLayoutInPlace } = await import('../roof-configurator/js/roofLayout.js?v=layout-19');
+    const { defaultLayout, splitLayoutInPlace } = await import('../roof-configurator/js/roofLayout.js?v=layout-20');
     const { layout, copies } = splitLayoutInPlace(defaultLayout(), [2, 5], [0]);
     copies.forEach(id => { layout.vertices[id].h = 3.5; });
     const api = window.ROOF_CONFIGURATOR_API;
@@ -61,7 +61,7 @@ const assert = require('node:assert/strict');
   assert.equal(current.roofLayout.vertices[2].h, 3.5);
   assert.equal(current.roofLayout.vertices[5].h, 3.5);
   const walls = await page.evaluate(async state => {
-    const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-19');
+    const { buildRoofModel } = await import('../roof-configurator/js/roofFactory.js?v=layout-20');
     const { group } = buildRoofModel(state);
     const count = group.children.filter(mesh => mesh.name === 'drawn-step-wall').length;
     const materials = new Set();
