@@ -1,7 +1,7 @@
 .roof-layout-dialog {
-  width: min(1200px, 96vw);
-  max-width: 96vw;
-  max-height: 94dvh;
+  width: min(1520px, 98vw);
+  max-width: 98vw;
+  max-height: 96dvh;
   padding: 0;
   border: 1px solid #d5dee8;
   border-radius: 18px;
@@ -15,12 +15,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 20px;
+  padding: 10px 16px;
   flex-wrap: wrap;
   border-bottom: 1px solid #dce4ed;
 }
 .roof-layout-dialog header { justify-content: space-between; background: white; }
-.roof-layout-dialog h2 { margin: 0; font-size: 23px; }
+.roof-layout-dialog h2 { margin: 0; font-size: 21px; }
 .roof-layout-dialog small { color: #64748b; letter-spacing: .12em; }
 .roof-layout-dialog button, .roof-layout-dialog input, .roof-layout-dialog select {
   font: inherit;
@@ -38,16 +38,16 @@
   border-color: #1260aa;
   color: white;
 }
-.layout-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 270px; }
-.layout-drawing { background: #f1f5f9; min-width: 0; }
-.layout-drawing svg { width: 100%; height: 100%; min-height: 420px; max-height: 65dvh; touch-action: none; }
-.layout-workspace aside { padding: 16px; background: white; max-height: 65dvh; overflow: auto; }
+.layout-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 310px; }
+.layout-drawing { position: relative; background: #f1f5f9; min-width: 0; }
+.layout-drawing > svg { display: block; width: 100%; height: 100%; min-height: 0; touch-action: none; }
+.layout-workspace aside { padding: 12px; background: white; min-height: 0; overflow: auto; }
 .layout-workspace label { display: grid; gap: 4px; margin: 8px 0; }
 .layout-workspace input, .layout-workspace select { width: 100%; box-sizing: border-box; }
-.layout-workspace fieldset { border: 1px solid #dce4ed; border-radius: 10px; margin: 14px 0; padding: 10px; }
+.layout-workspace fieldset { border: 1px solid #dce4ed; border-radius: 10px; margin: 10px 0; padding: 10px; }
 .layout-workspace p { color: #52657a; font-size: 12px; }
 .layout-workspace .layout-help { font-size: 14px; color: #172b43; }
-.layout-summary { display: block; margin-top: 16px; font-weight: 600; }
+.layout-summary { display: block; margin-top: 0; font-weight: 600; }
 .layout-status { flex: 1; min-width: 180px; }
 .layout-grid { stroke: #dfe7ef; stroke-width: 1; }
 .layout-face { stroke: #47759c; stroke-width: 2; }
@@ -90,3 +90,61 @@
 .layout-meet-ghost { fill: #fb923c66; stroke: #ea580c; stroke-width: 3; pointer-events: none; }
 #meetResult { display: block; margin: 10px 0; font-size: 12px; }
 #meetPreview { width: 100%; height: 190px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; }
+
+/* Keep drawing, properties and footer within the desktop viewport. */
+.roof-layout-dialog[open] { display: flex; flex-direction: column; height: min(940px, 96dvh); overflow: hidden; }
+.roof-layout-dialog header, .layout-toolbar, .roof-layout-dialog footer { flex: none; }
+.layout-workspace { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.layout-drawing { overflow: hidden; }
+.layout-toolbar { gap: 6px; background: #fff; }
+.layout-toolbar button { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; font-size: 13px; }
+.layout-tool-icon { font-size: 19px; line-height: 1; width: 18px; text-align: center; }
+.roof-layout-dialog button:hover:not(:disabled) { border-color: #1260aa; background: #edf5ff; color: #164d7c; }
+.roof-layout-dialog :focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+.layout-toolbar [data-action="delete"] { margin-left: auto; color: #b42318; }
+.layout-canvas-controls { position: absolute; top: 12px; display: flex; gap: 3px; padding: 4px; border: 1px solid #dce4ed; border-radius: 10px; background: #ffffffed; box-shadow: 0 2px 8px #17385812; }
+.layout-history { left: 12px; }
+.layout-zoom { right: 12px; }
+.layout-canvas-controls button { min-width: 36px; min-height: 36px; padding: 4px 9px; border-color: transparent; font-size: 13px; }
+.layout-canvas-controls [data-action="zoomIn"], .layout-canvas-controls [data-action="zoomOut"] { font-size: 21px; }
+.layout-mode-hint { position: absolute; left: 12px; bottom: 10px; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 8px; background: #ffffffed; border: 1px solid #dce4ed; border-radius: 8px; padding: 5px 9px; font-size: 12px; }
+.layout-panel-heading { display: flex; align-items: center; justify-content: space-between; font-weight: 600; gap: 8px; }
+.layout-select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.layout-coordinate-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.layout-coordinate-row input { min-width: 0; padding: 7px 5px; }
+.layout-workspace label { font-size: 12px; }
+.layout-workspace legend { font-weight: 600; font-size: 13px; }
+.layout-point > button { width: 100%; }
+.layout-setup { margin: 12px 0; border-block: 1px solid #dce4ed; padding: 10px 0; }
+.layout-setup > summary { cursor: pointer; font-weight: 600; }
+.layout-setup > button { width: 100%; }
+.layout-totals { font-size: 12px; color: #52657a; }
+.layout-help-wrap { display: inline-flex; vertical-align: middle; }
+.roof-layout-dialog .layout-info { display: inline-flex; justify-content: center; align-items: center; min-height: 24px; width: 24px; padding: 0; border-radius: 50%; font: 600 13px Georgia, serif; color: #52657a; }
+.layout-tip { position: fixed; inset: auto; margin: 0; width: min(300px, calc(100vw - 32px)); box-sizing: border-box; padding: 12px 14px; border: 1px solid #aebed0; border-radius: 10px; background: #172b43; color: white; box-shadow: 0 8px 30px #10254033; font: 13px/1.55 system-ui, sans-serif; }
+.layout-tip .layout-help { color: inherit; font-size: inherit; }
+.roof-layout-dialog [hidden] { display: none !important; }
+@media (max-width: 1000px) {
+  .layout-toolbar { gap: 4px; }
+  .layout-toolbar button { font-size: 12px; padding: 5px 7px; }
+  .layout-workspace { grid-template-columns: minmax(0, 1fr) 280px; }
+}
+@media (max-width: 680px) {
+  .roof-layout-dialog[open] { height: 96dvh; }
+  .roof-layout-dialog h2 { font-size: 18px; }
+  .roof-layout-dialog small { font-size: 9px; }
+  .layout-workspace { display: block; overflow: auto; }
+  .layout-drawing { height: 43dvh; min-height: 280px; }
+  .layout-drawing > svg { height: 100%; min-height: 0; }
+  .layout-toolbar { display: flex; flex-wrap: wrap; }
+  .layout-toolbar button { flex: 1 0 auto; min-height: 36px; gap: 4px; }
+  .layout-toolbar [data-action="delete"] { margin-left: 0; }
+  .layout-tool-icon { font-size: 16px; width: 14px; }
+  .layout-canvas-controls { top: 8px; }
+  .layout-history { left: 8px; }
+  .layout-zoom { right: 8px; }
+  .layout-canvas-controls button { min-height: 36px; padding: 4px 6px; }
+  .layout-workspace aside { overflow: visible; }
+  .layout-status { font-size: 12px; min-width: 100%; }
+  .roof-layout-dialog footer { justify-content: flex-end; gap: 6px; }
+}
