@@ -528,6 +528,13 @@ export function deleteLayoutPoint(source, id) {
   const next = cloneLayout(source);
   next.boundary = next.boundary.filter(vertex => vertex !== id);
   next.faces = next.faces.map(face => face.filter(vertex => vertex !== id));
+  if (source.boundary.includes(id)) {
+    // A perimeter tip may be the only corner giving an attached triangle
+    // area. Removing that tip removes the collapsed face; its base becomes
+    // the perimeter. Full validation below still rejects gaps and overlaps.
+    next.faces = next.faces.filter(face => face.length >= 3 &&
+      Math.abs(signedArea(face.map(vertex => next.vertices[vertex]))) > EPS);
+  }
   // Removing an edge subdivision preserves the adjoining surfaces when possible.
   try { return compactLayout(next); } catch { /* A junction needs its faces merged. */ }
   const merged = cloneLayout(source);

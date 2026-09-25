@@ -392,3 +392,29 @@ test('alignment rejects ambiguous planes, impossible directions and invalid geom
   for (const id of [0, 1, 6, 10]) flat.vertices[id].h = 0;
   assert.throws(() => meetRoofSlope(flat, base), /never reaches/);
 });
+
+
+test('deleting an outer triangular tip removes its collapsed face and keeps adjoining slopes', () => {
+  const source = validateLayout({ version: 1,
+    vertices: [{ x: 0, z: 0, h: 0 }, { x: 10, z: 0, h: 0 },
+      { x: 10, z: 2.5, h: 1.5 }, { x: 0, z: 2.5, h: 1.5 },
+      { x: 11.75, z: 1.25, h: 0.86 }],
+    boundary: [0, 1, 4, 2, 3], faces: [[0, 1, 2, 3], [1, 4, 2]],
+  });
+  const before = JSON.stringify(source);
+  const next = deleteLayoutPoint(source, 4);
+  assert.deepEqual(next.boundary, [0, 1, 2, 3]);
+  assert.deepEqual(next.faces, [[0, 1, 2, 3]]);
+  assert.deepEqual(next.vertices, source.vertices.slice(0, 4));
+  assert.equal(layoutMetrics(next).footprint, 25);
+  assert.equal(JSON.stringify(source), before);
+  const reversed = cloneLayout(source);
+  reversed.boundary.reverse();
+  reversed.faces.forEach(face => face.reverse());
+  validateLayout(deleteLayoutPoint(reversed, 4));
+});
+
+test('removing a triangular tip cannot leave the entire roof without a surface', () => {
+  const triangle = footprintLayout([{ x: 0, z: 0 }, { x: 3, z: 0 }, { x: 0, z: 3 }]);
+  assert.throws(() => deleteLayoutPoint(triangle, 0), /at least three/);
+});
