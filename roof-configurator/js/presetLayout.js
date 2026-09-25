@@ -1,6 +1,7 @@
-import { validateLayout, signedArea, onSegment, distance, cross } from './roofLayout.js?v=layout-18';
+import { validateLayout, signedArea, onSegment, distance, cross } from './roofLayout.js?v=layout-19';
 
-const key = p => `${p.x.toFixed(7)},${p.z.toFixed(7)}`;
+const rounded = value => Math.round(value * 1e7) / 1e7;
+const key = p => `${rounded(p.x)},${rounded(p.z)}`;
 const rect = (x0, x1, z0, z1) => [{ x: x0, z: z0 }, { x: x1, z: z0 }, { x: x1, z: z1 }, { x: x0, z: z1 }];
 function clip(points, heightDifference) {
   const result = [];
@@ -17,7 +18,7 @@ function clip(points, heightDifference) {
 
 // Assemble plane patches, removing cell boundaries and retaining separate
 // heights at dormer/wing steps. Explicit plan links join their X/Z positions.
-function assemble(patches) {
+export function assembleLayoutPatches(patches) {
   patches = patches.filter(p => p.points.length >= 3 && Math.abs(signedArea(p.points)) > 1e-8);
   const positions = [...new Map(patches.flatMap(p => p.points).map(p => [key(p), p])).values()];
   const byPlane = new Map();
@@ -72,7 +73,7 @@ function assemble(patches) {
       const chain = corners.filter(p => onSegment(p, a, b) && key(p) !== key(b))
         .sort((p, q) => distance(a, p) - distance(a, q));
       chain.forEach(p => {
-        const h = ring.height(p), fullKey = `${key(p)},${h.toFixed(7)}`;
+        const h = ring.height(p), fullKey = `${key(p)},${rounded(h)}`;
         if (!ids.has(fullKey)) {
           const id = vertices.length;
           ids.set(fullKey, id); vertices.push({ x: p.x, z: p.z, h });
@@ -149,7 +150,7 @@ export function presetRoofLayout(state) {
   } else if (state.roofType === 'gable') {
     add(rect(-x,x,-z,0), front); add(rect(-x,x,0,z), back);
   } else throw new Error('Choose a preset roof or an existing drawn layout to edit.');
-  try { return assemble(patches); }
+  try { return assembleLayoutPatches(patches); }
   catch (error) {
     if (state.roofType === 'dormer') throw new Error(`Dormer details must fit the editor’s 5 cm edge and 0.05 m² surface limits. ${error.message}`);
     throw error;
