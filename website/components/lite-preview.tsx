@@ -34,56 +34,123 @@ function Poster({slug}: {slug: LiteSlug}) {
 }
 
 
-function TilesPhotoPreview({state}: {state: LiteState}) {
-  const length = Math.min(4,Math.max(1,Number(state.length)||3.25));
-  const width = Math.min(3,Math.max(1,Number(state.width)||1.75));
-  const rotation = Number(state.rotation)||0;
-  const colour = String(state.colour||'#969a98');
+type TilesGroundPoint = {x:number;z:number};
+type TilesScreenPoint = {x:number;y:number};
 
-  // Keep the back-left corner fixed on the lawn. Length grows to the right,
-  // while width grows toward the camera/down-left, matching the perspective
-  // already present in the sample-yard photo.
-  const backLeft = {x:255,y:443};
-  const backEdgePerMetre = 365/3.25;
-  const leftDepthPerMetre = {x:-117/1.75,y:53/1.75};
-  const rightDepthPerMetre = {x:-30/1.75,y:53/1.75};
-  const backRight = {x:backLeft.x+length*backEdgePerMetre,y:backLeft.y};
-  const frontLeft = {
-    x:backLeft.x+width*leftDepthPerMetre.x,
-    y:backLeft.y+width*leftDepthPerMetre.y,
+const TILES_PHOTO_WIDTH = 768;
+const TILES_PHOTO_HEIGHT = 422;
+// The 1 m × 1 m white reference square in sample yard 4, measured in the
+// 768 × 422 photo frame. These four points define the ground-plane perspective.
+const TILES_GROUND_H = [
+  [72.4051118, -78.7054313, 390],
+  [-24.1124601, -48.7693291, 356],
+  [-0.0677316294, -0.187220447, 1],
+] as const;
+// Put the default paving immediately to the left/front of the reference square.
+// Length grows in +X (right); width grows in +Z (toward the camera).
+const TILES_PAVING_ORIGIN = {x:-2.4,z:-1};
+
+function projectTilesGround(point:TilesGroundPoint):TilesScreenPoint {
+  const x=point.x,z=point.z;
+  const d=TILES_GROUND_H[2][0]*x+TILES_GROUND_H[2][1]*z+TILES_GROUND_H[2][2];
+  return {
+    x:(TILES_GROUND_H[0][0]*x+TILES_GROUND_H[0][1]*z+TILES_GROUND_H[0][2])/d,
+    y:(TILES_GROUND_H[1][0]*x+TILES_GROUND_H[1][1]*z+TILES_GROUND_H[1][2])/d,
   };
-  const frontRight = {
-    x:backRight.x+width*rightDepthPerMetre.x,
-    y:backRight.y+width*rightDepthPerMetre.y,
+}
+function clipTilesPolygon(points:TilesGroundPoint[],maxX:number,maxZ:number):TilesGroundPoint[] {
+  let out=points;
+  const clip=(inside:(p:TilesGroundPoint)=>boolean,intersect:(a:TilesGroundPoint,b:TilesGroundPoint)=>TilesGroundPoint)=>{
+    if(!out.length)return;
+    const input=out;out=[];
+    let a=input[input.length-1],aInside=inside(a);
+    for(const b of input){
+      const bInside=inside(b);
+      if(bInside!==aInside)out.push(intersect(a,b));
+      if(bInside)out.push(b);
+      a=b;aInside=bInside;
+    }
   };
-  const points = `${backLeft.x},${backLeft.y} ${backRight.x},${backRight.y} ${frontRight.x},${frontRight.y} ${frontLeft.x},${frontLeft.y}`;
-  const curbs = state.curbs === 'yes';
-  const tile = String(state.tile||'parket');
-  const pattern = String(state.pattern||'running');
+  clip(p=>p.x>=0,(a,b)=>{const t=(0-a.x)/(b.x-a.x);return{x:0,z:a.z+(b.z-a.z)*t};});
+  clip(p=>p.x<=maxX,(a,b)=>{const t=(maxX-a.x)/(b.x-a.x);return{x:maxX,z:a.z+(b.z-a.z)*t};});
+  clip(p=>p.z>=0,(a,b)=>{const t=(0-a.z)/(b.z-a.z);return{x:a.x+(b.x-a.x)*t,z:0};});
+  clip(p=>p.z<=maxZ,(a,b)=>{const t=(maxZ-a.z)/(b.z-a.z);return{x:a.x+(b.x-a.x)*t,z:maxZ};});
+  return out;
+}
+function rotateTilesPoint(point:TilesGroundPoint,cx:number,cz:number,radians:number):TilesGroundPoint {
+  const dx=point.x-cx,dz=point.z-cz,c=Math.cos(radians),q=Math.sin(radians);
+  return {x:cx+dx*c-dz*q,z:cz+dx*q+dz*c};
+}
+function tilesJointPath(length:number,width:number,tile:string,pattern:string,rotation:number) {
+  let tileLength=tile==='granit'?.1:.2;
+  let tileWidth=tile==='parket'?.1:.2;
+  let additionalRotation=0;
+  let stagger=pattern==='running';
+  if(pattern==='herringbone'){additionalRotation=45;stagger=true;}
+  if(pattern==='basket'){tileLength=.2;tileWidth=.2;stagger=false;}
+  const angle=(rotation+additionalRotation)*Math.PI/180,
+    cx=length/2,cz=width/2,
+    reach=Math.hypot(length,width)/2+Math.max(tileLength,tileWidth)*2,
+    colMin=Math.floor((cx-reach)/tileLength)-1,
+    colMax=Math.ceil((cx+reach)/tileLength)+1,
+    rowMin=Math.floor((cz-reach)/tileWidth)-1,
+    rowMax=Math.ceil((cz+reach)/tileWidth)+1;
+  let path='';
+  for(let row=rowMin;row<=rowMax;row++){
+    const offset=stagger&&Math.abs(row)%2===1?tileLength/2:0;
+    for(let col=colMin;col<=colMax;col++){
+      const x0=col*tileLength+offset,z0=row*tileWidth;
+      const polygon=[
+        {x:x0,z:z0},{x:x0+tileLength,z:z0},
+        {x:x0+tileLength,z:z0+tileWidth},{x:x0,z:z0+tileWidth},
+      ].map(point=>rotateTilesPoint(point,cx,cz,angle));
+      const clipped=clipTilesPolygon(polygon,length,width);
+      if(clipped.length<3)continue;
+      const projected=clipped.map(point=>projectTilesGround({
+        x:TILES_PAVING_ORIGIN.x+point.x,
+        z:TILES_PAVING_ORIGIN.z+point.z,
+      }));
+      path+=`M${projected.map((point,index)=>`${index?'L':''}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join('')}Z`;
+    }
+  }
+  return path;
+}
+
+function TilesPhotoPreview({state}: {state: LiteState}) {
+  const length=Math.min(4,Math.max(1,Number(state.length)||3.25));
+  const width=Math.min(3,Math.max(1,Number(state.width)||1.75));
+  const rotation=Number(state.rotation)||0;
+  const colour=String(state.colour||'#969a98');
+  const tile=String(state.tile||'parket');
+  const pattern=String(state.pattern||'running');
+  const curbs=state.curbs==='yes';
+
+  const groundCorners=[
+    {x:TILES_PAVING_ORIGIN.x,z:TILES_PAVING_ORIGIN.z},
+    {x:TILES_PAVING_ORIGIN.x+length,z:TILES_PAVING_ORIGIN.z},
+    {x:TILES_PAVING_ORIGIN.x+length,z:TILES_PAVING_ORIGIN.z+width},
+    {x:TILES_PAVING_ORIGIN.x,z:TILES_PAVING_ORIGIN.z+width},
+  ];
+  const screenCorners=groundCorners.map(projectTilesGround);
+  const points=screenCorners.map(point=>`${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
+  const jointPath=tilesJointPath(length,width,tile,pattern,rotation);
+
   return <div className="tiles-photo-scene" aria-hidden="true">
     <div className="tiles-photo-scene__yard"/>
-    <svg className="tiles-photo-scene__overlay" viewBox="0 0 1000 600" preserveAspectRatio="none">
+    <svg
+      className="tiles-photo-scene__overlay"
+      viewBox={`0 0 ${TILES_PHOTO_WIDTH} ${TILES_PHOTO_HEIGHT}`}
+      preserveAspectRatio="xMidYMid slice"
+    >
       <defs>
-        <pattern id="tiles-running-parket" width="66" height="28" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="66" height="28" fill={colour}/><path d="M0 0H66M0 14H66M0 28H66M0 0V14M33 0V14M16.5 14V28M49.5 14V28" className="tiles-joint"/>
-        </pattern>
-        <pattern id="tiles-herringbone" width="48" height="48" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="48" height="48" fill={colour}/><path d="M-10 10L10-10M0 24L24 0M24 48L48 24M38 58L58 38M10 0L34 24M0 10L24 34M14 48L38 24M24 58L48 34" className="tiles-joint"/>
-        </pattern>
-        <pattern id="tiles-basket" width="52" height="52" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="52" height="52" fill={colour}/><path d="M0 0H52V52H0ZM26 0V26M0 13H26M26 39H52M39 26V52" className="tiles-joint"/>
-        </pattern>
-        <pattern id="tiles-square" width="36" height="36" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="36" height="36" fill={colour}/><path d="M0 0H36V36H0Z" className="tiles-joint"/>
-        </pattern>
-        <pattern id="tiles-granit" width="56" height="41" patternUnits="userSpaceOnUse" patternTransform={`rotate(${rotation})`}>
-          <rect width="56" height="41" fill={colour}/><path d="M0 0H56V41H0ZM0 19.5H56M15.5 0V19.5M39.5 0V19.5M25.5 19.5V41M47 19.5V41" className="tiles-joint"/>
-          <circle cx="8" cy="8.5" r=".9" className="tiles-speck"/><circle cx="34" cy="11.5" r=".7" className="tiles-speck"/><circle cx="50.5" cy="30" r=".8" className="tiles-speck"/><circle cx="18.5" cy="34" r=".65" className="tiles-speck"/>
-        </pattern>
-        <linearGradient id="tiles-photo-light" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".19"/><stop offset="1" stopColor="#000" stopOpacity=".06"/></linearGradient>
+        <linearGradient id="tiles-photo-light" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".17"/>
+          <stop offset="1" stopColor="#000" stopOpacity=".07"/>
+        </linearGradient>
       </defs>
-      {curbs && <polygon points={points} fill="none" stroke="#b9b4aa" strokeWidth="12" strokeLinejoin="round"/>}
-      <polygon points={points} fill={`url(#${tile==='parket'?(pattern==='herringbone'?'tiles-herringbone':pattern==='basket'?'tiles-basket':'tiles-running-parket'):tile==='square'?'tiles-square':'tiles-granit'})`} stroke="rgba(35,42,42,.45)" strokeWidth="1.5" strokeLinejoin="round"/>
+      {curbs&&<polygon points={points} fill="none" stroke="#b9b4aa" strokeWidth="7" strokeLinejoin="round"/>}
+      <polygon points={points} fill={colour} fillOpacity=".93" stroke="rgba(35,42,42,.52)" strokeWidth="1.2" strokeLinejoin="round"/>
+      <path d={jointPath} className="tiles-joint-path"/>
       <polygon points={points} fill="url(#tiles-photo-light)"/>
     </svg>
   </div>;
