@@ -62,11 +62,14 @@ export function SiteHeaderClient({ locale, currentPath, configurators }: { local
           <div className="nav-configurators">
             <a className="nav-configurators-trigger" href={`${localizedPath(locale)}#configurators`}>{copy.configurators} <span>＋</span></a>
             <div className="configurator-menu" data-lenis-prevent onWheel={event => event.stopPropagation()}>
-              <div className="configurator-menu-heading"><span>{copy.deployed}</span><b>{String(configurators.length).padStart(2, "0")} / LIVE</b></div>
               {configurators.map((item) => (
                 <div className="configurator-menu-row" key={item.slug}>
-                  <a className="configurator-menu-case" href={localizedPath(locale, `/configurators/${item.slug}`)}>
-                    <span>{item.index} / {item.category}</span>
+                  <a
+                    className="configurator-menu-case"
+                    href={localizedPath(locale, `/configurators/${item.slug}`)}
+                    style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                  >
+                    <span>{item.index} /</span>
                     <strong>{configuratorNavLabel(item.slug, item.title)}</strong>
                   </a>
                   <a className="configurator-menu-launch" href={item.launchUrl} target="_blank" rel="noreferrer" aria-label={`${copy.launch}: ${configuratorNavLabel(item.slug, item.title)}`}>{copy.live} ↗</a>
