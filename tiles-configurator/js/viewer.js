@@ -18,6 +18,12 @@ const vertexLabel = (index) => {
   return label;
 };
 const snap = (value) => Math.round(value * 20) / 20;
+const GROUND_Y = -0.16;
+const PAVEMENT_VISUAL_THICKNESS = 0.002;
+const HANDLE_DIAMETER_PX = 34;
+const HANDLE_HIT_DIAMETER_PX = 50;
+const PAVEMENT_SURFACE_OFFSET = 0.004;
+const CURB_EXPOSED_HEIGHT = 0.035;
 
 export function createViewer(host, callbacks = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
@@ -42,6 +48,9 @@ export function createViewer(host, callbacks = {}) {
     userSelect: 'none',
     zIndex: '0',
     display: 'none',
+    background: '#ffffff',
+    padding: '28px',
+    boxSizing: 'border-box',
   });
   Object.assign(renderer.domElement.style, { position: 'relative', zIndex: '1' });
   host.append(photoBackdrop, renderer.domElement);
@@ -70,11 +79,14 @@ export function createViewer(host, callbacks = {}) {
     new THREE.MeshStandardMaterial({ color: '#cbd0c4', roughness: 1 }),
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.16;
+  ground.position.y = GROUND_Y;
+  ground.material.polygonOffset = true;
+  ground.material.polygonOffsetFactor = 2;
+  ground.material.polygonOffsetUnits = 4;
   ground.receiveShadow = true;
   scene.add(ground);
   const grid = new THREE.GridHelper(40, 80, 0x0878c9, 0x93a5af);
-  grid.position.y = 0.09;
+  grid.position.y = GROUND_Y + 0.005;
   grid.material.transparent = true;
   grid.material.opacity = 0.34;
   grid.visible = false;
@@ -140,18 +152,35 @@ export function createViewer(host, callbacks = {}) {
   function clearOverlay(g) {
     g.traverse((o) => {
       o.geometry?.dispose?.();
-      if (Array.isArray(o.material)) o.material.forEach((m) => m.dispose?.());
-      else o.material?.dispose?.();
+      if (Array.isArray(o.material))
+        o.material.forEach((m) => {
+          m.map?.dispose?.();
+          m.dispose?.();
+        });
+      else {
+        o.material?.map?.dispose?.();
+        o.material?.dispose?.();
+      }
     });
     g.clear();
   }
-  function drawPieces(parts, height, colorFor, baseY) {
+  function drawPieces(parts, height, colorFor, baseY, { topOnly = false } = {}) {
     if (!parts.length) return;
-    const mesh = new THREE.InstancedMesh(box, material, parts.length);
+    const pieceMaterial = topOnly ? material.clone() : material;
+    if (topOnly) {
+      pieceMaterial.polygonOffset = true;
+      pieceMaterial.polygonOffsetFactor = -1;
+      pieceMaterial.polygonOffsetUnits = -2;
+    }
+    const mesh = new THREE.InstancedMesh(box, pieceMaterial, parts.length);
+    const renderHeight = topOnly ? Math.min(PAVEMENT_VISUAL_THICKNESS, Math.max(0.0005, height)) : height;
+    const renderBaseY = topOnly
+      ? baseY + height - renderHeight + PAVEMENT_SURFACE_OFFSET
+      : baseY;
     parts.forEach((p, i) => {
-      dummy.position.set(p.x - bounds.width / 2, baseY + height / 2, p.z - bounds.depth / 2);
+      dummy.position.set(p.x - bounds.width / 2, renderBaseY + renderHeight / 2, p.z - bounds.depth / 2);
       dummy.rotation.set(0, -THREE.MathUtils.degToRad(Number(p.rotation) || 0), 0);
-      dummy.scale.set(Math.max(0.001, p.l - 0.003), height, Math.max(0.001, p.w - 0.003));
+      dummy.scale.set(Math.max(0.001, p.l - 0.003), renderHeight, Math.max(0.001, p.w - 0.003));
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
       const appearance = stoneAppearance(p, COLORS[colorFor(p, i)]);
@@ -159,7 +188,7 @@ export function createViewer(host, callbacks = {}) {
       color.multiplyScalar(appearance.brightness);
       mesh.setColorAt(i, color);
     });
-    mesh.castShadow = true;
+    mesh.castShadow = !topOnly;
     mesh.receiveShadow = true;
     mesh.instanceMatrix.needsUpdate = true;
     group.add(mesh);
@@ -227,7 +256,7 @@ export function createViewer(host, callbacks = {}) {
   }
   function cornerLabel(text, x, z) {
     const sprite = textSprite(text, { background: false, scale: 0.62 });
-    sprite.position.set(x, 0.19, z);
+    sprite.position.set(x, GROUND_Y + 0.19, z);
     dimensions.add(sprite);
   }
   function dimensionSegment(a, b) {
@@ -243,7 +272,7 @@ export function createViewer(host, callbacks = {}) {
     // enough depth separation from the ground plane to avoid z-fighting at
     // shallow camera angles. Depth testing remains enabled, so geometry can
     // still occlude the lines normally.
-    const y = -0.11,
+    const y = GROUND_Y + 0.01,
       sx = start.x + outward.x * distance,
       sz = start.z + outward.z * distance,
       ex = end.x + outward.x * distance,
@@ -271,14 +300,24 @@ export function createViewer(host, callbacks = {}) {
   function photoRect() {
     const width = host.clientWidth,
       height = host.clientHeight;
-    if (!width || !height || !photoNaturalWidth || !photoNaturalHeight)
-      return { left: 0, top: 0, width, height };
-    const scale = Math.min(width / photoNaturalWidth, height / photoNaturalHeight),
+    if (!width || !height) return { left: 0, top: 0, width, height };
+    const horizontalPadding = Math.max(24, Math.round(width * 0.03)),
+      verticalPadding = Math.max(24, Math.round(height * 0.03)),
+      availableWidth = Math.max(1, width - horizontalPadding * 2),
+      availableHeight = Math.max(1, height - verticalPadding * 2);
+    if (!photoNaturalWidth || !photoNaturalHeight)
+      return {
+        left: horizontalPadding,
+        top: verticalPadding,
+        width: availableWidth,
+        height: availableHeight,
+      };
+    const scale = Math.min(availableWidth / photoNaturalWidth, availableHeight / photoNaturalHeight),
       photoWidth = photoNaturalWidth * scale,
       photoHeight = photoNaturalHeight * scale;
     return {
-      left: (width - photoWidth) / 2,
-      top: (height - photoHeight) / 2,
+      left: horizontalPadding + (availableWidth - photoWidth) / 2,
+      top: verticalPadding + (availableHeight - photoHeight) / 2,
       width: photoWidth,
       height: photoHeight,
     };
@@ -337,6 +376,7 @@ export function createViewer(host, callbacks = {}) {
       ),
       world = view.clone().invert();
     world.decompose(camera.position, camera.quaternion, camera.scale);
+    camera.position.y += GROUND_Y;
     camera.position.x += photoWorldShift.x;
     camera.position.z += photoWorldShift.z;
     camera.fov = calibration.fov;
@@ -345,7 +385,7 @@ export function createViewer(host, callbacks = {}) {
     camera.far = 1000;
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld(true);
-    controls.target.set(photoWorldShift.x, 0, photoWorldShift.z);
+    controls.target.set(photoWorldShift.x, GROUND_Y, photoWorldShift.z);
     return true;
   }
   function updatePhotoPresentation() {
@@ -471,10 +511,10 @@ export function createViewer(host, callbacks = {}) {
         state.houseEnabled ? state.houseHeight * 2 : 0,
       ),
       distance = (size * 1.55) / Math.min(1, camera.aspect);
-    controls.target.set(0, 0, 0);
+    controls.target.set(0, GROUND_Y, 0);
     camera.position.set(
       top ? 0 : distance * 0.8,
-      top ? distance * 1.5 : distance,
+      GROUND_Y + (top ? distance * 1.5 : distance),
       top ? 0.001 : distance,
     );
     controls.update();
@@ -490,12 +530,16 @@ export function createViewer(host, callbacks = {}) {
     geometry.translate(-bounds.width / 2, baseY, -bounds.depth / 2);
     return geometry;
   }
-  function drawPolygons(items, height, baseY) {
+  function drawPolygons(items, height, baseY, { topOnly = false } = {}) {
     if (!items.length) return;
     const geometries = [];
+    const renderHeight = topOnly ? Math.min(PAVEMENT_VISUAL_THICKNESS, Math.max(0.0005, height)) : height;
+    const renderBaseY = topOnly
+      ? baseY + height - renderHeight + PAVEMENT_SURFACE_OFFSET
+      : baseY;
     for (const { polygon, color, stone } of items) {
       if (polygon.length < 3 || polygonArea(polygon) < 1e-9) continue;
-      const geometry = prism(polygon, height, baseY),
+      const geometry = prism(polygon, renderHeight, renderBaseY),
         appearance = stoneAppearance(stone, COLORS[color]);
       const shade = new THREE.Color(appearance.base);
       shade.multiplyScalar(appearance.brightness);
@@ -509,28 +553,96 @@ export function createViewer(host, callbacks = {}) {
     geometries.forEach((g) => g.dispose());
     const mat = material.clone();
     mat.vertexColors = true;
+    if (topOnly) {
+      mat.polygonOffset = true;
+      mat.polygonOffsetFactor = -1;
+      mat.polygonOffsetUnits = -2;
+    }
     const mesh = new THREE.Mesh(merged, mat);
-    mesh.castShadow = true;
+    mesh.castShadow = !topOnly;
     mesh.receiveShadow = true;
     group.add(mesh);
   }
   function handleSize() {
     return Math.max(0.075, Math.min(0.18, Math.max(bounds?.width || 6, bounds?.depth || 4) * 0.014));
   }
+  function makeHandleTexture(index, first) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 128;
+    const context = canvas.getContext('2d');
+    context.beginPath();
+    context.arc(64, 64, 55, 0, Math.PI * 2);
+    context.fillStyle = first ? '#22a06b' : '#0878c9';
+    context.fill();
+    context.lineWidth = 8;
+    context.strokeStyle = 'rgba(255,255,255,.95)';
+    context.stroke();
+    context.fillStyle = '#12313d';
+    context.font = '800 42px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(vertexLabel(index), 64, 66);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
   function makeHandle(x, z, index, first = false) {
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(handleSize(), 18, 12),
-      new THREE.MeshStandardMaterial({
-        color: first ? '#22a06b' : '#0878c9',
-        roughness: 0.45,
-        metalness: 0.05,
-        depthTest: false,
-      }),
-    );
-    mesh.position.set(x, 0.16, z);
-    mesh.renderOrder = 20;
-    mesh.userData.areaPoint = index;
-    return mesh;
+    // Sprites always face the camera. Their world scale is updated every frame from
+    // camera-space depth so every visible marker is exactly 34 CSS px on screen.
+    const group = new THREE.Group(),
+      disc = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: makeHandleTexture(index, first),
+          transparent: true,
+          depthTest: false,
+          depthWrite: false,
+          sizeAttenuation: true,
+        }),
+      ),
+      hitTarget = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          transparent: true,
+          opacity: 0,
+          depthTest: false,
+          depthWrite: false,
+          sizeAttenuation: true,
+        }),
+      );
+    // Bottom-anchor the marker to the actual ground point. The invisible hit sprite
+    // is larger for easy dragging, but both keep a fixed screen-space diameter.
+    disc.center.set(0.5, 0.06);
+    hitTarget.center.set(0.5, 0.06);
+    disc.scale.setScalar(0.001);
+    hitTarget.scale.setScalar(0.001);
+    disc.renderOrder = 20;
+    hitTarget.renderOrder = 20;
+    disc.userData.areaPoint = index;
+    disc.userData.handlePixels = HANDLE_DIAMETER_PX;
+    hitTarget.userData.areaPoint = index;
+    hitTarget.userData.handlePixels = HANDLE_HIT_DIAMETER_PX;
+    group.userData.areaPoint = index;
+    group.position.set(x, GROUND_Y + 0.004, z);
+    group.add(hitTarget, disc);
+    return group;
+  }
+  const handleWorldPosition = new THREE.Vector3(),
+    handleCameraPosition = new THREE.Vector3();
+  function updateHandleScreenSizes(container) {
+    if (!container?.visible || !host.clientHeight) return;
+    camera.updateMatrixWorld(true);
+    const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2),
+      viewportHeight = Math.max(1, host.clientHeight);
+    container.traverse((object) => {
+      const pixels = object.userData?.handlePixels;
+      if (!pixels || !object.isSprite) return;
+      object.getWorldPosition(handleWorldPosition);
+      handleCameraPosition.copy(handleWorldPosition).applyMatrix4(camera.matrixWorldInverse);
+      const depth = -handleCameraPosition.z;
+      if (depth <= camera.near) return;
+      const worldUnitsPerPixel = (2 * depth * tanHalfFov) / viewportHeight,
+        size = pixels * worldUnitsPerPixel;
+      object.scale.set(size, size, 1);
+    });
   }
   function drawAreaHandles() {
     clearOverlay(areaHandles);
@@ -548,7 +660,7 @@ export function createViewer(host, callbacks = {}) {
     if (world.length > 1) {
       const linePoints = world.length >= 3 ? [...world, world[0]] : world;
       const geometry = new THREE.BufferGeometry().setFromPoints(
-        linePoints.map((p) => new THREE.Vector3(p.x, 0.145, p.z)),
+        linePoints.map((p) => new THREE.Vector3(p.x, GROUND_Y + 0.008, p.z)),
       );
       const line = new THREE.Line(
         geometry,
@@ -575,18 +687,18 @@ export function createViewer(host, callbacks = {}) {
     bounds = nextBounds;
     clear(group);
     clear(dimensions);
+    // The surrounding ground is only a thin plane, so true below-ground paving
+    // geometry stays visually exposed at the perimeter. Render the paving itself
+    // as a near-zero-thickness top surface at ground level, and keep the curbs as
+    // full 3D elements that protrude above the ground.
     const t = TILES[s.tile],
-      base = new THREE.Mesh(
-        prism(bounds.points, 0.13, -0.13),
-        new THREE.MeshStandardMaterial({ color: '#877b69', roughness: 1 }),
-      );
-    base.receiveShadow = true;
-    group.add(base);
+      pavementBaseY = GROUND_Y - t.thickness;
     drawPieces(
       parts.filter((p) => !p.fragments),
       t.thickness,
       (p) => (p.accent ? s.accent : s.color),
-      0,
+      pavementBaseY,
+      { topOnly: true },
     );
     const cuts = [];
     parts.forEach((p) => {
@@ -619,14 +731,18 @@ export function createViewer(host, callbacks = {}) {
         cuts.push({ polygon, color: p.accent ? s.accent : s.color, stone: p });
       }
     });
-    drawPolygons(cuts, t.thickness, 0);
+    drawPolygons(cuts, t.thickness, pavementBaseY, { topOnly: true });
     const curb = CURBS[s.curb],
-      curbs = curbLayout(s);
+      curbs = curbLayout(s),
+      visibleCurbHeight = Math.min(CURB_EXPOSED_HEIGHT, curb.height);
+    // The uploaded photo is only a 2D backdrop, so it cannot occlude the buried
+    // part of a curb. Render only the curb portion that is actually above ground.
+    // The model/BOM can still keep the curb's full physical height.
     drawPieces(
       curbs.filter((p) => !p.polygon && !p.fragments),
-      curb.height,
+      visibleCurbHeight,
       () => s.curbColor,
-      t.thickness + 0.035 - curb.height,
+      GROUND_Y,
     );
     drawPolygons(
       curbs
@@ -645,13 +761,13 @@ export function createViewer(host, callbacks = {}) {
             stone: p.stone,
           };
         }),
-      curb.height,
-      t.thickness + 0.035 - curb.height,
+      visibleCurbHeight,
+      GROUND_Y,
     );
     if (s.houseEnabled) {
       const house = houseGeometry(s);
       const walls = new THREE.Mesh(
-        prism(house.outline, s.houseHeight, t.thickness),
+        prism(house.outline, s.houseHeight, GROUND_Y),
         new THREE.MeshStandardMaterial({ color: '#e5ded0', roughness: 0.9 }),
       );
       walls.userData.house = true;
@@ -659,7 +775,7 @@ export function createViewer(host, callbacks = {}) {
       walls.receiveShadow = true;
       group.add(walls);
       const roof = new THREE.Mesh(
-        prism(house.outline, 0.12, t.thickness + s.houseHeight),
+        prism(house.outline, 0.12, GROUND_Y + s.houseHeight),
         new THREE.MeshStandardMaterial({ color: '#4c555a', roughness: 0.85 }),
       );
       roof.userData.house = true;
@@ -678,7 +794,6 @@ export function createViewer(host, callbacks = {}) {
       centredPoints.forEach((p, i) => {
         const a = vertexLabel(i),
           b = vertexLabel((i + 1) % centredPoints.length);
-        cornerLabel(a, p.x, p.z);
         edgeDimension(
           centredPoints,
           bounds.lengths,
@@ -720,7 +835,7 @@ export function createViewer(host, callbacks = {}) {
   resize();
   const raycaster = new THREE.Raycaster(),
     pointer = new THREE.Vector2(),
-    plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
   let houseDrag = null,
     pendingHouse = null,
     houseDragFrame = 0,
@@ -772,7 +887,7 @@ export function createViewer(host, callbacks = {}) {
         ray(event);
         const handleHit = raycaster.intersectObjects(
           areaDraft.children.filter((child) => child.userData.areaPoint !== undefined),
-          false,
+          true,
         )[0];
         if (handleHit) {
           draftPointDrag = {
@@ -804,7 +919,7 @@ export function createViewer(host, callbacks = {}) {
 
       if (state?.shape === 'custom' && areaHandles.children.length) {
         ray(event);
-        const handleHit = raycaster.intersectObjects(areaHandles.children, false)[0];
+        const handleHit = raycaster.intersectObjects(areaHandles.children, true)[0];
         if (handleHit) {
           areaDrag = {
             id: event.pointerId,
@@ -962,6 +1077,8 @@ export function createViewer(host, callbacks = {}) {
   });
   renderer.setAnimationLoop(() => {
     if (controls.enabled) controls.update();
+    updateHandleScreenSizes(areaHandles);
+    updateHandleScreenSizes(areaDraft);
     renderer.render(scene, camera);
   });
   return {

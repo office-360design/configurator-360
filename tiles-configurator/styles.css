@@ -247,6 +247,7 @@ a {
 }
 .view-actions {
   position: absolute;
+  z-index: 2;
   bottom: 24px;
   left: 26px;
   display: flex;

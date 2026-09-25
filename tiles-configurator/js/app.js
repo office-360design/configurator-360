@@ -51,9 +51,11 @@ const history = new SharedUndoManager({
 const PHOTO_FLOW_COPY = {
   en: {
     stepUpload: '1 · Add a site photo',
-    uploadTitle: 'Start with a photo of the yard',
+    uploadTitle: 'Start with a photo of your yard',
     uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. The photo stays local to this browser session.',
     upload: 'Choose yard photo',
+    sampleLabel: 'Or choose a sample yard',
+    sampleAlt: 'Sample yard',
     stepCalibrate: '2 · Set the scale and perspective',
     calibrateTitle: 'Match the 1 m reference square',
     calibrateHelp: 'Drag all four blue corners so the 1 m × 1 m square follows the perspective of a one-metre square on the ground. This sets scale and camera angle.',
@@ -75,6 +77,8 @@ const PHOTO_FLOW_COPY = {
     uploadTitle: 'Începe cu o fotografie a curții',
     uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Fotografia rămâne doar în această sesiune din browser.',
     upload: 'Alege fotografia curții',
+    sampleLabel: 'Sau alege o curte exemplu',
+    sampleAlt: 'Curte exemplu',
     stepCalibrate: '2 · Setează scara și perspectiva',
     calibrateTitle: 'Potrivește pătratul de referință de 1 m',
     calibrateHelp: 'Trage toate cele patru colțuri albastre astfel încât pătratul de 1 m × 1 m să urmărească perspectiva unui pătrat de un metru de pe sol. Astfel se stabilesc scara și unghiul camerei.',
@@ -96,9 +100,11 @@ const PHOTO_FLOW_COPY = {
     uploadTitle: 'Mit einem Foto des Hofs beginnen',
     uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Das Foto bleibt nur in dieser Browser-Sitzung.',
     upload: 'Hoffoto auswählen',
+    sampleLabel: 'Oder einen Beispielhof auswählen',
+    sampleAlt: 'Beispielhof',
     stepCalibrate: '2 · Maßstab und Perspektive',
     calibrateTitle: '1-m-Referenzquadrat ausrichten',
-    calibrateHelp: 'Alle vier blauen Ecken so ziehen, dass das 1 m × 1 m Quadrat der Perspektive eines ein Meter großen Quadrats auf dem Boden folgt. Dadurch werden Maßstab und Kamerawinkel gesetzt.',
+    calibrateHelp: 'Alle vier blauen Ecken so ziehen, dass das 1 m × 1 m Quadrat der Perspective eines ein Meter großen Quadrats auf dem Boden folgt. Dadurch werden Maßstab und Kamerawinkel gesetzt.',
     calibrate: 'Dieses 1-m-Quadrat verwenden',
     changePhoto: 'Anderes Foto auswählen',
     stepDraw: '3 · Pflasterfläche zeichnen',
@@ -120,18 +126,28 @@ function installPhotoFlowShell() {
     canvasHost = $('canvasHost');
   if (!viewerElement || !canvasHost || $('photoFlow')) return;
   document.body.classList.add('tiles-photo-setup');
+  const sampleYards = Array.from({ length: 9 }, (_, index) => ({
+    id: index + 1,
+    src: new URL(`../assets/sample-yards/${index + 1}.jpg`, import.meta.url).href,
+  }));
   const flow = document.createElement('div');
   flow.id = 'photoFlow';
   flow.className = 'photo-flow is-upload';
   flow.innerHTML = `
     <div class="photo-flow-card">
       <p id="photoFlowStep" class="photo-flow-step">1 · Add a site photo</p>
-      <h2 id="photoFlowTitle">Start with a photo of the yard</h2>
+      <h2 id="photoFlowTitle">Start with a photo of your yard</h2>
       <p id="photoFlowHelp">Use a clear photo that shows the ground where the pavement will go.</p>
       <label id="photoUploadAction" class="photo-primary photo-upload-action">
         <span id="photoUploadText">Choose yard photo</span>
         <input id="sitePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
       </label>
+      <div id="sampleYardsSection" class="sample-yards">
+        <p id="sampleYardsLabel" class="sample-yards-label">Or choose a sample yard</p>
+        <div id="sampleYardsGrid" class="sample-yards-grid">
+          ${sampleYards.map((sample) => `<button type="button" class="sample-yard-card" data-sample-yard="${sample.id}" data-sample-src="${sample.src}"><img src="${sample.src}" alt="" loading="lazy"><span>${sample.id}</span></button>`).join('')}
+        </div>
+      </div>
       <div id="photoCalibrationActions" class="photo-flow-actions" hidden>
         <button id="photoCalibrationConfirm" type="button" class="photo-primary"></button>
         <button id="photoChangeCalibration" type="button" class="photo-secondary"></button>
@@ -185,6 +201,16 @@ function installPhotoFlowShell() {
     .photo-secondary{border:1px solid #bdcbd3;background:#fff;color:#25333c}
     body.dark .photo-secondary{background:#35424a;color:#e4ebef;border-color:#52626c}
     .photo-upload-action{width:100%}
+    .sample-yards{margin-top:16px}
+    .sample-yards-label{margin:0 0 9px!important;color:#5d6b73;font-size:12px;font-weight:700;text-align:center}
+    body.dark .sample-yards-label{color:#c2ccd2}
+    .sample-yards-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:8px}
+    .sample-yard-card{position:relative;display:block;overflow:hidden;width:100%;aspect-ratio:3/2;padding:0;border:1px solid rgba(37,51,60,.16);border-radius:9px;background:#eef2f4;cursor:pointer}
+    .sample-yard-card img{display:block;width:100%;height:100%;object-fit:cover}
+    .sample-yard-card span{position:absolute;right:6px;bottom:6px;display:flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.92);color:#25333c;font-size:11px;font-weight:800;box-shadow:0 1px 5px rgba(0,0,0,.18)}
+    .sample-yard-card:hover,.sample-yard-card:focus-visible{border-color:#0878c9;outline:2px solid rgba(8,120,201,.22);outline-offset:1px}
+    body.dark .sample-yard-card{border-color:rgba(255,255,255,.18);background:#35424a}
+    @media(max-width:420px){.sample-yards-grid{gap:6px}}
     .photo-flow-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
     .photo-flow-actions .photo-full{grid-column:1/-1}
     .photo-flow-error{margin:12px 0 0;color:#a13f20;font-size:12px;line-height:1.45}
@@ -220,7 +246,7 @@ installDirectionSlider();
 const AREA_EDITOR_COPY = {
   en: {
     draw: 'Draw area in 3D',
-    redraw: 'Redraw area in 3D',
+    redraw : 'Redraw area in 3D',
     undo: 'Undo point',
     finish: 'Finish area',
     cancel: 'Cancel',
@@ -234,11 +260,11 @@ const AREA_EDITOR_COPY = {
   },
   ro: {
     draw: 'Desenează suprafața în 3D',
-    redraw: 'Redesenează suprafața în 3D',
+    redraw : 'Redesenează suprafați în 3D',
     undo: 'Anulează punctul',
-    finish: 'Finalizează suprafața',
+    finish: 'Finalizează suprafaŢa',
     cancel: 'Anulează',
-    help: 'Creează orice contur direct în scena 3D. Rotirea și zoom-ul camerei rămân disponibile, iar fiecare colț poate fi mutat prin tragere în orice moment.',
+    help: 'Creează orice contur direct în scena 3D. Rotirea și zoom-ul camerei rămân disponibil, iar fiecare colț poate fi mutat prin tragere în orice moment.',
     drawing: 'Apasă pe sol pentru a adăuga colțuri. Trage pe spațiul liber pentru a roti camera, folosește comenzile normale de zoom/deplasare și trage orice colț pentru a-l muta. Apasă pe primul colț verde pentru închidere sau folosește Finalizează. Folosește Anulează punctul pentru a șterge ultimul colț.',
     freeform: 'Contur liber',
     status: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} adăugate · maximum 64`,
@@ -531,6 +557,7 @@ function renderPhotoFlow() {
   flow.hidden = photoFlowStep === 'done';
   flow.classList.toggle('is-upload', photoFlowStep === 'upload');
   $('photoUploadAction').hidden = photoFlowStep !== 'upload';
+  $('sampleYardsSection').hidden = photoFlowStep !== 'upload';
   $('photoCalibrationActions').hidden = photoFlowStep !== 'calibrate';
   $('photoDrawingActions').hidden = photoFlowStep !== 'draw';
   if (photoFlowStep === 'upload') {
@@ -547,6 +574,10 @@ function renderPhotoFlow() {
     $('photoFlowHelp').textContent = `${copy.drawHelp} ${areaText().status(draftAreaPoints.length)}`;
   }
   $('photoUploadText').textContent = copy.upload;
+  $('sampleYardsLabel').textContent = copy.sampleLabel;
+  document.querySelectorAll('.sample-yard-card img').forEach((image, index) => {
+    image.alt = `${copy.sampleAlt} ${index + 1}`;
+  });
   $('photoCalibrationConfirm').textContent = copy.calibrate;
   $('photoChangeCalibration').textContent = copy.changePhoto;
   $('photoUndoPoint').textContent = copy.undo;
@@ -567,22 +598,18 @@ function resetCalibrationCorners() {
   ];
 }
 
-async function loadPhotoFile(file) {
-  if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type || '')) {
-    showPhotoFlowError(photoText().photoOnly);
-    return false;
-  }
-  if (!viewer) return false;
+async function loadPhotoSource(source, { objectUrl = false } = {}) {
+  if (!viewer || !source) return false;
   if (drawingArea) {
     drawingArea = false;
     draftAreaPoints = [];
     viewer.stopAreaDrawing();
   }
   if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
-  photoObjectUrl = URL.createObjectURL(file);
+  photoObjectUrl = objectUrl ? source : null;
   showPhotoFlowError('');
   try {
-    await viewer.loadSitePhoto(photoObjectUrl);
+    await viewer.loadSitePhoto(source);
     resetCalibrationCorners();
     photoRectCache = viewer.getPhotoRect();
     photoFlowStep = 'calibrate';
@@ -590,9 +617,21 @@ async function loadPhotoFile(file) {
     renderPhotoFlow();
     return true;
   } catch {
+    if (objectUrl && photoObjectUrl === source) {
+      URL.revokeObjectURL(photoObjectUrl);
+      photoObjectUrl = null;
+    }
     showPhotoFlowError(photoText().photoFailed);
     return false;
   }
+}
+
+async function loadPhotoFile(file) {
+  if (!file || !/^image\/(jpeg|png|webp)$/i.test(file.type || '')) {
+    showPhotoFlowError(photoText().photoOnly);
+    return false;
+  }
+  return loadPhotoSource(URL.createObjectURL(file), { objectUrl: true });
 }
 
 function beginPhotoAreaDrawing() {
@@ -624,6 +663,11 @@ function wirePhotoFlow() {
     window.__TILES_PENDING_PHOTO_FILE = null;
     if (file) loadPhotoFile(file);
     input.value = '';
+  });
+  $('sampleYardsGrid')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-sample-src]');
+    if (!button || photoFlowStep !== 'upload') return;
+    loadPhotoSource(button.dataset.sampleSrc);
   });
   $('photoCalibrationConfirm').addEventListener('click', beginPhotoAreaDrawing);
   for (const id of ['photoChangeCalibration', 'photoChangeDrawing'])
