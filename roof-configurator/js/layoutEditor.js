@@ -3,9 +3,9 @@ import {
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout, insertPoint,
   layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-10';
+} from './roofLayout.js?v=layout-11';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-10';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-11';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attributes) {
@@ -21,6 +21,13 @@ export class RoofLayoutEditor {
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'roof-layout-dialog';
     this.dialog.setAttribute('aria-labelledby', 'layoutTitle');
+    let helpId = 0;
+    const help = (label, text) => {
+      const id = `layoutHelp${++helpId}`;
+      return `<span class="layout-help-wrap"><button type="button" class="layout-info"
+        aria-label="${label} help" popovertarget="${id}">i</button>
+        <span id="${id}" popover class="layout-tip">${text}</span></span>`;
+    };
     this.dialog.innerHTML = `
       <header><div><small>ROOF DESIGN STUDIO</small><h2 id="layoutTitle">Draw your roof</h2></div>
         <button type="button" data-action="cancel" aria-label="Close layout editor">×</button></header>
@@ -35,67 +42,98 @@ export class RoofLayoutEditor {
         <button type="button" data-action="cycleCopy">Next copy</button>
         <button type="button" data-action="delete">Delete selected</button>
         <button type="button" data-action="finish">Close perimeter</button>
-        <button type="button" data-action="undo">Undo</button>
-        <button type="button" data-action="redo">Redo</button>
-        <button type="button" data-action="fit">Fit</button>
-        <button type="button" data-action="zoomIn" aria-label="Zoom in">+</button>
-        <button type="button" data-action="zoomOut" aria-label="Zoom out">−</button>
       </div>
       <div class="layout-workspace">
-        <div class="layout-drawing"><svg tabindex="0" aria-label="Roof plan drawing canvas" role="application"></svg></div>
-        <aside>
-          <p class="layout-help"></p>
-          <fieldset class="layout-meet" hidden><legend>Meet roof slope</legend>
+        <div class="layout-drawing">
+          <svg tabindex="0" aria-label="Roof plan drawing canvas" role="application"></svg>
+          <div class="layout-canvas-controls layout-history" role="group" aria-label="History">
+            <button type="button" data-action="undo" title="Undo (Ctrl/⌘ Z)"><span aria-hidden="true">↶</span> Undo</button>
+            <button type="button" data-action="redo" title="Redo (Ctrl/⌘ Shift Z)"><span aria-hidden="true">↷</span> Redo</button>
+          </div>
+          <div class="layout-canvas-controls layout-zoom" role="group" aria-label="View controls">
+            <button type="button" data-action="zoomOut" aria-label="Zoom out" title="Zoom out">−</button>
+            <button type="button" data-action="zoomIn" aria-label="Zoom in" title="Zoom in">+</button>
+            <button type="button" data-action="fit" title="Fit roof in view">Fit</button>
+          </div>
+          <div class="layout-mode-hint"><span id="layoutModeLabel">Select / move</span>
+            ${help('Drawing tools', '<span class="layout-help"></span>')}</div>
+        </div>
+        <aside aria-label="Roof properties">
+          <div class="layout-panel-heading">Roof properties
+            ${help('Coordinates', 'All coordinates are in metres. Heights are measured above the wall top. Drag points to move them; Shift-drag changes height.')}</div>
+          <fieldset class="layout-meet" hidden><legend>Meet roof slope ${help('Meet roof slope', "Keep position adjusts height. Keep height moves the point along a connected edge. The target’s other points stay fixed. Split copies share X/Z; the selected copy and target copy reconnect at the meeting height.")}</legend>
             <label>Target slope<select id="meetTarget"></select></label>
             <button type="button" data-action="pickTarget">Pick slope on plan</button>
             <label>Alignment<select id="meetMode"><option value="position">Keep position</option>
               <option value="height">Keep height</option></select></label>
-            <p>Keep position adjusts height. Keep height moves the point along a connected edge.</p>
             <div id="meetHeightControls" hidden>
               <label>Height above wall (m)<input id="meetHeight" type="number" min="0" max="30" step="any"></label>
               <label>Edge direction<select id="meetDirection"></select></label>
               <button type="button" data-action="pickDirection">Pick connected edge</button>
             </div>
-            <p>The target's other points stay fixed. Moving split copies share X/Z; the selected copy and target copy reconnect at the meeting height.</p>
             <output id="meetResult" aria-live="polite"></output>
             <svg id="meetPreview" role="img" aria-label="3D alignment preview" hidden></svg>
             <button type="button" data-action="applyMeet" disabled>Apply alignment</button>
             <button type="button" data-action="cancelMeet">Cancel alignment</button>
           </fieldset>
-          <label>Grid snap (metres)<select id="layoutSnap">
+          <div class="layout-select-row"><label>Grid snap<select id="layoutSnap">
             <option value="0.1">0.10 m</option><option value="0.25" selected>0.25 m</option>
             <option value="0.5">0.50 m</option><option value="1">1.00 m</option>
           </select></label>
-          <p>All editor coordinates are in <strong>metres</strong>. Height is measured above the wall top.</p>
-          <label>Point<select id="layoutPointSelect"><option value="">Select a point</option></select></label>
+          <label>Point<select id="layoutPointSelect"><option value="">Select a point</option></select></label></div>
           <fieldset class="layout-point"><legend>Selected point <span id="layoutPointName">—</span></legend>
-            <label>X (m)<input id="layoutX" type="number" min="-100" max="100" step="any"></label>
+            <div class="layout-coordinate-row"><label>X (m)<input id="layoutX" type="number" min="-100" max="100" step="any"></label>
             <label>Z (m)<input id="layoutZ" type="number" min="-100" max="100" step="any"></label>
-            <label>Height above wall (m)<input id="layoutH" type="number" min="0" max="30" step="any"></label>
+            <label>Height (m)<input id="layoutH" type="number" min="0" max="30" step="any"></label></div>
             <button type="button" data-action="point">Update point</button>
           </fieldset>
-          <fieldset class="layout-detach"><legend>Split in place</legend>
-            <p>Choose the adjoining surfaces to detach. Copies share their plan position but have independent heights. A wall closes any height difference. Join in place reconnects all copies of the selected point or edge endpoints, keeping the selected heights.</p>
+          <fieldset class="layout-detach"><legend>Connected surfaces
+            ${help('Split and join', 'Choose adjoining surfaces to detach, then use Split in place. Copies share position but have independent heights. Join in place reconnects copies using the selected heights. Next copy cycles coincident points or edges.')}</legend>
             <div id="layoutSplitFaces"></div>
             <output id="layoutCopyInfo"></output>
           </fieldset>
-          <label>Starter pitch (degrees)<input id="layoutPitch" type="number" min="5" max="60" step="any" value="30"></label>
+          <details class="layout-setup"><summary>Roof setup &amp; examples</summary>
+          <label>Starter pitch (degrees) ${help('Starter pitch', 'New perimeters start with two slopes. Generate pitched roof replaces all current divisions and heights. Undo restores them.')}<input id="layoutPitch" type="number" min="5" max="60" step="any" value="30"></label>
           <button type="button" data-action="pitch">Generate pitched roof</button>
-          <p>New perimeters start with two slopes. Generate pitched roof replaces the current divisions and heights; Undo restores them.</p>
           <label>Example<select id="layoutExample"><option value="gable">Two slopes</option>
             <option value="hip">Hip roof</option><option value="lshape">L-shaped roof</option>
             <option value="saw">Consecutive slopes</option></select></label>
           <button type="button" data-action="example">Load example</button>
-          <output class="layout-summary"></output>
-          <p>Draw the outer roof edge. The Eaves overhang control sets the walls back beneath it; zero places walls at the roof edge. Non-planar surfaces are divided into triangular slopes; dashed lines show these divisions.</p>
-          <p>Layout mode does not yet calculate flashings, gutters or a price estimate.</p>
+          </details>
+          <div class="layout-panel-heading layout-totals"><output class="layout-summary"></output>
+            ${help('Roof layout', 'Draw the outer roof edge. Eaves overhang sets the walls back beneath it. Non-planar surfaces are triangulated; dashed lines show those divisions. Layout mode does not yet calculate flashings, gutters or a price estimate.')}</div>
         </aside>
       </div>
       <footer><div role="status" aria-live="polite" class="layout-status"></div>
         <button type="button" data-action="abort">Cancel drawing</button>
         <button type="button" data-action="cancel">Cancel</button>
         <button type="button" data-action="apply" class="layout-primary">Apply roof</button></footer>`;
+    const icons = { select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
+      splitPlace: '⇉', joinPlace: '⋈', cycleCopy: '⇄', delete: '×', finish: '✓' };
+    this.dialog.querySelectorAll('.layout-toolbar button').forEach(button => {
+      const icon = document.createElement('span');
+      icon.className = 'layout-tool-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = icons[button.dataset.action];
+      button.prepend(icon);
+    });
     document.body.appendChild(this.dialog);
+    this.dialog.querySelectorAll('.layout-info').forEach(button => {
+      const tip = this.dialog.querySelector(`#${button.getAttribute('popovertarget')}`);
+      const show = () => {
+        tip.showPopover();
+        const rect = button.getBoundingClientRect();
+        tip.style.left = `${Math.max(8, Math.min(rect.right - tip.offsetWidth, innerWidth - tip.offsetWidth - 8))}px`;
+        tip.style.top = `${Math.max(8, Math.min(rect.bottom + 8, innerHeight - tip.offsetHeight - 8))}px`;
+      };
+      button.addEventListener('click', event => { event.preventDefault(); show(); });
+      button.addEventListener('mouseenter', show);
+      button.addEventListener('mouseleave', () => { if (document.activeElement !== button) tip.hidePopover(); });
+      button.addEventListener('focus', show);
+      button.addEventListener('blur', () => tip.hidePopover());
+      // Click also positions the native popover for touch users.
+      tip.addEventListener('toggle', () => { if (tip.matches(':popover-open')) show(); });
+    });
     this.svg = this.dialog.querySelector('svg');
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       button.addEventListener('click', () => this.action(button.dataset.action));
@@ -633,7 +671,9 @@ export class RoofLayoutEditor {
       insert: 'Click an existing edge to add a shared point. Then set its height or coordinates.',
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
+    this.dialog.querySelector('#layoutModeLabel').textContent = { select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
     const incident = selectionSurfaces(this.layout, this.selectionIds());
+    this.dialog.querySelector('.layout-detach').hidden = incident.length < 2 && this.selectionCopies().length < 2;
     const splitFaces = this.dialog.querySelector('#layoutSplitFaces');
     splitFaces.replaceChildren();
     incident.forEach((index, i) => {
@@ -670,6 +710,8 @@ export class RoofLayoutEditor {
         !this.selectionIds().some(id => linkedPlanPoints(this.layout, id).length > 1);
       if (action === 'cycleCopy') button.disabled = this.mode !== 'select' || copies.length < 2;
       if (action === 'delete') button.disabled = this.mode !== 'select' || (this.selected === null && !this.selectedEdge);
+      if (action === 'finish') button.hidden = this.mode !== 'draw';
+      if (action === 'abort') button.hidden = !this.path.length;
       if (action === 'finish') button.disabled = this.mode !== 'draw' || this.path.length < 3;
       if (action === 'undo') button.disabled = !this.history.length && !this.path.length;
       if (action === 'redo') button.disabled = !this.future.length || !!this.path.length;
