@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   await page.route('**/editor-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/layout-editor.css"><body></body>' }));
   await page.goto('http://127.0.0.1:8080/editor-fixture');
   await page.evaluate(async () => {
-    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-16');
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-17');
     window.editor = new RoofLayoutEditor({ pitch: 30 }, () => {});
     window.editor.open();
   });
@@ -135,6 +135,21 @@ const assert = require('node:assert/strict');
   assert.ok(label.x - (icon.x + icon.width) >= 6);
   await page.screenshot({ path: '/tmp/roof-surface-letters.png' });
 
+
+  await page.locator('[data-action="cancel"]').last().click();
+  for (const roofType of ['gable', 'shed', 'hip', 'lshape', 'dormer']) {
+    await page.evaluate(type => {
+      Object.assign(window.editor.state, { roofType: type, length: 10, depth: 7, pitch: 30, overhang: 0.45, wallHeight: 3 });
+      window.editor.open();
+    }, roofType);
+    assert.ok(await page.locator('.layout-surface-label').count() > 0);
+    await page.locator('[data-action="cancel"]').last().click();
+    assert.equal(await page.evaluate(() => window.editor.state.roofType), roofType);
+  }
+  await page.evaluate(() => { window.editor.state.roofType = 'shed'; window.editor.open(); });
+  await action('apply').click();
+  assert.equal(await page.evaluate(() => window.editor.state.roofType), 'layout');
+  assert.equal(await page.evaluate(() => window.editor.state.roofLayout.faces.length), 1);
   assert.deepEqual(errors, []);
   await browser.close();
   console.log('PASS editor desktop/mobile layout, zoom, history, help and examples');

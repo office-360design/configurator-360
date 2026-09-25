@@ -169,3 +169,5 @@
 .layout-overlays { top: 66px; right: 12px; }
 .layout-slope-arrow { fill: none; stroke: #0f4f78; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; filter: drop-shadow(0 0 2px white); }
 @media (max-width: 680px) { .layout-overlays { right: 8px; top: 62px; } }
+
+.roof-type-grid [data-roof-type="layout"] { grid-column: 1 / -1; }
