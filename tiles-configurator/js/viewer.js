@@ -109,7 +109,7 @@ export function createViewer(host, callbacks = {}) {
     photoCalibrationCorners = null,
     photoCalibration = null,
     photoWorldShift = { x: 0, z: 0 },
-    freeCameraPose = null,
+    preservePhotoPoseUntilInteraction = false,
     darkMode = false;
   scene.add(group, dimensions, areaHandles, areaDraft);
   const box = new THREE.BoxGeometry(1, 1, 1),
@@ -322,37 +322,28 @@ export function createViewer(host, callbacks = {}) {
       height: photoHeight,
     };
   }
-  function snapshotFreeCamera() {
-    freeCameraPose = {
-      position: camera.position.clone(),
-      quaternion: camera.quaternion.clone(),
-      target: controls.target.clone(),
-      fov: camera.fov,
-      top,
-    };
-  }
-  function restoreFreeCamera() {
-    // Photo calibration writes directly to the camera while OrbitControls is disabled.
-    // Always re-enable and update OrbitControls after restoring a free-camera pose so
-    // its internal spherical state is synchronized with the camera again.
+  function syncFreeCameraFromPhotoPose() {
+    // Keep the calibrated camera transform exactly as-is when the photo disappears.
+    // OrbitControls normally runs update() every frame and can immediately re-orient
+    // the camera to its own spherical/up-vector state, which makes the free view look
+    // slightly higher even though the same calibrated pose was just applied.
+    // Set a sensible orbit target on the current view ray, but do not let OrbitControls
+    // touch the camera until the user actually starts interacting with it.
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).normalize(),
+      groundDistance =
+        Math.abs(forward.y) > 1e-6 ? (GROUND_Y - camera.position.y) / forward.y : NaN,
+      fallbackDistance = Math.max(
+        controls.minDistance,
+        camera.position.distanceTo(controls.target),
+      ),
+      orbitDistance =
+        Number.isFinite(groundDistance) && groundDistance > controls.minDistance
+          ? groundDistance
+          : fallbackDistance;
+    controls.target.copy(camera.position).addScaledVector(forward, orbitDistance);
+    top = false;
     controls.enabled = true;
-    if (!freeCameraPose) {
-      top = false;
-      fit();
-      controls.enabled = true;
-      controls.update();
-      return;
-    }
-    camera.position.copy(freeCameraPose.position);
-    camera.quaternion.copy(freeCameraPose.quaternion);
-    camera.fov = freeCameraPose.fov;
-    camera.aspect = Math.max(1e-6, host.clientWidth / Math.max(1, host.clientHeight));
-    camera.updateProjectionMatrix();
-    camera.updateMatrixWorld(true);
-    controls.target.copy(freeCameraPose.target);
-    top = freeCameraPose.top;
-    controls.update();
-    controls.enabled = true;
+    preservePhotoPoseUntilInteraction = true;
   }
   function applyPhotoCalibrationPose() {
     if (!photoCalibrationCorners || !photoNaturalWidth || !photoNaturalHeight) return false;
@@ -408,7 +399,7 @@ export function createViewer(host, callbacks = {}) {
     enabled = Boolean(enabled);
     if (enabled) {
       if (!photoCalibrationCorners) return false;
-      if (!photoMode && !photoSetup) snapshotFreeCamera();
+      preservePhotoPoseUntilInteraction = false;
       photoMode = true;
       updatePhotoPresentation();
       return Boolean(photoCalibration);
@@ -417,7 +408,7 @@ export function createViewer(host, callbacks = {}) {
     if (photoMode) {
       photoMode = false;
       updatePhotoPresentation();
-      restoreFreeCamera();
+      syncFreeCameraFromPhotoPose();
       // updatePhotoPresentation() is also used during drawing/setup and can change
       // the enabled state. At this point setup is complete, so free-camera mode must
       // always be interactive.
@@ -439,7 +430,6 @@ export function createViewer(host, callbacks = {}) {
       photoCalibrationCorners = null;
       photoCalibration = null;
       photoWorldShift = { x: 0, z: 0 };
-      freeCameraPose = null;
       photoNaturalWidth = 0;
       photoNaturalHeight = 0;
       photoMode = true;
@@ -828,7 +818,10 @@ export function createViewer(host, callbacks = {}) {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     if (photoMode && photoCalibrationCorners) applyPhotoCalibrationPose();
-    else if (!photoSetup) fit();
+    // Once a photo-calibrated scene exists, resizing the viewer (for example when
+    // switching modes or opening/closing UI) must not call fit(), because that would
+    // replace the calibrated free-camera pose with the generic fitted overview.
+    else if (!photoSetup && !photoCalibrationCorners) fit();
     callbacks.onPhotoRectChange?.(photoRect());
   };
   new ResizeObserver(resize).observe(host);
@@ -866,6 +859,14 @@ export function createViewer(host, callbacks = {}) {
     controls.enabled = !photoMode && !photoSetup;
     renderer.domElement.style.cursor = drawingArea ? 'crosshair' : '';
   }
+  const releasePhotoPosePreservation = () => {
+    preservePhotoPoseUntilInteraction = false;
+  };
+  renderer.domElement.addEventListener('pointerdown', releasePhotoPosePreservation, true);
+  renderer.domElement.addEventListener('wheel', releasePhotoPosePreservation, {
+    capture: true,
+    passive: true,
+  });
   renderer.domElement.addEventListener(
     'pointerdown',
     (event) => {
@@ -1076,7 +1077,7 @@ export function createViewer(host, callbacks = {}) {
     if (drawingArea) event.preventDefault();
   });
   renderer.setAnimationLoop(() => {
-    if (controls.enabled) controls.update();
+    if (controls.enabled && !preservePhotoPoseUntilInteraction) controls.update();
     updateHandleScreenSizes(areaHandles);
     updateHandleScreenSizes(areaDraft);
     renderer.render(scene, camera);
@@ -1134,6 +1135,7 @@ export function createViewer(host, callbacks = {}) {
     },
     cycleCamera() {
       if (photoMode) setPhotoView(false);
+      preservePhotoPoseUntilInteraction = false;
       top = !top;
       fit();
       return top;
