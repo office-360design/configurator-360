@@ -1,3 +1,4 @@
+import { REGION_LIMITS } from './pavingRegions.js';
 import { stoneAppearance } from './stoneAppearance.js';
 import { houseGeometry } from './house.js';
 import * as THREE from 'three';
@@ -17,7 +18,7 @@ const vertexLabel = (index) => {
   }
   return label;
 };
-const snap = (value) => Math.round(value * 20) / 20;
+const snap = (value) => Math.round(value * 1000) / 1000;
 const GROUND_Y = -0.16;
 const PAVEMENT_VISUAL_THICKNESS = 0.002;
 const HANDLE_DIAMETER_PX = 34;
@@ -101,6 +102,9 @@ export function createViewer(host, callbacks = {}) {
     showDimensions = true,
     drawingArea = false,
     draftPoints = [],
+    activeBoundaryKey = '',
+    activeVertex = 0,
+    drawingOperation = 'replace',
     preserveCameraOnNextRebuild = false,
     photoMode = false,
     photoSetup = false,
@@ -135,7 +139,10 @@ export function createViewer(host, callbacks = {}) {
   });
   function clear(g) {
     g.traverse((o) => {
-      if (o.isInstancedMesh) o.dispose();
+      if (o.isInstancedMesh) {
+        o.dispose();
+        if (o.material !== material) o.material.dispose();
+      }
       if (o.isMesh && !o.isInstancedMesh && o.geometry !== box) o.geometry.dispose();
       if (o.isLine) {
         o.geometry?.dispose?.();
@@ -178,7 +185,7 @@ export function createViewer(host, callbacks = {}) {
       ? baseY + height - renderHeight + PAVEMENT_SURFACE_OFFSET
       : baseY;
     parts.forEach((p, i) => {
-      dummy.position.set(p.x - bounds.width / 2, renderBaseY + renderHeight / 2, p.z - bounds.depth / 2);
+      dummy.position.set(p.x - bounds.centerX, renderBaseY + renderHeight / 2, p.z - bounds.centerZ);
       dummy.rotation.set(0, -THREE.MathUtils.degToRad(Number(p.rotation) || 0), 0);
       dummy.scale.set(Math.max(0.001, p.l - 0.003), renderHeight, Math.max(0.001, p.w - 0.003));
       dummy.updateMatrix();
@@ -496,16 +503,18 @@ export function createViewer(host, callbacks = {}) {
   function fit() {
     if (!state || !bounds) return;
     const size = Math.max(
-        bounds.width,
+        1, bounds.width,
         bounds.depth,
         state.houseEnabled ? state.houseHeight * 2 : 0,
       ),
       distance = (size * 1.55) / Math.min(1, camera.aspect);
-    controls.target.set(0, GROUND_Y, 0);
+    const cx = (bounds.minX + bounds.maxX) / 2 - bounds.centerX,
+      cz = (bounds.minZ + bounds.maxZ) / 2 - bounds.centerZ;
+    controls.target.set(cx, GROUND_Y, cz);
     camera.position.set(
-      top ? 0 : distance * 0.8,
+      cx + (top ? 0 : distance * 0.8),
       GROUND_Y + (top ? distance * 1.5 : distance),
-      top ? 0.001 : distance,
+      cz + (top ? 0.001 : distance),
     );
     controls.update();
   }
@@ -517,7 +526,7 @@ export function createViewer(host, callbacks = {}) {
       steps: 1,
     });
     geometry.rotateX(-Math.PI / 2);
-    geometry.translate(-bounds.width / 2, baseY, -bounds.depth / 2);
+    geometry.translate(-bounds.centerX, baseY, -bounds.centerZ);
     return geometry;
   }
   function drawPolygons(items, height, baseY, { topOnly = false } = {}) {
@@ -571,7 +580,7 @@ export function createViewer(host, callbacks = {}) {
     context.font = '800 42px sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(vertexLabel(index), 64, 66);
+    // Unlabelled handles stay legible on dense contours; the selected vertex is identified in the panel.
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
@@ -634,18 +643,40 @@ export function createViewer(host, callbacks = {}) {
       object.scale.set(size, size, 1);
     });
   }
+  function activeBoundary() {
+    return bounds?.boundaries?.find((b) => b.key === activeBoundaryKey);
+  }
   function drawAreaHandles() {
     clearOverlay(areaHandles);
-    if (photoSetup || drawingArea || !state || state.shape !== 'custom' || !bounds) return;
-    bounds.points.forEach((p, i) => {
-      areaHandles.add(makeHandle(p.x - bounds.width / 2, p.z - bounds.depth / 2, i, false));
-    });
+    if (photoSetup || drawingArea || !state || !bounds) return;
+    if (!['custom', 'regions'].includes(state.shape)) return;
+    for (const boundary of bounds.boundaries) {
+      const selected = boundary.key === activeBoundaryKey;
+      const pts = [...boundary.points, boundary.points[0]].map((p) =>
+        new THREE.Vector3(p.x - bounds.centerX, GROUND_Y + .008, p.z - bounds.centerZ));
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: boundary.hole ? '#bd542f' : '#0878c9',
+          transparent: true, opacity: selected ? .95 : .45, depthTest: false }));
+      line.renderOrder = 19;
+      areaHandles.add(line);
+      if (!selected) continue;
+      // Display a bounded sample plus neighbours of the selected vertex. Geometry
+      // keeps EVERY vertex. The numeric selector exposes vertices not shown here.
+      const n = boundary.points.length, stride = Math.max(1, Math.ceil(n / 48)), indices = new Set();
+      for (let i = 0; i < n; i += stride) indices.add(i);
+      for (let d = -3; d <= 3; d++) indices.add(((activeVertex + d) % n + n) % n);
+      for (const i of indices) {
+        const p = boundary.points[i];
+        areaHandles.add(makeHandle(p.x - bounds.centerX, p.z - bounds.centerZ, i, i === activeVertex));
+      }
+    }
+    updateHandleScreenSizes(areaHandles);
   }
   function renderDraft(points, { local = false } = {}) {
     clearOverlay(areaDraft);
     if (!points.length) return;
     const world = local
-      ? points.map((p) => ({ x: p.x - bounds.width / 2, z: p.z - bounds.depth / 2 }))
+      ? points.map((p) => ({ x: p.x - bounds.centerX, z: p.z - bounds.centerZ }))
       : points;
     if (world.length > 1) {
       const linePoints = world.length >= 3 ? [...world, world[0]] : world;
@@ -654,12 +685,17 @@ export function createViewer(host, callbacks = {}) {
       );
       const line = new THREE.Line(
         geometry,
-        new THREE.LineBasicMaterial({ color: '#0878c9', depthTest: false }),
+        new THREE.LineBasicMaterial({ color: drawingOperation === 'remove' ? '#bd542f' : '#0878c9', depthTest: false }),
       );
       line.renderOrder = 19;
       areaDraft.add(line);
     }
-    world.forEach((p, i) => areaDraft.add(makeHandle(p.x, p.z, i, i === 0)));
+    const stride = local ? Math.max(1, Math.ceil(world.length / 48)) : 1;
+    world.forEach((p, i) => {
+      if (i % stride === 0 || Math.abs(i - activeVertex) <= 3)
+        areaDraft.add(makeHandle(p.x, p.z, i, local ? i === activeVertex : i === 0));
+    });
+    updateHandleScreenSizes(areaDraft);
   }
   function updateDraftCallback() {
     callbacks.onAreaDraftChange?.(draftPoints.map((p) => ({ ...p })));
@@ -672,7 +708,8 @@ export function createViewer(host, callbacks = {}) {
   }
   function rebuild(s, parts) {
     const nextBounds = areaGeometry(s),
-      changed = !bounds || JSON.stringify(bounds.points) !== JSON.stringify(nextBounds.points);
+      changed = !bounds || JSON.stringify(bounds.regions) !== JSON.stringify(nextBounds.regions),
+      firstBuild = !bounds;
     state = s;
     bounds = nextBounds;
     clear(group);
@@ -696,9 +733,11 @@ export function createViewer(host, callbacks = {}) {
         const rotated = Math.abs((Number(p.rotation) || 0) % 180) > 1e-6;
         let polygon;
         if (p.profile) {
+          const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length,
+            cz = fragment.reduce((sum, v) => sum + v.z, 0) / fragment.length;
           polygon = fragment.map((v) => ({
-            x: p.x + (v.x - p.x) * 0.985,
-            z: p.z + (v.z - p.z) * 0.985,
+            x: cx + (v.x - cx) * 0.985,
+            z: cz + (v.z - cz) * 0.985,
           }));
         } else if (rotated) {
           const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length,
@@ -774,10 +813,18 @@ export function createViewer(host, callbacks = {}) {
       group.add(roof);
     }
     const centredPoints = bounds.points.map((p) => ({
-      x: p.x - bounds.width / 2,
-      z: p.z - bounds.depth / 2,
+      x: p.x - bounds.centerX,
+      z: p.z - bounds.centerZ,
     }));
-    if (s.shape === 'rectangle') {
+    if (s.shape === 'regions') {
+      // Two overall dimensions instead of hundreds of tiny contour labels.
+      if (bounds.area > 0) {
+        const x0 = bounds.minX - bounds.centerX, x1 = bounds.maxX - bounds.centerX,
+          z0 = bounds.minZ - bounds.centerZ, z1 = bounds.maxZ - bounds.centerZ;
+        dimensionLine({ x: x0, z: z0 }, { x: x1, z: z0 }, `${bounds.width.toFixed(2)} m`, { x: 0, z: -1 });
+        dimensionLine({ x: x1, z: z0 }, { x: x1, z: z1 }, `${bounds.depth.toFixed(2)} m`, { x: 1, z: 0 });
+      }
+    } else if (s.shape === 'rectangle') {
       edgeDimension(centredPoints, bounds.lengths, 0, `${s.length.toFixed(2)} m`);
       edgeDimension(centredPoints, bounds.lengths, 1, `${s.width.toFixed(2)} m`);
     } else
@@ -791,7 +838,7 @@ export function createViewer(host, callbacks = {}) {
           `${a}${b} · ${bounds.lengths[i].toFixed(2)} m`,
         );
       });
-    if (drawingArea) setPreviousAreaVisible(false);
+    if (drawingArea) setPreviousAreaVisible(drawingOperation !== 'replace');
     else dimensions.visible = !photoSetup && showDimensions;
     drawAreaHandles();
     if (photoMode) {
@@ -799,7 +846,7 @@ export function createViewer(host, callbacks = {}) {
       applyPhotoCalibrationPose();
     } else if (changed && !drawingArea) {
       if (preserveCameraOnNextRebuild) preserveCameraOnNextRebuild = false;
-      else fit();
+      else if (firstBuild || s.shape !== 'regions') fit();
     } else if (preserveCameraOnNextRebuild && !drawingArea) {
       preserveCameraOnNextRebuild = false;
     }
@@ -862,7 +909,7 @@ export function createViewer(host, callbacks = {}) {
   const releasePhotoPosePreservation = () => {
     preservePhotoPoseUntilInteraction = false;
   };
-  renderer.domElement.addEventListener('pointerdown', releasePhotoPosePreservation, true);
+  // Boundary drags must not release the calibrated free-camera pose.
   renderer.domElement.addEventListener('wheel', releasePhotoPosePreservation, {
     capture: true,
     passive: true,
@@ -897,7 +944,9 @@ export function createViewer(host, callbacks = {}) {
             x: event.clientX,
             y: event.clientY,
             moved: false,
+            original: { ...draftPoints[handleHit.object.userData.areaPoint] },
           };
+          preservePhotoPoseUntilInteraction = true;
           drawPointer = null;
           controls.enabled = false;
           renderer.domElement.setPointerCapture(event.pointerId);
@@ -918,15 +967,23 @@ export function createViewer(host, callbacks = {}) {
       const hit = planeHit(event);
       if (!hit) return;
 
-      if (state?.shape === 'custom' && areaHandles.children.length) {
+      if (['custom', 'regions'].includes(state?.shape) && activeBoundary() && areaHandles.children.length) {
         ray(event);
-        const handleHit = raycaster.intersectObjects(areaHandles.children, true)[0];
+        const handleHit = raycaster.intersectObjects(areaHandles.children, true)
+          .find((hit) => Number.isInteger(hit.object.userData.areaPoint));
         if (handleHit) {
           areaDrag = {
             id: event.pointerId,
             index: handleHit.object.userData.areaPoint,
-            points: bounds.points.map((p) => ({ ...p })),
+            key: activeBoundaryKey,
+            points: activeBoundary().points.map((p) => ({ ...p })),
+            startX: event.clientX, startY: event.clientY, moved: false,
+            hitX: hit.x, hitZ: hit.z,
           };
+          preservePhotoPoseUntilInteraction = true;
+          areaDrag.original = { ...areaDrag.points[areaDrag.index] };
+          activeVertex = areaDrag.index;
+          callbacks.onAreaVertexSelect?.(activeVertex);
           controls.enabled = false;
           areaHandles.visible = false;
           renderDraft(areaDrag.points, { local: true });
@@ -938,15 +995,14 @@ export function createViewer(host, callbacks = {}) {
         }
       }
 
-      if (!state?.houseEnabled) return;
+      if (!state?.houseEnabled) { releasePhotoPosePreservation(); return; }
       ray(event);
       if (
         !raycaster.intersectObjects(
           group.children.filter((o) => o.userData.house),
           false,
         ).length
-      )
-        return;
+      ) { releasePhotoPosePreservation(); return; }
       houseDrag = {
         id: event.pointerId,
         x: hit.x,
@@ -982,14 +1038,17 @@ export function createViewer(host, callbacks = {}) {
       }
       if (drawingArea && drawPointer && event.pointerId === drawPointer.id) {
         if (Math.hypot(event.clientX - drawPointer.x, event.clientY - drawPointer.y) > 5)
-          drawPointer.moved = true;
+          { drawPointer.moved = true; releasePhotoPosePreservation(); }
       }
       if (areaDrag && event.pointerId === areaDrag.id) {
         const hit = planeHit(event);
         if (!hit) return;
+        if (Math.hypot(event.clientX - areaDrag.startX, event.clientY - areaDrag.startY) > 3)
+          areaDrag.moved = true;
+        if (!areaDrag.moved) return;
         areaDrag.points[areaDrag.index] = {
-          x: snap(hit.x + bounds.width / 2),
-          z: snap(hit.z + bounds.depth / 2),
+          x: snap(areaDrag.original.x + hit.x - areaDrag.hitX),
+          z: snap(areaDrag.original.z + hit.z - areaDrag.hitZ),
         };
         renderDraft(areaDrag.points, { local: true });
         event.stopImmediatePropagation();
@@ -1011,7 +1070,11 @@ export function createViewer(host, callbacks = {}) {
   function endDrag(event) {
     if (draftPointDrag && event.pointerId === draftPointDrag.id) {
       const finishedByFirstPoint =
-        draftPointDrag.index === 0 && !draftPointDrag.moved && draftPoints.length >= 3;
+        event.type === 'pointerup' && draftPointDrag.index === 0 && !draftPointDrag.moved && draftPoints.length >= 3;
+      if (event.type !== 'pointerup') {
+        draftPoints[draftPointDrag.index] = draftPointDrag.original;
+        renderDraft(draftPoints); updateDraftCallback();
+      }
       draftPointDrag = null;
       restorePointerInteraction();
       if (renderer.domElement.hasPointerCapture(event.pointerId))
@@ -1024,20 +1087,14 @@ export function createViewer(host, callbacks = {}) {
     if (drawingArea && drawPointer && event.pointerId === drawPointer.id) {
       const candidate = drawPointer;
       drawPointer = null;
-      if (!candidate.moved) {
+      if (event.type === 'pointerup' && !candidate.moved) {
         const hit = planeHit(event);
         if (hit) {
-          if (
-            draftPoints.length >= 3 &&
-            Math.hypot(hit.x - draftPoints[0].x, hit.z - draftPoints[0].z) <=
-              handleSize() * 1.8
-          ) {
-            callbacks.onAreaFinishRequested?.();
-          } else if (draftPoints.length < 64) {
+          if (draftPoints.length < REGION_LIMITS.vertices) {
             const point = { x: snap(hit.x), z: snap(hit.z) };
             if (
               !draftPoints.length ||
-              Math.hypot(point.x - draftPoints.at(-1).x, point.z - draftPoints.at(-1).z) >= 0.1
+              Math.hypot(point.x - draftPoints.at(-1).x, point.z - draftPoints.at(-1).z) >= 0.005
             ) {
               draftPoints.push(point);
               renderDraft(draftPoints);
@@ -1049,12 +1106,14 @@ export function createViewer(host, callbacks = {}) {
       return;
     }
     if (areaDrag && event.pointerId === areaDrag.id) {
-      const points = areaDrag.points.map((p) => ({ ...p }));
+      const points = areaDrag.points.map((p) => ({ ...p })), key = areaDrag.key,
+        commit = event.type === 'pointerup' && areaDrag.moved;
       areaDrag = null;
       clearOverlay(areaDraft);
       areaHandles.visible = true;
       preserveCameraOnNextRebuild = true;
-      callbacks.onAreaPointMove?.(points);
+      if (commit) callbacks.onAreaPointMove?.(points, key);
+      else drawAreaHandles();
       restorePointerInteraction();
       if (renderer.domElement.hasPointerCapture(event.pointerId))
         renderer.domElement.releasePointerCapture(event.pointerId);
@@ -1087,7 +1146,8 @@ export function createViewer(host, callbacks = {}) {
       releaseBase();
       rebuild(s, p);
     },
-    startAreaDrawing() {
+    startAreaDrawing({ operation = 'replace' } = {}) {
+      drawingOperation = operation;
       drawingArea = true;
       draftPoints = [];
       drawPointer = null;
@@ -1095,7 +1155,7 @@ export function createViewer(host, callbacks = {}) {
       grid.visible = !photoMode;
       areaHandles.visible = false;
       clearOverlay(areaDraft);
-      setPreviousAreaVisible(false);
+      setPreviousAreaVisible(drawingOperation !== 'replace');
       controls.enabled = !photoMode && !photoSetup;
       renderer.domElement.style.cursor = 'crosshair';
       updateDraftCallback();
@@ -1121,6 +1181,12 @@ export function createViewer(host, callbacks = {}) {
       restorePointerInteraction();
       updateDraftCallback();
     },
+    setAreaSelection(key, vertex = 0) {
+      if (key === activeBoundaryKey && vertex === activeVertex) return;
+      activeBoundaryKey = key || ''; activeVertex = vertex;
+      drawAreaHandles();
+    },
+    preserveCamera() { preserveCameraOnNextRebuild = true; },
     loadSitePhoto,
     getPhotoRect: photoRect,
     applyPhotoCalibration,

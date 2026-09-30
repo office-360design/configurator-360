@@ -1,3 +1,5 @@
+import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
+import { PavingHistory } from './pavingHistory.js';
 import { mountLocationPicker } from './locationPicker.js';
 import { patternPreview } from './patternPreview.js';
 import { houseGeometry } from './house.js';
@@ -14,7 +16,6 @@ import {
 } from './model.js';
 import { translator } from './i18n.js';
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
-import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
@@ -31,6 +32,9 @@ let state = normalize(),
   top = false,
   drawingArea = false,
   draftAreaPoints = [],
+  drawingOperation = 'replace',
+  activeBoundaryKey = '',
+  activeVertex = 0,
   photoFlowStep = 'upload',
   photoObjectUrl = null,
   photoRectCache = null,
@@ -43,7 +47,7 @@ let state = normalize(),
 const money = (n) =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'RON' }).format(n);
 const f = (n) => new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n);
-const history = new SharedUndoManager({
+const history = new PavingHistory({
   capture: () => structuredClone(state),
   restore: (s) => restore(s),
 });
@@ -245,46 +249,49 @@ function installDirectionSlider() {
 installDirectionSlider();
 const AREA_EDITOR_COPY = {
   en: {
-    draw: 'Draw area in 3D',
-    redraw : 'Redraw area in 3D',
-    undo: 'Undo point',
-    finish: 'Finish area',
-    cancel: 'Cancel',
-    help: 'Create any outline directly in the 3D scene. Camera orbit/zoom stays available, and every placed corner can be dragged at any time.',
-    drawing: 'Click or tap the ground to add corners. Drag empty space to orbit the camera, use the normal zoom/pan controls, and drag any corner to reposition it. Click the green first corner to close the outline, or use Finish. Use Undo point to remove the last corner.',
-    freeform: 'Freeform outline',
-    status: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} placed · maximum 64`,
-    saved: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} · drag blue handles in the 3D view to edit`,
-    current: (count) => `${count} corners in the current area · use Draw area in 3D to replace it`,
-    invalid: 'The outline must have at least 3 corners, be at least 1 m², stay within 20 × 20 m, and must not cross itself or contain collapsed/sharp corners.',
+    draw: 'Add area', remove: 'Remove area', clear: 'Start from scratch',
+    undo: 'Undo point', finish: 'Apply area', cancel: 'Cancel',
+    undoEdit: 'Undo edit', redoEdit: 'Redo edit', boundary: 'Edit boundary', none: 'No handles',
+    region: 'Region', outer: 'Outer boundary', hole: 'Hole', vertex: 'Vertex',
+    insert: 'Insert after', delete: 'Delete vertex',
+    help: 'Add area extends or joins paving. Remove area cuts holes or splits it. Select a boundary for precise edits. New holes have no curbs until enabled below.',
+    drawing: 'Place a correction polygon on the ground. Drag corners to adjust it, then Apply. Cancel leaves the pavement unchanged. Click the first green corner to finish.',
+    freeform: 'Paving regions',
+    status: (n) => `${n} corners placed · maximum 4096`,
+    saved: (regions, holes, points) => `${regions} regions · ${holes} holes · ${points} vertices`,
+    invalid: 'Use a non-crossing outline with at least 3 distinct corners. Holes must stay strictly inside their region and must not touch another boundary.',
+    complex: 'This area is too large or detailed for the preview. Reduce its extent or number of vertices, or choose a larger tile format.',
+    dense: 'Only a sample of handles is shown on dense boundaries. Select any vertex by number; all vertices remain in the geometry.',
   },
   ro: {
-    draw: 'Desenează suprafața în 3D',
-    redraw : 'Redesenează suprafați în 3D',
-    undo: 'Anulează punctul',
-    finish: 'Finalizează suprafaŢa',
-    cancel: 'Anulează',
-    help: 'Creează orice contur direct în scena 3D. Rotirea și zoom-ul camerei rămân disponibil, iar fiecare colț poate fi mutat prin tragere în orice moment.',
-    drawing: 'Apasă pe sol pentru a adăuga colțuri. Trage pe spațiul liber pentru a roti camera, folosește comenzile normale de zoom/deplasare și trage orice colț pentru a-l muta. Apasă pe primul colț verde pentru închidere sau folosește Finalizează. Folosește Anulează punctul pentru a șterge ultimul colț.',
-    freeform: 'Contur liber',
-    status: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} adăugate · maximum 64`,
-    saved: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} · trage punctele albastre din scena 3D pentru editare`,
-    current: (count) => `${count} colțuri în suprafața actuală · folosește Desenează suprafața în 3D pentru a o înlocui`,
-    invalid: 'Conturul trebuie să aibă cel puțin 3 colțuri, minimum 1 m², să încapă în 20 × 20 m și să nu se intersecteze sau să aibă colțuri colapsate/prea ascuțite.',
+    draw: 'Adaugă suprafață', remove: 'Elimină suprafață', clear: 'Începe de la zero',
+    undo: 'Anulează punctul', finish: 'Aplică suprafața', cancel: 'Renunță',
+    undoEdit: 'Anulează editarea', redoEdit: 'Refă editarea', boundary: 'Editează conturul', none: 'Fără puncte de control',
+    region: 'Zonă', outer: 'Contur exterior', hole: 'Gol', vertex: 'Vârf',
+    insert: 'Inserează după', delete: 'Șterge vârful',
+    help: 'Adaugă suprafață extinde sau unește pavajul. Elimină suprafață creează goluri sau separă zonele. Selectează un contur pentru editare precisă. Golurile noi nu au borduri până când le activezi.',
+    drawing: 'Pune punctele poligonului de corecție pe sol. Trage colțurile pentru ajustare, apoi apasă Aplică. Renunță păstrează pavajul neschimbat. Apasă primul colț verde pentru finalizare.',
+    freeform: 'Zone de pavaj',
+    status: (n) => `${n} colțuri adăugate · maximum 4096`,
+    saved: (regions, holes, points) => `${regions} zone · ${holes} goluri · ${points} vârfuri`,
+    invalid: 'Conturul trebuie să aibă cel puțin 3 colțuri distincte și să nu se intersecteze. Golurile trebuie să rămână strict în interior, fără să atingă alt contur.',
+    complex: 'Suprafața este prea mare sau prea detaliată pentru previzualizare. Redu dimensiunile sau numărul de vârfuri ori alege dale mai mari.',
+    dense: 'Pe contururile dense se afișează doar o parte din puncte. Selectează orice vârf după număr; toate vârfurile rămân în geometrie.',
   },
   de: {
-    draw: 'Fläche in 3D zeichnen',
-    redraw: 'Fläche in 3D neu zeichnen',
-    undo: 'Punkt zurück',
-    finish: 'Fläche fertigstellen',
-    cancel: 'Abbrechen',
-    help: 'Beliebige Kontur direkt in der 3D-Szene erstellen. Kamera drehen/zoomen bleibt verfügbar und jeder gesetzte Eckpunkt kann jederzeit gezogen werden.',
-    drawing: 'Auf den Boden klicken oder tippen, um Ecken hinzuzufügen. Freien Raum ziehen, um die Kamera zu drehen, die normalen Zoom-/Pan-Steuerungen verwenden und jeden Eckpunkt ziehen, um ihn zu verschieben. Den ersten grünen Punkt anklicken oder Fertigstellen wählen. Mit Punkt zurück wird der letzte Eckpunkt entfernt.',
-    freeform: 'Freie Kontur',
-    status: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} gesetzt · maximal 64`,
-    saved: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} · blaue Punkte in 3D ziehen, um die Kontur zu bearbeiten`,
-    current: (count) => `${count} Ecken in der aktuellen Fläche · mit Fläche in 3D zeichnen ersetzen`,
-    invalid: 'Die Kontur braucht mindestens 3 Ecken und 1 m², muss innerhalb 20 × 20 m bleiben und darf sich nicht kreuzen oder eingeklappte/sehr spitze Ecken enthalten.',
+    draw: 'Fläche hinzufügen', remove: 'Fläche entfernen', clear: 'Neu beginnen',
+    undo: 'Punkt zurück', finish: 'Fläche anwenden', cancel: 'Abbrechen',
+    undoEdit: 'Bearbeitung zurück', redoEdit: 'Wiederholen', boundary: 'Kontur bearbeiten', none: 'Keine Griffe',
+    region: 'Bereich', outer: 'Außenkontur', hole: 'Aussparung', vertex: 'Eckpunkt',
+    insert: 'Danach einfügen', delete: 'Eckpunkt löschen',
+    help: 'Hinzufügen erweitert oder verbindet Pflasterflächen. Entfernen erzeugt Aussparungen oder trennt Bereiche. Eine Kontur für genaue Änderungen wählen. Neue Aussparungen haben zunächst keine Randsteine.',
+    drawing: 'Ecken des Korrekturpolygons auf dem Boden setzen und durch Ziehen anpassen. Anwenden bestätigt die Änderung. Abbrechen lässt das Pflaster unverändert. Zum Abschluss den ersten grünen Punkt anklicken.',
+    freeform: 'Pflasterbereiche',
+    status: (n) => `${n} Ecken gesetzt · maximal 4096`,
+    saved: (regions, holes, points) => `${regions} Bereiche · ${holes} Aussparungen · ${points} Eckpunkte`,
+    invalid: 'Die Kontur benötigt mindestens 3 verschiedene Ecken und darf sich nicht kreuzen. Aussparungen müssen vollständig innen liegen und dürfen keine andere Kontur berühren.',
+    complex: 'Die Fläche ist zu groß oder zu detailliert. Ausdehnung oder Eckpunktzahl reduzieren oder größere Pflastersteine wählen.',
+    dense: 'Bei dichten Konturen werden nur einige Griffe angezeigt. Jeden Eckpunkt über seine Nummer auswählen; die Geometrie behält alle Eckpunkte.',
   },
 };
 const vertexLabel = (index) => {
@@ -307,20 +314,44 @@ function installAreaEditor() {
     <p id="areaDrawHelp" class="note"></p>
     <div class="area-draw-actions">
       <button id="drawArea" class="export" type="button"></button>
+      <button id="removeArea" class="area-secondary" type="button"></button>
+      <button id="clearPaving" class="area-secondary area-wide" type="button"></button>
+      <button id="undoPaving" class="area-secondary" type="button"></button>
+      <button id="redoPaving" class="area-secondary" type="button"></button>
       <button id="undoAreaPoint" class="area-secondary" type="button" hidden></button>
       <button id="finishArea" class="export" type="button" hidden></button>
-      <button id="cancelArea" class="area-secondary" type="button" hidden></button>
+      <button id="cancelArea" class="area-secondary area-wide" type="button" hidden></button>
+    </div>
+    <div id="boundaryTools">
+      <label for="boundarySelect" id="boundarySelectLabel"></label>
+      <select id="boundarySelect"></select>
+      <div id="boundaryVertexTools" hidden>
+        <label for="boundaryVertex" id="boundaryVertexLabel"></label>
+        <input id="boundaryVertex" type="number" min="1" step="1" value="1">
+        <span id="boundaryVertexCount" class="note"></span>
+        <div class="area-draw-actions">
+          <button id="insertAreaVertex" class="area-secondary" type="button"></button>
+          <button id="deleteAreaVertex" class="area-secondary" type="button"></button>
+        </div>
+        <p id="denseBoundaryHelp" class="note" hidden></p>
+      </div>
     </div>
     <p id="areaDrawStatus" class="note" role="status" aria-live="polite"></p>
     <svg id="areaPlan" viewBox="0 0 300 170" role="img" aria-label="Area outline"></svg>`;
   const style = document.createElement('style');
   style.textContent = `
     .area-draw-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
-    .area-draw-actions #drawArea{grid-column:1/-1}
-    .area-draw-actions .export,.area-draw-actions .area-secondary{width:100%;min-height:40px}
-    .area-secondary{padding:10px;border:1px solid #bccbd5;border-radius:8px;background:#fff;color:inherit;font-weight:650}
+    .area-draw-actions .area-wide{grid-column:1/-1}
+    .area-draw-actions button{width:100%;min-height:40px;white-space:normal}
+    .area-secondary{padding:10px;border:1px solid #bccbd5;border-radius:8px;background:#fff;color:inherit;font-weight:650;cursor:pointer}
+    .area-draw-actions button:disabled{opacity:.5;cursor:default}
     body.dark .area-secondary{background:#35424a;border-color:#52626c;color:#e4ebef}
+    #boundaryTools select{width:100%;margin:6px 0 10px;min-height:38px}
+    #boundaryVertex{width:90px;margin:6px 8px;min-height:36px}
+    #boundaryTools label{font-weight:650;font-size:12px}
     #areaDrawStatus{min-height:1.6em;margin:7px 0}
+    #edgeChoices{max-height:240px;overflow:auto}
+    #areaError{color:#a13f20;line-height:1.4}
     body.tiles-area-drawing #canvasHost canvas{cursor:crosshair}
   `;
   document.head.append(style);
@@ -334,170 +365,146 @@ function swatches(id, key, colors) {
     .join('');
 }
 
-function planGeometry(points) {
-  const minX = Math.min(...points.map((p) => p.x)),
-    minZ = Math.min(...points.map((p) => p.z)),
-    shifted = points.map((p) => ({ x: p.x - minX, z: p.z - minZ })),
-    width = Math.max(...shifted.map((p) => p.x), 0),
-    depth = Math.max(...shifted.map((p) => p.z), 0);
-  return { points: shifted, width, depth };
+function boundaryName(b) {
+  const c = areaText();
+  return `${c.region} ${b.region + 1} · ${b.hole ? `${c.hole} ${b.ring}` : c.outer}`;
 }
-
 function renderAreaPlan(geometry) {
-  if (drawingArea && !draftAreaPoints.length) {
-    $('areaPlan').setAttribute('aria-label', areaText().freeform);
-    $('areaPlan').innerHTML = '';
-    return;
-  }
-  const draft = drawingArea ? planGeometry(draftAreaPoints) : null,
-    plan = draft || geometry,
-    width = Math.max(plan.width, 1),
-    depth = Math.max(plan.depth, 1),
-    scale = Math.min(230 / width, 110 / depth),
-    ox = (300 - plan.width * scale) / 2,
-    oz = (170 - plan.depth * scale) / 2,
-    points = plan.points,
-    pointString = points.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`).join(' ');
-  $('areaPlan').setAttribute('aria-label', areaText().freeform);
-  if (points.length === 1)
-    $('areaPlan').innerHTML = `<circle cx="${ox}" cy="${oz}" r="5" fill="#0878c9"/>`;
-  else if (points.length > 1)
-    $('areaPlan').innerHTML =
-      `<${points.length >= 3 ? 'polygon' : 'polyline'} points="${pointString}" fill="${points.length >= 3 ? '#e9f5fd' : 'none'}" stroke="#0878c9" stroke-width="2"/>`;
-  else $('areaPlan').innerHTML = '';
-  $('areaPlan').innerHTML += points
-    .map(
-      (p, i) =>
-        `<text x="${ox + p.x * scale}" y="${oz + p.z * scale - 9}" text-anchor="middle">${vertexLabel(i)}</text>`,
-    )
-    .join('');
-  if (!draft && state.houseEnabled)
-    $('areaPlan').innerHTML += `<polygon points="${houseGeometry(state)
-      .outline.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`)
-      .join(' ')}" fill="#69747b" fill-opacity=".8" stroke="#3f4b53" stroke-width="1.5"/>`;
+  const draft = drawingArea ? draftAreaPoints.map((p) => ({
+    x: p.x + geometry.centerX, z: p.z + geometry.centerZ,
+  })) : [];
+  const all = [...geometry.regions.flatMap((r) => r.outer), ...draft];
+  const svg = $('areaPlan'); svg.setAttribute('aria-label', areaText().freeform);
+  if (!all.length) { svg.innerHTML = ''; return; }
+  const minX = Math.min(...all.map((p) => p.x)), minZ = Math.min(...all.map((p) => p.z)),
+    width = Math.max(...all.map((p) => p.x)) - minX,
+    depth = Math.max(...all.map((p) => p.z)) - minZ,
+    scale = Math.min(260 / Math.max(width, .1), 130 / Math.max(depth, .1)),
+    ox = (300 - width * scale) / 2, oz = (170 - depth * scale) / 2,
+    xy = (p) => `${ox + (p.x - minX) * scale},${oz + (p.z - minZ) * scale}`,
+    path = (ring) => `M${ring.map(xy).join(' L')} Z`;
+  svg.innerHTML = geometry.regions.map((r) =>
+    `<path d="${[r.outer, ...r.holes].map(path).join(' ')}" fill="#e9f5fd" fill-rule="evenodd" stroke="#0878c9" stroke-width="1.5"/>`).join('');
+  const active = geometry.boundaries.find((b) => b.key === activeBoundaryKey);
+  if (active) svg.innerHTML += `<path d="${path(active.points)}" fill="none" stroke="${active.hole ? '#bd542f' : '#0878c9'}" stroke-width="3"/>`;
+  if (draft.length) svg.innerHTML += `<polyline points="${draft.map(xy).join(' ')}" fill="none" stroke="${drawingOperation === 'remove' ? '#bd542f' : '#22a06b'}" stroke-width="2" stroke-dasharray="5 3"/>`;
+  if (state.houseEnabled) svg.innerHTML += `<polygon points="${houseGeometry(state).outline.map(xy).join(' ')}" fill="#69747b" fill-opacity=".8" stroke="#3f4b53" stroke-width="1.5"/>`;
 }
-
 function renderAreaEditor(geometry = areaGeometry(state)) {
-  const copy = areaText(),
-    count = drawingArea ? draftAreaPoints.length : geometry.points.length;
-  $('drawArea').hidden = drawingArea;
+  const copy = areaText(), boundaries = geometry.boundaries;
+  if (activeBoundaryKey && !boundaries.some((b) => b.key === activeBoundaryKey)) activeBoundaryKey = '';
+  const active = boundaries.find((b) => b.key === activeBoundaryKey);
+  activeVertex = Math.max(0, Math.min(activeVertex, (active?.points.length || 1) - 1));
+  for (const [id, label] of [['drawArea', 'draw'], ['removeArea', 'remove'], ['clearPaving', 'clear'],
+    ['undoPaving', 'undoEdit'], ['redoPaving', 'redoEdit']]) {
+    $(id).hidden = drawingArea; $(id).textContent = copy[label];
+  }
   $('drawArea').disabled = !viewer;
-  $('drawArea').textContent = state.shape === 'custom' ? copy.redraw : copy.draw;
+  $('removeArea').disabled = !viewer || geometry.area === 0;
+  $('clearPaving').disabled = !viewer || geometry.area === 0;
+  $('undoPaving').disabled = !history.stack.length;
+  $('redoPaving').disabled = !history.future.length;
   for (const id of ['undoAreaPoint', 'finishArea', 'cancelArea']) $(id).hidden = !drawingArea;
   $('undoAreaPoint').textContent = copy.undo;
   $('finishArea').textContent = copy.finish;
   $('cancelArea').textContent = copy.cancel;
   $('undoAreaPoint').disabled = !draftAreaPoints.length;
   $('finishArea').disabled = draftAreaPoints.length < 3;
-  $('areaDrawHelp').textContent = drawingArea ? copy.drawing : copy.help;
-  $('areaDrawStatus').textContent = drawingArea
-    ? copy.status(count)
-    : state.shape === 'custom'
-      ? copy.saved(count)
-      : copy.current(count);
-  document.querySelectorAll('[data-edge]').forEach((el) => (el.disabled = drawingArea));
+  $('areaDrawHelp').textContent = drawingArea
+    ? `${copy[drawingOperation === 'remove' ? 'remove' : 'draw']}: ${copy.drawing}` : copy.help;
+  $('areaDrawStatus').textContent = drawingArea ? copy.status(draftAreaPoints.length)
+    : copy.saved(geometry.regions.length, boundaries.filter((b) => b.hole).length,
+      boundaries.reduce((n, b) => n + b.points.length, 0));
+  $('boundaryTools').hidden = drawingArea || !['regions', 'custom'].includes(state.shape);
+  $('boundarySelectLabel').textContent = copy.boundary;
+  $('boundarySelect').innerHTML = `<option value="">${copy.none}</option>` + boundaries.map((b) =>
+    `<option value="${b.key}">${boundaryName(b)}</option>`).join('');
+  $('boundarySelect').value = activeBoundaryKey;
+  $('boundaryVertexTools').hidden = !active;
+  $('boundaryVertexLabel').textContent = copy.vertex;
+  $('boundaryVertex').max = active?.points.length || 1;
+  $('boundaryVertex').value = activeVertex + 1;
+  $('boundaryVertexCount').textContent = `/ ${active?.points.length || 0}`;
+  $('insertAreaVertex').textContent = copy.insert;
+  $('deleteAreaVertex').textContent = copy.delete;
+  $('deleteAreaVertex').disabled = !active || active.points.length <= 3;
+  $('denseBoundaryHelp').textContent = copy.dense;
+  $('denseBoundaryHelp').hidden = !active || active.points.length <= 48;
+  document.querySelectorAll('[data-edge], [data-boundary-curb]').forEach((el) => (el.disabled = drawingArea));
   document.body.classList.toggle('tiles-area-drawing', drawingArea);
+  viewer?.setAreaSelection(activeBoundaryKey, activeVertex);
   renderAreaPlan(geometry);
 }
-
 function showAreaError(message = areaText().invalid) {
-  $('areaError').textContent = message;
-  $('areaError').hidden = false;
+  $('areaError').textContent = message; $('areaError').hidden = false;
 }
-
-function prepareCustomArea(rawPoints, { sceneCoordinates = false, resetEdges = false } = {}) {
-  if (!Array.isArray(rawPoints) || rawPoints.length < 3) return null;
-  const minX = Math.min(...rawPoints.map((p) => Number(p.x))),
-    minZ = Math.min(...rawPoints.map((p) => Number(p.z))),
-    points = normalizeFootprint(rawPoints);
-  if (!points || !Number.isFinite(minX) || !Number.isFinite(minZ)) return null;
-  const current = areaGeometry(state),
-    patch = {
-      shape: 'custom',
-      areaPoints: points,
-      edges: resetEdges
-        ? Array(points.length).fill(true)
-        : Array.from({ length: points.length }, (_, i) => state.edges[i] ?? true),
-      houseX: sceneCoordinates ? state.houseX - current.width / 2 - minX : state.houseX - minX,
-      houseZ: sceneCoordinates ? state.houseZ - current.depth / 2 - minZ : state.houseZ - minZ,
-    },
-    next = normalize({ ...state, ...patch });
-  try {
-    areaGeometry(next);
-    return next;
-  } catch {
-    return null;
-  }
+function geometryError(error) {
+  return error?.message === 'areaTooComplex' ? areaText().complex : areaText().invalid;
 }
-
-function startAreaDrawing() {
+function startAreaDrawing(operation = 'replace') {
   if (!viewer) return;
-  drawingArea = true;
-  draftAreaPoints = [];
+  drawingOperation = ['add', 'remove', 'replace'].includes(operation) ? operation : 'replace';
+  drawingArea = true; draftAreaPoints = [];
   $('areaError').hidden = true;
-  viewer.startAreaDrawing();
+  viewer.startAreaDrawing({ operation: drawingOperation });
   renderAreaEditor();
 }
-
 function stopAreaDrawing() {
-  drawingArea = false;
-  draftAreaPoints = [];
-  viewer?.stopAreaDrawing();
+  drawingArea = false; draftAreaPoints = [];
+  viewer?.stopAreaDrawing({ preserveCamera: true });
   renderAreaEditor();
 }
-
-function pointsCenter(points) {
-  if (!Array.isArray(points) || !points.length) return { x: 0, z: 0 };
-  const xs = points.map((point) => Number(point.x)),
-    zs = points.map((point) => Number(point.z));
-  return {
-    x: (Math.min(...xs) + Math.max(...xs)) / 2,
-    z: (Math.min(...zs) + Math.max(...zs)) / 2,
-  };
+function validatePavingState(next) {
+  areaGeometry(next);
+  const parts = layout(next);
+  return { parts, bom: estimate(next, parts) };
 }
-
+function commitPavingState(next, { record = true, finishDrawing = false, selectFirst = false } = {}) {
+  // Clip and price BEFORE changing state/history so a rejected operation is atomic.
+  const prepared = validatePavingState(next), changed = JSON.stringify(next) !== JSON.stringify(state);
+  if (record && changed) history.record();
+  if (finishDrawing) {
+    drawingArea = false; draftAreaPoints = [];
+    viewer?.stopAreaDrawing({ preserveCamera: true });
+  }
+  state = next;
+  if (selectFirst) { activeBoundaryKey = areaGeometry(next).boundaries[0]?.key || ''; activeVertex = 0; }
+  viewer?.preserveCamera();
+  $('areaError').hidden = true;
+  render(prepared);
+  if (changed) shell?.markDirty();
+  return true;
+}
 function finishAreaDrawing() {
   if (!drawingArea || draftAreaPoints.length < 3) return false;
-  const rawPoints = draftAreaPoints.map((point) => ({ ...point })),
-    next = prepareCustomArea(rawPoints, { sceneCoordinates: true, resetEdges: true });
-  if (!next) {
-    showAreaError();
-    renderAreaEditor();
-    if (photoFlowStep === 'draw') showPhotoFlowError(areaText().invalid);
+  try {
+    const completingPhoto = photoFlowStep === 'draw',
+      next = applyPavingPatch(state, draftAreaPoints, drawingOperation, { sceneCoordinates: true });
+    commitPavingState(next, { finishDrawing: true, selectFirst: true });
+    if (completingPhoto) completePhotoFlow();
+    return true;
+  } catch (error) {
+    showAreaError(geometryError(error));
+    if (photoFlowStep === 'draw') showPhotoFlowError(geometryError(error));
     return false;
   }
-  const center = pointsCenter(rawPoints),
-    completingInitialPhotoFlow = photoFlowStep === 'draw';
-  if (viewer?.hasPhotoCalibration?.()) viewer.shiftPhotoWorld(-center.x, -center.z);
-  history.record();
-  state = next;
-  drawingArea = false;
-  draftAreaPoints = [];
-  viewer?.stopAreaDrawing({ preserveCamera: true });
-  $('areaError').hidden = true;
-  render();
-  if (completingInitialPhotoFlow) completePhotoFlow();
-  shell?.markDirty();
-  return true;
 }
-
-function commitAreaPointMove(points) {
-  const current = areaGeometry(state),
-    rawCenter = pointsCenter(points),
-    next = prepareCustomArea(points);
-  if (!next) {
-    render();
-    showAreaError();
-    return false;
-  }
-  if (viewer?.hasPhotoCalibration?.())
-    viewer.shiftPhotoWorld(current.width / 2 - rawCenter.x, current.depth / 2 - rawCenter.z);
-  history.record();
-  state = next;
-  $('areaError').hidden = true;
-  render();
-  shell?.markDirty();
-  return true;
+function commitAreaPointMove(points, key) {
+  try { return commitPavingState(replaceBoundary(state, key, points)); }
+  catch (error) { render(); showAreaError(geometryError(error)); return false; }
+}
+function clearPavingArea() {
+  try {
+    return commitPavingState(clearPaving(state), { finishDrawing: true, selectFirst: true });
+  } catch (error) { showAreaError(geometryError(error)); return false; }
+}
+function undoPavingEdit() {
+  if (drawingArea) return viewer?.undoAreaPoint();
+  const ok = history.undo(); renderAreaEditor(); return ok;
+}
+function redoPavingEdit() {
+  if (drawingArea) return false;
+  const ok = history.redo(); renderAreaEditor(); return ok;
 }
 
 function showPhotoFlowError(message) {
@@ -610,11 +617,13 @@ async function loadPhotoSource(source, { objectUrl = false } = {}) {
   showPhotoFlowError('');
   try {
     await viewer.loadSitePhoto(source);
+    state = normalize({ ...state, shape: 'regions', areaRegions: [], areaOrigin: { x: 0, z: 0 } });
+    history.clear(); activeBoundaryKey = ''; activeVertex = 0;
     resetCalibrationCorners();
     photoRectCache = viewer.getPhotoRect();
     photoFlowStep = 'calibrate';
     document.body.classList.add('tiles-photo-setup');
-    renderPhotoFlow();
+    render();
     return true;
   } catch {
     if (objectUrl && photoObjectUrl === source) {
@@ -717,7 +726,7 @@ function wirePhotoFlow() {
   }
 }
 
-function render() {
+function render(prepared = null) {
   document.documentElement.lang = locale.split('-')[0];
   document.querySelectorAll('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n)));
   for (const key of [
@@ -767,12 +776,15 @@ function render() {
   const geometry = areaGeometry(state),
     custom = state.shape !== 'rectangle';
   renderAreaEditor(geometry);
-  $('edgeChoices').innerHTML = geometry.points
-    .map(
-      (_, i) =>
-        `<label><input type="checkbox" data-edge="${i}" ${state.edges[i] ? 'checked' : ''}><span>${custom ? vertexLabel(i) + vertexLabel((i + 1) % geometry.points.length) : t(['front', 'right', 'back', 'left'][i])}</span></label>`,
-    )
-    .join('');
+  $('edgeChoices').innerHTML = state.shape === 'regions'
+    ? geometry.boundaries.map((b) => `<label><input type="checkbox" data-boundary-curb="${b.key}" ${b.enabled ? 'checked' : ''}><span>${boundaryName(b)}</span></label>`).join('')
+    : geometry.points.map((_, i) =>
+      `<label><input type="checkbox" data-edge="${i}" ${state.edges[i] ? 'checked' : ''}><span>${custom ? vertexLabel(i) + vertexLabel((i + 1) % geometry.points.length) : t(['front', 'right', 'back', 'left'][i])}</span></label>`).join('');
+  document.querySelectorAll('[data-boundary-curb]').forEach((el) => {
+    const b = geometry.boundaries.find((b) => b.key === el.dataset.boundaryCurb);
+    el.indeterminate = b.edges?.some(Boolean) && !b.edges.every(Boolean);
+    el.disabled = drawingArea;
+  });
   $('tileChoices').innerHTML = Object.entries(TILES)
     .map(
       ([key, tile]) =>
@@ -802,8 +814,8 @@ function render() {
   swatches('accents', 'accent', tile.colors);
   swatches('curbColors', 'curbColor', CURBS[state.curb].colors);
   $('accentSection').hidden = state.pattern !== 'checker';
-  const parts = layout(state),
-    bom = estimate(state, parts);
+  const parts = prepared?.parts || layout(state),
+    bom = prepared?.bom || estimate(state, parts);
   viewer?.rebuild(state, parts);
   $('areaBadge').textContent =
     `${f(bom.area)} m² · ${custom ? `${t('perimeter')}: ${f(bom.perimeter)} m` : `${f(state.length)} × ${f(state.width)} m`}`;
@@ -835,55 +847,23 @@ function render() {
 }
 
 function restore(snapshot) {
-  if (
-    !snapshot ||
-    typeof snapshot !== 'object' ||
-    Array.isArray(snapshot) ||
-    snapshot.version !== 1
-  )
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) || ![1, 2].includes(snapshot.version))
     return false;
   try {
     const next = normalize(snapshot);
-    areaGeometry(next);
-    if (drawingArea) {
-      drawingArea = false;
-      draftAreaPoints = [];
-      viewer?.stopAreaDrawing();
-    }
-    state = next;
-    render();
-    $('areaError').hidden = true;
-    return true;
-  } catch {
-    return false;
-  }
+    return commitPavingState(next, { record: false, finishDrawing: true });
+  } catch (error) { showAreaError(geometryError(error)); return false; }
 }
-
 function change(patch, record = true) {
-  let prepared = patch;
-  if (Object.hasOwn(patch, 'areaPoints') && (patch.shape === 'custom' || state.shape === 'custom')) {
-    const points = normalizeFootprint(patch.areaPoints);
-    if (!points) {
-      render();
-      showAreaError();
-      return false;
-    }
-    prepared = { ...patch, shape: 'custom', areaPoints: points };
-  }
-  const next = normalize({ ...state, ...prepared });
   try {
-    areaGeometry(next);
-  } catch {
-    render();
-    showAreaError(next.shape === 'custom' ? areaText().invalid : t('invalidArea'));
-    return false;
-  }
-  if (record) history.record();
-  state = next;
-  $('areaError').hidden = true;
-  render();
-  shell?.markDirty();
-  return true;
+    let prepared = patch;
+    if (Object.hasOwn(patch, 'areaPoints') && (patch.shape === 'custom' || state.shape === 'custom')) {
+      const points = normalizeFootprint(patch.areaPoints);
+      if (!points) throw new Error('invalidRegions');
+      prepared = { ...patch, shape: 'custom', areaPoints: points };
+    }
+    return commitPavingState(normalize({ ...state, ...prepared }), { record });
+  } catch (error) { showAreaError(geometryError(error)); return false; }
 }
 
 function setLocale(value) {
@@ -923,6 +903,17 @@ const api = {
   setDarkMode,
   cycleCamera,
   getEstimate: () => estimate(state),
+  getPavingState: () => structuredClone(asRegionState(state)),
+  setPavingRegions(regions, origin = asRegionState(state).areaOrigin) {
+    return change({ shape: 'regions', areaRegions: regions, areaOrigin: origin });
+  },
+  applyPavingPatch(points, operation = 'add') {
+    try { return commitPavingState(applyPavingPatch(state, points, operation), { selectFirst: true }); }
+    catch (error) { showAreaError(geometryError(error)); return false; }
+  },
+  clearPaving: clearPavingArea,
+  undo: undoPavingEdit,
+  redo: redoPavingEdit,
 };
 window.TILES_CONFIGURATOR_API = api;
 let sliderFrame = 0,
@@ -977,7 +968,35 @@ $('centerHouse').addEventListener('click', () => {
   const g = areaGeometry(state);
   change({ houseX: (g.width - state.houseLength) / 2, houseZ: (g.depth - state.houseWidth) / 2 });
 });
-$('drawArea').addEventListener('click', startAreaDrawing);
+$('drawArea').addEventListener('click', () => startAreaDrawing('add'));
+$('removeArea').addEventListener('click', () => startAreaDrawing('remove'));
+$('clearPaving').addEventListener('click', clearPavingArea);
+$('undoPaving').addEventListener('click', undoPavingEdit);
+$('redoPaving').addEventListener('click', redoPavingEdit);
+$('boundarySelect').addEventListener('change', (event) => {
+  activeBoundaryKey = event.target.value; activeVertex = 0; renderAreaEditor();
+});
+$('boundaryVertex').addEventListener('change', (event) => {
+  activeVertex = Math.max(0, Math.round(Number(event.target.value) || 1) - 1); renderAreaEditor();
+});
+for (const [id, operation] of [['insertAreaVertex', 'insert'], ['deleteAreaVertex', 'delete']])
+  $(id).addEventListener('click', () => {
+    try {
+      const next = editBoundaryVertex(state, activeBoundaryKey, activeVertex, operation);
+      if (operation === 'insert') activeVertex++;
+      commitPavingState(next);
+    } catch (error) { showAreaError(geometryError(error)); }
+  });
+document.addEventListener('keydown', (event) => {
+  if (event.target.closest('input, select, textarea, [contenteditable="true"]')) return;
+  if (event.key === 'Escape' && drawingArea && photoFlowStep !== 'draw') {
+    event.preventDefault(); stopAreaDrawing(); return;
+  }
+  if ((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (event.shiftKey || event.key.toLowerCase() === 'y') redoPavingEdit(); else undoPavingEdit();
+  }
+});
 $('undoAreaPoint').addEventListener('click', () => viewer?.undoAreaPoint());
 $('finishArea').addEventListener('click', finishAreaDrawing);
 $('cancelArea').addEventListener('click', stopAreaDrawing);
@@ -987,7 +1006,15 @@ document.querySelector('.sidebar').addEventListener('change', (e) => {
     flushSlider();
     return;
   }
-  if (el.dataset.edge !== undefined) {
+  if (el.dataset.boundaryCurb !== undefined) {
+    const regions = structuredClone(state.areaRegions),
+      b = areaGeometry(state).boundaries.find((b) => b.key === el.dataset.boundaryCurb);
+    if (!b) return;
+    if (b.hole) regions[b.region].curbs.holes[b.ring - 1] = el.checked;
+    else regions[b.region].curbs.outer = el.checked;
+    regions[b.region].curbs.edges[b.ring] = Array(b.points.length).fill(el.checked);
+    change({ areaRegions: regions });
+  } else if (el.dataset.edge !== undefined) {
     const edges = [...state.edges];
     edges[Number(el.dataset.edge)] = el.checked;
     change({ edges });
@@ -1024,7 +1051,7 @@ $('export').addEventListener('click', () => {
     [t('total'), '', '', '', bom.total.toFixed(2)],
     [],
     [t('note')],
-    [t('shape'), state.shape === 'custom' ? areaText().freeform : t(state.shape)],
+    [t('shape'), ['custom', 'regions'].includes(state.shape) ? areaText().freeform : t(state.shape)],
     [t('netArea'), bom.area, 'm²'],
     [t('grossArea'), bom.grossArea, 'm²'],
     [t('houseArea'), bom.houseArea, 'm²'],
@@ -1050,12 +1077,15 @@ $('export').addEventListener('click', () => {
         ]
       : []),
     [t('perimeter'), bom.perimeter, 'm'],
-    ...areaGeometry(state).lengths.map((length, i) => [
+    ...(state.shape === 'regions' ? areaGeometry(state).boundaries.flatMap((b) => [
+      [boundaryName(b), b.lengths.reduce((n, l) => n + l, 0), 'm', b.enabled ? 'curb' : ''],
+      ...b.points.map((p, i) => [`${boundaryName(b)} / ${i + 1}`, p.x, p.z, 'm', b.edges[i] ? 'curb' : '']),
+    ]) : areaGeometry(state).lengths.map((length, i) => [
       vertexLabel(i) + vertexLabel((i + 1) % state.edges.length),
       length,
       'm',
       state.edges[i] ? 'curb' : '',
-    ]),
+    ])),
     ...(['closed4', 'closed5'].includes(state.shape) ? [[t('angleB'), state.angleB, '°']] : []),
     ...(state.shape === 'custom' && state.areaPoints
       ? state.areaPoints.map((p, i) => [`Area vertex ${vertexLabel(i)}`, p.x, p.z, 'm'])
@@ -1132,7 +1162,7 @@ shell = mountStandaloneConfiguratorShell({
         viewer?.undoAreaPoint();
         return;
       }
-      history.undo();
+      undoPavingEdit();
     },
     resetConfiguration: api.resetConfiguration,
     captureState: api.captureState,
@@ -1173,6 +1203,11 @@ try {
     },
     onAreaFinishRequested: finishAreaDrawing,
     onAreaPointMove: commitAreaPointMove,
+    onAreaVertexSelect(index) {
+      activeVertex = index;
+      // Do not rebuild handles while a pointer owns one of them.
+      $('boundaryVertex').value = index + 1;
+    },
     onPhotoRectChange(rect) {
       photoRectCache = rect;
       updateCalibrationOverlay();
