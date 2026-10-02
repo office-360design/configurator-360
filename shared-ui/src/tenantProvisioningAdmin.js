@@ -117,6 +117,8 @@ const resultCopy = document.querySelector('#resultCopy');
 const resultLinks = document.querySelector('#resultLinks');
 
 let currentUser = null;
+let adminSessionVersion = 0;
+let planCatalogReady = false;
 let slugWasEdited = false;
 let logoObjectUrl = '';
 let manageLogoObjectUrl = '';
@@ -249,8 +251,11 @@ function subscriptionStatusLabel(status) {
 }
 
 async function refreshPlanCatalog() {
+  const sessionVersion = adminSessionVersion;
   const result = await callAdminFunction('getTenantPlans');
+  if (sessionVersion !== adminSessionVersion) return;
   tenantPlans = Array.isArray(result?.plans) ? result.plans : [];
+  if (!tenantPlans.length) throw new Error('No tenant plans are available. Contact a platform administrator.');
   populatePlanSelect(createPlan, createPlan.value || 'go_live_now_1');
   populatePlanSelect(managePlan, currentManagedTenant?.planId || '');
   updatePlanHints();
@@ -779,6 +784,11 @@ tenantForm.addEventListener('submit', async (event) => {
     return;
   }
 
+  if (!planCatalogReady) {
+    setStatus(formStatus, 'Tenant plans are not available. Resolve the access or loading error above, then retry.', 'error');
+    return;
+  }
+
   const companyName = companyNameInput.value.trim();
   const slug = normalizeSlugCandidate(slugInput.value);
   const ownerEmail = ownerEmailInput.value.trim().toLowerCase();
@@ -1028,24 +1038,55 @@ authButton.addEventListener('click', async () => {
   }
 });
 
-await observeGoogleAuth(async (user) => {
+const retryAdminAccess = document.createElement('button');
+retryAdminAccess.type = 'button';
+retryAdminAccess.textContent = 'Retry admin access';
+retryAdminAccess.hidden = true;
+authState.after(retryAdminAccess);
+retryAdminAccess.addEventListener('click', () => loadAdminSession(currentUser));
+
+async function loadAdminSession(user) {
+  const sessionVersion = ++adminSessionVersion;
   currentUser = user;
-  if (user) {
-    authState.textContent = `${user.email || user.displayName || 'Signed in'} · UID ${user.uid}`;
-    authButton.textContent = 'Sign out';
-    authButton.hidden = false;
-    adminWorkspace.hidden = false;
-    await refreshPlanCatalog();
-    await Promise.all([refreshTenantList(), refreshPlatformAnalytics()]);
-  } else {
+  planCatalogReady = false;
+  tenantPlans = [];
+  createPlan.replaceChildren();
+  managePlan.replaceChildren();
+  createButton.disabled = true;
+  adminWorkspace.hidden = true;
+  tenantEditorCard.hidden = true;
+  currentManagedTenant = null;
+  tenantSummaries = [];
+  retryAdminAccess.hidden = true;
+  authButton.hidden = false;
+  if (!user) {
     authState.textContent = 'Sign in with a tenant-admin Google account.';
     authButton.textContent = 'Sign in with Google';
-    authButton.hidden = false;
-    adminWorkspace.hidden = true;
-    tenantEditorCard.hidden = true;
-    currentManagedTenant = null;
-    tenantSummaries = [];
+    return;
   }
-});
+  const identity = `${user.email || user.displayName || 'Signed in'} · UID ${user.uid}`;
+  authState.textContent = `${identity} · Checking tenant-admin access…`;
+  authButton.textContent = 'Sign out';
+  try {
+    await refreshPlanCatalog();
+    if (sessionVersion !== adminSessionVersion) return;
+    planCatalogReady = true;
+    createButton.disabled = false;
+    adminWorkspace.hidden = false;
+    authState.textContent = identity;
+    await Promise.all([refreshTenantList(), refreshPlatformAnalytics()]);
+  } catch (error) {
+    if (sessionVersion !== adminSessionVersion) return;
+    planCatalogReady = false;
+    createButton.disabled = true;
+    adminWorkspace.hidden = true;
+    const message = administrationErrorMessage(error);
+    authState.textContent = `${identity} · ${message}`;
+    setStatus(formStatus, message, 'error');
+    retryAdminAccess.hidden = false;
+  }
+}
+
+await observeGoogleAuth(loadAdminSession);
 
 updateSlugState();
