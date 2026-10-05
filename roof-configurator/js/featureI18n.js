@@ -11,6 +11,7 @@ function entries(rows) {
 entries(`
 Enter X and Z between -100 and 100 m, and a height between -30 and 30 m.|Introdu X și Z între -100 și 100 m și o înălțime între -30 și 30 m.|X und Z zwischen -100 und 100 m sowie eine Höhe zwischen -30 und 30 m eingeben.
 {0} Move cancelled; the original point has been restored.|{0} Mutare anulată; punctul inițial a fost restabilit.|{0} Verschiebung abgebrochen; ursprünglicher Punkt wiederhergestellt.
+Drag points to edit · Drag empty space to pan · Scroll to zoom|Trage punctele pentru editare · Trage spațiul liber pentru deplasare · Rotița pentru zoom|Punkte zum Bearbeiten ziehen · Freie Fläche zum Verschieben ziehen · Scrollen zum Zoomen
 Perimeter|Contur|Umriss
 Surfaces|Suprafețe|Flächen
 Add feature|Adaugă element|Element hinzufügen
