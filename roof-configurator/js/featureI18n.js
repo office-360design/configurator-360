@@ -11,6 +11,14 @@ function entries(rows) {
 entries(`
 Enter X and Z between -100 and 100 m, and a height between -30 and 30 m.|Introdu X și Z între -100 și 100 m și o înălțime între -30 și 30 m.|X und Z zwischen -100 und 100 m sowie eine Höhe zwischen -30 und 30 m eingeben.
 {0} Move cancelled; the original point has been restored.|{0} Mutare anulată; punctul inițial a fost restabilit.|{0} Verschiebung abgebrochen; ursprünglicher Punkt wiederhergestellt.
+Modify perimeter|Modifică conturul|Umriss bearbeiten
+Choose an outer edge to extend|Alege o muchie exterioară pentru extindere|Außenkante zum Erweitern wählen
+Click outside the roof to extend the selected edge|Fă clic în afara acoperișului pentru a extinde muchia selectată|Außerhalb des Dachs klicken, um die gewählte Kante zu erweitern
+Choose an outer perimeter edge to extend. Interior dividing edges cannot be extended.|Alege o muchie a conturului exterior. Muchiile interioare de împărțire nu pot fi extinse.|Eine äußere Umrisskante wählen. Innere Trennkanten können nicht erweitert werden.
+Place the new point outside the current perimeter.|Poziționează noul punct în afara conturului actual.|Den neuen Punkt außerhalb des aktuellen Umrisses platzieren.
+Edge selected. Click outside the roof to add a perimeter point.|Muchie selectată. Fă clic în afara acoperișului pentru a adăuga un punct pe contur.|Kante ausgewählt. Außerhalb des Dachs klicken, um einen Umrisspunkt hinzuzufügen.
+Perimeter extended. Choose another outer edge to continue, or Select / move to adjust the new point.|Contur extins. Alege altă muchie exterioară pentru a continua sau Selectează / mută pentru a ajusta noul punct.|Umriss erweitert. Zum Fortfahren eine weitere Außenkante wählen oder den neuen Punkt mit Auswählen / verschieben anpassen.
+Click an outer edge, then click outside the roof to extend it. Repeat on another outer edge to add more points. New points follow the adjoining slope. Existing surfaces and windows stay in place. Use Select / move to adjust points, or Undo to revert.|Fă clic pe o muchie exterioară, apoi în afara acoperișului pentru a o extinde. Repetă pe altă muchie pentru a adăuga puncte. Punctele noi urmează panta adiacentă. Suprafețele și ferestrele existente rămân pe loc. Folosește Selectează / mută pentru ajustare sau Anulează pentru revenire.|Eine Außenkante anklicken, dann außerhalb des Dachs klicken, um sie zu erweitern. An einer weiteren Außenkante wiederholen, um Punkte hinzuzufügen. Neue Punkte folgen der angrenzenden Dachneigung. Bestehende Flächen und Fenster bleiben erhalten. Mit Auswählen / verschieben anpassen oder mit Rückgängig zurücksetzen.
 Dismiss message|Închide mesajul|Meldung schließen
 Complete this step|Completează acest pas|Diesen Schritt abschließen
 Change not applied|Modificarea nu a fost aplicată|Änderung nicht übernommen

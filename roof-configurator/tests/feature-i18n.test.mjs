@@ -6,7 +6,7 @@ import { sheetPlanCsv, planRoofSheets, sheetProfiles } from '../js/sheetPlanner.
 import { defaultLayout } from '../js/roofLayout.js';
 
 test('all static geometry validation errors have Romanian and German translations', () => {
-  for (const file of ['roofLayout', 'roofFeatures', 'roofWindows', 'presetLayout', 'sheetPlanner', 'layoutEditor', 'roofWindowTool', 'sheetPlannerUI']) {
+  for (const file of ['perimeter', 'roofLayout', 'roofFeatures', 'roofWindows', 'presetLayout', 'sheetPlanner', 'layoutEditor', 'roofWindowTool', 'sheetPlannerUI']) {
     const source = readFileSync(new URL(`../js/${file}.js`, import.meta.url), 'utf8');
     for (const [, message] of source.matchAll(/new Error\('([^']+)'\)/g)) {
       for (const locale of ['ro-RO', 'de-DE']) assert.notEqual(featureText(locale, message), message, `${locale}: ${message}`);
