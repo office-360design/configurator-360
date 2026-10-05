@@ -1,9 +1,11 @@
-import { createShopfrontAssembly, createGlazedEntranceAssembly, createCommercialDetails, createLinearRetailLight } from './retailGeometry.js?v=hall-commercial-1';
-import { normalizeCommercialFeatures } from './commercial.js?v=hall-commercial-1';
-import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-commercial-1';
+import { normalizeLogistics } from './logistics.js?v=hall-storage-1';
+import { createSectionalDoorAssembly, createLoadingDetails, populateStoragePlanning } from './loadingGeometry.js?v=hall-storage-1';
+import { createShopfrontAssembly, createGlazedEntranceAssembly, createCommercialDetails, createLinearRetailLight } from './retailGeometry.js?v=hall-storage-1';
+import { normalizeCommercialFeatures } from './commercial.js?v=hall-storage-1';
+import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-storage-1';
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-commercial-1';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-commercial-1';
+import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-storage-1';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-storage-1';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -621,6 +623,7 @@ function roofNormal(state, side) {
 
 export function buildHallModel(state) {
   normalizeCommercialFeatures(state);
+  normalizeLogistics(state);
   const metrics = deriveHallMetrics(state);
   const configuredOpenings = normalizeOpenings(state);
   const skylightLayout = roofSkylightLayout(state, metrics);
@@ -1234,6 +1237,8 @@ export function buildHallModel(state) {
       assembly = createGlazedEntranceAssembly(opening, trimMat, leafMat, fastenerMat);
     } else if (opening.type === 'window' && opening.subtype === 'shopfront') {
       assembly = createShopfrontAssembly(opening.width, opening.height, trimMat, leafMat);
+    } else if (opening.type === 'garage' && opening.subtype === 'sectional') {
+      assembly = createSectionalDoorAssembly(opening, leafMat, trimMat, fastenerMat);
     } else if (opening.type === 'garage') {
       assembly = createRollerDoorAssembly(opening.width, opening.height, leafMat, trimMat, fastenerMat, technicalEdges);
     } else if (opening.type === 'personnel') {
@@ -1461,6 +1466,9 @@ export function buildHallModel(state) {
   aisles.name = 'forklift-clearance';
   planning.add(racks, aisles);
 
+  if (state.warehouseLayout === 'loading-aisles') {
+    populateStoragePlanning(racks, aisles, state);
+  } else {
   const rackMat = material('#7b8d98', { metalness: .48, roughness: .48, transparent: true, opacity: .78 });
   const palletMat = material('#c08a4e', { metalness: .02, roughness: .88, transparent: true, opacity: .72 });
   const densityRows = state.rackDensity === 'dense' ? 4 : state.rackDensity === 'light' ? 2 : 3;
@@ -1494,6 +1502,9 @@ export function buildHallModel(state) {
   crossAisle.rotation.x = -Math.PI / 2;
   crossAisle.position.set(0, .05, -halfL + Math.min(2.5, state.length * .16));
   aisles.add(crossAisle);
+  }
+
+  root.add(createLoadingDetails(state));
 
   const commercial = createCommercialDetails(state);
   setExplode(commercial.facade, 0, .1, -2.8);

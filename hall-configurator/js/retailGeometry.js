@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { commercialLayout } from './commercial.js?v=hall-commercial-1';
+import { commercialLayout } from './commercial.js?v=hall-storage-1';
 
 function box(parent, name, x, y, z, px, py, pz, material) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(x, y, z), material);

@@ -1,7 +1,8 @@
-import { commercialLayout } from './commercial.js?v=hall-commercial-1';
-import { deriveHallMetrics } from './state.js?v=hall-commercial-1';
-import { normalizeOpenings, openingLabel } from './openings.js?v=hall-commercial-1';
-import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
+import { loadingLayout } from './logistics.js?v=hall-storage-1';
+import { commercialLayout } from './commercial.js?v=hall-storage-1';
+import { deriveHallMetrics } from './state.js?v=hall-storage-1';
+import { normalizeOpenings, openingLabel } from './openings.js?v=hall-storage-1';
+import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=hall-storage-1';
 
 const structureRates = { light: 72, standard: 88, heavy: 108 };
 const claddingRates = { trapezoidal: 34, sandwich: 59, 'standing-seam': 66 };
@@ -22,7 +23,7 @@ export function estimateHallPrice(state, build, locale = resolveHallLocale()) {
 
   const openings = normalizeOpenings(state);
   const addOpenings = (type, key, unitPrice, areaBase, minimum) => {
-    const matches = openings.filter((opening) => opening.type === type && !(type === 'window' && opening.subtype === 'shopfront'));
+    const matches = openings.filter((opening) => opening.type === type && !(type === 'window' && opening.subtype === 'shopfront') && !(type === 'garage' && opening.subtype === 'sectional'));
     matches.forEach((opening, index) => add(
       `${hallT(locale, key)}${matches.length > 1 ? ` ${index + 1}` : ''}`,
       unitPrice * Math.max(minimum, (opening.width * opening.height) / areaBase),
@@ -38,6 +39,12 @@ export function estimateHallPrice(state, build, locale = resolveHallLocale()) {
       ? 1800 * area / 4.5 : 4200 * area / 10.62;
     add(`${openingLabel(opening, locale)} ${index + 1}`, rate, hallT(locale, 'commercial.estimateNote'));
   });
+  openings.filter((o) => o.type === 'garage' && o.subtype === 'sectional').forEach((o, index) => add(
+    `${hallT(locale, 'garage.sectional')} ${index + 1}`, o.width * o.height * 430 + 850, hallT(locale, 'loading.estimateNote'),
+  ));
+  const loading = loadingLayout(state);
+  for (const [key, amount] of [['apron', loading.apronArea * 68], ['bollards', loading.bollardCount * 185],
+    ['markings', loading.markingCount * 140], ['numbers', loading.numberCount * 75]]) add(hallT(locale, `loading.bom.${key}`), amount, hallT(locale, 'loading.estimateNote'));
   const retail = commercialLayout(state);
   for (const [key, amount] of [
     ['canopy', retail.canopyArea * 330], ['sign', retail.signArea ? retail.signArea * 180 + 220 : 0],

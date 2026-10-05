@@ -1,10 +1,11 @@
-import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from './commercial.js?v=hall-commercial-1';
+import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout } from './logistics.js?v=hall-storage-1';
+import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from './commercial.js?v=hall-storage-1';
 import { bindPanelAccordions, bindPanelRange } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { buildBom, bomToCsv } from './bom.js?v=hall-commercial-1';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=hall-commercial-1';
-import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, openingLabel } from './openings.js?v=hall-commercial-1';
-import { getHeaProfile } from './heaProfiles.js?v=hall-commercial-1';
-import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
+import { buildBom, bomToCsv } from './bom.js?v=hall-storage-1';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=hall-storage-1';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, openingLabel } from './openings.js?v=hall-storage-1';
+import { getHeaProfile } from './heaProfiles.js?v=hall-storage-1';
+import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-storage-1';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -12,12 +13,13 @@ const formatters = {
   eaveHeight: (v) => `${v.toFixed(2).replace(/\.00$/, '.0')} m`,
   pitch: (v) => `${Math.round(v)}°`,
   targetBaySpacing: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
+  loadingApronDepth: (v) => `${v.toFixed(1)} m`,
   sectionCutPosition: (v) => `${Math.round(v)}%`,
 };
 
 
 
-const modelSelects = new Set(['structurePreset', 'claddingProfile', 'climateSystem', 'rackDensity', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation']);
+const modelSelects = new Set(['structurePreset', 'claddingProfile', 'climateSystem', 'rackDensity', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'warehouseLayout']);
 
 export class HallUI {
   constructor(state, callbacks, locale = resolveHallLocale()) {
@@ -49,6 +51,7 @@ export class HallUI {
     this.setExplodeValue(this.state.explode, { notify: false });
     this.setPlacementMode(this.placementType);
     this.setSelectedOpening(this.selectedOpeningId);
+    this.updateLoadingNotice();
     if (this.currentBuild) this.update(this.currentBuild);
   }
 
@@ -79,7 +82,9 @@ export class HallUI {
   ensureOpeningLimits() {
     normalizeOpenings(this.state);
     normalizeCommercialFeatures(this.state);
+    normalizeLogistics(this.state);
     this.updateCommercialNotice();
+    this.updateLoadingNotice();
   }
 
   bindSelects() {
@@ -92,6 +97,7 @@ export class HallUI {
       climateUnitLocation: 'climateUnitLocation',
       inspectionMode: 'inspectionMode',
       rackDensity: 'rackDensity',
+      warehouseLayout: 'warehouseLayout',
       serviceVisibility: 'serviceVisibility',
     };
     Object.entries(bindings).forEach(([id, key]) => {
@@ -117,6 +123,10 @@ export class HallUI {
       facadeSignToggle: 'facadeSign',
       customerApronToggle: 'customerApron',
       retailDisplaysToggle: 'retailDisplays',
+      loadingApronToggle: 'loadingApron',
+      loadingBayMarkingsToggle: 'loadingBayMarkings',
+      loadingBayProtectionToggle: 'loadingBayProtection',
+      loadingBayNumbersToggle: 'loadingBayNumbers',
     };
     Object.entries(modelToggles).forEach(([id, key]) => {
       document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
@@ -270,6 +280,11 @@ export class HallUI {
     }
   }
 
+  updateLoadingNotice() {
+    const warning = document.querySelector('#loadingClearanceNote');
+    if (warning) { warning.hidden = !loadingLayout(this.state).unavailable; warning.textContent = this.t('loading.clearanceNote'); }
+  }
+
   bindOpeningControls() {
     document.querySelectorAll('[data-add-opening]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -293,6 +308,13 @@ export class HallUI {
       input.value = opening[key].toFixed(2);
       this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
     };
+    document.querySelector('#openingGarageSubtype')?.addEventListener('change', (event) => {
+      const opening = this.getSelectedOpening();
+      if (opening?.type !== 'garage') return;
+      opening.subtype = event.target.value;
+      normalizeOpening(opening, this.state);
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
     document.querySelector('#openingEntranceSubtype')?.addEventListener('change', (event) => {
       const opening = this.getSelectedOpening();
       if (opening?.type !== 'entrance') return;
@@ -302,7 +324,7 @@ export class HallUI {
     });
     document.querySelector('#openingEntranceOpen')?.addEventListener('change', (event) => {
       const opening = this.getSelectedOpening();
-      if (opening?.type !== 'entrance') return;
+      if (!opening || !(opening.type === 'entrance' || opening.type === 'garage' && opening.subtype === 'sectional')) return;
       opening.isOpen = event.target.checked;
       this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
     });
@@ -383,17 +405,21 @@ export class HallUI {
     if (subtypeRow) subtypeRow.hidden = opening.type !== 'window';
     const subtype = document.querySelector('#openingWindowSubtype');
     if (subtype) subtype.value = opening.subtype || 'standard';
+    const garageRow = document.querySelector('#openingGarageSubtypeRow');
+    if (garageRow) garageRow.hidden = opening.type !== 'garage';
+    const garageType = document.querySelector('#openingGarageSubtype');
+    if (garageType) garageType.value = opening.subtype === 'sectional' ? 'sectional' : 'roller';
     const entranceRow = document.querySelector('#openingEntranceSubtypeRow');
     if (entranceRow) entranceRow.hidden = opening.type !== 'entrance';
     const entranceType = document.querySelector('#openingEntranceSubtype');
     if (entranceType) entranceType.value = opening.subtype || 'sliding-glass';
     const entranceOpenRow = document.querySelector('#openingEntranceOpenRow');
-    if (entranceOpenRow) entranceOpenRow.hidden = opening.type !== 'entrance';
+    if (entranceOpenRow) entranceOpenRow.hidden = !(opening.type === 'entrance' || opening.type === 'garage' && opening.subtype === 'sectional');
     const entranceOpen = document.querySelector('#openingEntranceOpen');
     if (entranceOpen) entranceOpen.checked = Boolean(opening.isOpen);
     const bottomInput = document.querySelector('#openingBottomInput');
     if (bottomInput) {
-      bottomInput.max = String(Math.max(0, this.state.eaveHeight - opening.height - .06));
+      bottomInput.max = String(Math.max(0, this.state.eaveHeight - opening.height - (openingType(opening.type, opening.subtype).headroom ?? .06)));
       bottomInput.value = opening.bottom.toFixed(2);
     }
     const spec = openingType(opening.type, opening.subtype);
@@ -406,7 +432,7 @@ export class HallUI {
     }
     if (heightInput) {
       heightInput.min = String(spec.minHeight);
-      heightInput.max = String(Math.min(spec.maxHeight, Math.max(spec.minHeight, this.state.eaveHeight - .12)));
+      heightInput.max = String(Math.min(spec.maxHeight, Math.max(spec.minHeight, this.state.eaveHeight - (spec.headroom ?? .12))));
       heightInput.value = opening.height.toFixed(2);
     }
     const colorInput = document.querySelector('#openingColorInput');
@@ -472,7 +498,7 @@ export class HallUI {
       if (output) output.value = formatters[key]?.(value) ?? String(value);
     });
 
-    ['structurePreset', 'claddingProfile', 'climateSystem', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'inspectionMode', 'rackDensity', 'serviceVisibility'].forEach((id) => {
+    ['structurePreset', 'claddingProfile', 'climateSystem', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'inspectionMode', 'rackDensity', 'warehouseLayout', 'serviceVisibility'].forEach((id) => {
       const element = document.querySelector(`#${id}`);
       if (element) element.value = this.state[id];
     });
@@ -487,6 +513,10 @@ export class HallUI {
       facadeSignToggle: this.state.facadeSign,
       customerApronToggle: this.state.customerApron,
       retailDisplaysToggle: this.state.retailDisplays,
+      loadingApronToggle: this.state.loadingApron,
+      loadingBayMarkingsToggle: this.state.loadingBayMarkings,
+      loadingBayProtectionToggle: this.state.loadingBayProtection,
+      loadingBayNumbersToggle: this.state.loadingBayNumbers,
       claddingToggle: this.state.showCladding,
       sceneryToggle: this.state.showScenery,
       connectionDetailsToggle: this.state.connectionDetails,
@@ -538,6 +568,7 @@ export class HallUI {
 
   update(build) {
     this.currentBuild = build;
+    this.updateLoadingNotice();
     this.updateCommercialNotice();
     const { metrics } = build;
     document.querySelector('#frameCountInfo').textContent = String(metrics.frameCount);
@@ -627,7 +658,8 @@ export class HallUI {
 
   restoreState(snapshot) {
     if (!Array.isArray(snapshot?.openings)) this.state.openings = undefined;
-    Object.assign(this.state, COMMERCIAL_DEFAULTS, structuredClone(snapshot));
+    Object.assign(this.state, COMMERCIAL_DEFAULTS, LOGISTICS_DEFAULTS, structuredClone(snapshot));
+    normalizeLogistics(this.state);
     normalizeCommercialFeatures(this.state);
     delete this.state.buildingUse;
     normalizeOpenings(this.state);

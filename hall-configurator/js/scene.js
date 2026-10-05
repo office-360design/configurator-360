@@ -1,11 +1,12 @@
+import { loadingSceneryExclusions } from './logistics.js?v=hall-storage-1';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-commercial-1';
-import { deriveHallMetrics } from './state.js?v=hall-commercial-1';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=hall-commercial-1';
-import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-storage-1';
+import { deriveHallMetrics } from './state.js?v=hall-storage-1';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=hall-storage-1';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-storage-1';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -906,7 +907,9 @@ export class HallScene {
 
   updateEnvironment(state, { force = false } = {}) {
     this.currentState = state;
-    const key = `${state.width}|${state.length}|${state.showScenery}|${Boolean(this.environmentAssets.tree)}`;
+    const loadingSceneryKey = JSON.stringify([state.loadingApron, state.loadingApronDepth, state.warehouseLayout,
+      (state.openings || []).filter((o) => o.type === 'garage').map((o) => [o.side, o.offset, o.width, o.bottom, o.subtype])]);
+    const key = `${state.width}|${state.length}|${state.showScenery}|${Boolean(this.environmentAssets.tree)}|${loadingSceneryKey}`;
     if (!force && key === this.environmentKey) return;
     this.environmentKey = key;
     this.groundRoot.clear();
@@ -917,6 +920,7 @@ export class HallScene {
     const fogFar = Math.max(72, sceneSpan * 2.55 + 18);
     this.scene.fog.near = fogNear;
     this.scene.fog.far = fogFar;
+    this.updateLoadingFog(state);
     const size = Math.max(420, fogFar * 2.4);
     this.groundMaterial = new THREE.MeshStandardMaterial({ color: 0xcfd9d3, roughness: .95, metalness: 0 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), this.groundMaterial);
@@ -956,7 +960,11 @@ export class HallScene {
       [-halfW - 8.5, halfL * .55, .74, 22],
     ];
 
+    const loadingExclusions = loadingSceneryExclusions(state);
     treeSpecs.forEach(([x, z, scale, rotation]) => {
+      const radius = 1.35 * scale + .6;
+      if (loadingExclusions.some((r) => x + radius > r.minX && x - radius < r.maxX
+        && z + radius > r.minZ && z - radius < r.maxZ)) return;
       const tree = fitAssetToBox(this.cloneAsset('tree') ?? makeTreeFallback(), new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale));
       tree.position.add(new THREE.Vector3(x, .008, z));
       tree.rotation.y = THREE.MathUtils.degToRad(rotation);
@@ -1053,6 +1061,7 @@ export class HallScene {
     const planning = get('warehouse-planning');
     const frontage = get('commercial-frontage');
     const retail = get('retail-fitout');
+    const logistics = get('loading-logistics');
 
     const mode = state.inspectionMode ?? 'all';
     if (primary) primary.visible = mode === 'all' || mode === 'primary' || mode === 'secondary' || mode === 'connections' || mode === 'foundations';
@@ -1063,6 +1072,7 @@ export class HallScene {
     if (openings) openings.visible = mode === 'all' || mode === 'envelope';
     if (frontage) frontage.visible = mode === 'all' || mode === 'envelope';
     if (retail) retail.visible = mode === 'all';
+    if (logistics) logistics.visible = mode === 'all' || mode === 'envelope';
     if (services) services.visible = mode === 'all' || mode === 'services';
     if (planning) planning.visible = (mode === 'all' || mode === 'services') && (state.warehouseRacking || state.forkliftClearance);
 
@@ -1145,14 +1155,24 @@ export class HallScene {
     this.updateCompass(state);
   }
 
+  updateLoadingFog(state) {
+    if (state.cameraPreset !== 'loading' || !this.scene?.fog) return;
+    const span = Math.max(state.width, state.length);
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    // A portrait fit for a long loading hall can otherwise put the entire model in fog.
+    this.scene.fog.near = Math.max(32, distance + span);
+    this.scene.fog.far = this.scene.fog.near + Math.max(80, span * 2);
+  }
+
   fitCamera(state, metrics) {
-    if (state.cameraPreset === 'customer' && this.currentBuild?.root) {
+    if (['customer', 'loading'].includes(state.cameraPreset) && this.currentBuild?.root) {
       // Fit the real commercial geometry (including canopy/forecourt) from the
       // customer side. A fixed distance can crop a wide shopfront on phones.
       this.currentBuild.root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(this.currentBuild.root);
       const center = bounds.getCenter(new THREE.Vector3());
-      const towardCamera = new THREE.Vector3(.85, .42, -1.20).normalize();
+      const towardCamera = (state.cameraPreset === 'loading'
+        ? new THREE.Vector3(1.5, .74, -.90) : new THREE.Vector3(.85, .42, -1.20)).normalize();
       const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), towardCamera).normalize();
       const up = new THREE.Vector3().crossVectors(towardCamera, right).normalize();
       const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
@@ -1163,10 +1183,12 @@ export class HallScene {
         distance = Math.max(distance, q.dot(towardCamera) + Math.max(Math.abs(q.dot(right)) / tanH, Math.abs(q.dot(up)) / tanV));
       }
       distance *= 1.12;
+      this.controls.maxDistance = Math.max(190, distance * 1.5);
       this.controls.target.copy(center);
       this.camera.position.copy(center).addScaledVector(towardCamera, distance);
       this.camera.near = .1; this.camera.far = Math.max(300, distance * 8);
       this.camera.updateProjectionMatrix(); this.controls.update();
+      this.updateLoadingFog?.(state);
       return;
     }
     const radius = Math.max(state.length, state.width, metrics.ridgeElevation) * .72;
@@ -1182,6 +1204,7 @@ export class HallScene {
     const span = Math.max(state.length, state.width, metrics.ridgeElevation);
     const target = new THREE.Vector3(0, state.eaveHeight * .48, 0);
     this.controls.target.copy(target);
+    if (view === 'loading') { this.fitCamera({ ...state, cameraPreset: 'loading' }, metrics); return; }
     if (view === 'customer') { this.fitCamera({ ...state, cameraPreset: 'customer' }, metrics); return; }
     else if (view === 'front') this.camera.position.set(0, state.eaveHeight * .62, -span * 1.45);
     else if (view === 'side') this.camera.position.set(span * 1.35, state.eaveHeight * .62, 0);
