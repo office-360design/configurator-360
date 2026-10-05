@@ -1,3 +1,9 @@
+import { createPhotoAnalysis } from './photoAnalysis.js';
+import { SEGMENTATION_CONFIG } from './segmentationConfig.js';
+import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js';
+import { prepareModelImport } from './segmentationAdapter.js';
+import { failImport } from './modelCamera.js';
+import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
 import { PavingHistory } from './pavingHistory.js';
 import { mountLocationPicker } from './locationPicker.js';
@@ -37,6 +43,16 @@ let state = normalize(),
   activeVertex = 0,
   photoFlowStep = 'upload',
   photoObjectUrl = null,
+  photoSource = null,
+  photoLoadSequence = 0,
+  designRevision = 0,
+  modelImportUI,
+  analysisController,
+  analysisUI,
+  photoSourceUrl = null,
+  manualCalibrationSnapshot = null,
+  modelImportSummary = null,
+  lastModelImport = null,
   photoRectCache = null,
   calibrationCorners = [
     { x: 0.36, y: 0.38 },
@@ -48,15 +64,18 @@ const money = (n) =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'RON' }).format(n);
 const f = (n) => new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n);
 const history = new PavingHistory({
-  capture: () => structuredClone(state),
-  restore: (s) => restore(s),
+  capture: () => captureHistorySnapshot(),
+  restore: (s) => {
+    try { return restoreHistorySnapshot(s); }
+    catch (error) { showAreaError(geometryError(error)); return false; }
+  },
 });
 
 const PHOTO_FLOW_COPY = {
   en: {
     stepUpload: '1 · Add a site photo',
     uploadTitle: 'Start with a photo of your yard',
-    uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. The photo stays local to this browser session.',
+    uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. Automatic analysis sends a resized copy to the configured analysis service. Manual calibration remains available.',
     upload: 'Choose yard photo',
     sampleLabel: 'Or choose a sample yard',
     sampleAlt: 'Sample yard',
@@ -79,7 +98,7 @@ const PHOTO_FLOW_COPY = {
   ro: {
     stepUpload: '1 · Adaugă fotografia',
     uploadTitle: 'Începe cu o fotografie a curții',
-    uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Fotografia rămâne doar în această sesiune din browser.',
+    uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Analiza automată trimite o copie redimensionată către serviciul de analiză configurat. Calibrarea manuală rămâne disponibilă.',
     upload: 'Alege fotografia curții',
     sampleLabel: 'Sau alege o curte exemplu',
     sampleAlt: 'Curte exemplu',
@@ -102,7 +121,7 @@ const PHOTO_FLOW_COPY = {
   de: {
     stepUpload: '1 · Standortfoto hinzufügen',
     uploadTitle: 'Mit einem Foto des Hofs beginnen',
-    uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Das Foto bleibt nur in dieser Browser-Sitzung.',
+    uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Die automatische Analyse sendet eine verkleinerte Kopie an den konfigurierten Analysedienst. Manuelle Kalibrierung bleibt verfügbar.',
     upload: 'Hoffoto auswählen',
     sampleLabel: 'Oder einen Beispielhof auswählen',
     sampleAlt: 'Beispielhof',
@@ -155,6 +174,7 @@ function installPhotoFlowShell() {
       <div id="photoCalibrationActions" class="photo-flow-actions" hidden>
         <button id="photoCalibrationConfirm" type="button" class="photo-primary"></button>
         <button id="photoChangeCalibration" type="button" class="photo-secondary"></button>
+        <button id="photoCancelCalibration" type="button" class="photo-secondary photo-full" hidden></button>
       </div>
       <div id="photoDrawingActions" class="photo-flow-actions" hidden>
         <button id="photoUndoPoint" type="button" class="photo-secondary"></button>
@@ -444,30 +464,88 @@ function geometryError(error) {
 function startAreaDrawing(operation = 'replace') {
   if (!viewer) return;
   drawingOperation = ['add', 'remove', 'replace'].includes(operation) ? operation : 'replace';
-  drawingArea = true; draftAreaPoints = [];
+  drawingArea = true; draftAreaPoints = []; designRevision++;
   $('areaError').hidden = true;
   viewer.startAreaDrawing({ operation: drawingOperation });
   renderAreaEditor();
 }
 function stopAreaDrawing() {
-  drawingArea = false; draftAreaPoints = [];
+  drawingArea = false; draftAreaPoints = []; designRevision++;
   viewer?.stopAreaDrawing({ preserveCamera: true });
   renderAreaEditor();
+}
+function captureHistorySnapshot() {
+  // Camera and geometry travel together in local undo. Images/masks are NOT copied
+  // into the history stack or the ordinary saved-state/share payload.
+  return { historyVersion: 1, state: structuredClone(state), photoId: photoSource?.photoId || null,
+    photoView: viewer?.capturePhotoState() || null, photoFlowStep: photoFlowStep === 'analyze' ? 'calibrate' : photoFlowStep,
+    modelSummary: modelImportSummary ? structuredClone(modelImportSummary) : null };
+}
+function restoreHistorySnapshot(snapshot) {
+  if (snapshot.photoId !== (photoSource?.photoId || null)) return false;
+  const next = normalize(snapshot.state), prepared = validatePavingState(next);
+  viewer?.restorePhotoState(snapshot.photoView);
+  photoFlowStep = snapshot.photoFlowStep;
+  designRevision++;
+  modelImportSummary = snapshot.modelSummary ? structuredClone(snapshot.modelSummary) : null;
+  document.body.classList.toggle('tiles-photo-setup', photoFlowStep !== 'done');
+  return commitPavingState(next, { record: false, finishDrawing: true, prepared });
+}
+function importModelResult(input, options = {}) {
+  const photo = photoSource;
+  if (!viewer || !photo) failImport('noPhoto', 'Load the matching photograph first.');
+  if (options.photoId !== photo.photoId || options.designRevision !== designRevision)
+    failImport('staleResult', 'The photograph or design changed. Request a fresh photo token before importing.');
+  const resultImageId = input?.geometry?.image_id || input?.image_id;
+  if (options.associateWithCurrentPhoto !== true && resultImageId !== photo.photoId)
+    failImport('imageMismatch', 'The model result belongs to another image. Local exports require explicit association with the current photograph.');
+  if (drawingArea && draftAreaPoints.length)
+    failImport('unfinishedDrawing', 'Finish or cancel the current outline before importing a model result.');
+  if (asRegionState(state).areaRegions.length && options.replaceExisting !== true)
+    failImport('replaceRequired', 'The current pavement and its holes will not be overwritten without explicit replacement.');
+  const imported = prepareModelImport(input, { ...options, photo }),
+    next = normalize({ ...state, shape: 'regions', areaPoints: null, areaRegions: imported.regions, areaOrigin: imported.origin,
+      // Photo model results must not be clipped by an unrelated 3D demo house.
+      houseEnabled: false }),
+    prepared = validatePavingState(next), before = captureHistorySnapshot(), oldResult = lastModelImport,
+    oldStack = [...history.stack], oldFuture = [...history.future];
+  try {
+    history.record();
+    viewer.applyModelCalibration(imported.camera, imported.origin);
+    designRevision++;
+    const importId = `${photo.photoId}:${designRevision + 1}`;
+    lastModelImport = { importId, photoId: photo.photoId, value: imported,
+      analysisResultId: options.analysisResultId || null, targets: [...(options.targets || ['grass', 'dirt'])],
+      payload: structuredClone(input) };
+    modelImportSummary = { importId, imageId: imported.camera.imageId, source: imported.source,
+      cameraSource: 'metric_model', scaleSource: imported.camera.scaleSource, accuracyVerified: false,
+      diagnostics: imported.diagnostics, warnings: imported.warnings };
+    lastModelImport.summary = structuredClone(modelImportSummary);
+    commitPavingState(next, { record: false, finishDrawing: true, selectFirst: true, prepared });
+    completePhotoFlow();
+    return structuredClone(modelImportSummary);
+  } catch (error) {
+    lastModelImport = oldResult;
+    history.stack = oldStack; history.future = oldFuture;
+    restoreHistorySnapshot(before);
+    throw error;
+  }
 }
 function validatePavingState(next) {
   areaGeometry(next);
   const parts = layout(next);
   return { parts, bom: estimate(next, parts) };
 }
-function commitPavingState(next, { record = true, finishDrawing = false, selectFirst = false } = {}) {
+function commitPavingState(next, { record = true, finishDrawing = false, selectFirst = false, prepared: supplied } = {}) {
   // Clip and price BEFORE changing state/history so a rejected operation is atomic.
-  const prepared = validatePavingState(next), changed = JSON.stringify(next) !== JSON.stringify(state);
+  const prepared = supplied || validatePavingState(next), changed = JSON.stringify(next) !== JSON.stringify(state);
   if (record && changed) history.record();
   if (finishDrawing) {
     drawingArea = false; draftAreaPoints = [];
     viewer?.stopAreaDrawing({ preserveCamera: true });
   }
   state = next;
+  if (changed) designRevision++;
   if (selectFirst) { activeBoundaryKey = areaGeometry(next).boundaries[0]?.key || ''; activeVertex = 0; }
   viewer?.preserveCamera();
   $('areaError').hidden = true;
@@ -555,6 +633,7 @@ function renderPhotoViewControls() {
   const inPhoto = viewer.isPhotoMode();
   button.textContent = photoText()[inPhoto ? 'freeCamera' : 'photoView'];
   camera.hidden = inPhoto;
+  modelImportUI?.update();
 }
 
 function renderPhotoFlow() {
@@ -571,6 +650,10 @@ function renderPhotoFlow() {
     $('photoFlowStep').textContent = copy.stepUpload;
     $('photoFlowTitle').textContent = copy.uploadTitle;
     $('photoFlowHelp').textContent = copy.uploadHelp;
+  } else if (photoFlowStep === 'analyze') {
+    $('photoFlowStep').textContent = '2 · ' + analysisFlowText(locale).title;
+    $('photoFlowTitle').textContent = analysisFlowText(locale).title;
+    $('photoFlowHelp').textContent = analysisFlowText(locale).help;
   } else if (photoFlowStep === 'calibrate') {
     $('photoFlowStep').textContent = copy.stepCalibrate;
     $('photoFlowTitle').textContent = copy.calibrateTitle;
@@ -587,6 +670,8 @@ function renderPhotoFlow() {
   });
   $('photoCalibrationConfirm').textContent = copy.calibrate;
   $('photoChangeCalibration').textContent = copy.changePhoto;
+  $('photoCancelCalibration').hidden = !manualCalibrationSnapshot || photoFlowStep !== 'calibrate';
+  $('photoCancelCalibration').textContent = areaText().cancel;
   $('photoUndoPoint').textContent = copy.undo;
   $('photoFinishArea').textContent = copy.finish;
   $('photoChangeDrawing').textContent = copy.changePhoto;
@@ -594,6 +679,8 @@ function renderPhotoFlow() {
   $('photoFinishArea').disabled = draftAreaPoints.length < 3;
   updateCalibrationOverlay();
   renderPhotoViewControls();
+  modelImportUI?.update();
+  analysisUI?.update();
 }
 
 function resetCalibrationCorners() {
@@ -607,29 +694,38 @@ function resetCalibrationCorners() {
 
 async function loadPhotoSource(source, { objectUrl = false } = {}) {
   if (!viewer || !source) return false;
+  analysisController?.cancel({ clearResult: true });
+  manualCalibrationSnapshot = null;
+  const sequence = ++photoLoadSequence, previousPhoto = photoSource, previousUrl = photoObjectUrl;
+  photoSource = null; modelImportUI?.update();
   if (drawingArea) {
-    drawingArea = false;
-    draftAreaPoints = [];
+    drawingArea = false; draftAreaPoints = [];
     viewer.stopAreaDrawing();
   }
-  if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
-  photoObjectUrl = objectUrl ? source : null;
   showPhotoFlowError('');
   try {
-    await viewer.loadSitePhoto(source);
-    state = normalize({ ...state, shape: 'regions', areaRegions: [], areaOrigin: { x: 0, z: 0 } });
+    const loaded = await viewer.loadSitePhoto(source);
+    if (sequence !== photoLoadSequence) { if (objectUrl) URL.revokeObjectURL(source); return false; }
+    if (previousUrl && previousUrl !== source) URL.revokeObjectURL(previousUrl);
+    photoObjectUrl = objectUrl ? source : null;
+    photoSourceUrl = source;
+    photoSource = { photoId: globalThis.crypto?.randomUUID?.() || `photo-${Date.now()}-${sequence}`,
+      width: loaded.width, height: loaded.height };
+    state = normalize({ ...state, shape: 'regions', areaRegions: [], areaOrigin: { x: 0, z: 0 }, houseEnabled: false });
+    designRevision++; modelImportSummary = null; lastModelImport = null;
     history.clear(); activeBoundaryKey = ''; activeVertex = 0;
     resetCalibrationCorners();
     photoRectCache = viewer.getPhotoRect();
-    photoFlowStep = 'calibrate';
+    photoFlowStep = SEGMENTATION_CONFIG.enabled ? 'analyze' : 'calibrate';
     document.body.classList.add('tiles-photo-setup');
     render();
+    if (SEGMENTATION_CONFIG.enabled) void analysisController?.run().catch(error => showPhotoFlowError(error.message));
     return true;
-  } catch {
-    if (objectUrl && photoObjectUrl === source) {
-      URL.revokeObjectURL(photoObjectUrl);
-      photoObjectUrl = null;
-    }
+  } catch (error) {
+    if (objectUrl) URL.revokeObjectURL(source);
+    if (sequence !== photoLoadSequence) return false;
+    photoSource = previousPhoto;
+    modelImportUI?.update();
     showPhotoFlowError(photoText().photoFailed);
     return false;
   }
@@ -643,7 +739,54 @@ async function loadPhotoFile(file) {
   return loadPhotoSource(URL.createObjectURL(file), { objectUrl: true });
 }
 
+function beginManualCalibration() {
+  if (!photoSource || !viewer) return false;
+  if (draftAreaPoints.length) throw new Error('Finish or cancel the current outline before changing calibration.');
+  analysisController?.cancel();
+  if (photoFlowStep !== 'calibrate') {
+    manualCalibrationSnapshot = viewer.hasPhotoCalibration() ? captureHistorySnapshot() : null;
+    resetCalibrationCorners();
+  }
+  if (drawingArea) stopAreaDrawing();
+  designRevision++;
+  photoFlowStep = 'calibrate';
+  viewer.beginReferenceCalibration();
+  document.body.classList.add('tiles-photo-setup');
+  showPhotoFlowError(''); renderPhotoFlow();
+  return true;
+}
+function cancelManualCalibration() {
+  const before = manualCalibrationSnapshot;
+  if (!before) return;
+  manualCalibrationSnapshot = null;
+  restoreHistorySnapshot(before);
+}
 function beginPhotoAreaDrawing() {
+  analysisController?.cancel({ notify: false });
+  if (manualCalibrationSnapshot) {
+    const before = manualCalibrationSnapshot;
+    try {
+      const current = asRegionState(state);
+      const proposal = viewer.prepareReferenceRecalibration(current.areaRegions, current.areaOrigin, calibrationCorners);
+      const next = normalize({ ...current, areaRegions: proposal.regions, areaOrigin: proposal.origin });
+      const prepared = validatePavingState(next);
+      const oldStack = [...history.stack], oldFuture = [...history.future];
+      try {
+        history.record(before);
+        viewer.restorePhotoState(proposal.photoView);
+        modelImportSummary = null;
+        commitPavingState(next, { record: false, finishDrawing: true, prepared });
+        manualCalibrationSnapshot = null;
+        completePhotoFlow();
+      } catch (error) {
+        history.stack = oldStack; history.future = oldFuture;
+        restoreHistorySnapshot(before);
+        manualCalibrationSnapshot = null;
+        throw error;
+      }
+      return true;
+    } catch (error) { showPhotoFlowError(error.message || photoText().calibrationInvalid); return false; }
+  }
   if (!viewer?.applyPhotoCalibration(calibrationCorners)) {
     showPhotoFlowError(photoText().calibrationInvalid);
     return false;
@@ -679,6 +822,7 @@ function wirePhotoFlow() {
     loadPhotoSource(button.dataset.sampleSrc);
   });
   $('photoCalibrationConfirm').addEventListener('click', beginPhotoAreaDrawing);
+  $('photoCancelCalibration').addEventListener('click', cancelManualCalibration);
   for (const id of ['photoChangeCalibration', 'photoChangeDrawing'])
     $(id).addEventListener('click', () => input.click());
   $('photoUndoPoint').addEventListener('click', () => viewer?.undoAreaPoint());
@@ -694,6 +838,7 @@ function wirePhotoFlow() {
   layer.addEventListener('pointerdown', (event) => {
     const handle = event.target.closest('[data-calibration-corner]');
     if (!handle || photoFlowStep !== 'calibrate') return;
+    if (analysisController?.getStatus().busy) beginManualCalibration();
     dragIndex = Number(handle.dataset.calibrationCorner);
     pointerId = event.pointerId;
     handle.setPointerCapture?.(pointerId);
@@ -819,6 +964,10 @@ function render(prepared = null) {
   viewer?.rebuild(state, parts);
   $('areaBadge').textContent =
     `${f(bom.area)} m² · ${custom ? `${t('perimeter')}: ${f(bom.perimeter)} m` : `${f(state.length)} × ${f(state.width)} m`}`;
+  if (viewer?.getModelCalibration()) {
+    const label = { en: 'Estimated scale', ro: 'Scară estimată', de: 'Geschätzter Maßstab' }[locale.split('-')[0]] || 'Estimated scale';
+    $('areaBadge').textContent += ` · ${label}`;
+  }
   $('metrics').innerHTML = [
     ['netArea', `${f(bom.area)} m²`],
     ['houseArea', `${f(bom.houseArea)} m²`],
@@ -888,21 +1037,56 @@ const api = {
   captureState: () => structuredClone(state),
   restoreState: restore,
   resetConfiguration() {
-    history.record();
-    if (drawingArea) {
-      drawingArea = false;
-      draftAreaPoints = [];
-      viewer?.stopAreaDrawing();
-    }
-    state = normalize(DEFAULTS);
-    render();
-    shell?.markDirty();
-    return true;
+    return commitPavingState(normalize(DEFAULTS), { finishDrawing: true, selectFirst: true });
   },
   setLocale,
   setDarkMode,
   cycleCamera,
-  getEstimate: () => estimate(state),
+  getEstimate: () => ({ ...estimate(state), measurementStatus: viewer?.getModelCalibration() ? 'estimated' : viewer?.hasPhotoCalibration() ? 'reference_calibrated' : 'design_dimensions' }),
+  getPhotoSource: () => photoSource ? { ...photoSource, designRevision, drawing: drawingArea, draftVertices: draftAreaPoints.length } : null,
+  importModelResult,
+  runPhotoAnalysis: options => analysisController.run(options),
+  cancelPhotoAnalysis: options => analysisController?.cancel(options),
+  restoreDetectedArea: options => analysisController.restore(options),
+  getAnalysisStatus: () => analysisController?.getStatus() || { phase: 'idle', busy: false, canRestore: false },
+  getAnalysisResult: () => analysisController?.getResult() || null,
+  beginManualCalibration,
+  getModelCamera: () => viewer?.getModelCalibration() || null,
+  getModelImportSummary: () => modelImportSummary ? structuredClone(modelImportSummary) : null,
+  getModelImportMasks() {
+    if (!lastModelImport || lastModelImport.photoId !== photoSource?.photoId ||
+        lastModelImport.importId !== modelImportSummary?.importId) return null;
+    return { source: 'original_import_not_current_edits', imageId: lastModelImport.value.camera.imageId,
+      ...lastModelImport.value.camera.image, ...structuredClone(lastModelImport.value.masks) };
+  },
+  // Diagnostics are session-local, read-only copies. Never part of saved state,
+  // pricing or the undo stack. The raw result may differ from the active design.
+  getDebugState() {
+    const info = analysisController?.getResultInfo(), retained = lastModelImport?.photoId === photoSource?.photoId ? lastModelImport : null;
+    return { photo: api.getPhotoSource(), status: api.getAnalysisStatus(),
+      service: analysisController?.getServiceStatus() || { state: 'unchecked' },
+      calibration: viewer?.capturePhotoState()?.calibration || null,
+      measurementStatus: viewer?.getModelCalibration() ? 'estimated' : viewer?.hasPhotoCalibration() ? 'reference_calibrated' : 'unavailable',
+      sources: {
+        analysis: info ? { key: `${info.resultId}:${retained?.analysisResultId === info.resultId ? retained.importId : 'raw'}`,
+          active: retained?.analysisResultId === info.resultId && retained.importId === modelImportSummary?.importId } : null,
+        imported: retained ? { key: retained.importId, active: retained.importId === modelImportSummary?.importId } : null,
+      } };
+  },
+  getDebugSource(kind) {
+    const info = analysisController?.getResultInfo(), retained = lastModelImport?.photoId === photoSource?.photoId ? lastModelImport : null;
+    const selected = kind === 'analysis' ? (info ? { photoId: info.photoId, payload: api.getAnalysisResult(), targets: retained?.analysisResultId === info.resultId ? retained.targets : info.targets,
+      prepared: retained?.analysisResultId === info.resultId ? retained : null } : null) :
+      kind === 'imported' && retained ? { photoId: retained.photoId, payload: retained.payload, targets: retained.targets, prepared: retained } : null;
+    if (!selected) return null;
+    const descriptor = api.getDebugState().sources[kind], imported = selected.prepared;
+    return { ...descriptor, kind, photoId: selected.photoId, targets: [...selected.targets],
+      payload: structuredClone(selected.payload), summary: imported ? structuredClone(imported.summary) : null,
+      prepared: imported ? { image: { ...imported.value.camera.image }, masks: structuredClone(imported.value.masks) } : null };
+  },
+  getDebugView: () => viewer?.getDebugView() || null,
+  setDebugPreviewVisible: visible => viewer?.setDebugPreviewVisible(visible),
+  checkAnalysisService: () => analysisController.checkHealth(),
   getPavingState: () => structuredClone(asRegionState(state)),
   setPavingRegions(regions, origin = asRegionState(state).areaOrigin) {
     return change({ shape: 'regions', areaRegions: regions, areaOrigin: origin });
@@ -916,6 +1100,23 @@ const api = {
   redo: redoPavingEdit,
 };
 window.TILES_CONFIGURATOR_API = api;
+analysisController = createPhotoAnalysis({
+  config: SEGMENTATION_CONFIG,
+  getPhoto: api.getPhotoSource, getPavingState: api.getPavingState,
+  getSource: () => photoSourceUrl, importResult: (payload, options) => {
+    // Automatic imports do not run after reference calibration has started.
+    return api.importModelResult(payload, options);
+  },
+  onStatus(status) {
+    if (status.photoId === photoSource?.photoId && photoFlowStep === 'analyze' && !status.busy &&
+        ['error', 'manual_required', 'cancelled'].includes(status.phase)) photoFlowStep = 'calibrate';
+    renderPhotoFlow();
+  },
+});
+analysisUI = mountAnalysisPanel({ api, getLocale: () => locale, getStep: () => photoFlowStep,
+  initialTargets: SEGMENTATION_CONFIG.targets });
+window.addEventListener('pagehide', () => analysisController.cancel({ notify: false }));
+modelImportUI = mountSegmentationDebugPanel({ api, getLocale: () => locale, getStep: () => photoFlowStep });
 let sliderFrame = 0,
   sliderPatch = null;
 function flushSlider() {
@@ -1053,6 +1254,7 @@ $('export').addEventListener('click', () => {
     [t('note')],
     [t('shape'), ['custom', 'regions'].includes(state.shape) ? areaText().freeform : t(state.shape)],
     [t('netArea'), bom.area, 'm²'],
+    ['Measurement status', viewer?.getModelCalibration() ? 'model-estimated scale; not physically verified' : 'design dimensions'],
     [t('grossArea'), bom.grossArea, 'm²'],
     [t('houseArea'), bom.houseArea, 'm²'],
     ...(state.houseEnabled
@@ -1197,6 +1399,7 @@ try {
     onHouseDragStart: () => history.record(),
     onHouseMove: (patch) => change(patch, false),
     onAreaDraftChange(points) {
+      if (JSON.stringify(points) !== JSON.stringify(draftAreaPoints)) designRevision++;
       draftAreaPoints = points;
       if (drawingArea) renderAreaEditor();
       if (photoFlowStep === 'draw') renderPhotoFlow();
@@ -1211,6 +1414,7 @@ try {
     onPhotoRectChange(rect) {
       photoRectCache = rect;
       updateCalibrationOverlay();
+      modelImportUI?.update();
     },
   });
   viewer.setDarkMode(Boolean(shell.state.darkMode));

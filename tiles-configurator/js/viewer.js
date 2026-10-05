@@ -1,3 +1,4 @@
+import { reprojectRegions } from './referenceReprojection.js';
 import { REGION_LIMITS } from './pavingRegions.js';
 import { stoneAppearance } from './stoneAppearance.js';
 import { houseGeometry } from './house.js';
@@ -7,6 +8,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clipRect, polygonArea } from './area.js';
 import { COLORS, TILES, CURBS, curbLayout, areaGeometry } from './model.js';
 import { calibratePhotoCamera } from './photoCalibration.js';
+import { modelCameraMatrices, assertPhotoMatches } from './modelCamera.js';
 
 const vertexLabel = (index) => {
   let value = index + 1,
@@ -112,9 +114,13 @@ export function createViewer(host, callbacks = {}) {
     photoNaturalHeight = 0,
     photoCalibrationCorners = null,
     photoCalibration = null,
+    modelPhotoCalibration = null,
+    modelPhotoOrigin = { x: 0, z: 0 },
+    photoLoadSequence = 0,
     photoWorldShift = { x: 0, z: 0 },
     preservePhotoPoseUntilInteraction = false,
-    darkMode = false;
+    darkMode = false,
+    debugPreviewVisible = true;
   scene.add(group, dimensions, areaHandles, areaDraft);
   const box = new THREE.BoxGeometry(1, 1, 1),
     dummy = new THREE.Object3D();
@@ -329,6 +335,78 @@ export function createViewer(host, callbacks = {}) {
       height: photoHeight,
     };
   }
+  function syncPhotoBackdropRect() {
+    const r = photoRect();
+    // Use the very same content rectangle for the background, masks and camera.
+    // CSS object-fit plus a different padding would cause a subtle alignment error.
+    Object.assign(photoBackdrop.style, { inset: 'auto', left: `${r.left}px`, top: `${r.top}px`,
+      width: `${r.width}px`, height: `${r.height}px`, padding: '0' });
+    host.style.backgroundColor = photoMode ? '#ffffff' : '';
+    return r;
+  }
+  function setModelProjection({ pose = false } = {}) {
+    if (!modelPhotoCalibration || !host.clientWidth || !host.clientHeight) return false;
+    const m = modelCameraMatrices(modelPhotoCalibration,
+      { width: host.clientWidth, height: host.clientHeight }, photoRect(), modelPhotoOrigin, GROUND_Y);
+    camera.near = m.near; camera.far = m.far; camera.fov = m.fov;
+    camera.aspect = host.clientWidth / host.clientHeight; camera.zoom = 1;
+    // updateProjectionMatrix() would erase unequal focal lengths / principal point.
+    camera.projectionMatrix.set(...m.projection);
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    if (pose) {
+      new THREE.Matrix4().set(...m.view).invert().decompose(camera.position, camera.quaternion, camera.scale);
+      controls.target.set(-modelPhotoOrigin.x, GROUND_Y, -modelPhotoOrigin.z);
+    }
+    camera.updateMatrixWorld(true);
+    return true;
+  }
+  function applyModelCalibration(calibration, origin = { x: 0, z: 0 }) {
+    assertPhotoMatches(calibration, { width: photoNaturalWidth, height: photoNaturalHeight });
+    // Validate viewport and origin before replacing any existing calibration.
+    modelCameraMatrices(calibration, { width: host.clientWidth, height: host.clientHeight }, photoRect(), origin, GROUND_Y);
+    modelPhotoCalibration = structuredClone(calibration); modelPhotoOrigin = { ...origin };
+    photoCalibrationCorners = null; photoCalibration = null;
+    photoWorldShift = { x: 0, z: 0 }; photoMode = true;
+    preservePhotoPoseUntilInteraction = false;
+    updatePhotoPresentation();
+    return true;
+  }
+  function capturePhotoState() {
+    return {
+      calibration: modelPhotoCalibration ? { type: 'metric_model', value: structuredClone(modelPhotoCalibration), origin: { ...modelPhotoOrigin } }
+        : photoCalibrationCorners ? { type: 'reference_square', corners: structuredClone(photoCalibrationCorners), shift: { ...photoWorldShift } } : null,
+      photoMode, photoSetup, top,
+      pose: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
+        target: controls.target.toArray(), projection: camera.projectionMatrix.toArray(), fov: camera.fov, aspect: camera.aspect },
+    };
+  }
+  // Private history snapshots only; public JSON result import uses validated data.
+  function restorePhotoState(snapshot) {
+    if (!snapshot) return;
+    const sameCalibration = JSON.stringify(capturePhotoState().calibration) === JSON.stringify(snapshot.calibration);
+    const sameMode = photoMode === snapshot.photoMode;
+    if (sameCalibration && sameMode && photoSetup === snapshot.photoSetup) return;
+    const c = snapshot.calibration;
+    modelPhotoCalibration = c?.type === 'metric_model' ? structuredClone(c.value) : null;
+    modelPhotoOrigin = c?.type === 'metric_model' ? { ...c.origin } : { x: 0, z: 0 };
+    photoCalibrationCorners = c?.type === 'reference_square' ? structuredClone(c.corners) : null;
+    photoCalibration = null;
+    photoWorldShift = c?.type === 'reference_square' ? { ...c.shift } : { x: 0, z: 0 };
+    photoMode = snapshot.photoMode; top = snapshot.top;
+    if (photoCalibrationCorners) applyPhotoCalibrationPose();
+    setPhotoSetup(snapshot.photoSetup); updatePhotoPresentation();
+    if (!photoMode && snapshot.pose) {
+      camera.position.fromArray(snapshot.pose.position); camera.quaternion.fromArray(snapshot.pose.quaternion);
+      camera.scale.set(1, 1, 1); controls.target.fromArray(snapshot.pose.target);
+      if (modelPhotoCalibration) setModelProjection();
+      else {
+        camera.fov = snapshot.pose.fov; camera.aspect = host.clientWidth / Math.max(1, host.clientHeight);
+        camera.updateProjectionMatrix();
+      }
+      camera.updateMatrixWorld(true); preservePhotoPoseUntilInteraction = true;
+    }
+    drawAreaHandles();
+  }
   function syncFreeCameraFromPhotoPose() {
     // Keep the calibrated camera transform exactly as-is when the photo disappears.
     // OrbitControls normally runs update() every frame and can immediately re-orient
@@ -353,6 +431,7 @@ export function createViewer(host, callbacks = {}) {
     preservePhotoPoseUntilInteraction = true;
   }
   function applyPhotoCalibrationPose() {
+    if (modelPhotoCalibration) return setModelProjection({ pose: true });
     if (!photoCalibrationCorners || !photoNaturalWidth || !photoNaturalHeight) return false;
     const width = host.clientWidth,
       height = host.clientHeight,
@@ -387,6 +466,7 @@ export function createViewer(host, callbacks = {}) {
     return true;
   }
   function updatePhotoPresentation() {
+    syncPhotoBackdropRect();
     photoBackdrop.style.display = photoMode ? 'block' : 'none';
     if (photoMode) {
       scene.background = null;
@@ -405,11 +485,11 @@ export function createViewer(host, callbacks = {}) {
   function setPhotoView(enabled) {
     enabled = Boolean(enabled);
     if (enabled) {
-      if (!photoCalibrationCorners) return false;
+      if (!photoCalibrationCorners && !modelPhotoCalibration) return false;
       preservePhotoPoseUntilInteraction = false;
       photoMode = true;
       updatePhotoPresentation();
-      return Boolean(photoCalibration);
+      return Boolean(photoCalibration || modelPhotoCalibration);
     }
     if (photoSetup) return false;
     if (photoMode) {
@@ -426,42 +506,29 @@ export function createViewer(host, callbacks = {}) {
   }
   function setPhotoSetup(active) {
     photoSetup = Boolean(active);
-    group.visible = !photoSetup;
+    group.visible = !photoSetup && debugPreviewVisible;
     dimensions.visible = !photoSetup && showDimensions && !drawingArea;
     areaHandles.visible = !photoSetup && !drawingArea;
     if (photoSetup) controls.enabled = false;
     else if (photoMode) controls.enabled = false;
   }
   function loadSitePhoto(url) {
+    const sequence = ++photoLoadSequence;
     return new Promise((resolve, reject) => {
-      photoCalibrationCorners = null;
-      photoCalibration = null;
-      photoWorldShift = { x: 0, z: 0 };
-      photoNaturalWidth = 0;
-      photoNaturalHeight = 0;
-      photoMode = true;
-      setPhotoSetup(true);
-      photoBackdrop.style.display = 'block';
-      scene.background = null;
-      renderer.setClearAlpha(0);
-      ground.visible = false;
-      grid.visible = false;
-      const cleanup = () => {
-        photoBackdrop.onload = null;
-        photoBackdrop.onerror = null;
-      };
-      photoBackdrop.onload = () => {
-        photoNaturalWidth = photoBackdrop.naturalWidth || 1;
-        photoNaturalHeight = photoBackdrop.naturalHeight || 1;
-        cleanup();
+      const image = new Image();
+      image.onload = () => {
+        image.onload = image.onerror = null;
+        if (sequence !== photoLoadSequence) { reject(new Error('stalePhoto')); return; }
+        photoCalibrationCorners = null; photoCalibration = null; modelPhotoCalibration = null;
+        modelPhotoOrigin = { x: 0, z: 0 }; photoWorldShift = { x: 0, z: 0 };
+        photoNaturalWidth = image.naturalWidth; photoNaturalHeight = image.naturalHeight;
+        photoMode = true; setPhotoSetup(true); photoBackdrop.src = url;
+        updatePhotoPresentation();
         callbacks.onPhotoRectChange?.(photoRect());
         resolve({ width: photoNaturalWidth, height: photoNaturalHeight, rect: photoRect() });
       };
-      photoBackdrop.onerror = () => {
-        cleanup();
-        reject(new Error('photoLoadFailed'));
-      };
-      photoBackdrop.src = url;
+      image.onerror = () => { image.onload = image.onerror = null; reject(new Error('photoLoadFailed')); };
+      image.src = url;
     });
   }
   function applyPhotoCalibration(corners) {
@@ -479,15 +546,48 @@ export function createViewer(host, callbacks = {}) {
       )
     )
       return false;
+    const r = photoRect();
+    if (!calibratePhotoCamera(normalized.map(p => ({ x: r.left + p.x*r.width, y: r.top + p.y*r.height })), host.clientWidth, host.clientHeight)) return false;
+    modelPhotoCalibration = null;
     photoCalibrationCorners = normalized;
     photoMode = true;
     updatePhotoPresentation();
     return Boolean(photoCalibration);
   }
+  function prepareReferenceRecalibration(regions, origin, corners) {
+    const before = capturePhotoState();
+    if (!before.calibration) throw new Error('A current photo calibration is required to preserve an existing design.');
+    try {
+      // Use the PHOTO pose even when the user came from free camera.
+      applyPhotoCalibrationPose();
+      const oldProjection = camera.projectionMatrix.clone(), oldView = camera.matrixWorldInverse.clone();
+      const project = p => {
+        const point = new THREE.Vector3(p.x - origin.x, GROUND_Y, p.z - origin.z).applyMatrix4(oldView);
+        if (point.z >= -camera.near) return null;
+        point.applyMatrix4(oldProjection);
+        return new THREE.Vector2(point.x, point.y);
+      };
+      photoWorldShift = { x: 0, z: 0 };
+      if (!applyPhotoCalibration(corners)) throw new Error('The reference square is invalid. Keep its four corners in order.');
+      const ray = new THREE.Raycaster(), surface = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
+      const unproject = pixel => {
+        ray.setFromCamera(pixel, camera);
+        const point = ray.ray.intersectPlane(surface, new THREE.Vector3());
+        return point && { x: point.x, z: point.z };
+      };
+      const converted = reprojectRegions(regions, project, unproject);
+      return { regions: converted, origin: { x: 0, z: 0 }, photoView: capturePhotoState() };
+    } finally { restorePhotoState(before); }
+  }
   function shiftPhotoWorld(dx, dz) {
     dx = Number(dx);
     dz = Number(dz);
     if (!Number.isFinite(dx) || !Number.isFinite(dz)) return false;
+    if (modelPhotoCalibration) {
+      modelPhotoOrigin.x -= dx; modelPhotoOrigin.z -= dz;
+      if (photoMode) applyPhotoCalibrationPose();
+      return true;
+    }
     photoWorldShift.x += dx;
     photoWorldShift.z += dz;
     if (photoMode && photoCalibrationCorners) applyPhotoCalibrationPose();
@@ -495,7 +595,7 @@ export function createViewer(host, callbacks = {}) {
   }
   function completePhotoSetup() {
     setPhotoSetup(false);
-    group.visible = true;
+    group.visible = debugPreviewVisible;
     drawAreaHandles();
     dimensions.visible = showDimensions && !drawingArea;
     setPhotoView(true);
@@ -629,8 +729,9 @@ export function createViewer(host, callbacks = {}) {
   function updateHandleScreenSizes(container) {
     if (!container?.visible || !host.clientHeight) return;
     camera.updateMatrixWorld(true);
-    const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2),
-      viewportHeight = Math.max(1, host.clientHeight);
+    const projection = camera.projectionMatrix.elements,
+      pixelsPerUnitX = Math.abs(projection[0]) * Math.max(1, host.clientWidth) / 2,
+      pixelsPerUnitY = Math.abs(projection[5]) * Math.max(1, host.clientHeight) / 2;
     container.traverse((object) => {
       const pixels = object.userData?.handlePixels;
       if (!pixels || !object.isSprite) return;
@@ -638,9 +739,7 @@ export function createViewer(host, callbacks = {}) {
       handleCameraPosition.copy(handleWorldPosition).applyMatrix4(camera.matrixWorldInverse);
       const depth = -handleCameraPosition.z;
       if (depth <= camera.near) return;
-      const worldUnitsPerPixel = (2 * depth * tanHalfFov) / viewportHeight,
-        size = pixels * worldUnitsPerPixel;
-      object.scale.set(size, size, 1);
+      object.scale.set(pixels * depth / pixelsPerUnitX, pixels * depth / pixelsPerUnitY, 1);
     });
   }
   function activeBoundary() {
@@ -862,13 +961,15 @@ export function createViewer(host, callbacks = {}) {
       h = host.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
+    syncPhotoBackdropRect();
     camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    if (modelPhotoCalibration) setModelProjection({ pose: photoMode });
+    else camera.updateProjectionMatrix();
     if (photoMode && photoCalibrationCorners) applyPhotoCalibrationPose();
     // Once a photo-calibrated scene exists, resizing the viewer (for example when
     // switching modes or opening/closing UI) must not call fit(), because that would
     // replace the calibrated free-camera pose with the generic fitted overview.
-    else if (!photoSetup && !photoCalibrationCorners) fit();
+    else if (!photoSetup && !photoCalibrationCorners && !modelPhotoCalibration) fit();
     callbacks.onPhotoRectChange?.(photoRect());
   };
   new ResizeObserver(resize).observe(host);
@@ -1189,7 +1290,27 @@ export function createViewer(host, callbacks = {}) {
     preserveCamera() { preserveCameraOnNextRebuild = true; },
     loadSitePhoto,
     getPhotoRect: photoRect,
+    setDebugPreviewVisible(visible) {
+      debugPreviewVisible = visible !== false;
+      group.visible = !photoSetup && debugPreviewVisible;
+    },
+    getDebugView() {
+      return { photoMode, hasCalibration: Boolean(modelPhotoCalibration || photoCalibrationCorners && photoCalibration),
+        width: host.clientWidth, height: host.clientHeight, rect: photoRect(), groundY: GROUND_Y,
+        origin: { x: bounds?.centerX || 0, z: bounds?.centerZ || 0 },
+        view: camera.matrixWorldInverse.toArray(), projection: camera.projectionMatrix.toArray() };
+    },
     applyPhotoCalibration,
+    prepareReferenceRecalibration,
+    beginReferenceCalibration() {
+      photoMode = true;
+      setPhotoSetup(true);
+      updatePhotoPresentation();
+    },
+    applyModelCalibration,
+    capturePhotoState,
+    restorePhotoState,
+    getModelCalibration: () => modelPhotoCalibration ? structuredClone(modelPhotoCalibration) : null,
     shiftPhotoWorld,
     completePhotoSetup,
     setPhotoView,
@@ -1197,7 +1318,7 @@ export function createViewer(host, callbacks = {}) {
       return photoMode;
     },
     hasPhotoCalibration() {
-      return Boolean(photoCalibrationCorners && photoCalibration);
+      return Boolean(modelPhotoCalibration || photoCalibrationCorners && photoCalibration);
     },
     cycleCamera() {
       if (photoMode) setPhotoView(false);

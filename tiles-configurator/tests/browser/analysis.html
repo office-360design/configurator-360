@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 3 deterministic browser harness — NOT real model inference</title>
+<style>
+*{box-sizing:border-box}body{font:14px system-ui;margin:0;background:#eef1f2;color:#20303b}header{padding:12px;background:white}
+main{display:flex;gap:16px;padding:16px}#viewer{position:relative;flex:1;min-width:0;min-height:420px;background:white;border-radius:12px}
+.photo-flow-card{padding:16px;width:350px;max-width:100%;background:white}.sidebar{width:350px;max-width:100%;background:white;padding:16px;border-radius:12px}
+[hidden]{display:none!important}.area-secondary{border:1px solid #bdcbd3;background:white;border-radius:8px;color:inherit}.note{color:#576772}
+#plan{width:100%;max-height:320px}#sitePhoto{max-width:100%;max-height:250px}.panel-section{padding:10px 0}fieldset{min-width:0}
+@media(max-width:760px){main{display:block}.sidebar{width:100%;margin-top:12px}#viewer{min-height:100px}}
+</style>
+<header><b>Deterministic test harness</b> — synthetic predictors, real HTTP job API, preparation, adapter, geometry and controls. No WebGL/site shell.</header>
+<main><div id="viewer"><div class="photo-flow-card"><label>Test photo <input id="sitePhotoInput" type="file" accept="image/*"></label></div>
+<img id="sitePhoto"><svg id="plan" viewBox="0 0 320 220"></svg></div><aside class="sidebar"><header>Pavement settings</header></aside></main>
+<script type="module">
+import {createPhotoAnalysis} from '/js/photoAnalysis.js';
+import {prepareWorkingPhoto} from '/js/photoPreparation.js';
+import {mountAnalysisPanel} from '/js/analysisPanel.js';
+import {prepareModelImport} from '/js/segmentationAdapter.js';
+import {imageToGround} from '/js/modelCamera.js';
+import {applyPavingPatch,clearPaving} from '/js/pavingEditor.js';
+import {normalize,layout,estimate,areaGeometry} from '/js/model.js';
+import {PavingHistory} from '/js/pavingHistory.js';
+let photo=null,url=null,state=normalize({shape:'regions',areaRegions:[]}),step='upload',revision=0,summary=null,camera=null,ui;
+let history=new PavingHistory({capture:()=>({state:structuredClone(state),camera:structuredClone(camera)}),restore:s=>{state=s.state;camera=s.camera;revision++;render();return true;}});
+const token=()=>photo?{...photo,designRevision:revision,drawing:false,draftVertices:0}:null;
+function render(){
+ const g=areaGeometry(state),all=g.regions.flatMap(r=>r.outer);
+ const scale=all.length?Math.min(280/Math.max(.1,g.width),180/Math.max(.1,g.depth)):1;
+ const minX=all.length?Math.min(...all.map(p=>p.x)):0,minZ=all.length?Math.min(...all.map(p=>p.z)):0;
+ const ring=a=>'M'+a.map(p=>`${20+(p.x-minX)*scale},${20+(p.z-minZ)*scale}`).join(' L')+' Z';
+ document.querySelector('#plan').innerHTML=g.regions.map(r=>`<path d="${[r.outer,...r.holes].map(ring).join(' ')}" fill="#b7543a" fill-rule="evenodd" stroke="#824131"/>`).join('');
+ ui?.update();
+}
+const api={getPhotoSource:token,getPavingState:()=>structuredClone(state),getAnalysisStatus:()=>ctl.getStatus(),
+ runPhotoAnalysis:o=>ctl.run(o),restoreDetectedArea:o=>ctl.restore(o),beginManualCalibration(){ctl.cancel();step='calibrate';ui.update();},
+ importModelResult(payload,options){
+   if(options.photoId!==photo.photoId||options.designRevision!==revision)throw new Error('stale import');
+   if(state.areaRegions.length&&!options.replaceExisting)throw new Error('replacement consent required');
+   const value=prepareModelImport(payload,{...options,photo});
+   const next=normalize({...state,shape:'regions',areaRegions:value.regions,areaOrigin:value.origin});
+   const pieces=layout(next);const bom=estimate(next,pieces);history.record();state=next;camera=value.camera;revision++;
+   summary={diagnostics:value.diagnostics,bom};step='done';render();return summary;
+ },
+ inspect:()=>({step,state,summary,camera,status:ctl.getStatus(),revision}),
+ addTestHole(){
+   const w=camera.image.width,h=camera.image.height;
+   const points=[[w*.08,h*.65],[w*.2,h*.65],[w*.2,h*.8],[w*.08,h*.8]].map(([u,v])=>imageToGround(camera,u,v));
+   history.record();state=applyPavingPatch(state,points,'remove');revision++;render();
+ },undo(){history.undo();},clear(){history.record();state=clearPaving(state);revision++;render();},
+ prepareProbe:prepareWorkingPhoto,
+};
+const ctl=createPhotoAnalysis({apiBase:location.origin+'/api/paving',config:{pollIntervalMs:30,requestTimeoutMs:10000,analysisTimeoutMs:60000},
+ getPhoto:token,getSource:()=>url,getPavingState:api.getPavingState,importResult:api.importModelResult,
+ onStatus:s=>{if(!s.busy&&['error','manual_required'].includes(s.phase))step='calibrate';ui?.update();}});
+ui=mountAnalysisPanel({api,getLocale:()=> 'en-US',getStep:()=>step});
+document.querySelector('#sitePhotoInput').onchange=async event=>{
+ const file=event.target.files[0];if(!file)return;ctl.cancel({clearResult:true});
+ if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(file);
+ const image=new Image();image.src=url;await image.decode();document.querySelector('#sitePhoto').src=url;
+ photo={photoId:crypto.randomUUID(),width:image.naturalWidth,height:image.naturalHeight};revision++;step='analyze';
+ state=normalize({...state,shape:'regions',areaRegions:[]});history.clear();event.target.value='';render();await ctl.run();
+};
+window.harness=api;
+</script></html>

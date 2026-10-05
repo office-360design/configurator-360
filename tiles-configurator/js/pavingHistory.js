@@ -4,9 +4,8 @@ export class PavingHistory {
     this.capture = capture; this.restore = restore; this.limit = limit;
     this.stack = []; this.future = []; this.restoring = false;
   }
-  record() {
+  record(snapshot = this.capture()) {
     if (this.restoring) return false;
-    const snapshot = this.capture();
     this.future.length = 0;
     if (JSON.stringify(snapshot) === JSON.stringify(this.stack.at(-1))) return false;
     this.stack.push(structuredClone(snapshot));
