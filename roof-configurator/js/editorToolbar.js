@@ -62,9 +62,6 @@ export function setupEditorToolbar(editor) {
     context.append(toolbar.querySelector(`[data-action="${action}"]`));
   }
   toolbar.replaceChildren(selection, ...buttons.values());
-  const history = dialog.querySelector('.layout-history');
-  history.classList.remove('layout-canvas-controls');
-  toolbar.append(history);
   toolbar.after(options, context);
   const instruction = dialog.querySelector('.layout-mode-hint');
   instruction.classList.add('layout-current-tool');
