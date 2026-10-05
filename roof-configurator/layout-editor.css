@@ -254,3 +254,39 @@
 }
 .roof-layout-dialog input[aria-invalid="true"] { border: 2px solid #b42318; background: #fff1f0; }
 .layout-launch p.layout-launch-error { padding: 12px; border: 1px solid #d92d20; border-left-width: 4px; border-radius: 8px; color: #8a1c13; background: #fff1f0; font-weight: 500; }
+
+/* Five primary tools, with one compact options panel and contextual actions. */
+.layout-toolbar { flex-wrap: nowrap; }
+.layout-toolbar > button { flex: 0 1 auto; }
+.layout-toolbar [data-tool-group]::after { content: '\25BE'; font-size: 11px; }
+.layout-toolbar [data-tool-group][data-active="true"] { border-color: #1260aa; color: #1260aa; background: #edf5ff; }
+.layout-toolbar [data-tool-group][aria-expanded="true"] { background: #1260aa; color: white; }
+.layout-toolbar .layout-history { display: flex; gap: 4px; margin-left: auto; flex: none; }
+.layout-toolbar .layout-history button { min-height: 36px; padding: 5px 8px; }
+.layout-tool-options, .layout-context-actions {
+  flex: none;
+  padding: 8px 16px;
+  border-bottom: 1px solid #dce4ed;
+  background: #edf5ff;
+}
+.layout-tool-options > div, .layout-context-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.layout-tool-options button, .layout-context-actions button { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
+.layout-context-actions { background: #fff; }
+.layout-context-actions [data-action="delete"] { color: #b42318; }
+.layout-current-tool { position: static; flex: none; max-width: none; margin: 0; padding: 7px 16px; border: 0; border-bottom: 1px solid #dce4ed; border-radius: 0; background: #f8fafc; }
+@media (max-width: 680px) {
+  .layout-toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 8px; gap: 5px; }
+  .layout-toolbar > button { justify-content: center; min-width: 0; font-size: 11px; padding: 6px 4px; white-space: normal; }
+  .layout-toolbar > button .layout-tool-icon { display: none; }
+  .layout-toolbar .layout-history { margin: 0; justify-content: center; gap: 2px; }
+  .layout-toolbar .layout-history button { font-size: 11px; padding: 4px; min-width: 0; }
+  .layout-tool-options { order: 10; border-top: 1px solid #bac9da; max-height: 23dvh; overflow: auto; padding: 10px; }
+  .layout-context-actions { order: 9; padding: 7px 10px; max-height: 18dvh; overflow: auto; }
+  .roof-layout-dialog footer { order: 11; }
+  .layout-tool-options button { flex: 1 1 auto; }
+  .layout-current-tool { font-size: 12px; padding: 6px 10px; }
+}
+@media (max-width: 680px) {
+  .layout-toolbar .layout-history button { font-size: 0; min-width: 36px; }
+  .layout-toolbar .layout-history button span { font-size: 20px; }
+}

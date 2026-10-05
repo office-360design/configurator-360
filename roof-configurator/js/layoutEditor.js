@@ -1,6 +1,7 @@
-import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=connect-29';
-import { localizeFeature } from './featureI18n.js?v=connect-29';
-import { RoofWindowTool } from './roofWindowTool.js?v=connect-29';
+import { setupEditorToolbar } from './editorToolbar.js?v=toolbar-30';
+import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=toolbar-30';
+import { localizeFeature } from './featureI18n.js?v=toolbar-30';
+import { RoofWindowTool } from './roofWindowTool.js?v=toolbar-30';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
@@ -192,6 +193,7 @@ export class RoofLayoutEditor {
       label.textContent = button.textContent;
       button.replaceChildren(icon, label);
     });
+    this.toolbar = setupEditorToolbar(this);
     document.body.appendChild(this.dialog);
     this.translation = localizeFeature(this.dialog, () => this.state.locale);
     this.dialog.querySelectorAll('.layout-info').forEach(button => {
@@ -270,6 +272,7 @@ export class RoofLayoutEditor {
   }
 
   open() {
+    this.toolbar.close();
     this.windowTool.close();
     this.stopMeet();
     this.stopDormer();
@@ -1121,5 +1124,6 @@ export class RoofLayoutEditor {
       if (action === 'undo') button.disabled = !this.history.length && !this.path.length;
       if (action === 'redo') button.disabled = !this.future.length || !!this.path.length;
     });
+    this.toolbar.refresh();
   }
 }

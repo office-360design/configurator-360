@@ -1,5 +1,5 @@
-import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=connect-29';
-import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=connect-29';
+import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=toolbar-30';
+import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=toolbar-30';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 import { defaultLayout } from './roofLayout.js?v=layout-21';
 

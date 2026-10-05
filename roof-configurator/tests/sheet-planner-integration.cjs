@@ -1,3 +1,4 @@
+const { clickTool } = require('./editor-tools.cjs');
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 (async () => {
@@ -18,7 +19,7 @@ const assert = require('node:assert/strict');
   assert.equal(await page.evaluate(() => window.ROOF_CONFIGURATOR_API.captureState().sheetPlanOptions.profile.usefulWidth), 1080);
   await page.locator('[data-sheet=close]').last().click();
   await page.locator('#editRoofLayout').click();
-  await page.locator('[data-action=dormer]').click();
+  await clickTool(page, 'dormer');
   await page.locator('[data-action=applyDormer]').click();
   await page.locator('.roof-layout-dialog [data-action=apply]').click();
   await page.locator('#sheetPlanOpenButton').click();
