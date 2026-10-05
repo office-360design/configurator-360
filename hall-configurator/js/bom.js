@@ -1,5 +1,6 @@
-import { normalizeOpenings } from './openings.js?v=hall-agri-1';
-import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-agri-1';
+import { commercialLayout } from './commercial.js?v=hall-commercial-1';
+import { normalizeOpenings, openingLabel } from './openings.js?v=hall-commercial-1';
+import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
 
 const unit = (value, locale) => value === 'pcs' ? hallT(locale, 'bom.unit.pcs') : value;
 
@@ -40,7 +41,7 @@ export function buildBom(state, build, locale = resolveHallLocale()) {
 
   if (state.slab) lines.push({ name: hallT(locale, 'bom.line.slab'), unit: 'm²', quantity: metrics.footprint.toFixed(1), notes: hallT(locale, 'bom.note.footprint') });
   normalizeOpenings(state).forEach((opening) => lines.push({
-    name: hallT(locale, 'bom.line.openingAssembly', { type: opening.type === 'window' && opening.subtype === 'daylight-band' ? hallT(locale, 'window.daylightBand') : hallOpeningLabel(opening.type, locale) }),
+    name: hallT(locale, 'bom.line.openingAssembly', { type: openingLabel(opening, locale) }),
     unit: unit('pcs', locale), quantity: 1,
     notes: `${opening.width.toFixed(2)} × ${opening.height.toFixed(2)} m · ${hallWallLabel(opening.side, { locale })}`,
   }));
@@ -49,7 +50,7 @@ export function buildBom(state, build, locale = resolveHallLocale()) {
     { name: hallT(locale, 'bom.line.gutters'), unit: 'm', quantity: (state.length * 2).toFixed(1), notes: hallT(locale, 'bom.note.bothEaves') },
     { name: hallT(locale, 'bom.line.downpipes'), unit: unit('pcs', locale), quantity: 4, notes: hallT(locale, 'bom.note.downpipes') },
   );
-  if (state.highBayLighting) lines.push({ name: hallT(locale, 'bom.line.luminaires'), unit: unit('pcs', locale), quantity: metrics.highBayFixtureCount, notes: hallT(locale, 'bom.note.luminaires') });
+  if (state.highBayLighting) lines.push({ name: hallT(locale, state.lightingStyle === 'linear-retail' ? 'bom.line.retailLuminaires' : 'bom.line.luminaires'), unit: unit('pcs', locale), quantity: metrics.highBayFixtureCount, notes: hallT(locale, 'bom.note.luminaires') });
   if (state.fireSprinklers) lines.push(
     { name: hallT(locale, 'bom.line.sprinklerHeads'), unit: unit('pcs', locale), quantity: metrics.sprinklerHeadCount, notes: hallT(locale, 'bom.note.sprinklerHeads') },
     { name: hallT(locale, 'bom.line.sprinklerPipe'), unit: 'm', quantity: (state.length * 2 + state.width * Math.max(2, Math.ceil(state.length / 6))).toFixed(1), notes: hallT(locale, 'bom.note.sprinklerPipe') },
@@ -59,6 +60,13 @@ export function buildBom(state, build, locale = resolveHallLocale()) {
     unit: unit('pcs', locale), quantity: metrics.refrigerationUnitCount || Math.max(1, Math.ceil(metrics.footprint / 280)), notes: hallValueLabel('climateSystem', state.climateSystem, locale),
   });
 
+  const retail = commercialLayout(state);
+  for (const [key, unitName, quantity] of [
+    ['canopy', 'm²', retail.canopyArea], ['sign', 'm²', retail.signArea],
+    ['apron', 'm²', retail.apronArea], ['displays', unit('pcs', locale), retail.displayCount],
+    ['checkout', unit('pcs', locale), retail.checkoutCount],
+  ]) if (quantity > 0) lines.push({ name: hallT(locale, `commercial.bom.${key}`), unit: unitName,
+    quantity: unitName === 'm²' ? quantity.toFixed(2) : quantity, notes: hallT(locale, 'commercial.estimateNote') });
   return lines;
 }
 

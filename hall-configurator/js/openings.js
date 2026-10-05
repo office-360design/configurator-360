@@ -1,4 +1,4 @@
-import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-agri-1';
+import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
 export const OPENING_TYPES = {
   personnel: {
     label: 'Human door',
@@ -22,6 +22,11 @@ export const OPENING_TYPES = {
     defaultBottom: 0,
     defaultColor: '#24445a',
   },
+  entrance: {
+    label: 'Glazed entrance', defaultWidth: 3.6, defaultHeight: 2.95,
+    minWidth: 2.4, maxWidth: 6, minHeight: 2.1, maxHeight: 3.6,
+    defaultBottom: 0, defaultColor: '#acd0d8',
+  },
   vent: {
     label: 'Ventilation grille', defaultWidth: 1.6, defaultHeight: .8,
     minWidth: .4, maxWidth: 3, minHeight: .4, maxHeight: 2,
@@ -44,9 +49,10 @@ export const WALL_SIDES = ['front', 'right', 'back', 'left'];
 
 export function openingType(type, subtype = 'standard') {
   const spec = OPENING_TYPES[type] ?? OPENING_TYPES.window;
-  return type === 'window' && subtype === 'daylight-band'
-    ? { ...spec, defaultWidth: 4.8, defaultHeight: 1.1, maxWidth: 12, defaultBottom: 3.6 }
-    : spec;
+  if (type === 'window' && subtype === 'daylight-band') return { ...spec, defaultWidth: 4.8, defaultHeight: 1.1, maxWidth: 12, defaultBottom: 3.6 };
+  if (type === 'window' && subtype === 'shopfront') return { ...spec, defaultWidth: 4.4, defaultHeight: 2.8, maxWidth: 12, maxHeight: 4, defaultBottom: .15 };
+  if (type === 'entrance' && subtype === 'double-glass') return { ...spec, minWidth: 1.4, maxWidth: 3.2, defaultWidth: 1.8, defaultHeight: 2.5 };
+  return spec;
 }
 
 export function wallSpan(state, side) {
@@ -107,8 +113,12 @@ export function ensureOpeningsState(state) {
 
 export function normalizeOpening(opening, state) {
   if (!Object.prototype.hasOwnProperty.call(OPENING_TYPES, opening.type)) opening.type = 'window';
-  if (opening.type === 'window') opening.subtype = opening.subtype === 'daylight-band' ? 'daylight-band' : 'standard';
-  else delete opening.subtype;
+  if (opening.type === 'window') opening.subtype = ['daylight-band', 'shopfront'].includes(opening.subtype) ? opening.subtype : 'standard';
+  else if (opening.type === 'entrance') {
+    opening.subtype = opening.subtype === 'double-glass' ? 'double-glass' : 'sliding-glass';
+    opening.isOpen = opening.isOpen === true;
+  } else delete opening.subtype;
+  if (opening.type !== 'entrance') delete opening.isOpen;
   const spec = openingType(opening.type, opening.subtype);
   if (!WALL_SIDES.includes(opening.side)) opening.side = 'front';
   const usableSpan = Math.max(spec.minWidth, wallSpan(state, opening.side) - .24);
@@ -166,4 +176,11 @@ export function openingCounts(state) {
   const counts = { personnel: 0, garage: 0, window: 0, vent: 0 };
   normalizeOpenings(state).forEach((opening) => { counts[opening.type] = (counts[opening.type] ?? 0) + 1; });
   return counts;
+}
+
+export function openingLabel(opening, locale = resolveHallLocale()) {
+  if (opening.type === 'entrance') return hallT(locale, opening.subtype === 'double-glass' ? 'entrance.doubleGlass' : 'entrance.slidingGlass');
+  if (opening.type === 'window' && opening.subtype === 'shopfront') return hallT(locale, 'window.shopfront');
+  if (opening.type === 'window' && opening.subtype === 'daylight-band') return hallT(locale, 'window.daylightBand');
+  return hallOpeningLabel(opening.type, locale);
 }

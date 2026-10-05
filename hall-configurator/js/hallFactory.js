@@ -1,7 +1,9 @@
-import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-agri-1';
+import { createShopfrontAssembly, createGlazedEntranceAssembly, createCommercialDetails, createLinearRetailLight } from './retailGeometry.js?v=hall-commercial-1';
+import { normalizeCommercialFeatures } from './commercial.js?v=hall-commercial-1';
+import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-commercial-1';
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-agri-1';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-agri-1';
+import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-commercial-1';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-commercial-1';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -618,6 +620,7 @@ function roofNormal(state, side) {
 }
 
 export function buildHallModel(state) {
+  normalizeCommercialFeatures(state);
   const metrics = deriveHallMetrics(state);
   const configuredOpenings = normalizeOpenings(state);
   const skylightLayout = roofSkylightLayout(state, metrics);
@@ -1016,11 +1019,13 @@ export function buildHallModel(state) {
 
     for (const side of [-1, 1]) {
       const x = side * (halfW - .10);
+      if (state.wallBracingLayout !== 'rear-service' || bayIndex === metrics.bayCount - 1) {
       bracing.add(cylinderBetween(new THREE.Vector3(x, .65, z0), new THREE.Vector3(x, state.eaveHeight - .5, z1), .018, braceMat, `wall-windbrace-D20-${bayIndex}-${side}-a`, 10));
       bracing.add(cylinderBetween(new THREE.Vector3(x, state.eaveHeight - .5, z0), new THREE.Vector3(x, .65, z1), .018, braceMat, `wall-windbrace-D20-${bayIndex}-${side}-b`, 10));
       bracing.add(memberBetween(new THREE.Vector3(x, state.eaveHeight * .55, z0), new THREE.Vector3(x, state.eaveHeight * .55, z1), .08, .08, braceMat, `wall-compression-RHS80x4-${bayIndex}-${side}`, technicalEdges));
       counts.wallBraces += 2;
       counts.compressionBars += 1;
+      }
 
       const braceRoofOffset = preset.rafterDepth / 2 + .028;
       const roofN = roofNormal(state, side);
@@ -1216,14 +1221,20 @@ export function buildHallModel(state) {
     group.userData.openingSide = opening.side;
 
     const trimMat = material('#1d3448', { metalness: .62, roughness: .34 });
+    const retailGlass = opening.type === 'entrance' || opening.type === 'window' && opening.subtype === 'shopfront';
     const leafMat = material(opening.color, {
-      metalness: opening.type === 'window' ? .05 : .24,
-      roughness: opening.type === 'window' ? .18 : .48,
-      transparent: opening.type === 'window',
-      opacity: opening.type === 'window' ? .57 : 1,
+      metalness: retailGlass || opening.type === 'window' ? .05 : .24,
+      roughness: retailGlass || opening.type === 'window' ? .18 : .48,
+      transparent: opening.type === 'window' || retailGlass,
+      opacity: retailGlass ? .28 : opening.type === 'window' ? .57 : 1,
+      depthWrite: !retailGlass,
     });
     let assembly;
-    if (opening.type === 'garage') {
+    if (opening.type === 'entrance') {
+      assembly = createGlazedEntranceAssembly(opening, trimMat, leafMat, fastenerMat);
+    } else if (opening.type === 'window' && opening.subtype === 'shopfront') {
+      assembly = createShopfrontAssembly(opening.width, opening.height, trimMat, leafMat);
+    } else if (opening.type === 'garage') {
       assembly = createRollerDoorAssembly(opening.width, opening.height, leafMat, trimMat, fastenerMat, technicalEdges);
     } else if (opening.type === 'personnel') {
       assembly = createPersonnelDoorAssembly(opening.width, opening.height, trimMat, leafMat, glassMat, fastenerMat, technicalEdges);
@@ -1353,7 +1364,8 @@ export function buildHallModel(state) {
       const z = rows === 1 ? 0 : -halfL * .72 + r * (halfL * 1.44 / (rows - 1));
       for (let c = 0; c < railInfo.length && created < metrics.highBayFixtureCount; c += 1) {
         const { x, railY } = railInfo[c];
-        const light = createHighBayLight(fixtureMat, glowMat);
+        const light = state.lightingStyle === 'linear-retail'
+          ? createLinearRetailLight(fixtureMat, glowMat) : createHighBayLight(fixtureMat, glowMat);
         light.position.set(
           THREE.MathUtils.clamp(x, -halfW + .75, halfW - .75),
           railY - .41,
@@ -1393,13 +1405,20 @@ export function buildHallModel(state) {
     const unitCount = metrics.refrigerationUnitCount || Math.max(1, Math.ceil(metrics.footprint / 280));
     const unitWidth = state.climateSystem === 'frozen' ? 2.5 : 2.0;
     for (let i = 0; i < unitCount; i += 1) {
-      const z = unitCount === 1 ? 0 : -Math.min(halfL - 1.5, unitCount * 1.8) + i * (Math.min(state.length - 3, unitCount * 3.6) / Math.max(1, unitCount - 1));
+      const rearLayout = state.climateUnitLocation === 'rear-service';
+      const baySpan = Math.min(metrics.actualBaySpacing, state.length - .4);
+      const perRow = Math.max(1, Math.floor(baySpan / (unitWidth + .4)));
+      const row = Math.floor(i / perRow), col = i % perRow;
+      const z = rearLayout
+        ? halfL - baySpan + (col + .5) * baySpan / perRow
+        : unitCount === 1 ? 0 : -Math.min(halfL - 1.5, unitCount * 1.8) + i * (Math.min(state.length - 3, unitCount * 3.6) / Math.max(1, unitCount - 1));
+      const unitX = halfW + 1.45 + (rearLayout ? row * 1.4 : 0);
       const unit = createCondenserUnit(unitWidth, 1.45, .72, casingMat, fanMat, technicalEdges);
-      unit.position.set(halfW + 1.45, .12, z);
+      unit.position.set(unitX, .12, z);
       unit.rotation.y = -Math.PI / 2;
       climateServices.add(unit);
-      const pipeA = cylinderBetween(new THREE.Vector3(halfW - .02, 1.15, z - .10), new THREE.Vector3(halfW + 1.0, .95, z - .10), .018, fanMat, `climate-pipe-a-${i}`, 8);
-      const pipeB = cylinderBetween(new THREE.Vector3(halfW - .02, 1.02, z + .10), new THREE.Vector3(halfW + 1.0, .82, z + .10), .014, fanMat, `climate-pipe-b-${i}`, 8);
+      const pipeA = cylinderBetween(new THREE.Vector3(halfW - .02, 1.15, z - .10), new THREE.Vector3(unitX - .45, .95, z - .10), .018, fanMat, `climate-pipe-a-${i}`, 8);
+      const pipeB = cylinderBetween(new THREE.Vector3(halfW - .02, 1.02, z + .10), new THREE.Vector3(unitX - .45, .82, z + .10), .014, fanMat, `climate-pipe-b-${i}`, 8);
       climateServices.add(pipeA, pipeB);
     }
   }
@@ -1475,6 +1494,10 @@ export function buildHallModel(state) {
   crossAisle.rotation.x = -Math.PI / 2;
   crossAisle.position.set(0, .05, -halfL + Math.min(2.5, state.length * .16));
   aisles.add(crossAisle);
+
+  const commercial = createCommercialDetails(state);
+  setExplode(commercial.facade, 0, .1, -2.8);
+  root.add(commercial.facade, commercial.fitout);
 
   root.traverse((object) => {
     if (!object.userData.basePosition) object.userData.basePosition = object.position.clone();
