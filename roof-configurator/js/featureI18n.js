@@ -11,6 +11,11 @@ function entries(rows) {
 entries(`
 Enter X and Z between -100 and 100 m, and a height between -30 and 30 m.|Introdu X și Z între -100 și 100 m și o înălțime între -30 și 30 m.|X und Z zwischen -100 und 100 m sowie eine Höhe zwischen -30 und 30 m eingeben.
 {0} Move cancelled; the original point has been restored.|{0} Mutare anulată; punctul inițial a fost restabilit.|{0} Verschiebung abgebrochen; ursprünglicher Punkt wiederhergestellt.
+Perimeter|Contur|Umriss
+Surfaces|Suprafețe|Flächen
+Add feature|Adaugă element|Element hinzufügen
+View|Vizualizare|Ansicht
+Selection actions|Acțiuni pentru selecție|Aktionen für die Auswahl
 Connect perimeter points|Conectează punctele conturului|Umrisspunkte verbinden
 Choose the first perimeter point|Alege primul punct al conturului|Ersten Umrisspunkt wählen
 Choose a second point across the gap|Alege al doilea punct, de cealaltă parte a golului|Zweiten Punkt auf der anderen Seite der Lücke wählen

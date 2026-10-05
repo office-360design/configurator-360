@@ -1,0 +1,70 @@
+const { clickTool } = require('./editor-tools.cjs');
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+(async () => {
+  const browser = await chromium.launch({ executablePath: process.env.ROOF_TEST_BROWSER,
+    args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/test-three/**', route => route.fulfill({
+    path: require('node:path').join(process.env.ROOF_TEST_THREE, route.request().url().split('/test-three/')[1]), contentType: 'text/javascript',
+  }));
+  await page.route('**/i18n-fixture', route => route.fulfill({ contentType: 'text/html', body:
+    '<script type="importmap">{"imports":{"three":"/test-three/build/three.module.js"}}</script><link rel="stylesheet" href="/roof-configurator/layout-editor.css"><link rel="stylesheet" href="/roof-configurator/sheet-planner.css"><style>body{font-family:Arial}</style>' }));
+  await page.goto('http://127.0.0.1:8080/i18n-fixture');
+  await page.evaluate(async () => {
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js');
+    const { SheetPlannerUI } = await import('/roof-configurator/js/sheetPlannerUI.js');
+    const { footprintLayout } = await import('/roof-configurator/js/roofLayout.js?v=layout-21');
+    const layout = footprintLayout([{x:0,z:0},{x:8,z:0},{x:8,z:6},{x:0,z:6}]);
+    layout.vertices.forEach(p => { p.h = p.z * .5; });
+    window.state = { locale: 'ro-RO', roofType: 'layout', roofLayout: layout };
+    window.editor = new RoofLayoutEditor(state, () => {});
+    window.planner = new SheetPlannerUI(state);
+    window.changeLocale = locale => { state.locale = locale; window.dispatchEvent(new CustomEvent('roof-locale-applied', { detail: { locale } })); };
+    editor.open();
+  });
+  await page.evaluate(() => changeLocale('en-US'));
+  assert.equal(await page.locator('.layout-toolbar > button').count(), 5);
+  assert.ok(await page.locator('[data-action=undo]').isVisible());
+  assert.ok(await page.locator('[data-action=redo]').isVisible());
+  assert.ok(await page.locator('.layout-context-actions').isHidden());
+  await page.locator('[data-tool-group=perimeter]').click();
+  assert.ok(await page.locator('[data-action=extend]').isVisible());
+  await page.locator('[data-tool-group=surfaces]').click();
+  assert.ok(await page.locator('[data-action=extend]').isHidden());
+  assert.ok(await page.locator('[data-action=insert]').isVisible());
+  await page.keyboard.press('Escape');
+  assert.ok(await page.locator('.layout-tool-options').isHidden());
+  assert.ok(await page.locator('.roof-layout-dialog').isVisible());
+  await clickTool(page, 'window');
+  assert.ok(await page.locator('.layout-tool-options').isHidden());
+  assert.ok(await page.locator('.layout-window').isVisible());
+  assert.equal(await page.locator('[data-tool-group=features]').getAttribute('data-active'), 'true');
+  await page.locator('[data-window=cancel]').click();
+  await page.locator('#layoutPointSelect').selectOption('0');
+  assert.ok(await page.locator('[data-action=meet]').isVisible());
+  assert.ok(await page.locator('[data-action=delete]').isVisible());
+  assert.ok(await page.locator('[data-action=joinPlace]').isHidden());
+  await page.locator('[data-action=select]').click();
+  assert.ok(await page.locator('.layout-context-actions').isHidden());
+  await clickTool(page, 'pan');
+  assert.equal(await page.locator('[data-tool-group=view]').getAttribute('data-active'), 'true');
+  await clickTool(page, 'pan');
+  await page.setViewportSize({width:390,height:844});
+  await page.evaluate(() => changeLocale('de-DE'));
+  await page.locator('[data-tool-group=perimeter]').click();
+  const options = await page.locator('.layout-tool-options').boundingBox();
+  const footer = await page.locator('.roof-layout-dialog footer').boundingBox();
+  assert.ok(options.y > 400 && options.y + options.height <= footer.y + 1);
+  await page.screenshot({path:'/tmp/roof-toolbar-mobile.png'});
+  assert.equal(await page.locator('.roof-layout-dialog').evaluate(el => el.scrollWidth > el.clientWidth + 1), false);
+  await page.screenshot({path:'/tmp/roof-toolbar-mobile.png'});
+  await page.setViewportSize({width:1440,height:1000});
+  await page.screenshot({path:'/tmp/roof-toolbar-desktop.png'});
+  assert.deepEqual(errors, []);
+  await browser.close();
+  console.log('PASS grouped toolbar: categories, contextual actions, keyboard, preview tools, view tools and mobile panel');
+})().catch(error => { console.error(error); process.exit(1); });
