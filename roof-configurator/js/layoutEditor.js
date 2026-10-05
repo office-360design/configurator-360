@@ -1,5 +1,5 @@
-import { localizeFeature } from './featureI18n.js?v=feature-i18n-26';
-import { RoofWindowTool } from './roofWindowTool.js?v=windows-25';
+import { localizeFeature } from './featureI18n.js?v=feedback-27';
+import { RoofWindowTool } from './roofWindowTool.js?v=feedback-27';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
@@ -79,6 +79,11 @@ export class RoofLayoutEditor {
         <button type="button" data-action="cycleCopy">Next copy</button>
         <button type="button" data-action="delete">Delete selected</button>
         <button type="button" data-action="finish">Close perimeter</button>
+      </div>
+      <div id="layoutFeedback" class="layout-feedback" hidden role="alert" aria-live="assertive" aria-atomic="true">
+        <span class="layout-feedback-icon" aria-hidden="true">!</span>
+        <div><strong class="layout-feedback-title"></strong><div class="layout-feedback-message"></div></div>
+        <button type="button" class="layout-feedback-dismiss" aria-label="Dismiss message">×</button>
       </div>
       <div class="layout-workspace">
         <div class="layout-drawing">
@@ -203,6 +208,7 @@ export class RoofLayoutEditor {
       tip.addEventListener('toggle', () => { if (tip.matches(':popover-open')) show(); });
     });
     this.svg = this.dialog.querySelector('svg');
+    this.dialog.querySelector('.layout-feedback-dismiss').addEventListener('click', () => this.clearFeedback());
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       button.addEventListener('click', () => this.action(button.dataset.action));
     });
@@ -287,7 +293,60 @@ export class RoofLayoutEditor {
   }
 
   status(message) {
+    this.clearFeedback();
     this.dialog.querySelector('.layout-status').textContent = message;
+  }
+
+  clearFeedback(owner = null) {
+    if (owner && this.feedbackOwner !== owner) return;
+    this.feedbackOwner = null;
+    this.issuePoints = [];
+    this.dialog.querySelectorAll('[aria-invalid="true"]').forEach(input => {
+      input.removeAttribute('aria-invalid');
+      input.removeAttribute('aria-errormessage');
+    });
+    this.dialog.querySelector('.layout-feedback').hidden = true;
+    this.svg?.querySelectorAll('.layout-issue-marker').forEach(node => node.remove());
+  }
+
+  feedback(message, { owner = 'action', warning = false, points = [] } = {}) {
+    this.feedbackOwner = owner;
+    this.issuePoints = points.filter(point => point && Number.isFinite(point.x) && Number.isFinite(point.z));
+    const box = this.dialog.querySelector('.layout-feedback');
+    box.dataset.severity = warning ? 'warning' : 'error';
+    box.querySelector('.layout-feedback-title').textContent = warning ? 'Complete this step' : owner === 'action' ? 'Change not applied' : 'Preview needs attention';
+    box.querySelector('.layout-feedback-message').textContent = message;
+    box.hidden = false;
+    this.dialog.querySelectorAll('input[type="number"]').forEach(input => {
+      if (input.getClientRects().length && !input.validity.valid) {
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-errormessage', 'layoutFeedback');
+      }
+    });
+    this.dialog.querySelector('.layout-status').textContent = '';
+    this.drawIssues();
+  }
+
+  previewFeedback(output, message, valid, { owner, points = [], warning = false } = {}) {
+    output.textContent = message;
+    output.classList.add('layout-validation');
+    output.dataset.severity = valid ? 'success' : warning ? 'warning' : 'error';
+    if (valid) this.clearFeedback(owner);
+    else this.feedback(message, { owner, points, warning });
+  }
+
+  drawIssues() {
+    this.svg.querySelectorAll('.layout-issue-marker').forEach(node => node.remove());
+    for (const point of this.issuePoints || []) {
+      const x = 400 + (point.x - this.center.x) * this.scale;
+      const y = 300 + (point.z - this.center.z) * this.scale;
+      const group = svgElement('g', { class: 'layout-issue-marker', 'aria-label': 'Check this position', role: 'img' });
+      group.append(svgElement('circle', { cx: x, cy: y, r: 17 }));
+      const label = svgElement('text', { x, y: y + 5, 'text-anchor': 'middle' });
+      label.textContent = '!';
+      group.append(label);
+      this.svg.append(group);
+    }
   }
 
   commit(next) {
@@ -312,6 +371,7 @@ export class RoofLayoutEditor {
   }
 
   action(action) {
+    if (!['pan', 'fit', 'zoomIn', 'zoomOut', 'slopeArrows'].includes(action)) this.clearFeedback();
     this.endDrag(null, true);
     if (!['pan', 'slopeArrows', 'pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
     try {
@@ -339,8 +399,8 @@ export class RoofLayoutEditor {
         const select = this.dialog.querySelector('#dormerSurface');
         select.replaceChildren(...this.layout.faces.map((_, i) => new Option(`Surface ${surfaceLetter(i)}`, i)));
         this.dialog.querySelector('.layout-dormer').hidden = false;
-        this.placeDormerAtCenter();
         this.status('Click the front of the dormer on a slope, adjust its size, then Add dormer.');
+        this.placeDormerAtCenter();
       } else if (action === 'pickDormer') {
         this.dormer.picking = true;
         this.panEnabled = false;
@@ -450,7 +510,7 @@ export class RoofLayoutEditor {
         if (this.selected === null) return;
         const fields = ['X', 'Z', 'H'].map(axis => this.dialog.querySelector(`#layout${axis}`));
         if (fields.some(input => input.value === '' || !input.checkValidity())) {
-          throw new Error('Enter valid coordinates and a height between -30 and 30 m.');
+          throw new Error('Enter X and Z between -100 and 100 m, and a height between -30 and 30 m.');
         }
         const next = cloneLayout(this.layout);
         const [x, z, h] = fields.map(input => Number(input.value));
@@ -499,11 +559,12 @@ export class RoofLayoutEditor {
       }
       this.render();
     } catch (error) {
-      this.status(error.message);
+      this.feedback(error.message, { points: this.selectionIds().map(id => this.layout.vertices[id]) });
     }
   }
 
   stopDormer() {
+    this.clearFeedback('dormer');
     this.dormer = null;
     this.dialog.querySelector('.layout-dormer').hidden = true;
   }
@@ -528,12 +589,12 @@ export class RoofLayoutEditor {
       const result = addDormer(this.layout, { faceIndex: read('dormerSurface'), x: read('dormerX'), z: read('dormerZ'),
         width: read('dormerWidth'), wallRise: read('dormerRise'), pitch: read('dormerPitch') });
       this.dormer.result = result;
-      output.textContent = `Depth ${result.depth.toFixed(2)} m · Ridge ${result.ridgeHeight.toFixed(2)} m above wall datum. Ready to add.`;
+      this.previewFeedback(output, `Depth ${result.depth.toFixed(2)} m · Ridge ${result.ridgeHeight.toFixed(2)} m above wall datum. Ready to add.`, true, { owner: 'dormer' });
       preview.removeAttribute('hidden');
       drawAlignmentPreview(preview, result.layout, result.roofFaces[0], result.previewPoint);
     } catch (error) {
       this.dormer.result = null;
-      output.textContent = error.message;
+      this.previewFeedback(output, error.message, false, { owner: 'dormer', points: [{ x: read('dormerX'), z: read('dormerZ') }] });
       preview.setAttribute('hidden', '');
     }
     this.dialog.querySelector('[data-action="applyDormer"]').disabled = !this.dormer.result;
@@ -541,6 +602,7 @@ export class RoofLayoutEditor {
   }
 
   stopMeet() {
+    this.clearFeedback('alignment');
     this.meet = null;
     if (this.mode?.startsWith('meet')) this.mode = 'select';
     this.dialog.querySelector('.layout-meet').hidden = true;
@@ -582,13 +644,13 @@ export class RoofLayoutEditor {
         directionId: get('meetDirection').value === '' ? null : Number(get('meetDirection').value),
       });
       this.meet.result = result;
-      get('meetResult').textContent = `Preview: X ${result.position.x.toFixed(3)} m, Z ${result.position.z.toFixed(3)} m, height ${result.position.h.toFixed(3)} m. Plan move ${result.distance.toFixed(3)} m.`
-        + (result.reconnected ? ' Selected and target copies will reconnect.' : '');
+      this.previewFeedback(get('meetResult'), `Preview: X ${result.position.x.toFixed(3)} m, Z ${result.position.z.toFixed(3)} m, height ${result.position.h.toFixed(3)} m. Plan move ${result.distance.toFixed(3)} m.`
+        + (result.reconnected ? ' Selected and target copies will reconnect.' : ''), true, { owner: 'alignment' });
       get('meetPreview').toggleAttribute('hidden', false);
       drawAlignmentPreview(get('meetPreview'), result.layout, Number(get('meetTarget').value), result.position);
       this.dialog.querySelector('[data-action="applyMeet"]').disabled = false;
     } catch (error) {
-      get('meetResult').textContent = error.message;
+      this.previewFeedback(get('meetResult'), error.message, false, { owner: 'alignment', warning: get('meetTarget').value === '', points: [this.layout.vertices[this.selected]] });
     }
     this.render();
   }
@@ -676,7 +738,8 @@ export class RoofLayoutEditor {
       this.status(drag.heightMode ? 'Release to set the height.' : 'Release to move the point. Shift-drag adjusts height.');
     } catch (error) {
       drag.valid = false;
-      this.status(`${error.message} Release to cancel this move.`);
+      drag.error = error.message;
+      this.feedback(`${error.message} Release to cancel this move.`, { points: [point] });
     }
   }
 
@@ -696,7 +759,10 @@ export class RoofLayoutEditor {
     if (drag.moved && drag.valid && !cancel) this.commit(next);
     else {
       this.render();
-      if (drag.moved) this.status('Move cancelled; the original point has been restored.');
+      if (drag.moved) {
+        if (!drag.valid && !cancel) this.feedback(`${drag.error} Move cancelled; the original point has been restored.`, { warning: true, points: [drag.original.vertices[drag.id]] });
+        else this.status('Move cancelled; the original point has been restored.');
+      }
     }
   }
 
@@ -741,6 +807,7 @@ export class RoofLayoutEditor {
     if (event.button !== 0) return;
     event.preventDefault();
     const point = this.pointer(event);
+    this.clearFeedback();
     try {
       if (event.target.dataset.roofWindow !== undefined && (!this.windowTool.active || Number(this.windowTool.field('selection').value) >= 0)) {
         this.windowTool.beginDrag(event, Number(event.target.dataset.roofWindow));
@@ -817,7 +884,7 @@ export class RoofLayoutEditor {
       }
       this.render();
     } catch (error) {
-      this.status(error.message);
+      this.feedback(error.message, { points: [point] });
     }
   }
 
@@ -939,6 +1006,7 @@ export class RoofLayoutEditor {
       }));
       this.svg.append(svgElement('circle', { cx: ghost.x, cy: ghost.y, r: 11, class: 'layout-meet-ghost' }));
     }
+    this.drawIssues();
     this.updatePanCursor();
     const hints = {
       meetTarget: 'Click the target slope, then choose Keep position or Keep height. Review the ghost point and 3D preview before applying.',

@@ -1,10 +1,10 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=feature-i18n-26';
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=feature-i18n-26';
-import { RoofLayoutEditor } from './layoutEditor.js?v=feature-i18n-26';
+import { localizeFeature, featureText } from './featureI18n.js?v=feedback-27';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=feedback-27';
+import { RoofLayoutEditor } from './layoutEditor.js?v=feedback-27';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=layout-21';
-import { bomToCsv, calculateBom } from './bom.js?v=feature-i18n-26';
+import { bomToCsv, calculateBom } from './bom.js?v=feedback-27';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -15,7 +15,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=feature-i18n-26';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=feedback-27';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -37,7 +37,10 @@ export class RoofUI {
     document.querySelector('#editRoofLayout').addEventListener('click', () => {
       try { this.layoutEditor.open(); }
       catch (error) {
-        document.querySelector('#layoutLaunch p').textContent = `This preset cannot be edited at its current settings: ${error.message} Try adjusting its dimensions or pitch.`;
+        const message = document.querySelector('#layoutLaunch p');
+        message.classList.add('layout-launch-error');
+        message.setAttribute('role', 'alert');
+        message.textContent = `This preset cannot be edited at its current settings: ${error.message} Try adjusting its dimensions or pitch.`;
       }
     });
     this.sheetPlanner = new SheetPlannerUI(state);
@@ -230,7 +233,10 @@ export class RoofUI {
   updateCustomMode() {
     const isLayout = this.state.roofType === 'layout';
     document.querySelector('#layoutLaunch').hidden = this.state.roofType === 'custom';
-    document.querySelector('#layoutLaunch p').textContent = isLayout
+    const launchMessage = document.querySelector('#layoutLaunch p');
+    launchMessage.classList.remove('layout-launch-error');
+    launchMessage.removeAttribute('role');
+    launchMessage.textContent = isLayout
       ? 'Edit points, edges and slopes. Changes stay a draft until you apply the roof.'
       : 'Start from this roof’s shape, dimensions and pitch. Apply roof saves it as a drawn layout; Cancel keeps the preset.';
     ['length', 'depth', 'pitch'].forEach(key => {

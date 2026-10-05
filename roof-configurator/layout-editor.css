@@ -206,3 +206,51 @@
 .layout-roof-window.selected { fill:#fde68a; stroke:#d97706; stroke-width:4; }
 .window-selection-handle { fill:#fff; stroke:#d97706; stroke-width:3; pointer-events:none; }
 .window-label { paint-order:stroke; stroke:#fff; stroke-width:4px; font-weight:700; }
+
+/* Keep validation visible even when the properties panel is scrolled. */
+.layout-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: none;
+  max-height: 22dvh;
+  overflow: auto;
+  margin: 8px 12px;
+  padding: 12px;
+  border: 1px solid #f0a49e;
+  border-left: 5px solid #b42318;
+  border-radius: 8px;
+  background: #fff1f0;
+  color: #8a1c13;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.layout-feedback > div { flex: 1; min-width: 0; }
+.layout-feedback-title { display: block; margin-bottom: 3px; }
+.layout-feedback-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-weight: 800;
+}
+.layout-feedback .layout-feedback-dismiss { min-height: 32px; padding: 0 9px; background: transparent; border-color: currentColor; }
+.layout-feedback[data-severity="warning"], .layout-validation[data-severity="warning"] {
+  color: #713f12;
+  background: #fffbeb;
+  border-color: #d97706;
+}
+.layout-validation { display: block; padding: 10px; margin-top: 8px; border: 1px solid; border-radius: 8px; line-height: 1.5; }
+.layout-validation[data-severity="error"] { color: #8a1c13; background: #fff1f0; border-color: #d92d20; }
+.layout-validation[data-severity="success"] { color: #166534; background: #f0fdf4; border-color: #86b99a; }
+.layout-issue-marker { pointer-events: none; }
+.layout-issue-marker circle { fill: #fff1f0; stroke: #b42318; stroke-width: 3px; stroke-dasharray: 4 2; }
+.layout-drawing .layout-issue-marker text { fill: #b42318; stroke: none; font-size: 19px; font-weight: 800; }
+@media (max-width: 680px) {
+  .layout-feedback { margin: 5px 8px; padding: 8px; font-size: 12px; gap: 7px; }
+}
+.roof-layout-dialog input[aria-invalid="true"] { border: 2px solid #b42318; background: #fff1f0; }
+.layout-launch p.layout-launch-error { padding: 12px; border: 1px solid #d92d20; border-left-width: 4px; border-radius: 8px; color: #8a1c13; background: #fff1f0; font-weight: 500; }

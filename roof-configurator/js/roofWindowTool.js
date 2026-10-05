@@ -94,7 +94,7 @@ export class RoofWindowTool {
     this.preview();
   }
 
-  close() { this.active = false; this.panel.hidden = true; this.result = null; }
+  close() { this.editor.clearFeedback('window'); this.active = false; this.panel.hidden = true; this.result = null; }
 
   gridStep() { return Number(this.editor.dialog.querySelector('#layoutSnap').value); }
 
@@ -155,8 +155,15 @@ export class RoofWindowTool {
       drawAlignmentPreview(this.field('preview'), next, -1, previewWindow.point(0, 0));
       this.field('preview').removeAttribute('hidden');
       this.result = next;
-      this.field('status').textContent = 'Ready. The blue rectangle shows the roof opening.';
-    } catch (error) { this.field('status').textContent = error.message; }
+      this.editor.previewFeedback(this.field('status'), 'Ready. The blue rectangle shows the roof opening.', true, { owner: 'window' });
+    } catch (error) {
+      const x = this.field('x').value, z = this.field('z').value;
+      const missingPosition = x === '' || z === '';
+      this.editor.previewFeedback(this.field('status'), error.message, false, {
+        owner: 'window', warning: missingPosition,
+        points: missingPosition ? [] : [{ x: Number(x), z: Number(z) }],
+      });
+    }
     this.field('gridNote').textContent = `Grid step: ${this.gridStep()} m (Roof properties → Grid snap).`;
     this.field('save').disabled = !this.result;
     this.editor.render();
