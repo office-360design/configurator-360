@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getHallMessages, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel } from '../js/i18n.js?v=platform-18';
+import { getHallMessages, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel } from '../js/i18n.js?v=hall-agri-1';
 import { CONFIGURATOR_PUBLIC_PATHS } from '../../shared-ui/src/config.js?v=platform-18';
-import { buildBom, bomToCsv } from '../js/bom.js?v=platform-18';
-import { estimateHallPrice } from '../js/pricing.js?v=platform-18';
+import { buildBom, bomToCsv } from '../js/bom.js?v=hall-agri-1';
+import { estimateHallPrice } from '../js/pricing.js?v=hall-agri-1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
@@ -46,7 +46,7 @@ for (const locale of locales) {
   const estimate = estimateHallPrice(structuredClone(state), build, locale);
   if (!estimate.items.some((item) => item.label === hallT(locale, 'pricing.primary'))) failures.push(`${locale} pricing labels not localized`);
   if (!hallOpeningLabel('window', locale) || !hallWallLabel('front', { locale })) failures.push(`${locale} opening/wall labels missing`);
-  if (!hallValueLabel('buildingUse', 'general', locale)) failures.push(`${locale} value labels missing`);
+  if (!hallValueLabel('climateSystem', 'none', locale)) failures.push(`${locale} value labels missing`);
 }
 
 const scene = fs.readFileSync(path.join(root, 'hall-configurator', 'js', 'scene.js'), 'utf8');

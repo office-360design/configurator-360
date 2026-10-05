@@ -1,6 +1,6 @@
-import { deriveHallMetrics } from './state.js?v=platform-18';
-import { normalizeOpenings } from './openings.js?v=platform-18';
-import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=platform-18';
+import { deriveHallMetrics } from './state.js?v=hall-agri-1';
+import { normalizeOpenings } from './openings.js?v=hall-agri-1';
+import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=hall-agri-1';
 
 const structureRates = { light: 72, standard: 88, heavy: 108 };
 const claddingRates = { trapezoidal: 34, sandwich: 59, 'standing-seam': 66 };
@@ -16,7 +16,7 @@ export function estimateHallPrice(state, build, locale = resolveHallLocale()) {
 
   add(hallT(locale, 'pricing.primary'), metrics.footprint * (structureRates[state.structurePreset] ?? structureRates.standard), hallT(locale, 'pricing.primaryNote'));
   if (state.secondaryStructure) add(hallT(locale, 'pricing.secondary'), metrics.footprint * 24, hallT(locale, 'pricing.secondaryNote'));
-  add(hallT(locale, 'pricing.envelope'), (metrics.netWallArea + metrics.roofArea) * (claddingRates[state.claddingProfile] ?? 49), hallValueLabel('claddingProfile', state.claddingProfile, locale));
+  add(hallT(locale, 'pricing.envelope'), (metrics.netWallArea + (metrics.netRoofArea ?? metrics.roofArea)) * (claddingRates[state.claddingProfile] ?? 49), hallValueLabel('claddingProfile', state.claddingProfile, locale));
   add(hallT(locale, 'pricing.foundations'), state.slab ? metrics.footprint * 67 : metrics.frameCount * 2 * 920, hallT(locale, state.slab ? 'pricing.foundationsSlab' : 'pricing.foundationsPads'));
 
   const openings = normalizeOpenings(state);
@@ -31,6 +31,11 @@ export function estimateHallPrice(state, build, locale = resolveHallLocale()) {
   addOpenings('garage', 'pricing.garage', 690, 1, 0);
   addOpenings('personnel', 'pricing.personnel', 980, 2.1, .75);
   addOpenings('window', 'pricing.window', 520, 1.8 * 1.25, .45);
+  // Provisional demo allowance only, not a supplier quotation or airflow sizing.
+  openings.filter((opening) => opening.type === 'vent').forEach((opening, index) => add(
+    `${hallT(locale, 'pricing.vent')} ${index + 1}`,
+    240 * Math.max(.5, opening.width * opening.height), hallT(locale, 'pricing.ventNote'),
+  ));
 
   add(hallT(locale, 'pricing.climate'), metrics.footprint * (climateRates[state.climateSystem] ?? 0), hallValueLabel('climateSystem', state.climateSystem, locale));
   if (state.highBayLighting) add(hallT(locale, 'pricing.lighting'), metrics.highBayFixtureCount * 310, hallT(locale, 'pricing.fixtures', { count: metrics.highBayFixtureCount }));

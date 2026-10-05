@@ -1,9 +1,11 @@
+import { HALL_TEMPLATES } from './templates.js?v=hall-agri-1';
+import { createHallTemplateDialog } from './templateDialog.js?v=hall-agri-1';
 import { mountTemplatesMenu } from '../../shared-ui/src/components/templatesMenu.js?v=templates-1';
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=hall-fixes-1';
+import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=hall-agri-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('hall');
@@ -31,6 +33,7 @@ const toolItems = resolveSharedTools([
 
 let shell;
 let templatesMenu = null;
+let templateDialog = null;
 shell = mountStandaloneConfiguratorShell({
   productType: 'Hall',
   productId: 'hall',
@@ -89,6 +92,8 @@ shell = mountStandaloneConfiguratorShell({
       if (path === 'locale') {
         applyHallTranslations(preferences.locale);
         templatesMenu?.setLabels(hallTemplateLabels(preferences.locale));
+        templatesMenu?.setItems(hallTemplateItems(preferences.locale));
+        templateDialog?.refresh();
       }
       window.dispatchEvent(new CustomEvent('hall-preference-change', { detail: { name: path, value, preferences: { ...preferences } } }));
     },
@@ -123,12 +128,32 @@ function hallTemplateLabels(locale = shell?.state.locale ?? initialLocale) {
   };
 }
 
+function hallTemplateItems(locale = shell?.state.locale ?? initialLocale) {
+  return HALL_TEMPLATES.map((item) => ({ ...item, name: hallT(locale, item.nameKey) }));
+}
+
+templateDialog = createHallTemplateDialog({
+  getLocale: () => shell?.state.locale ?? initialLocale,
+  applyTemplate(id) {
+    const api = window.HALL_CONFIGURATOR_API;
+    if (!api?.applyTemplate) throw new Error('Hall configurator is still loading.');
+    return api.applyTemplate(id);
+  },
+  onApplied() { shell?.showFeedback?.(t('templates.applied'), 'success', 2000); },
+});
+
 templatesMenu = mountTemplatesMenu({
   enabled: true,
   host: shell.host,
   idPrefix: 'hall',
   labels: hallTemplateLabels(),
-  items: [], // Intentionally empty: hall presets will be supplied in a later update.
+  items: hallTemplateItems(),
+  classes: { grid: 'hall-template-grid', image: 'hall-template-card-image' },
+  onSelect(item) {
+    templatesMenu?.close();
+    templateDialog.open(item);
+    return false;
+  },
   beforeOpen() {
     window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
     if (mobileLayoutQuery.matches) shell?.setSettingsPanelCollapsed?.(true);

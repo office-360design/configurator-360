@@ -1,5 +1,5 @@
-import { normalizeOpenings } from './openings.js?v=platform-18';
-import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=platform-18';
+import { normalizeOpenings } from './openings.js?v=hall-agri-1';
+import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-agri-1';
 
 const unit = (value, locale) => value === 'pcs' ? hallT(locale, 'bom.unit.pcs') : value;
 
@@ -16,7 +16,7 @@ export function buildBom(state, build, locale = resolveHallLocale()) {
   if (state.secondaryStructure) {
     lines.push(
       { name: hallT(locale, 'bom.line.purlins', { profile: profileSchedule.purlins }), unit: 'm', quantity: (counts.roofPurlinLines * state.length).toFixed(1), notes: hallT(locale, 'bom.note.purlinLines', { count: counts.roofPurlinLines }) },
-      { name: hallT(locale, 'bom.line.wallGirts'), unit: 'm', quantity: ((counts.wallGirtLines / 4) * (2 * state.length + 2 * state.width)).toFixed(1), notes: hallT(locale, 'bom.note.girtLines', { count: counts.wallGirtLines }) },
+      { name: hallT(locale, 'bom.line.wallGirts'), unit: 'm', quantity: (counts.wallGirtLength ?? ((counts.wallGirtLines / 4) * (2 * state.length + 2 * state.width))).toFixed(1), notes: hallT(locale, 'bom.note.girtLines', { count: counts.wallGirtLines }) },
       { name: hallT(locale, 'bom.line.endPosts'), unit: unit('pcs', locale), quantity: counts.endPosts, notes: hallT(locale, 'bom.note.endPosts') },
       { name: hallT(locale, 'bom.line.windBracing', { profile: profileSchedule.braces }), unit: unit('pcs', locale), quantity: counts.wallBraces + counts.roofBraces, notes: hallT(locale, 'bom.note.windBracing', { walls: counts.wallBraces, roofs: counts.roofBraces }) },
       { name: hallT(locale, 'bom.line.compressionBars'), unit: unit('pcs', locale), quantity: counts.compressionBars, notes: hallT(locale, 'bom.note.compressionBars') },
@@ -29,13 +29,18 @@ export function buildBom(state, build, locale = resolveHallLocale()) {
     { name: hallT(locale, 'bom.line.anchorRods'), unit: unit('pcs', locale), quantity: counts.anchorRods, notes: hallT(locale, 'bom.note.anchorRods') },
     { name: hallT(locale, 'bom.line.fasteners'), unit: unit('pcs', locale), quantity: counts.fasteners, notes: hallT(locale, 'bom.note.fasteners') },
     { name: hallT(locale, 'bom.line.washers'), unit: unit('pcs', locale), quantity: counts.washers, notes: hallT(locale, 'bom.note.washers') },
-    { name: hallT(locale, 'bom.line.roofCladding'), unit: 'm²', quantity: metrics.roofArea.toFixed(1), notes: hallValueLabel('claddingProfile', state.claddingProfile, locale) },
+    { name: hallT(locale, 'bom.line.roofCladding'), unit: 'm²', quantity: (metrics.netRoofArea ?? metrics.roofArea).toFixed(1), notes: hallValueLabel('claddingProfile', state.claddingProfile, locale) },
     { name: hallT(locale, 'bom.line.wallCladding'), unit: 'm²', quantity: metrics.netWallArea.toFixed(1), notes: hallT(locale, 'bom.note.netOpenings') },
   );
 
+  if (state.secondaryStructure && counts.openingFramingMembers) lines.push({
+    name: hallT(locale, 'bom.line.openingFraming'), unit: unit('pcs', locale),
+    quantity: counts.openingFramingMembers, notes: hallT(locale, 'bom.note.openingFraming'),
+  });
+
   if (state.slab) lines.push({ name: hallT(locale, 'bom.line.slab'), unit: 'm²', quantity: metrics.footprint.toFixed(1), notes: hallT(locale, 'bom.note.footprint') });
   normalizeOpenings(state).forEach((opening) => lines.push({
-    name: hallT(locale, 'bom.line.openingAssembly', { type: hallOpeningLabel(opening.type, locale) }),
+    name: hallT(locale, 'bom.line.openingAssembly', { type: opening.type === 'window' && opening.subtype === 'daylight-band' ? hallT(locale, 'window.daylightBand') : hallOpeningLabel(opening.type, locale) }),
     unit: unit('pcs', locale), quantity: 1,
     notes: `${opening.width.toFixed(2)} × ${opening.height.toFixed(2)} m · ${hallWallLabel(opening.side, { locale })}`,
   }));

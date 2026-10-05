@@ -1,6 +1,7 @@
+import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-agri-1';
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets } from './state.js?v=platform-18';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=platform-18';
+import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-agri-1';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-agri-1';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -214,11 +215,15 @@ function createTriangleWall(width, rise, mat, name, technicalEdges, flip = false
   return mesh;
 }
 
-function addCorrugationLines(panel, axis, count, length, span, color = 0x7a8992) {
+function addCorrugationLines(panel, axis, count, length, span, color = 0x7a8992, apertures = []) {
   const positions = [];
   for (let i = 1; i < count; i += 1) {
     const t = i / count - .5;
-    if (axis === 'x') positions.push(t * span, .042, -length / 2, t * span, .042, length / 2);
+    if (axis === 'x') {
+      const u = t * span;
+      const blocked = apertures.filter((hole) => u > hole.left && u < hole.right).map((hole) => [hole.bottom, hole.top]);
+      for (const [a, b] of subtractIntervals(-length / 2, length / 2, blocked)) positions.push(u, .029, a, u, .029, b);
+    }
     else positions.push(-length / 2, .042, t * span, length / 2, .042, t * span);
   }
   const geometry = new THREE.BufferGeometry();
@@ -335,16 +340,34 @@ function createRidgeCap(length, pitchRad, legLength, thickness, mat, name, techn
   return mesh;
 }
 
-function addWallSeams(group, orientation, width, height, position, color = 0x8a969e) {
+function wallPanel(span, height, thickness, openings, mat, name, technicalEdges) {
+  const apertures = openings.map((opening) => ({
+    left: opening.offset - opening.width / 2, right: opening.offset + opening.width / 2,
+    bottom: opening.bottom - height / 2, top: opening.bottom + opening.height - height / 2,
+  }));
+  const mesh = new THREE.Mesh(rectangularPanelGeometry(span, height, thickness, apertures), mat);
+  mesh.name = name;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData.apertures = apertures;
+  addEdges(mesh, technicalEdges);
+  return mesh;
+}
+
+function addWallSeams(group, orientation, width, height, position, color = 0x8a969e, openings = []) {
   const positions = [];
   const step = 1.0;
   if (orientation === 'front' || orientation === 'back') {
     for (let x = -width / 2 + step; x < width / 2 - .01; x += step) {
-      positions.push(x, 0, 0, x, height, 0);
+      const blocked = openings.filter((opening) => Math.abs(x - opening.offset) < opening.width / 2 + .01)
+        .map((opening) => [opening.bottom, opening.bottom + opening.height]);
+      for (const [bottom, top] of subtractIntervals(0, height, blocked)) positions.push(x, bottom, 0, x, top, 0);
     }
   } else {
     for (let z = -width / 2 + step; z < width / 2 - .01; z += step) {
-      positions.push(0, 0, z, 0, height, z);
+      const blocked = openings.filter((opening) => Math.abs(z - opening.offset) < opening.width / 2 + .01)
+        .map((opening) => [opening.bottom, opening.bottom + opening.height]);
+      for (const [bottom, top] of subtractIntervals(0, height, blocked)) positions.push(0, bottom, z, 0, top, z);
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -452,7 +475,7 @@ function createPersonnelDoorAssembly(width, height, trimMat, leafMat, glassMat, 
   return group;
 }
 
-function createWindowAssembly(width, height, frameMat, glassMat, technicalEdges = false) {
+function createWindowAssembly(width, height, frameMat, glassMat, technicalEdges = false, subtype = 'standard') {
   const group = new THREE.Group();
   group.name = 'window-assembly';
   const frameT = Math.min(.105, width * .10, height * .13);
@@ -470,10 +493,56 @@ function createWindowAssembly(width, height, frameMat, glassMat, technicalEdges 
   const glass = boxMesh(new THREE.Vector3(Math.max(.12, width - frameT * 2.25), Math.max(.12, height - frameT * 2.25), .035), glassMat, 'window-glass', false);
   glass.position.set(0, height / 2, -.045);
   glass.renderOrder = 2;
-  const mullion = boxMesh(new THREE.Vector3(Math.min(.055, frameT * .7), Math.max(.1, height - frameT * 2), depth * .72), frameMat, 'window-mullion', false);
-  mullion.position.set(0, height / 2, -.008);
-  group.add(left, right, top, bottom, glass, mullion);
+  glass.castShadow = false;
+  group.add(left, right, top, bottom, glass);
+  const paneCount = subtype === 'daylight-band' ? Math.max(2, Math.ceil(width / 1.2)) : 2;
+  for (let i = 1; i < paneCount; i += 1) {
+    const mullion = boxMesh(new THREE.Vector3(Math.min(.055, frameT * .7), Math.max(.1, height - frameT * 2), depth * .72), frameMat, `window-mullion-${i}`, false);
+    mullion.position.set(-width / 2 + frameT + i * (width - frameT * 2) / paneCount, height / 2, -.008);
+    group.add(mullion);
+  }
   return group;
+}
+
+// Weather louvres have genuine gaps, not a textured opaque rectangle.
+function createVentilationAssembly(width, height, frameMat, bladeMat, technicalEdges = false) {
+  const group = new THREE.Group();
+  group.name = 'ventilation-grille-assembly';
+  const border = Math.min(.055, width / 8, height / 8);
+  for (const sign of [-1, 1]) {
+    const jamb = boxMesh(new THREE.Vector3(border, height, .16), frameMat, `vent-jamb-${sign}`, technicalEdges);
+    jamb.position.set(sign * (width - border) / 2, height / 2, 0);
+    const rail = boxMesh(new THREE.Vector3(width - border * 2, border, .16), frameMat, `vent-rail-${sign}`, technicalEdges);
+    rail.position.set(0, height / 2 + sign * (height - border) / 2, 0);
+    group.add(jamb, rail);
+  }
+  const count = Math.max(3, Math.floor((height - 2 * border) / .11));
+  const spacing = (height - border * 2) / count;
+  for (let i = 0; i < count; i += 1) {
+    const blade = boxMesh(new THREE.Vector3(width - border * 2, .018, .13), bladeMat, `vent-louvre-${i}`, false);
+    blade.rotation.x = -.45;
+    blade.position.set(0, border + (i + .5) * spacing, 0);
+    group.add(blade);
+  }
+  return group;
+}
+
+function addOpeningReveal(assembly, opening, mat, technicalEdges) {
+  // Join the exterior fitting to the inner skin of the 100 mm wall panel.
+  const trim = .045, depth = .20;
+  for (const side of [-1, 1]) {
+    const jamb = boxMesh(new THREE.Vector3(trim, opening.height, depth), mat, `opening-reveal-jamb-${side}`, technicalEdges);
+    jamb.position.set(side * (opening.width / 2 - trim / 2), opening.height / 2, .095);
+    assembly.add(jamb);
+  }
+  const head = boxMesh(new THREE.Vector3(opening.width, trim, depth), mat, 'opening-reveal-head', technicalEdges);
+  head.position.set(0, opening.height - trim / 2, .095);
+  assembly.add(head);
+  if (opening.bottom > 0) {
+    const sill = head.clone();
+    sill.name = 'opening-reveal-sill'; sill.position.y = trim / 2;
+    assembly.add(sill);
+  }
 }
 
 function addOpeningOutline(group, width, height, color, name) {
@@ -550,6 +619,8 @@ function roofNormal(state, side) {
 
 export function buildHallModel(state) {
   const metrics = deriveHallMetrics(state);
+  const configuredOpenings = normalizeOpenings(state);
+  const skylightLayout = roofSkylightLayout(state, metrics);
   const root = new THREE.Group();
   root.name = 'hall-model';
 
@@ -559,8 +630,8 @@ export function buildHallModel(state) {
   const braceMat = material('#9b6a42', { metalness: .58, roughness: .38 });
   const plateMat = material('#5b7180', { metalness: .72, roughness: .3 });
   const fastenerMat = material('#a9b5bc', { metalness: .82, roughness: .24 });
-  const wallMat = material(state.wallColor, { metalness: .12, roughness: .62 });
-  const roofMat = material(state.roofColor, { metalness: .3, roughness: .48 });
+  const wallMat = material(state.wallColor, { metalness: .12, roughness: .62, shadowSide: THREE.FrontSide });
+  const roofMat = material(state.roofColor, { metalness: .3, roughness: .48, shadowSide: THREE.FrontSide });
   const slabMat = material('#b7bdc0', { metalness: 0, roughness: .92 });
   const footingMat = material('#8e979c', { metalness: 0, roughness: .92 });
   const glassMat = material('#8ec6df', { metalness: .05, roughness: .18, transparent: true, opacity: .53 });
@@ -580,6 +651,8 @@ export function buildHallModel(state) {
     foundationPiers: 0,
     roofPurlinLines: 0,
     wallGirtLines: 0,
+    wallGirtLength: 0,
+    openingFramingMembers: 0,
     endPosts: 0,
     borderMembers: 0,
     wallBraces: 0,
@@ -864,14 +937,28 @@ export function buildHallModel(state) {
     }
   }
 
+  const wallOpenings = (side) => configuredOpenings.filter((opening) => opening.side === side);
   const girtLevels = Math.max(3, Math.ceil(state.eaveHeight / 1.35));
   for (let i = 1; i < girtLevels; i += 1) {
-    const y = (state.eaveHeight * i) / girtLevels;
-    sideSecondaryLeft.add(zMemberBetween(new THREE.Vector3(-halfW + .08, y, -halfL), new THREE.Vector3(-halfW + .08, y, halfL), .15, .055, .01, secondaryMat, `left-wall-girt-${i}`, technicalEdges));
-    sideSecondaryRight.add(zMemberBetween(new THREE.Vector3(halfW - .08, y, -halfL), new THREE.Vector3(halfW - .08, y, halfL), .15, .055, .01, secondaryMat, `right-wall-girt-${i}`, technicalEdges));
-    frontSecondary.add(memberBetween(new THREE.Vector3(-halfW + .10, y, -halfL + .10), new THREE.Vector3(halfW - .10, y, -halfL + .10), .10, .06, secondaryMat, `front-wall-girt-${i}`, technicalEdges));
-    backSecondary.add(memberBetween(new THREE.Vector3(-halfW + .10, y, halfL - .10), new THREE.Vector3(halfW - .10, y, halfL - .10), .10, .06, secondaryMat, `back-wall-girt-${i}`, technicalEdges));
-    counts.wallGirtLines += 4;
+    const y = state.eaveHeight * i / girtLevels;
+    for (const side of ['left', 'right', 'front', 'back']) {
+      const longitudinal = side === 'left' || side === 'right';
+      const span = longitudinal ? state.length : state.width - .2;
+      const blockers = wallOpenings(side).filter((o) => y + .10 > o.bottom && y - .10 < o.bottom + o.height)
+        .map((o) => [o.offset - o.width / 2 - .10, o.offset + o.width / 2 + .10]);
+      const holder = { left: sideSecondaryLeft, right: sideSecondaryRight, front: frontSecondary, back: backSecondary }[side];
+      subtractIntervals(-span / 2, span / 2, blockers).forEach(([a, b], piece) => {
+        const x = side === 'left' ? -halfW + .08 : halfW - .08;
+        const z = side === 'front' ? -halfL + .10 : halfL - .10;
+        const start = longitudinal ? new THREE.Vector3(x, y, a) : new THREE.Vector3(a, y, z);
+        const end = longitudinal ? new THREE.Vector3(x, y, b) : new THREE.Vector3(b, y, z);
+        const name = `${side}-wall-girt-${i}-${piece}`;
+        holder.add(longitudinal ? zMemberBetween(start, end, .15, .055, .01, secondaryMat, name, technicalEdges)
+          : memberBetween(start, end, .10, .06, secondaryMat, name, technicalEdges));
+        counts.wallGirtLength += b - a;
+      });
+      counts.wallGirtLines += 1;
+    }
   }
 
   const endPostIntervals = Math.max(2, Math.ceil(state.width / 4));
@@ -879,10 +966,36 @@ export function buildHallModel(state) {
     const x = -halfW + (state.width * i) / endPostIntervals;
     const localRise = metrics.ridgeRise * (1 - Math.abs(x) / halfW);
     const topY = state.eaveHeight + localRise;
-    frontSecondary.add(memberBetween(new THREE.Vector3(x, .02, -halfL + .085), new THREE.Vector3(x, topY - .06, -halfL + .085), .15, .05, secondaryMat, `front-montant-${i}-RHS150x50`, technicalEdges));
-    backSecondary.add(memberBetween(new THREE.Vector3(x, .02, halfL - .085), new THREE.Vector3(x, topY - .06, halfL - .085), .15, .05, secondaryMat, `back-montant-${i}-RHS150x50`, technicalEdges));
-    counts.endPosts += 2;
+    for (const side of ['front', 'back']) {
+      const z = side === 'front' ? -halfL + .085 : halfL - .085;
+      const holder = side === 'front' ? frontSecondary : backSecondary;
+      const blockers = wallOpenings(side).filter((o) => Math.abs(x - o.offset) < o.width / 2 + .1)
+        .map((o) => [o.bottom - .1, o.bottom + o.height + .1]);
+      subtractIntervals(.02, topY - .06, blockers).forEach(([a, b], piece) => {
+        holder.add(memberBetween(new THREE.Vector3(x, a, z), new THREE.Vector3(x, b, z), .15, .05,
+          secondaryMat, `${side}-montant-${i}-${piece}-RHS150x50`, technicalEdges));
+        counts.endPosts += 1;
+      });
+    }
   }
+
+  // Indicative secondary opening framing supports the interrupted girts/posts.
+  // Portal frames and wind bracing are not cut or structurally re-dimensioned.
+  configuredOpenings.forEach((opening) => {
+    const holder = { left: sideSecondaryLeft, right: sideSecondaryRight, front: frontSecondary, back: backSecondary }[opening.side];
+    const longitudinal = opening.side === 'left' || opening.side === 'right';
+    const wallX = opening.side === 'left' ? -halfW + .08 : halfW - .08;
+    const wallZ = opening.side === 'front' ? -halfL + .10 : halfL - .10;
+    const point = (u, y) => longitudinal ? new THREE.Vector3(wallX, y, u) : new THREE.Vector3(u, y, wallZ);
+    const left = opening.offset - opening.width / 2 - .10, right = opening.offset + opening.width / 2 + .10;
+    const bottom = Math.max(.02, opening.bottom - .10), top = opening.bottom + opening.height + .10;
+    const edges = [[left,bottom,left,top], [right,bottom,right,top], [left,top,right,top]];
+    if (opening.bottom > .15) edges.push([left,bottom,right,bottom]);
+    edges.forEach(([a, b, c, d], i) => {
+      holder.add(memberBetween(point(a,b), point(c,d), .10, .10, secondaryMat, `opening-secondary-frame-${opening.id}-${i}`, technicalEdges));
+      counts.openingFramingMembers += 1;
+    });
+  });
 
   // Gable border members (Bordaj RHS150x50 from the IFC model).
   for (const z of [-halfL, halfL]) {
@@ -968,24 +1081,29 @@ export function buildHallModel(state) {
   const sideWallLength = state.length + cornerClosure * 2;
   const gableWallWidth = state.width + cornerClosure * 2;
 
-  const leftPanel = boxMesh(new THREE.Vector3(wallThickness, wallCladdingHeight, sideWallLength), wallMat, 'left-wall-cladding', technicalEdges);
+  const leftApertures = configuredOpenings.filter((opening) => opening.side === 'left');
+  const leftPanel = wallPanel(sideWallLength, wallCladdingHeight, wallThickness, leftApertures, wallMat, 'left-wall-cladding', technicalEdges);
+  leftPanel.rotation.y = -Math.PI / 2;
   leftPanel.position.set(-halfW - wallThickness / 2 - envelopeOffset, wallCladdingHeight / 2, 0);
   leftPanel.userData.wallSide = 'left';
   leftWall.add(leftPanel);
-  addWallSeams(leftWall, 'side', sideWallLength, wallCladdingHeight, new THREE.Vector3(-halfW - wallThickness - envelopeOffset - .004, 0, 0));
+  addWallSeams(leftWall, 'side', sideWallLength, wallCladdingHeight, new THREE.Vector3(-halfW - wallThickness - envelopeOffset - .004, 0, 0), 0x8a969e, leftApertures);
 
-  const rightPanel = boxMesh(new THREE.Vector3(wallThickness, wallCladdingHeight, sideWallLength), wallMat, 'right-wall-cladding', technicalEdges);
+  const rightApertures = configuredOpenings.filter((opening) => opening.side === 'right');
+  const rightPanel = wallPanel(sideWallLength, wallCladdingHeight, wallThickness, rightApertures, wallMat, 'right-wall-cladding', technicalEdges);
+  rightPanel.rotation.y = -Math.PI / 2;
   rightPanel.position.set(halfW + wallThickness / 2 + envelopeOffset, wallCladdingHeight / 2, 0);
   rightPanel.userData.wallSide = 'right';
   rightWall.add(rightPanel);
-  addWallSeams(rightWall, 'side', sideWallLength, wallCladdingHeight, new THREE.Vector3(halfW + wallThickness + envelopeOffset + .004, 0, 0));
+  addWallSeams(rightWall, 'side', sideWallLength, wallCladdingHeight, new THREE.Vector3(halfW + wallThickness + envelopeOffset + .004, 0, 0), 0x8a969e, rightApertures);
 
   const frontZ = -halfL - wallThickness / 2 - envelopeOffset;
-  const frontRect = boxMesh(new THREE.Vector3(gableWallWidth, wallCladdingHeight, wallThickness), wallMat, 'front-wall-cladding', technicalEdges);
+  const frontApertures = configuredOpenings.filter((opening) => opening.side === 'front');
+  const frontRect = wallPanel(gableWallWidth, wallCladdingHeight, wallThickness, frontApertures, wallMat, 'front-wall-cladding', technicalEdges);
   frontRect.position.set(0, wallCladdingHeight / 2, frontZ);
   frontRect.userData.wallSide = 'front';
   frontWall.add(frontRect);
-  addWallSeams(frontWall, 'front', gableWallWidth, wallCladdingHeight, new THREE.Vector3(0, 0, frontZ - wallThickness / 2 - .004));
+  addWallSeams(frontWall, 'front', gableWallWidth, wallCladdingHeight, new THREE.Vector3(0, 0, frontZ - wallThickness / 2 - .004), 0x8a969e, frontApertures);
   const gableRoofWidth = state.width + .04;
   // The front gable faces -Z. Its outward normal must agree with the wall
   // below it so normal-biased shadow sampling is offset out of the envelope.
@@ -994,11 +1112,12 @@ export function buildHallModel(state) {
   frontWall.add(frontTriangle);
 
   const backZ = halfL + wallThickness / 2 + envelopeOffset;
-  const backRect = boxMesh(new THREE.Vector3(gableWallWidth, wallCladdingHeight, wallThickness), wallMat, 'back-wall-cladding', technicalEdges);
+  const backApertures = configuredOpenings.filter((opening) => opening.side === 'back');
+  const backRect = wallPanel(gableWallWidth, wallCladdingHeight, wallThickness, backApertures, wallMat, 'back-wall-cladding', technicalEdges);
   backRect.position.set(0, wallCladdingHeight / 2, backZ);
   backRect.userData.wallSide = 'back';
   backWall.add(backRect);
-  addWallSeams(backWall, 'back', gableWallWidth, wallCladdingHeight, new THREE.Vector3(0, 0, backZ + wallThickness / 2 + .004));
+  addWallSeams(backWall, 'back', gableWallWidth, wallCladdingHeight, new THREE.Vector3(0, 0, backZ + wallThickness / 2 + .004), 0x8a969e, backApertures);
   const backTriangle = createTriangleWall(gableRoofWidth, metrics.ridgeRise, wallMat, 'back-gable-cladding', technicalEdges, true);
   backTriangle.position.set(0, wallCladdingHeight, backZ + wallThickness / 2);
   backTriangle.rotation.y = Math.PI;
@@ -1012,17 +1131,39 @@ export function buildHallModel(state) {
   // Carry roof sheets, ridge and edge flashings beyond the closed gable corner.
   const roofLength = state.length + cornerClosure * 2 + .24;
   const leftRoofCenter = roofPoint(state, metrics, -1, .5, 0).addScaledVector(roofNormal(state, -1), roofSurfaceOffset);
-  const leftRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength + .06, roofThickness, roofLength), roofMat, 'left-roof-cladding', technicalEdges);
+  const leftRoofHoles = skylightLayout.filter((item) => item.side === -1).map((item) => {
+    const u = -item.side * (item.t - .5) * metrics.slopeLength;
+    return { left: u - item.slopeSpan / 2, right: u + item.slopeSpan / 2,
+      bottom: item.z - item.runSpan / 2, top: item.z + item.runSpan / 2 };
+  });
+  const leftRoofGeometry = rectangularPanelGeometry(metrics.slopeLength + .06, roofLength, roofThickness, leftRoofHoles);
+  leftRoofGeometry.rotateX(Math.PI / 2);
+  const leftRoofPanel = new THREE.Mesh(leftRoofGeometry, roofMat);
+  leftRoofPanel.name = 'left-roof-cladding';
+  leftRoofPanel.castShadow = true;
+  leftRoofPanel.receiveShadow = true;
+  addEdges(leftRoofPanel, technicalEdges);
   leftRoofPanel.position.copy(leftRoofCenter);
   leftRoofPanel.rotation.z = pitchRad;
-  addCorrugationLines(leftRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength);
+  addCorrugationLines(leftRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength, 0x7a8992, leftRoofHoles);
   leftRoof.add(leftRoofPanel);
 
   const rightRoofCenter = roofPoint(state, metrics, 1, .5, 0).addScaledVector(roofNormal(state, 1), roofSurfaceOffset);
-  const rightRoofPanel = boxMesh(new THREE.Vector3(metrics.slopeLength + .06, roofThickness, roofLength), roofMat, 'right-roof-cladding', technicalEdges);
+  const rightRoofHoles = skylightLayout.filter((item) => item.side === 1).map((item) => {
+    const u = -item.side * (item.t - .5) * metrics.slopeLength;
+    return { left: u - item.slopeSpan / 2, right: u + item.slopeSpan / 2,
+      bottom: item.z - item.runSpan / 2, top: item.z + item.runSpan / 2 };
+  });
+  const rightRoofGeometry = rectangularPanelGeometry(metrics.slopeLength + .06, roofLength, roofThickness, rightRoofHoles);
+  rightRoofGeometry.rotateX(Math.PI / 2);
+  const rightRoofPanel = new THREE.Mesh(rightRoofGeometry, roofMat);
+  rightRoofPanel.name = 'right-roof-cladding';
+  rightRoofPanel.castShadow = true;
+  rightRoofPanel.receiveShadow = true;
+  addEdges(rightRoofPanel, technicalEdges);
   rightRoofPanel.position.copy(rightRoofCenter);
   rightRoofPanel.rotation.z = -pitchRad;
-  addCorrugationLines(rightRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength);
+  addCorrugationLines(rightRoofPanel, 'x', Math.max(10, Math.floor(metrics.slopeLength / .34)), roofLength, metrics.slopeLength, 0x7a8992, rightRoofHoles);
   rightRoof.add(rightRoofPanel);
 
   const roofTrim = setExplode(new THREE.Group(), 0, 3.55, 0);
@@ -1086,9 +1227,12 @@ export function buildHallModel(state) {
       assembly = createRollerDoorAssembly(opening.width, opening.height, leafMat, trimMat, fastenerMat, technicalEdges);
     } else if (opening.type === 'personnel') {
       assembly = createPersonnelDoorAssembly(opening.width, opening.height, trimMat, leafMat, glassMat, fastenerMat, technicalEdges);
+    } else if (opening.type === 'vent') {
+      assembly = createVentilationAssembly(opening.width, opening.height, trimMat, leafMat, technicalEdges);
     } else {
-      assembly = createWindowAssembly(opening.width, opening.height, trimMat, leafMat, technicalEdges);
+      assembly = createWindowAssembly(opening.width, opening.height, trimMat, leafMat, technicalEdges, opening.subtype);
     }
+    addOpeningReveal(assembly, opening, trimMat, technicalEdges);
     assembly.userData.openingId = opening.id;
     assembly.traverse((child) => { child.userData.openingId = opening.id; });
     group.add(assembly);
@@ -1158,19 +1302,25 @@ export function buildHallModel(state) {
 
   if (state.roofSkylights) {
     const skyMat = material('#b9e6f5', { transparent: true, opacity: .62, metalness: .03, roughness: .18, depthWrite: false });
-    const modulesPerSide = Math.max(1, Math.floor(metrics.skylightCount / 2));
-    for (const side of [-1, 1]) {
-      for (let i = 0; i < modulesPerSide; i += 1) {
-        const z = modulesPerSide === 1 ? 0 : -halfL * .72 + i * (halfL * 1.44 / (modulesPerSide - 1));
-        const panel = createSkylight(Math.min(1.35, metrics.slopeLength * .25), 1.15, skyMat, `roof-skylight-${side}-${i}`, technicalEdges);
-        const roofT = .52;
-        const point = roofPoint(state, metrics, side, roofT, z);
-        point.addScaledVector(roofNormal(state, side), roofSurfaceOffset + .028);
-        panel.position.copy(point);
-        panel.rotation.z = side < 0 ? pitchRad : -pitchRad;
-        skylightServices.add(panel);
+    skylightLayout.forEach(({ side, index, z, t, slopeSpan, runSpan }) => {
+      const group = new THREE.Group();
+      group.name = `roof-skylight-${side}-${index}`;
+      group.position.copy(roofPoint(state, metrics, side, t, z)
+        .addScaledVector(roofNormal(state, side), roofSurfaceOffset));
+      group.rotation.z = side < 0 ? pitchRad : -pitchRad;
+      const glass = createSkylight(slopeSpan, runSpan, skyMat, 'skylight-translucent-panel', technicalEdges);
+      glass.castShadow = false;
+      group.add(glass);
+      const rim = .055;
+      for (const sign of [-1, 1]) {
+        const end = boxMesh(new THREE.Vector3(slopeSpan + rim * 2, .045, rim), ridgeCapMat, `skylight-end-${sign}`, technicalEdges);
+        end.position.set(0, roofThickness / 2 + .018, sign * (runSpan + rim) / 2);
+        const edge = boxMesh(new THREE.Vector3(rim, .045, runSpan), ridgeCapMat, `skylight-side-${sign}`, technicalEdges);
+        edge.position.set(sign * (slopeSpan + rim) / 2, roofThickness / 2 + .018, 0);
+        group.add(end, edge);
       }
-    }
+      skylightServices.add(group);
+    });
   }
 
   if (state.highBayLighting) {
