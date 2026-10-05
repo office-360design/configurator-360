@@ -1,9 +1,10 @@
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=windows-24';
-import { RoofLayoutEditor } from './layoutEditor.js?v=windows-25';
+import { localizeFeature, featureText } from './featureI18n.js?v=feature-i18n-26';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=feature-i18n-26';
+import { RoofLayoutEditor } from './layoutEditor.js?v=feature-i18n-26';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=layout-21';
-import { bomToCsv, calculateBom } from './bom.js?v=generic-23';
+import { bomToCsv, calculateBom } from './bom.js?v=feature-i18n-26';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -14,7 +15,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=generic-23';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=feature-i18n-26';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -49,6 +50,9 @@ export class RoofUI {
     this.bindBom();
     this.bindCustomPlan();
     this.updateCustomMode();
+    for (const selector of ['#layoutLaunch', '#sheetPlanOpenButton']) {
+      localizeFeature(document.querySelector(selector), () => this.state.locale);
+    }
   }
 
   bindRoofTypes() {
@@ -394,14 +398,14 @@ export class RoofUI {
       const currencyNote = document.querySelector('#bomCurrencyNote');
       if (currencyNote) currencyNote.textContent = roofT(this.state.locale, 'bom.customCurrencyNote');
       if (this.state.roofType === 'layout') {
-        document.querySelector('#headerEstimateTotal').textContent = 'Not estimated';
+        document.querySelector('#headerEstimateTotal').textContent = featureText(this.state.locale, 'Not estimated');
         row.replaceChildren();
         const cell = document.createElement('td');
         cell.colSpan = 7;
-        cell.textContent = 'Custom layout quantities and prices are not yet available. Roof area is calculated from the drawn surfaces.';
+        cell.textContent = featureText(this.state.locale, 'Custom layout quantities and prices are not yet available. Roof area is calculated from the drawn surfaces.');
         row.appendChild(cell);
-        status.textContent = `${metrics.roofArea.toFixed(2)} m² roof area`;
-        if (currencyNote) currencyNote.textContent = 'Flashings, gutters and material quantities require a separate estimate.';
+        status.textContent = featureText(this.state.locale, `${metrics.roofArea.toLocaleString(this.state.locale, { maximumFractionDigits: 2 })} m² roof area`);
+        if (currencyNote) currencyNote.textContent = featureText(this.state.locale, 'Flashings, gutters and material quantities require a separate estimate.');
       }
       document.querySelector('#bomExportButton').disabled = true;
       return;
