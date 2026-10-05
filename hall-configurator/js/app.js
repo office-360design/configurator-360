@@ -1,8 +1,9 @@
-import { state, deriveHallMetrics } from './state.js?v=platform-18';
-import { HallScene } from './scene.js?v=platform-18';
-import { HallUI } from './ui.js?v=panel-controls-1';
-import { normalizeOpenings } from './openings.js?v=platform-18';
-import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=platform-18';
+import { createHallTemplate } from './templates.js?v=hall-agri-1';
+import { state, deriveHallMetrics } from './state.js?v=hall-agri-1';
+import { HallScene } from './scene.js?v=hall-agri-1';
+import { HallUI } from './ui.js?v=hall-agri-1';
+import { normalizeOpenings } from './openings.js?v=hall-agri-1';
+import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=hall-agri-1';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
@@ -211,7 +212,7 @@ document.querySelector('#hallPreviewExplodeButton')?.addEventListener('click', t
 function resetConfiguration() {
   environmentPanelOpen = false;
   ui.setEnvironmentPanelOpen(false);
-  ui.restoreState(structuredClone(DEFAULT_HALL_STATE));
+  restoreHallState(structuredClone(DEFAULT_HALL_STATE));
   window.history.replaceState({}, '', window.location.pathname);
   syncToolButtons();
   return true;
@@ -227,9 +228,38 @@ window.addEventListener('hall-preference-change', (event) => {
   }
 });
 
+function restoreHallState(snapshot) {
+  // A restored/template snapshot must never inherit a pending drag or opening.
+  scene.clearOpeningInteraction();
+  ui.restoreState(snapshot);
+  return true;
+}
+
+function applyTemplate(id) {
+  const next = createHallTemplate(id, DEFAULT_HALL_STATE);
+  // Keep the user's environment preferences, not inspection/explode state.
+  for (const key of ['showDimensions', 'showScenery', 'sunPosition', 'northDirection', 'season', 'nightPreview', 'compassVisible']) {
+    next[key] = state[key];
+  }
+  scene.cancelOpeningPlacement(state);
+  const previous = ui.captureState();
+  window.HALL_CONFIGURATOR_UNDO_HISTORY?.record?.();
+  closeToolPanels();
+  try {
+    restoreHallState(next);
+  } catch (error) {
+    // Template application is transactional: preserve the current hall on failure.
+    restoreHallState(previous);
+    throw error;
+  }
+  window.HALL_CONFIGURATOR_SHARED_SHELL?.markDirty?.();
+  return true;
+}
+
 window.HALL_CONFIGURATOR_API = {
   captureState: () => ui.captureState(),
-  restoreState: (snapshot) => ui.restoreState(snapshot),
+  restoreState: restoreHallState,
+  applyTemplate,
   getState: () => structuredClone(state),
   setDarkMode: applyHallDarkMode,
   resetView: () => scene.fitCamera(state, deriveHallMetrics(state)),

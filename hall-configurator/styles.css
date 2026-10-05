@@ -451,6 +451,9 @@ body.shared-ui-dark-mode .compass-label { color: #eaf5fb; background: rgba(22,35
 .opening-status.is-error { color: #9d2424; border-color: #edb8b8; background: #fff4f4; }
 
 .opening-editor {
+  max-height: calc(100dvh - var(--shared-topbar-height, 47px) - 44px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   position: fixed;
   z-index: 960;
   width: 238px;
@@ -763,3 +766,40 @@ select:where(:not(.shared-panel-controls *)) { height: 44px; font-size: 16px; }
   .bom-header, .bom-footer { min-height: 56px; }
 }
 
+
+/* Opt-in hall template preview; no effect on another configurator's catalog. */
+.shared-ui-host .hall-template-grid { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.shared-ui-host .hall-template-card-image { height: 220px; mix-blend-mode: normal; }
+.hall-template-dialog { width: min(850px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #dce4e8; border-radius: 20px; background: #fff; color: #1d303b; box-shadow: 0 24px 70px #13293544; overflow: hidden; }
+.hall-template-dialog[open] { display: flex; flex-direction: column; }
+.hall-template-dialog::backdrop { background: rgba(13, 29, 40, .45); }
+.hall-template-dialog__header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; gap: 12px; border-bottom: 1px solid #e3e9ed; }
+.hall-template-dialog__header h2 { margin: 0; font-size: 22px; }
+.hall-template-dialog__close { flex: 0 0 36px; width: 36px; height: 36px; border: 0; border-radius: 9px; background: #f0f4f6; color: inherit; font-size: 25px; cursor: pointer; }
+.hall-template-dialog__content { padding: 0 24px 20px; overflow-y: auto; overscroll-behavior: contain; min-height: 0; font-size: 14px; line-height: 1.5; }
+.hall-template-dialog__image { display: block; width: 100%; max-height: 300px; object-fit: contain; margin: 14px 0; border-radius: 12px; background: #f3f7f6; }
+.hall-template-dialog__features { padding-left: 21px; display: grid; gap: 7px; }
+.hall-template-dialog__note { padding: 12px 14px; border-radius: 10px; background: #f0f5f7; color: #536874; font-size: 12px; }
+.hall-template-dialog__warning { margin-bottom: 0; color: #6a5330; }
+.hall-template-dialog__error { color: #b52838; }
+.hall-template-dialog__footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #e3e9ed; flex-shrink: 0; }
+.hall-template-dialog__footer button { min-height: 44px; cursor: pointer; }
+.hall-template-dialog button:focus-visible { outline: 3px solid #1089d8; outline-offset: 3px; }
+.hall-template-dialog button:disabled { cursor: wait; opacity: .55; }
+body.shared-ui-dark-mode .hall-template-dialog { color: #e5eff5; background: #172235; border-color: #34465b; }
+body.shared-ui-dark-mode .hall-template-dialog__note, body.shared-ui-dark-mode .hall-template-dialog__close { color: #cbdbe5; background: #26384a; }
+body.shared-ui-dark-mode .hall-template-dialog__warning { color: #eacb9a; }
+body.shared-ui-dark-mode .hall-template-dialog__error { color: #ff98a4; }
+.opening-editor__side[hidden] { display: none; }
+.opening-editor__sill { display: grid; gap: 5px; margin-top: 10px; font-size: 12px; font-weight: 700; color: #647e8c; }
+.opening-editor__sill > div { display: flex; align-items: center; gap: 7px; }
+.opening-editor__sill input { width: 100%; min-width: 0; padding: 9px; border: 1px solid #cbdce7; border-radius: 10px; color: #233c49; background: #fff; }
+.opening-editor__sill em { font-style: normal; }
+body.shared-ui-dark-mode .opening-editor__sill { color: #aebfca; }
+body.shared-ui-dark-mode .opening-editor__sill input { color: #edf5f8; background: #223149; border-color: #40536a; }
+@media (max-width: 600px) {
+  .hall-template-dialog__header, .hall-template-dialog__footer { padding: 14px 16px; }
+  .hall-template-dialog__content { padding: 0 16px 16px; }
+  .hall-template-dialog__footer button { flex: 1 1 150px; }
+  .hall-template-dialog__image { max-height: 190px; }
+}

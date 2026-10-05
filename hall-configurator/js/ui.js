@@ -1,9 +1,9 @@
 import { bindPanelAccordions, bindPanelRange } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { buildBom, bomToCsv } from './bom.js?v=platform-18';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=platform-18';
-import { normalizeOpening, normalizeOpenings, openingType, validateOpenings } from './openings.js?v=platform-18';
-import { getHeaProfile } from './heaProfiles.js?v=platform-18';
-import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=platform-18';
+import { buildBom, bomToCsv } from './bom.js?v=hall-agri-1';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=hall-agri-1';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings } from './openings.js?v=hall-agri-1';
+import { getHeaProfile } from './heaProfiles.js?v=hall-agri-1';
+import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-agri-1';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -16,7 +16,7 @@ const formatters = {
 
 
 
-const modelSelects = new Set(['structurePreset', 'claddingProfile', 'buildingUse', 'climateSystem', 'rackDensity']);
+const modelSelects = new Set(['structurePreset', 'claddingProfile', 'climateSystem', 'rackDensity']);
 
 export class HallUI {
   constructor(state, callbacks, locale = resolveHallLocale()) {
@@ -82,7 +82,6 @@ export class HallUI {
     const bindings = {
       structurePreset: 'structurePreset',
       claddingProfile: 'claddingProfile',
-      buildingUse: 'buildingUse',
       climateSystem: 'climateSystem',
       inspectionMode: 'inspectionMode',
       rackDensity: 'rackDensity',
@@ -91,23 +90,12 @@ export class HallUI {
     Object.entries(bindings).forEach(([id, key]) => {
       document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
         this.state[key] = event.target.value;
-        if (key === 'buildingUse') this.applyUsePreset(event.target.value);
         this.updateClimateNote();
         if (key === 'inspectionMode') this.callbacks.onInspectionChange?.();
         else if (key === 'serviceVisibility') this.callbacks.onDisplayChange?.();
         else if (modelSelects.has(key)) this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
       });
     });
-  }
-
-  applyUsePreset(use) {
-    if (use === 'cold') { this.state.climateSystem = 'frozen'; this.state.claddingProfile = 'sandwich'; }
-    else if (use === 'food' && this.state.climateSystem === 'none') { this.state.climateSystem = 'chilled'; this.state.claddingProfile = 'sandwich'; }
-    else if (use === 'workshop' && this.state.climateSystem === 'none') this.state.climateSystem = 'comfort';
-    const climate = document.querySelector('#climateSystem');
-    const cladding = document.querySelector('#claddingProfile');
-    if (climate) climate.value = this.state.climateSystem;
-    if (cladding) cladding.value = this.state.claddingProfile;
   }
 
   bindToggles() {
@@ -272,6 +260,15 @@ export class HallUI {
       input.value = opening[key].toFixed(2);
       this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
     };
+    const sillInput = document.querySelector('#openingBottomInput');
+    sillInput?.addEventListener('change', () => applyDimension('bottom', sillInput));
+    document.querySelector('#openingWindowSubtype')?.addEventListener('change', (event) => {
+      const opening = this.getSelectedOpening();
+      if (!opening || opening.type !== 'window') return;
+      opening.subtype = event.target.value;
+      normalizeOpening(opening, this.state);
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
     widthInput?.addEventListener('change', () => applyDimension('width', widthInput));
     heightInput?.addEventListener('change', () => applyDimension('height', heightInput));
     colorInput?.addEventListener('input', () => {
@@ -336,7 +333,16 @@ export class HallUI {
     document.querySelector('#openingEditorSide').textContent = hallWallLabel(opening.side, { locale: this.locale });
     const sideSelect = document.querySelector('#openingSideSelect');
     if (sideSelect) sideSelect.value = opening.side;
-    const spec = openingType(opening.type);
+    const subtypeRow = document.querySelector('#openingWindowSubtypeRow');
+    if (subtypeRow) subtypeRow.hidden = opening.type !== 'window';
+    const subtype = document.querySelector('#openingWindowSubtype');
+    if (subtype) subtype.value = opening.subtype || 'standard';
+    const bottomInput = document.querySelector('#openingBottomInput');
+    if (bottomInput) {
+      bottomInput.max = String(Math.max(0, this.state.eaveHeight - opening.height - .06));
+      bottomInput.value = opening.bottom.toFixed(2);
+    }
+    const spec = openingType(opening.type, opening.subtype);
     const widthInput = document.querySelector('#openingWidthInput');
     const heightInput = document.querySelector('#openingHeightInput');
     if (widthInput) {
@@ -361,8 +367,14 @@ export class HallUI {
     if (!editor || editor.hidden) return;
     editor.style.visibility = visible ? 'visible' : 'hidden';
     if (!visible) return;
-    const safeX = Math.max(130, Math.min(window.innerWidth - 130, x));
-    const safeY = Math.max(180, Math.min(window.innerHeight - 20, y));
+    // Daylight bands can sit near the eaves. Keep the expanded editor below
+    // the top bar rather than using a fixed minimum that clips taller forms.
+    const margin = 12;
+    const panelWidth = editor.offsetWidth || 238;
+    const panelHeight = editor.offsetHeight;
+    const topBarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--shared-topbar-height')) || 47;
+    const safeX = Math.max(panelWidth / 2 + margin, Math.min(window.innerWidth - panelWidth / 2 - margin, x));
+    const safeY = Math.max(topBarHeight + panelHeight + 16 + margin, Math.min(window.innerHeight - margin, y));
     editor.style.left = `${safeX}px`;
     editor.style.top = `${safeY}px`;
   }
@@ -406,7 +418,7 @@ export class HallUI {
       if (output) output.value = formatters[key]?.(value) ?? String(value);
     });
 
-    ['structurePreset', 'claddingProfile', 'buildingUse', 'climateSystem', 'inspectionMode', 'rackDensity', 'serviceVisibility'].forEach((id) => {
+    ['structurePreset', 'claddingProfile', 'climateSystem', 'inspectionMode', 'rackDensity', 'serviceVisibility'].forEach((id) => {
       const element = document.querySelector(`#${id}`);
       if (element) element.value = this.state[id];
     });
@@ -517,7 +529,7 @@ export class HallUI {
     }));
 
     const metricsBox = document.querySelector('#summaryMetrics');
-    metricsBox.innerHTML = `<div><span>${this.t('summary.metric.footprint')}</span><strong>${metrics.footprint.toFixed(1)} m²</strong></div><div><span>${this.t('summary.metric.frames')}</span><strong>${metrics.frameCount}</strong></div><div><span>${this.t('summary.metric.use')}</span><strong>${hallValueLabel('buildingUse', this.state.buildingUse, this.locale)}</strong></div><div><span>${this.t('summary.metric.climate')}</span><strong>${hallValueLabel('climateSystem', this.state.climateSystem, this.locale)}</strong></div>`;
+    metricsBox.innerHTML = `<div><span>${this.t('summary.metric.footprint')}</span><strong>${metrics.footprint.toFixed(1)} m²</strong></div><div><span>${this.t('summary.metric.frames')}</span><strong>${metrics.frameCount}</strong></div><div><span>${this.t('summary.metric.openings')}</span><strong>${this.state.openings.length}</strong></div><div><span>${this.t('summary.metric.climate')}</span><strong>${hallValueLabel('climateSystem', this.state.climateSystem, this.locale)}</strong></div>`;
 
     const preview = document.querySelector('#summaryBomList');
     preview.replaceChildren(...lines.slice(0, 8).map((line) => {
@@ -554,7 +566,8 @@ export class HallUI {
 
   restoreState(snapshot) {
     if (!Array.isArray(snapshot?.openings)) this.state.openings = undefined;
-    Object.assign(this.state, snapshot);
+    Object.assign(this.state, structuredClone(snapshot));
+    delete this.state.buildingUse;
     normalizeOpenings(this.state);
     this.selectedOpeningId = null;
     this.setPlacementMode(null);

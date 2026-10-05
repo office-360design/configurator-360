@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-1" />
-  <link rel="stylesheet" href="./styles.css?v=panel-controls-1" />
+  <link rel="stylesheet" href="./styles.css?v=hall-agri-1" />
   <script type="importmap">
     {
       "imports": {
@@ -92,22 +92,21 @@
       <section class="accordion-section" data-accordion="openings">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.openings">Openings</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
-          <p class="opening-help" data-hall-i18n="openings.help">Add an opening, move the pointer over any wall and click to place it. After placement, drag openings between all four walls or resize them from their borders and selection handles.</p>
+          <p class="opening-help" data-hall-i18n="openings.help">Add an opening, move the pointer over any wall and click to place it. Double-click a placed door or window to select it, then drag it or use its handles to resize it. Drag over unselected components to rotate the view.</p>
           <div class="opening-add-grid">
             <button type="button" class="opening-add-button" data-add-opening="personnel"><span>＋</span><b data-hall-i18n="openings.add.personnel">Add human door</b></button>
             <button type="button" class="opening-add-button" data-add-opening="garage"><span>＋</span><b data-hall-i18n="openings.add.garage">Add garage door</b></button>
             <button type="button" class="opening-add-button" data-add-opening="window"><span>＋</span><b data-hall-i18n="openings.add.window">Add window</b></button>
+            <button type="button" class="opening-add-button" data-add-opening="vent"><span>＋</span><b data-hall-i18n="openings.add.vent">Add ventilation grille</b></button>
           </div>
-          <div class="opening-status" id="openingStatusText" data-hall-i18n="openings.selectPrompt">Select an opening in the model to edit it.</div>
+          <div class="opening-status" id="openingStatusText" data-hall-i18n="openings.selectPrompt">Double-click a door or window in the model to edit it.</div>
         </div>
       </section>
 
       <section class="accordion-section" data-accordion="services">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.services">Building services</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
-          <label class="select-label" for="buildingUse" data-hall-i18n="services.use">Hall use</label>
-          <select id="buildingUse"><option value="general" data-hall-i18n="use.general">General warehouse</option><option value="workshop" data-hall-i18n="use.workshop">Workshop / production</option><option value="food" data-hall-i18n="use.food">Food storage</option><option value="cold" data-hall-i18n="use.cold">Cold storage</option></select>
-          <label class="select-label top-label" for="climateSystem" data-hall-i18n="services.climate">Climate system</label>
+          <label class="select-label" for="climateSystem" data-hall-i18n="services.climate">Climate system</label>
           <select id="climateSystem"><option value="none" data-hall-i18n="climate.none">No active climate system</option><option value="comfort" data-hall-i18n="climate.comfort">Comfort heating / cooling</option><option value="chilled" data-hall-i18n="climate.chilled">Chilled storage · +2 to +8 °C</option><option value="frozen" data-hall-i18n="climate.frozen">Frozen storage · around -20 °C</option></select>
           <div class="service-note" id="climateNote">General warehouse envelope with no active refrigeration package.</div>
           <div class="toggle-stack"><label class="toggle-row"><span><b data-hall-i18n="services.lighting">High-bay LED lighting</b><small data-hall-i18n="services.lightingHelp">Suspended industrial luminaires inside the hall</small></span><input id="highBayLightingToggle" type="checkbox" checked /><i></i></label><label class="toggle-row"><span><b data-hall-i18n="services.sprinklers">Fire sprinkler network</b><small data-hall-i18n="services.sprinklersHelp">Indicative ceiling pipe grid and sprinkler heads</small></span><input id="fireSprinklersToggle" type="checkbox" /><i></i></label></div>
@@ -187,7 +186,9 @@
   <section class="opening-editor" id="openingEditor" hidden aria-label="Selected opening editor" data-hall-i18n-aria-label="editor.aria">
     <div class="opening-editor__header"><div><small id="openingEditorSide">Front wall</small><strong id="openingEditorTitle">Window</strong></div><button type="button" id="openingDeleteButton" class="opening-delete-button" aria-label="Delete selected opening" title="Delete" data-hall-i18n-aria-label="editor.deleteAria" data-hall-i18n-title="editor.delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button></div>
     <label class="opening-editor__side"><span data-hall-i18n="editor.wall">Wall</span><select id="openingSideSelect"><option value="front" data-hall-i18n="wall.front">Front</option><option value="right" data-hall-i18n="wall.right">Right</option><option value="back" data-hall-i18n="wall.back">Back</option><option value="left" data-hall-i18n="wall.left">Left</option></select></label>
+    <label class="opening-editor__side" id="openingWindowSubtypeRow" hidden><span data-hall-i18n="editor.windowSubtype">Window style</span><select id="openingWindowSubtype"><option value="standard" data-hall-i18n="window.standard">Standard window</option><option value="daylight-band" data-hall-i18n="window.daylightBand">Daylight band</option></select></label>
     <div class="opening-editor__dimensions"><label><span data-hall-i18n="editor.width">Width</span><div><input id="openingWidthInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label><label><span data-hall-i18n="editor.height">Height</span><div><input id="openingHeightInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label></div>
+    <label class="opening-editor__sill"><span data-hall-i18n="editor.bottom">Height above floor</span><div><input id="openingBottomInput" type="number" min="0" step="0.05" /><em>m</em></div></label>
     <label class="opening-editor__color"><span data-hall-i18n="editor.colour">Colour</span><input id="openingColorInput" type="color" /></label>
     <div class="opening-editor__warning" id="openingEditorWarning" hidden></div>
   </section>
@@ -206,8 +207,8 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton" data-hall-i18n="bom.export">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-hall-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=tenant-branding-1"></script>
-  <script type="module" src="./js/app.js?v=tenant-domains-1"></script>
+  <script type="module" src="./js/sharedShell.js?v=hall-agri-1"></script>
+  <script type="module" src="./js/app.js?v=hall-agri-1"></script>
 </body>
 </html>
 
