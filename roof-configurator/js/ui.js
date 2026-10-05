@@ -1,5 +1,9 @@
-import { pitchRules, roofNames } from './state.js?v=15';
-import { bomToCsv, calculateBom } from './bom.js?v=14';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=windows-24';
+import { RoofLayoutEditor } from './layoutEditor.js?v=windows-25';
+import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
+import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
+import { pitchRules } from './state.js?v=layout-21';
+import { bomToCsv, calculateBom } from './bom.js?v=generic-23';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -8,7 +12,9 @@ import {
   fromDisplayLength,
   normalizeUnits,
   toDisplayLength,
-} from './preferences.js?v=1';
+} from './preferences.js?v=platform-18';
+
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=generic-23';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -22,6 +28,19 @@ export class RoofUI {
     this.currentBom = null;
     this.lastMetrics = null;
     this.dimensionBindings = [];
+    bindPanelAccordions(document.querySelector('.shared-panel-controls'));
+    this.layoutEditor = new RoofLayoutEditor(state, () => {
+      this.onChange({ fitCamera: true });
+      this.applyStateToControls();
+    });
+    document.querySelector('#editRoofLayout').addEventListener('click', () => {
+      try { this.layoutEditor.open(); }
+      catch (error) {
+        document.querySelector('#layoutLaunch p').textContent = `This preset cannot be edited at its current settings: ${error.message} Try adjusting its dimensions or pitch.`;
+      }
+    });
+    this.sheetPlanner = new SheetPlannerUI(state);
+    document.querySelector('#sheetPlanOpenButton').addEventListener('click', () => this.sheetPlanner.open());
     this.bindRoofTypes();
     this.bindRanges();
     this.bindCovering();
@@ -36,8 +55,9 @@ export class RoofUI {
     document.querySelectorAll('[data-roof-type]').forEach((button) => {
       button.addEventListener('click', () => {
         this.state.roofType = button.dataset.roofType;
+        if (this.state.roofType === 'layout') this.state.roofLayout ||= defaultLayout();
         document.querySelectorAll('[data-roof-type]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-        this.viewerTitle.textContent = roofNames[this.state.roofType];
+        this.viewerTitle.textContent = roofName(this.state.locale, this.state.roofType);
         this.updateCustomMode();
         this.onChange({ fitCamera: true });
       });
@@ -87,7 +107,19 @@ export class RoofUI {
     this.syncDimensionControls();
   }
 
+  updateOverhangNote() {
+    const note = document.querySelector('#layoutOverhangNote');
+    if (!note) return;
+    note.hidden = this.state.roofType !== 'layout';
+    if (note.hidden) return;
+    const walls = layoutWallFootprint(this.state.roofLayout || defaultLayout(), this.state.overhang);
+    const applied = formatLength(walls.overhang, this.state.units);
+    note.textContent = roofT(this.state.locale, 'dimensions.layoutOverhang', { distance: applied })
+      + (walls.overhang < this.state.overhang - 0.001 ? ` ${roofT(this.state.locale, 'dimensions.layoutOverhangLimit')}` : '');
+  }
+
   syncDimensionControls() {
+    this.updateOverhangNote();
     const units = normalizeUnits(this.state.units);
     this.dimensionBindings.forEach((binding) => {
       const { key, range, number, output, isLength, baseMin, baseMax, baseStep } = binding;
@@ -108,13 +140,45 @@ export class RoofUI {
       number.value = config.decimals > 0
         ? displayValue.toFixed(config.decimals)
         : String(Math.round(displayValue));
-      number.setAttribute('aria-label', `${key.replace(/([A-Z])/g, ' $1').toLowerCase()} in ${config.ariaUnit}`);
+      const unitKey = units === 'imperial' ? 'units.decimalFeet' : 'units.millimeters';
+      number.setAttribute('aria-label', roofT(this.state.locale, `dimensions.aria.${key}`, { unit: roofT(this.state.locale, unitKey) }));
       output.value = formatLength(value, units, { inchDecimals: key === 'overhang' ? 1 : 1 });
     });
   }
 
-  setPreferences() {
+  applyStateToControls() {
+    document.querySelectorAll('[data-roof-type]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.roofType === this.state.roofType));
+    });
+    if (this.viewerTitle) this.viewerTitle.textContent = roofName(this.state.locale, this.state.roofType);
+
+    const coveringSelect = document.querySelector('#coveringSelect');
+    if (coveringSelect) coveringSelect.value = this.state.covering;
+    const rule = pitchRules[this.state.covering] ?? pitchRules.generic;
+    const pitchControl = document.querySelector('[data-control="pitch"]');
+    const pitchRange = pitchControl?.querySelector('input[type="range"]');
+    const pitchNumber = pitchControl?.querySelector('input[type="number"]');
+    if (pitchRange) pitchRange.min = String(rule.minimum);
+    if (pitchNumber) pitchNumber.min = String(rule.minimum);
+    if (this.pitchRuleNote) this.pitchRuleNote.textContent = pitchRuleText(this.state.locale, this.state.covering);
+
+    document.querySelectorAll('.swatch').forEach((swatch) => {
+      swatch.classList.toggle('selected', swatch.dataset.color === this.state.roofColor);
+    });
+    const wireframeToggle = document.querySelector('#wireframeToggle');
+    if (wireframeToggle) wireframeToggle.checked = Boolean(this.state.technicalEdges);
+
     this.syncDimensionControls();
+    this.updateCustomMode();
+    this.renderCustomPlanFile();
+  }
+
+  setPreferences() {
+    applyRoofTranslations(this.state.locale);
+    if (this.viewerTitle) this.viewerTitle.textContent = roofName(this.state.locale, this.state.roofType);
+    if (this.pitchRuleNote) this.pitchRuleNote.textContent = pitchRuleText(this.state.locale, this.state.covering);
+    this.syncDimensionControls();
+    this.renderCustomPlanFile();
     if (this.lastMetrics) this.updateMetrics(this.lastMetrics);
   }
 
@@ -129,7 +193,7 @@ export class RoofUI {
       const output = pitchControl.querySelector('output');
       range.min = String(rule.minimum);
       number.min = String(rule.minimum);
-      this.pitchRuleNote.textContent = rule.note;
+      this.pitchRuleNote.textContent = pitchRuleText(this.state.locale, this.state.covering);
       if (this.state.pitch < rule.minimum) {
         this.state.pitch = rule.minimum;
         range.value = String(rule.minimum);
@@ -160,6 +224,16 @@ export class RoofUI {
 
 
   updateCustomMode() {
+    const isLayout = this.state.roofType === 'layout';
+    document.querySelector('#layoutLaunch').hidden = this.state.roofType === 'custom';
+    document.querySelector('#layoutLaunch p').textContent = isLayout
+      ? 'Edit points, edges and slopes. Changes stay a draft until you apply the roof.'
+      : 'Start from this roof’s shape, dimensions and pitch. Apply roof saves it as a drawn layout; Cancel keeps the preset.';
+    ['length', 'depth', 'pitch'].forEach(key => {
+      document.querySelector(`[data-control="${key}"]`).hidden = isLayout;
+    });
+    this.pitchRuleNote.hidden = isLayout;
+    this.updateOverhangNote();
     const isCustom = this.state.roofType === 'custom';
     const panel = document.querySelector('#customPlanPanel');
     const notice = document.querySelector('#customViewerNotice');
@@ -178,7 +252,7 @@ export class RoofUI {
       this.state.customPlan = {
         name: file.name,
         size: file.size,
-        type: file.type || 'Unknown file type',
+        type: file.type || roofT(this.state.locale, 'custom.unknownFileType'),
         lastModified: file.lastModified,
       };
       this.renderCustomPlanFile();
@@ -229,7 +303,7 @@ export class RoofUI {
       ? `${Math.max(1, Math.round(file.size / 1024))} KB`
       : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
     name.textContent = file.name;
-    meta.textContent = `${size} · Uploaded for future processing`;
+    meta.textContent = roofT(this.state.locale, 'custom.uploadedFuture', { size });
   }
 
 
@@ -269,7 +343,7 @@ export class RoofUI {
   }
 
   setAllBomLinesIncluded(included) {
-    if (!this.currentBom) return;
+    if (!this.currentBom || ['custom', 'layout'].includes(this.state.roofType)) return;
     const excluded = this.getExcludedBomItems();
     this.currentBom.lines.forEach((line) => {
       if (included) excluded.delete(line.key);
@@ -280,8 +354,8 @@ export class RoofUI {
   }
 
   exportBom() {
-    if (!this.currentBom) return;
-    const csv = `﻿${bomToCsv(this.currentBom)}`;
+    if (!this.currentBom || ['custom', 'layout'].includes(this.state.roofType)) return;
+    const csv = `﻿${bomToCsv(this.currentBom, this.state.locale)}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -300,8 +374,8 @@ export class RoofUI {
     const bom = calculateBom(this.state, metrics);
     this.currentBom = bom;
 
-    if (this.state.roofType === 'custom') {
-      document.querySelector('#headerEstimateTotal').textContent = 'Awaiting plan';
+    if (['custom', 'layout'].includes(this.state.roofType)) {
+      document.querySelector('#headerEstimateTotal').textContent = roofT(this.state.locale, 'bom.awaitingPlan');
       document.querySelector('#bomSubtotal').textContent = '—';
       document.querySelector('#bomVat').textContent = '—';
       document.querySelector('#bomTotal').textContent = '—';
@@ -309,16 +383,26 @@ export class RoofUI {
       const body = document.querySelector('#bomTableBody');
       const row = document.createElement('tr');
       row.className = 'bom-empty-row';
-      row.innerHTML = '<td colspan="7"><strong>No BOM generated</strong><small>Custom plan parsing is not implemented in this proof of concept.</small></td>';
+      row.innerHTML = `<td colspan="7"><strong>${roofT(this.state.locale, 'bom.noBom')}</strong><small>${roofT(this.state.locale, 'bom.customParsingUnavailable')}</small></td>`;
       body.replaceChildren(row);
       this.updateBomSelectionControls(bom);
 
       const assumptionGrid = document.querySelector('#bomAssumptions');
       const status = document.createElement('div');
-      status.innerHTML = `<span>Plan status</span><strong>${this.state.customPlan ? 'File selected' : 'Awaiting upload'}</strong>`;
+      status.innerHTML = `<span>${roofT(this.state.locale, 'bom.planStatus')}</span><strong>${this.state.customPlan ? roofT(this.state.locale, 'bom.fileSelected') : roofT(this.state.locale, 'bom.awaitingUpload')}</strong>`;
       assumptionGrid.replaceChildren(status);
       const currencyNote = document.querySelector('#bomCurrencyNote');
-      if (currencyNote) currencyNote.textContent = ' Currency conversion will be applied after a custom plan can generate a BOM.';
+      if (currencyNote) currencyNote.textContent = roofT(this.state.locale, 'bom.customCurrencyNote');
+      if (this.state.roofType === 'layout') {
+        document.querySelector('#headerEstimateTotal').textContent = 'Not estimated';
+        row.replaceChildren();
+        const cell = document.createElement('td');
+        cell.colSpan = 7;
+        cell.textContent = 'Custom layout quantities and prices are not yet available. Roof area is calculated from the drawn surfaces.';
+        row.appendChild(cell);
+        status.textContent = `${metrics.roofArea.toFixed(2)} m² roof area`;
+        if (currencyNote) currencyNote.textContent = 'Flashings, gutters and material quantities require a separate estimate.';
+      }
       document.querySelector('#bomExportButton').disabled = true;
       return;
     }
@@ -338,7 +422,7 @@ export class RoofUI {
           <input
             type="checkbox"
             data-bom-line-toggle="${line.key}"
-            aria-label="Include ${line.name} in BOM"
+            aria-label="${roofT(this.state.locale, 'bom.includeLineAria', { name: line.name })}"
             ${line.included === false ? '' : 'checked'}
           />
         </td>
@@ -354,22 +438,28 @@ export class RoofUI {
     this.updateBomSelectionControls(bom);
 
     const assumptions = [
-      ['Roof area', formatArea(bom.assumptions.roofArea, this.state.units)],
-      ['Ridge / hip lines', formatLength(bom.assumptions.ridgeLength, this.state.units)],
-      ['Eaves / gutters', formatLength(bom.assumptions.eavesLength, this.state.units)],
-      ['Gable edges', formatLength(bom.assumptions.gableLength, this.state.units)],
-      ['Valleys', formatLength(bom.assumptions.valleyLength, this.state.units)],
-      ['Panel coverage', formatArea(bom.assumptions.panelEffectiveArea, this.state.units, 2)],
-      ['Tile waste', `${bom.assumptions.wastePercent.toFixed(0)}%`],
+      [roofT(this.state.locale, 'bom.assumption.roofArea'), formatArea(bom.assumptions.roofArea, this.state.units)],
+      [roofT(this.state.locale, 'bom.assumption.ridge'), formatLength(bom.assumptions.ridgeLength, this.state.units)],
+      [roofT(this.state.locale, 'bom.assumption.eaves'), formatLength(bom.assumptions.eavesLength, this.state.units)],
+      [roofT(this.state.locale, 'bom.assumption.gable'), formatLength(bom.assumptions.gableLength, this.state.units)],
+      [roofT(this.state.locale, 'bom.assumption.valleys'), formatLength(bom.assumptions.valleyLength, this.state.units)],
+      [roofT(this.state.locale, 'bom.assumption.panelCoverage'), formatArea(bom.assumptions.panelEffectiveArea, this.state.units, 2)],
+      [roofT(this.state.locale, 'bom.assumption.tileWaste'), `${bom.assumptions.wastePercent.toFixed(0)}%`],
     ];
     const currencyNote = document.querySelector('#bomCurrencyNote');
     if (currencyNote) {
       if (bom.currency === 'RON') {
-        currencyNote.textContent = ' Prices are shown in RON, the original currency of the reference offer.';
+        currencyNote.textContent = roofT(this.state.locale, 'bom.currency.ron');
       } else {
-        const dateLabel = bom.exchangeRateDate ? ` for ${bom.exchangeRateDate}` : '';
-        const fallbackLabel = bom.exchangeRateIsFallback ? ' (temporary offline fallback)' : '';
-        currencyNote.textContent = ` Converted at 1 RON = ${bom.exchangeRate.toFixed(4)} ${bom.currency}${dateLabel}, using ${bom.exchangeRateSource}${fallbackLabel}.`;
+        const dateLabel = bom.exchangeRateDate ? roofT(this.state.locale, 'bom.currency.date', { date: bom.exchangeRateDate }) : '';
+        const fallbackLabel = bom.exchangeRateIsFallback ? roofT(this.state.locale, 'bom.currency.fallback') : '';
+        currencyNote.textContent = roofT(this.state.locale, 'bom.currency.converted', {
+          rate: bom.exchangeRate.toFixed(4),
+          currency: bom.currency,
+          date: dateLabel,
+          source: roofRateSource(this.state.locale, bom.exchangeRateSource),
+          fallback: fallbackLabel,
+        });
       }
     }
 
@@ -397,7 +487,7 @@ export class RoofUI {
     }
     if (includeAll) includeAll.disabled = totalCount === 0 || includedCount === totalCount;
     if (excludeAll) excludeAll.disabled = totalCount === 0 || includedCount === 0;
-    if (status) status.textContent = `${includedCount} of ${totalCount} items included`;
+    if (status) status.textContent = roofT(this.state.locale, 'bom.selectionStatus', { included: includedCount, total: totalCount });
   }
 
   updateMetrics(metrics) {
@@ -410,3 +500,4 @@ export class RoofUI {
     this.updateBom(metrics);
   }
 }
+

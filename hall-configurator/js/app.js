@@ -1,6 +1,24 @@
-import { state, deriveHallMetrics } from './state.js?v=12';
-import { HallScene } from './scene.js?v=12';
-import { HallUI } from './ui.js?v=12';
+import { state, deriveHallMetrics } from './state.js?v=platform-18';
+import { HallScene } from './scene.js?v=platform-18';
+import { HallUI } from './ui.js?v=panel-controls-1';
+import { normalizeOpenings } from './openings.js?v=platform-18';
+import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=platform-18';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+
+await requireTenantConfiguratorAccess('hall');
+
+const initialLocale = applyHallTranslations(resolveHallLocale());
+const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
+const DEFAULT_HALL_STATE = structuredClone(state);
+const sharedHallState = await readShareState({ productType: 'hall' });
+if (sharedHallState) {
+  Object.keys(state).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(sharedHallState, key)) return;
+    state[key] = structuredClone(sharedHallState[key]);
+  });
+  normalizeOpenings(state);
+}
 
 let ui = null;
 const scene = new HallScene(document.querySelector('#canvasHost'), {
@@ -33,6 +51,10 @@ function syncToolButtons() {
   setActive('compass', state.compassVisible);
   setActive('technical-edges', state.technicalEdges);
   setActive('explode', state.explode > 0);
+  const previewCladding = document.querySelector('#hallPreviewCladdingButton');
+  const previewExplode = document.querySelector('#hallPreviewExplodeButton');
+  previewCladding?.setAttribute('aria-pressed', String(Boolean(state.showCladding)));
+  previewExplode?.setAttribute('aria-pressed', String(state.explode > 0));
 }
 
 function rebuildNow({ fitCamera = false } = {}) {
@@ -105,6 +127,10 @@ ui = new HallUI(state, {
   },
   onOpeningAdd(type) {
     scene.startOpeningPlacement(type, state);
+    if (mobileLayoutQuery.matches) {
+      window.HALL_CONFIGURATOR_SHARED_SHELL?.setSettingsPanelCollapsed?.(true);
+      closeToolPanels();
+    }
   },
   onOpeningPlacementCancel() {
     scene.cancelOpeningPlacement(state);
@@ -119,7 +145,7 @@ ui = new HallUI(state, {
   onOpeningDelete(id) {
     scene.deleteOpening(id, state);
   },
-});
+}, initialLocale);
 
 currentBuild = scene.rebuild(state, { fitCamera: true });
 ui.update(currentBuild);
@@ -174,12 +200,40 @@ function toggleExplode() {
   ui.setExplodeValue(state.explode > 0 ? 0 : 100);
 }
 
+document.querySelector('#hallPreviewCladdingButton')?.addEventListener('click', () => {
+  state.showCladding = !state.showCladding;
+  ui.applyStateToControls();
+  scene.applyDisplayState(state);
+  syncToolButtons();
+});
+document.querySelector('#hallPreviewExplodeButton')?.addEventListener('click', toggleExplode);
+
+function resetConfiguration() {
+  environmentPanelOpen = false;
+  ui.setEnvironmentPanelOpen(false);
+  ui.restoreState(structuredClone(DEFAULT_HALL_STATE));
+  window.history.replaceState({}, '', window.location.pathname);
+  syncToolButtons();
+  return true;
+}
+
+window.addEventListener('hall-preference-change', (event) => {
+  const preferences = event.detail?.preferences;
+  if (event.detail?.name === 'locale' && preferences?.locale) {
+    applyHallTranslations(preferences.locale);
+    ui?.setLocale(preferences.locale);
+    scene.setLocale(preferences.locale);
+    syncToolButtons();
+  }
+});
+
 window.HALL_CONFIGURATOR_API = {
   captureState: () => ui.captureState(),
   restoreState: (snapshot) => ui.restoreState(snapshot),
   getState: () => structuredClone(state),
   setDarkMode: applyHallDarkMode,
   resetView: () => scene.fitCamera(state, deriveHallMetrics(state)),
+  resetConfiguration,
   rebuild: () => rebuildNow(),
   toggleEnvironmentPanel,
   closeToolPanels,
@@ -193,3 +247,4 @@ window.HALL_CONFIGURATOR_API = {
 
 applyHallDarkMode(Boolean(window.HALL_CONFIGURATOR_SHARED_SHELL?.state?.darkMode));
 syncToolButtons();
+

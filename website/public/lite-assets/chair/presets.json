@@ -1,0 +1,79 @@
+{
+  "wood.furniture.oak": {
+    "type": "physical",
+    "color": "#be8851",
+    "metalness": 0,
+    "roughness": 0.53,
+    "envMapIntensity": 0.78,
+    "clearcoat": 0.18,
+    "clearcoatRoughness": 0.36,
+    "texture": "chair.wood.oak",
+    "normalStrength": 0.08,
+    "tile": [
+      3,
+      0.28
+    ]
+  },
+  "wood.furniture.beech": {
+    "type": "physical",
+    "color": "#b78352",
+    "metalness": 0,
+    "roughness": 0.52,
+    "envMapIntensity": 0.78,
+    "clearcoat": 0.18,
+    "clearcoatRoughness": 0.36,
+    "texture": "chair.wood.beech",
+    "normalStrength": 0.08,
+    "tile": [
+      2.4,
+      0.22
+    ]
+  },
+  "wood.furniture.ash": {
+    "type": "physical",
+    "color": "#baa07c",
+    "metalness": 0,
+    "roughness": 0.55,
+    "envMapIntensity": 0.78,
+    "clearcoat": 0.18,
+    "clearcoatRoughness": 0.36,
+    "texture": "chair.wood.ash",
+    "normalStrength": 0.08,
+    "tile": [
+      2.35,
+      0.2
+    ]
+  },
+  "fabric.upholstery.linen": {
+    "type": "physical",
+    "color": "#b88162",
+    "metalness": 0,
+    "roughness": 0.92,
+    "envMapIntensity": 0.36,
+    "sheen": 0.16,
+    "sheenRoughness": 0.8,
+    "sheenColor": "#ffffff",
+    "texture": "chair.fabric.linen",
+    "normalStrength": 0.12,
+    "tile": [
+      0.018,
+      0.018
+    ]
+  },
+  "fabric.upholstery.velvet": {
+    "type": "physical",
+    "color": "#6e3f4c",
+    "metalness": 0,
+    "roughness": 0.68,
+    "envMapIntensity": 0.36,
+    "sheen": 0.82,
+    "sheenRoughness": 0.42,
+    "sheenColor": "#ffffff",
+    "texture": "chair.fabric.velvet",
+    "normalStrength": 0.12,
+    "tile": [
+      0.018,
+      0.018
+    ]
+  }
+}

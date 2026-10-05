@@ -1,0 +1,272 @@
+name: Deploy site to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cloud-run-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: configurator-360
+  GCP_REGION: europe-central2
+  GAR_REPOSITORY: configurators
+  CLOUD_RUN_SERVICE: configurators-web-test
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------
+      # Build window configurator
+      # ------------------------------------------------------------
+
+      - name: Configure Node.js for configurators
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            window-configurator/package-lock.json
+            pergola-configurator/package-lock.json
+
+      - name: Install window configurator dependencies
+        run: npm ci --prefix window-configurator
+
+      - name: Build window configurator
+        run: npm run prepare:static --prefix window-configurator
+
+      - name: Preserve window configurator build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf dist/window-configurator-build
+          mkdir -p dist/window-configurator-build
+          cp -R window-configurator/dist/site/. dist/window-configurator-build/
+
+      # ------------------------------------------------------------
+      # Build pergola configurator
+      # ------------------------------------------------------------
+
+      - name: Install pergola configurator dependencies
+        run: npm ci --prefix pergola-configurator
+
+      - name: Build pergola configurator
+        run: npm run build --prefix pergola-configurator
+
+      # ------------------------------------------------------------
+      # Build gas route configurator prototype
+      # ------------------------------------------------------------
+
+      - name: Configure Node.js for gas configurator
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gas-configurator/package-lock.json
+
+      - name: Install gas configurator dependencies
+        run: npm ci --prefix gas-configurator
+
+      - name: Build gas configurator
+        run: npm run build --prefix gas-configurator
+
+      # ------------------------------------------------------------
+      # Build main website
+      # ------------------------------------------------------------
+
+      - name: Configure Node.js for website
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website dependencies
+        run: npm ci --prefix website
+
+      - name: Build static website
+        run: npm run release:static --prefix website
+
+      # ------------------------------------------------------------
+      # Assemble exactly the same site currently sent to GitHub Pages
+      # ------------------------------------------------------------
+
+      - name: Assemble static site
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf dist/site
+          mkdir -p dist/site
+
+          cp -R website/outputs/release-site/. dist/site/
+
+          mkdir -p dist/site/window-configurator
+          cp -R dist/window-configurator-build/. dist/site/window-configurator/
+
+          mkdir -p dist/site/shared-ui
+          cp -R shared-ui/. dist/site/shared-ui/
+
+          mkdir -p dist/site/shared-3d
+          cp -R shared-3d/. dist/site/shared-3d/
+
+          mkdir -p dist/site/pergola-configurator
+          cp -R pergola-configurator/dist/. dist/site/pergola-configurator/
+
+          mkdir -p dist/site/gas-configurator
+          cp -R gas-configurator/dist/. dist/site/gas-configurator/
+
+          if [ -d roof-configurator ]; then
+            mkdir -p dist/site/roof-configurator
+            cp -R roof-configurator/. dist/site/roof-configurator/
+          fi
+
+          if [ -d solar-configurator ]; then
+            mkdir -p dist/site/solar-configurator
+            cp -R solar-configurator/. dist/site/solar-configurator/
+          fi
+
+          mkdir -p dist/site/hall-configurator
+          cp -R hall-configurator/. dist/site/hall-configurator/
+
+          mkdir -p dist/site/fence-configurator
+          cp -R fence-configurator/. dist/site/fence-configurator/
+
+          mkdir -p dist/site/cardbox-configurator
+          cp -R cardbox-configurator/. dist/site/cardbox-configurator/
+
+          mkdir -p dist/site/tiles-configurator
+          cp -R tiles-configurator/. dist/site/tiles-configurator/
+
+          mkdir -p dist/site/bookshelf-configurator
+          cp -R bookshelf-configurator/. dist/site/bookshelf-configurator/
+
+          mkdir -p dist/site/chair-configurator
+          cp -R chair-configurator/. dist/site/chair-configurator/
+
+      - name: Verify static site
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f dist/site/index.html
+          test -f dist/site/window-configurator/index.html
+          test -f dist/site/pergola-configurator/index.html
+          test -f dist/site/gas-configurator/index.html
+          test -f dist/site/roof-configurator/index.html
+          test -f dist/site/solar-configurator/index.html
+          test -f dist/site/hall-configurator/index.html
+          test -f dist/site/fence-configurator/index.html
+          test -f dist/site/cardbox-configurator/index.html
+          test -f dist/site/tiles-configurator/index.html
+          test -f dist/site/bookshelf-configurator/index.html
+          test -f dist/site/chair-configurator/index.html
+          test -d dist/site/shared-ui
+          test -d dist/site/shared-3d
+          test -f dist/site/shared-ui/admin/tenant-provisioning/index.html
+
+      # ------------------------------------------------------------
+      # Authenticate to Google
+      # ------------------------------------------------------------
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      # ------------------------------------------------------------
+      # Push Docker image to Artifact Registry
+      # ------------------------------------------------------------
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker \
+            "${GCP_REGION}-docker.pkg.dev" \
+            --quiet
+
+      - name: Define Docker image
+        shell: bash
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/web-test:${GITHUB_SHA}"
+
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+          echo "Docker image: ${IMAGE}"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f Dockerfile.cloudrun \
+            -t "${IMAGE}" \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push "${IMAGE}"
+
+      # ------------------------------------------------------------
+      # Deploy Cloud Run service
+      # ------------------------------------------------------------
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${CLOUD_RUN_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${IMAGE}" \
+            --service-account="configurator-runtime@configurator-360.iam.gserviceaccount.com" \
+            --port=8080 \
+            --allow-unauthenticated \
+            --ingress=internal-and-cloud-load-balancing \
+            --no-default-url \
+            --quiet
+
+      # ------------------------------------------------------------
+      # Display and test the Cloud Run URL
+      # ------------------------------------------------------------
+      - name: Set production URL
+        shell: bash
+        run: |
+          echo "SERVICE_URL=https://www.360configurator.com" >> "$GITHUB_ENV"
+      
+          echo "## Google Cloud Run deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://www.360configurator.com" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test production routes
+        shell: bash
+        run: |
+          set -euo pipefail
+      
+          echo "Testing ${SERVICE_URL}"
+      
+          curl -fsSL --retry 10 --retry-delay 3 "${SERVICE_URL}/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/window-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/pergola-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/gas-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/roof-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/solar-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/hall-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/fence-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/cardbox-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/bookshelf-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/internal/tenant-provisioning/" > /dev/null
+      
+          echo "All production routes responded successfully."

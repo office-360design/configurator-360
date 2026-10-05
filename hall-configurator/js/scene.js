@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=12';
-import { deriveHallMetrics } from './state.js?v=12';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=12';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=platform-18';
+import { deriveHallMetrics } from './state.js?v=platform-18';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=platform-18';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=platform-18';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -160,7 +161,7 @@ function makeTreeFallback() {
   return group;
 }
 
-function createCompassTexture(size = 1024) {
+function createCompassTexture(locale = resolveHallLocale(), size = 1024) {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -184,11 +185,12 @@ function createCompassTexture(size = 1024) {
   drawTriangle([[cx - size * .25, cy], [cx, cy - size * .04], [cx + size * .038, cy], [cx, cy + size * .04]], '#084d7e');
   drawTriangle([[cx, cy - size * .07], [cx + size * .07, cy], [cx, cy + size * .07], [cx - size * .07, cy]], '#0661a8');
 
+  const labels = hallCompassLabels(locale);
   [
-    ['N', 0, -size * .34, '#b31d2c'],
-    ['E', size * .34, 0, '#0b6aa5'],
-    ['S', 0, size * .34, '#0b6aa5'],
-    ['W', -size * .34, 0, '#0b6aa5'],
+    [labels.north, 0, -size * .34, '#b31d2c'],
+    [labels.east, size * .34, 0, '#0b6aa5'],
+    [labels.south, 0, size * .34, '#0b6aa5'],
+    [labels.west, -size * .34, 0, '#0b6aa5'],
   ].forEach(([label, dx, dy, fill]) => {
     ctx.fillStyle = fill;
     ctx.font = `bold ${Math.round(size * .1)}px Arial`;
@@ -202,13 +204,13 @@ function createCompassTexture(size = 1024) {
   return texture;
 }
 
-function createCompass() {
+function createCompass(locale = resolveHallLocale()) {
   const group = new THREE.Group();
   group.name = 'hall-compass';
   const plane = new THREE.Mesh(
     new THREE.CircleGeometry(.95, 80),
     new THREE.MeshBasicMaterial({
-      map: createCompassTexture(),
+      map: createCompassTexture(locale),
       transparent: true,
       alphaTest: .02,
       side: THREE.DoubleSide,
@@ -239,6 +241,7 @@ export class HallScene {
     this.openingResize = null;
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
+    this.coarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
     this.camera = new THREE.PerspectiveCamera(42, 1, .1, 500);
     this.camera.position.set(19, 14, 25);
@@ -249,6 +252,7 @@ export class HallScene {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.localClippingEnabled = true;
+    this.renderer.domElement.style.touchAction = 'none';
     host.appendChild(this.renderer.domElement);
 
     this.labelRenderer = new CSS2DRenderer();
@@ -269,7 +273,8 @@ export class HallScene {
     this.dimensionRoot = new THREE.Group();
     this.groundRoot = new THREE.Group();
     this.sceneryRoot = new THREE.Group();
-    this.compassRoot = createCompass();
+    this.locale = resolveHallLocale();
+    this.compassRoot = createCompass(this.locale);
     this.openingInteractionRoot = new THREE.Group();
     this.openingInteractionRoot.name = 'opening-interaction-targets';
     this.scene.add(this.groundRoot, this.sceneryRoot, this.modelRoot, this.dimensionRoot, this.compassRoot, this.openingInteractionRoot);
@@ -406,7 +411,9 @@ export class HallScene {
 
     const handleMaterial = new THREE.MeshBasicMaterial({ color: invalid ? 0xff4242 : 0x0c8bce, depthTest: false });
     const edgeHitMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, depthTest: false });
-    const edgeHitThickness = Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .08));
+    const edgeHitThickness = this.coarsePointer
+      ? Math.max(.22, Math.min(.34, Math.min(opening.width, opening.height) * .18))
+      : Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .08));
     [
       ['left', edgeHitThickness, opening.height + edgeHitThickness, -opening.width / 2, opening.height / 2],
       ['right', edgeHitThickness, opening.height + edgeHitThickness, opening.width / 2, opening.height / 2],
@@ -420,7 +427,9 @@ export class HallScene {
       helper.add(hitArea);
     });
 
-    const handleSize = Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .09));
+    const handleSize = this.coarsePointer
+      ? Math.max(.17, Math.min(.24, Math.min(opening.width, opening.height) * .14))
+      : Math.max(.10, Math.min(.16, Math.min(opening.width, opening.height) * .09));
     [
       ['left', -opening.width / 2, opening.height / 2],
       ['right', opening.width / 2, opening.height / 2],
@@ -572,6 +581,15 @@ export class HallScene {
     if (!this.currentState || event.button !== 0) return;
     if (this.placement) {
       event.preventDefault();
+      const opening = this.openingById(this.placement.id);
+      const hit = this.wallHitFromEvent(event);
+      if (!opening || !hit) return;
+      opening.side = hit.side;
+      opening.offset = hit.u;
+      opening.bottom = hit.v - opening.height / 2;
+      normalizeOpening(opening, this.currentState);
+      this.applyOpeningPosePreview(opening);
+      this.callbacks.onOpeningSelectionChange?.(opening.id);
       this.confirmOpeningPlacement(this.currentState);
       return;
     }
@@ -793,6 +811,17 @@ export class HallScene {
     this.updateCompass(state);
   }
 
+  setLocale(locale = resolveHallLocale()) {
+    this.locale = locale;
+    const plane = this.compassRoot?.children?.[0];
+    if (plane?.material) {
+      plane.material.map?.dispose?.();
+      plane.material.map = createCompassTexture(locale);
+      plane.material.needsUpdate = true;
+    }
+    if (this.currentState) this.updateDimensions(this.currentState, this.currentBuild?.metrics ?? deriveHallMetrics(this.currentState));
+  }
+
   updateCompass(state) {
     const metrics = deriveHallMetrics(state);
     this.compassRoot.visible = Boolean(state.compassVisible);
@@ -823,7 +852,7 @@ export class HallScene {
     const heightX = -hw - offset;
     const heightZ = -hl;
     this.dimensionRoot.add(makeLine([new THREE.Vector3(heightX, 0, heightZ), new THREE.Vector3(heightX, metrics.ridgeElevation, heightZ)]));
-    this.dimensionRoot.add(labelObject(`${metrics.ridgeElevation.toFixed(2)} m ridge`, new THREE.Vector3(heightX, metrics.ridgeElevation * .56, heightZ)));
+    this.dimensionRoot.add(labelObject(hallT(this.locale, 'dimension.ridge', { height: metrics.ridgeElevation.toFixed(2) }), new THREE.Vector3(heightX, metrics.ridgeElevation * .56, heightZ)));
   }
 
   rebuild(state, { fitCamera = false } = {}) {

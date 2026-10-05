@@ -5,6 +5,7 @@ export const roofNames = {
   lshape: 'L-shaped roof',
   dormer: 'Two-slope roof with dormer',
   custom: 'Custom roof plan',
+  layout: 'Drawn roof layout',
 };
 
 export const state = {
@@ -23,11 +24,14 @@ export const state = {
   northDirection: 108,
   nightPreview: false,
   customPlan: null,
+  roofLayout: null,
+  sheetPlanOptions: null,
   units: 'metric',
   currency: 'RON',
+  locale: 'en-US',
   currencyRate: 1,
   currencyRateDate: null,
-  currencyRateSource: 'reference currency',
+  currencyRateSource: 'reference',
   currencyRateIsFallback: false,
   excludedBomItems: [],
 };
@@ -35,14 +39,14 @@ export const state = {
 export const pitchRules = {
   generic: {
     minimum: 5,
-    note: 'Visualization preset - pitch is freely adjustable.',
+    noteKey: 'covering.rule.generic',
   },
   roca: {
     minimum: 14,
-    note: 'Mineral-granule roof preset: minimum visual pitch is set to 14°.',
+    noteKey: 'covering.rule.roca',
   },
   teclado: {
     minimum: 18,
-    note: 'Slate-style mineral tile preset: minimum visual pitch is set to 18°.',
+    noteKey: 'covering.rule.teclado',
   },
 };

@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 2,
+  "id": "575810",
+  "type": "base-profile",
+  "role": "mullion-transom",
+  "label": "Mullion/transom 575810",
+  "description": "",
+  "accessoryType": null,
+  "source": {
+    "path": "cad/source/mullion/575810_d1.dwg",
+    "format": "dwg",
+    "sha256": "9ffd37e56a1a7748b74bc0a14b28957591d21ce48dc1617b5141c03f811a80a9",
+    "originalPreserved": true
+  },
+  "geometry": {
+    "mode": "component-assembly",
+    "svg": "profile.svg",
+    "units": "mm",
+    "viewBox": [
+      19.6584,
+      -227.6241,
+      98,
+      75
+    ],
+    "filledPathCount": 5,
+    "openPathCount": 0,
+    "canonicalOrientation": {
+      "side": "top",
+      "exteriorDirection": "unspecified",
+      "cavityDirection": "unspecified"
+    },
+    "allowedTransforms": {
+      "rotations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "mirrorX": false,
+      "mirrorY": false
+    },
+    "sourcePolicy": {
+      "modelSpacePolicy": "inserts-only"
+    },
+    "sourceDiagnostics": {
+      "modelSpacePolicy": "inserts-only",
+      "topLevelInsertCount": 1,
+      "directModelSpaceEntityCount": 6,
+      "directModelSpacePathCount": 0,
+      "filteredPathCount": 0,
+      "usedInsertGeometry": true,
+      "usedDirectModelSpaceGeometry": false,
+      "ignoredDirectModelSpaceGeometry": false,
+      "componentCount": 5
+    },
+    "components": [
+      {
+        "id": "581950_s-0",
+        "svg": "parts/000-581950_s.svg",
+        "blockName": "581950_s",
+        "parentBlock": "575810_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "581950_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 112.65844319020624,
+          "ty": 157.6241023796105
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 24.65844319020624,
+          "minY": 157.6241023796105,
+          "maxX": 112.65844319020624,
+          "maxY": 173.92408921946281
+        },
+        "closedContours": 2,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "587300_s-1",
+        "svg": "parts/001-587300_s.svg",
+        "blockName": "587300_s",
+        "parentBlock": "575810_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "587300_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 87.65844319020624,
+          "ty": 222.6241023796105
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 49.65844319020624,
+          "minY": 200.82411553975817,
+          "maxX": 87.65844319020624,
+          "maxY": 222.6241023796105
+        },
+        "closedContours": 2,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "30065126_s-2",
+        "svg": "parts/002-30065126_s.svg",
+        "blockName": "30065126_s",
+        "parentBlock": "662017_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "662017_s",
+          "30065126_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 54.65844319020624,
+          "ty": 204.6241023796105
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 49.85844319020623,
+          "minY": 170.13410237961048,
+          "maxX": 61.10189219758922,
+          "maxY": 204.6141023796105
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "30065191_s-3",
+        "svg": "parts/003-30065191_s.svg",
+        "blockName": "30065191_s",
+        "parentBlock": "662019_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "662019_s",
+          "30065191_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "sourceTransform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 82.65844319020624,
+          "ty": 204.63281859192176
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 73.35844319020624,
+          "minY": 170.14281859192175,
+          "maxX": 87.45844319020625,
+          "maxY": 204.62281859192177
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "30065183_s-4",
+        "svg": "parts/004-30065183_s.svg",
+        "blockName": "30065183_s",
+        "parentBlock": "662019_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "662019_s",
+          "30065183_s"
+        ],
+        "layer": "S35_Dämmung_Kontur",
+        "sourceTransform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 82.65844319020624,
+          "ty": 187.38281859192176
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 58.45844319020624,
+          "minY": 180.88281859192176,
+          "maxX": 80.65844319020624,
+          "maxY": 195.88281859192176
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      }
+    ],
+    "excludedComponents": []
+  },
+  "componentSelection": {
+    "mode": "main-cluster",
+    "maxGapMm": 25,
+    "anchorBlockNames": [
+      "575810"
+    ],
+    "keepExcludedForReview": true,
+    "includedCount": 5,
+    "excludedCount": 0
+  },
+  "placement": {
+    "allowedSides": [
+      "top",
+      "right",
+      "bottom",
+      "left"
+    ]
+  },
+  "conversion": {
+    "mode": "standalone-profile-components",
+    "converter": "cad/tools/test_convert.js",
+    "modelSpacePolicy": "inserts-only",
+    "insertTransform": "ocs-to-world",
+    "generatedAt": "2026-08-07T08:39:07.538Z"
+  },
+  "catalogRegistration": {
+    "status": "registered",
+    "registeredAt": "2026-08-07",
+    "runtimeMode": "single-divider-layout",
+    "note": "Standalone mullion/transom geometry is registered for the verified single-divider layout path."
+  },
+  "notes": "Reflected nested INSERTs must convert both geometry and insertion points from OCS to WCS. Keep every valid inner component selectable."
+}

@@ -1,0 +1,319 @@
+/* Compact hierarchy and control density for the solar configurator sidebar. */
+
+
+/* Numeric controls */
+
+.sidebar input[type="range"] {
+  min-width: 0;
+}
+
+/* Module information is supporting copy, not another card. */
+.sidebar .module-reference {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 8px;
+  margin: 6px 0 12px;
+  padding: 4px 0 4px 8px;
+  border: 0;
+  border-left: 2px solid #cdd6dc;
+  border-radius: 0;
+  background: transparent;
+}
+
+.sidebar .module-reference strong {
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.sidebar .module-reference span {
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+/* Clear, compact group labels */
+.sidebar .solar-option-heading {
+  margin: 12px 0 5px;
+  color: #75818b;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+/* True segmented controls for short choices */
+.sidebar .segmented-options {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+
+.sidebar .segmented-options.two-up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sidebar .segmented-options.four-up {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sidebar .segmented-options button {
+  min-height: 34px;
+  padding: 6px 5px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 9px;
+  line-height: 1.15;
+}
+
+.sidebar .segmented-options button:hover {
+  border-color: transparent;
+  background: rgba(255, 255, 255, .68);
+  transform: none;
+}
+
+.sidebar .segmented-options button[aria-pressed="true"] {
+  border: 0;
+  color: var(--accent);
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(20, 27, 35, .11);
+}
+
+.sidebar .segmented-options button:focus-visible,
+.sidebar .region-grid button:focus-visible,
+.sidebar .consumption-grid button:focus-visible,
+.sidebar .solar-location-launch:focus-visible,
+.sidebar .advanced-pricing summary:focus-visible {
+  outline: 2px solid rgba(8, 120, 201, .55);
+  outline-offset: 1px;
+}
+
+/* Descriptive choices remain cards, but use less visual weight. */
+.sidebar .region-grid,
+.sidebar .consumption-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.sidebar .region-grid button,
+.sidebar .consumption-grid button {
+  min-height: 48px;
+  padding: 7px 8px;
+  gap: 2px;
+  border-radius: 9px;
+  box-shadow: none;
+}
+
+.sidebar .region-grid button:hover,
+.sidebar .consumption-grid button:hover {
+  transform: none;
+}
+
+.sidebar .region-grid button[aria-pressed="true"],
+.sidebar .consumption-grid button[aria-pressed="true"] {
+  border-color: rgba(8, 120, 201, .62);
+  background: rgba(8, 120, 201, .045);
+  box-shadow: none;
+}
+
+.sidebar .region-grid b,
+.sidebar .consumption-grid b {
+  font-size: 9.5px;
+  line-height: 1.2;
+}
+
+.sidebar .region-grid small,
+.sidebar .consumption-grid small {
+  font-size: 7.5px;
+  line-height: 1.25;
+}
+
+.sidebar .region-status-row {
+  min-width: 0;
+  margin-top: 6px;
+  gap: 6px;
+  font-size: 7.5px;
+}
+
+.sidebar .region-status-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar .region-status-row strong {
+  padding: 3px 6px;
+  font-size: 7.5px;
+}
+
+.sidebar .solar-location-launch {
+  min-height: 34px;
+  margin-top: 7px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.sidebar .solar-location-launch:hover {
+  background: rgba(8, 120, 201, .045);
+}
+
+/* Energy inputs */
+.sidebar .solar-input-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.sidebar .solar-input-grid label {
+  min-width: 0;
+  gap: 4px;
+}
+
+.sidebar .solar-input-grid label > span {
+  overflow: hidden;
+  font-size: 8px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+/* Storage rows behave like settings, not promotional cards. */
+
+.sidebar #batteryManualControls {
+  margin: 6px 0 8px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-soft);
+}
+
+/* Advanced pricing stays clearly secondary until requested. */
+.sidebar .advanced-pricing {
+  margin-top: 10px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-soft);
+}
+
+.sidebar .advanced-pricing summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 750;
+  list-style: none;
+}
+
+.sidebar .advanced-pricing summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar .advanced-pricing summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform .18s ease;
+}
+
+.sidebar .advanced-pricing[open] summary {
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.sidebar .advanced-pricing[open] summary::after {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.sidebar .advanced-pricing .solar-input-grid {
+  padding: 9px;
+  background: #fff;
+}
+
+/* Dark mode */
+
+body.shared-ui-dark-mode .sidebar .module-reference {
+  border-left-color: #4a5966;
+  background: transparent;
+}
+
+body.shared-ui-dark-mode .sidebar .segmented-options,
+body.shared-ui-dark-mode .sidebar #batteryManualControls,
+body.shared-ui-dark-mode .sidebar .advanced-pricing {
+  border-color: #394653;
+  background: #202a34;
+}
+
+body.shared-ui-dark-mode .sidebar .segmented-options button {
+  border: 0;
+  background: transparent;
+}
+
+body.shared-ui-dark-mode .sidebar .segmented-options button:hover {
+  background: rgba(255, 255, 255, .045);
+}
+
+body.shared-ui-dark-mode .sidebar .segmented-options button[aria-pressed="true"] {
+  color: #65bff8;
+  background: #2b3742;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .22);
+}
+
+body.shared-ui-dark-mode .sidebar .region-grid button[aria-pressed="true"],
+body.shared-ui-dark-mode .sidebar .consumption-grid button[aria-pressed="true"] {
+  border-color: rgba(101, 191, 248, .55);
+  background: rgba(101, 191, 248, .08);
+}
+
+body.shared-ui-dark-mode .sidebar .advanced-pricing .solar-input-grid {
+  background: #17212b;
+}
+
+/* Mobile keeps comfortable touch targets while avoiding single-column sprawl. */
+@media (max-width: 760px) {
+
+  .sidebar .segmented-options button {
+    min-height: 40px;
+  }
+
+  .sidebar .region-grid button,
+  .sidebar .consumption-grid button {
+    min-height: 52px;
+  }
+
+  .sidebar .solar-location-launch,
+  .sidebar .advanced-pricing summary {
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 350px) {
+  .sidebar .segmented-options.four-up,
+  .sidebar .region-grid,
+  .sidebar .consumption-grid,
+  .sidebar .solar-input-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sidebar .region-grid button:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar .advanced-pricing summary::after,
+  .sidebar .segmented-options button {
+    transition: none;
+  }
+}
+

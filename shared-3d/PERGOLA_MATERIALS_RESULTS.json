@@ -1,0 +1,312 @@
+{
+  "version": "20260910-pergola-materials-17",
+  "checks": {
+    "sharedTests": {
+      "passed": 489,
+      "failed": 0,
+      "newMaterials": 51,
+      "newPreservation": 91,
+      "prior": 347
+    },
+    "windowCheck": "passed",
+    "windowStaticBuild": "passed",
+    "pergolaSyntaxI18n": "passed",
+    "pergolaActualSceneBrowser": "passed",
+    "windowActualStaticClientBrowser": "passed"
+  },
+  "protectedFiles": {
+    "window-configurator": {
+      "fileCount": 413,
+      "unchanged": true
+    },
+    "shared-3d/src/geometry": {
+      "fileCount": 8,
+      "unchanged": true
+    },
+    "shared-3d/src/rendering": {
+      "fileCount": 4,
+      "unchanged": true
+    },
+    "shared-3d/src/environment": {
+      "fileCount": 2,
+      "unchanged": true
+    },
+    "shared-3d/assets": {
+      "fileCount": 10,
+      "unchanged": true
+    },
+    "pergola-configurator/public": {
+      "fileCount": 39,
+      "unchanged": true
+    },
+    "state_pricing_catalog_quality": "byte-identical"
+  },
+  "pergolaDrawChecks": [
+    {
+      "scene": "default",
+      "quality": "balanced",
+      "beforeDrawsMoving": 246,
+      "afterDrawsMoving": 246,
+      "beforeIdleDraws": 0,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "default",
+      "quality": "high",
+      "beforeDrawsMoving": 246,
+      "afterDrawsMoving": 246,
+      "beforeIdleDraws": 0,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "default",
+      "quality": "low",
+      "beforeDrawsMoving": 124,
+      "afterDrawsMoving": 124,
+      "beforeIdleDraws": 0,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "screen",
+      "quality": "balanced",
+      "beforeDrawsMoving": 254,
+      "afterDrawsMoving": 253,
+      "beforeIdleDraws": 254,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "screen",
+      "quality": "high",
+      "beforeDrawsMoving": 254,
+      "afterDrawsMoving": 253,
+      "beforeIdleDraws": 254,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "screen",
+      "quality": "low",
+      "beforeDrawsMoving": 129,
+      "afterDrawsMoving": 128,
+      "beforeIdleDraws": 129,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "accessories",
+      "quality": "balanced",
+      "beforeDrawsMoving": 368,
+      "afterDrawsMoving": 368,
+      "beforeIdleDraws": 0,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "accessories",
+      "quality": "high",
+      "beforeDrawsMoving": 368,
+      "afterDrawsMoving": 368,
+      "beforeIdleDraws": 0,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    },
+    {
+      "scene": "accessories",
+      "quality": "low",
+      "beforeDrawsMoving": 185,
+      "afterDrawsMoving": 185,
+      "beforeIdleDraws": 0,
+      "afterIdleDraws": 0,
+      "shaderLinked": true,
+      "contextLost": false
+    }
+  ],
+  "imageComparison": {
+    "window": {
+      "window-balanced-gasket.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 0,
+        "maxDifference": 0,
+        "meanAbsDifference": 0.0
+      },
+      "window-balanced-overview.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 0,
+        "maxDifference": 0,
+        "meanAbsDifference": 0.0
+      },
+      "window-balanced-section.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 0,
+        "maxDifference": 0,
+        "meanAbsDifference": 0.0
+      },
+      "window-high-gasket.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 0,
+        "maxDifference": 0,
+        "meanAbsDifference": 0.0
+      },
+      "window-high-overview.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 0,
+        "maxDifference": 0,
+        "meanAbsDifference": 0.0
+      },
+      "window-high-section.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 0,
+        "maxDifference": 0,
+        "meanAbsDifference": 0.0
+      }
+    },
+    "pergola": {
+      "accessories-crank.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 15799,
+        "maxDifference": 223,
+        "meanAbsDifference": 2.784128472222222
+      },
+      "accessories-led.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 50914,
+        "maxDifference": 252,
+        "meanAbsDifference": 9.158831944444444
+      },
+      "accessories-overview.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 1830,
+        "maxDifference": 214,
+        "meanAbsDifference": 0.11990069444444444
+      },
+      "accessories-sensor.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 57485,
+        "maxDifference": 229,
+        "meanAbsDifference": 5.291305555555556
+      },
+      "accessories-speaker.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 109442,
+        "maxDifference": 249,
+        "meanAbsDifference": 4.20171875
+      },
+      "accessories-switch.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 60755,
+        "maxDifference": 253,
+        "meanAbsDifference": 14.231865277777779
+      },
+      "default-deck.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 0,
+        "maxDifference": 0,
+        "meanAbsDifference": 0.0
+      },
+      "default-overview.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 88,
+        "maxDifference": 12,
+        "meanAbsDifference": 0.000625
+      },
+      "screen-overview.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 36364,
+        "maxDifference": 95,
+        "meanAbsDifference": 0.9282875
+      },
+      "screen-screen-back.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 480000,
+        "maxDifference": 32,
+        "meanAbsDifference": 13.909019444444445
+      },
+      "screen-screen-detail.png": {
+        "size": [
+          800,
+          600
+        ],
+        "changedPixels": 480000,
+        "maxDifference": 35,
+        "meanAbsDifference": 7.4128388888888885
+      }
+    }
+  },
+  "window": {
+    "geometryHash": "eb60d134eb18dd11d0193391c56c9a5355f2d17cd190fa174229237617e92560",
+    "fabricationHash": "f64d67ef7679fe40b8a687e4e619be3a1b631452dc7bada9484d375ea8b48a1f",
+    "handleMeshes": 3,
+    "movingDraws": {
+      "balanced": 213,
+      "high": 213,
+      "low": 71
+    },
+    "idleDraws": 0
+  },
+  "limits": [
+    "Chromium 144 with SwiftShader WebGL2 at 800x600 and devicePixelRatio 1, not hardware/mobile/Firefox timing.",
+    "Pergola scene runs from its actual source and local GLBs in a test host, not the authenticated full Pergola UI.",
+    "Pergola tests and local renders used test-only Three.js 0.160.1. Declared 0.185.1 and Vite 8.1.5 production build remains unverified; dependencies and lockfiles unchanged.",
+    "Existing low-poly asset silhouettes/normals and scenery materials are retained."
+  ]
+}

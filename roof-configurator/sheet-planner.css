@@ -1,0 +1,60 @@
+.sheet-planner,.sheet-planner * { box-sizing:border-box; }
+.sheet-planner { width:min(1440px,96vw); max-width:96vw; height:92dvh; max-height:92dvh; border:0; border-radius:16px; padding:0; color:#172c45; background:#fff; box-shadow:0 24px 80px #0006; }
+.sheet-planner::backdrop { background:#14243bb3; }
+.sheet-planner[open] { display:flex; flex-direction:column; }
+.sheet-planner header,.sheet-planner footer { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 22px; border-bottom:1px solid #dbe4ef; flex-shrink:0; }
+.sheet-planner footer { border-top:1px solid #dbe4ef; border-bottom:0; }
+.sheet-planner h2 { margin:4px 0 12px; font-size:21px; }
+.sheet-planner header h2 { margin:4px 0 0; }
+.sheet-planner small { letter-spacing:.12em; color:#507095; }
+.sheet-planner button,.sheet-planner select,.sheet-planner input { font:inherit; border:1px solid #b7c9df; border-radius:7px; padding:9px; background:#fff; color:#173653; min-width:0; }
+.sheet-planner button { cursor:pointer; }
+.sheet-planner button:disabled { opacity:.45; cursor:default; }
+.sheet-planner button:focus-visible,.sheet-planner input:focus-visible,.sheet-planner select:focus-visible { outline:3px solid #38bdf8; outline-offset:2px; }
+.sheet-planner .sheet-primary { background:#1261a9; color:white; font-weight:600; }
+.sheet-workspace { display:grid; grid-template-columns:300px minmax(0,1fr); min-height:0; flex:1; }
+.sheet-settings { overflow:auto; padding:20px; border-right:1px solid #dbe4ef; background:#f6f9fc; }
+.sheet-settings label { display:flex; flex-direction:column; gap:5px; font-size:12px; margin-bottom:12px; }
+.sheet-fields label { justify-content:space-between; }
+.sheet-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 10px; }
+.sheet-settings p { font-size:12px; line-height:1.5; color:#516681; }
+.sheet-output { overflow:auto; padding:24px; min-width:0; }
+.sheet-output p { font-size:13px; line-height:1.5; }
+.sheet-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.sheet-stats article { padding:12px; border:1px solid #d9e5f2; border-radius:10px; background:#f4f8fd; }
+.sheet-stats span { font-size:12px; display:block; color:#516681; }
+.sheet-stats strong { display:block; margin-top:5px; font-size:20px; }
+.sheet-overview { width:100%; height:260px; margin-top:16px; }
+.sheet-diagram { width:100%; height:380px; background:#f8fafc; border:1px solid #dbe4ef; border-radius:10px; }
+.sheet-slope { margin-top:28px; padding-top:24px; border-top:1px solid #dbe4ef; }
+.sheet-table-wrap { overflow-x:auto; }
+.sheet-planner table { width:100%; border-collapse:collapse; font-size:13px; }
+.sheet-planner th,.sheet-planner td { border:1px solid #dbe4ef; padding:9px 10px; text-align:left; vertical-align:top; }
+.sheet-planner th { background:#eaf1f9; }
+.sheet-planner td:last-child { overflow-wrap:anywhere; }
+.sheet-warning { padding:10px; background:#fffbeb; color:#854d0e; border-radius:8px; }
+.sheet-error { padding:16px; background:#fef2f2; color:#991b1b; border-radius:8px; }
+.sheet-status { margin-right:auto; font-size:13px; }
+@media(max-width:850px) {
+ .sheet-workspace { display:block; overflow:auto; }
+ .sheet-settings,.sheet-output { overflow:visible; }
+ .sheet-settings { border-right:0; border-bottom:1px solid #dbe4ef; }
+ .sheet-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .sheet-planner header,.sheet-planner footer { padding:12px; flex-wrap:wrap; }
+ .sheet-status { width:100%; }
+ .sheet-output { padding:14px; }
+ .sheet-diagram { height:300px; }
+}
+
+.sheet-settings label { min-width:0; }
+.sheet-settings input,.sheet-settings select { width:100%; }
+
+.sheet-actions { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 22px; flex-shrink:0; border-bottom:1px solid #dbe4ef; background:#f6f9fc; }
+.sheet-update-note { font-size:13px; line-height:1.4; }
+.sheet-actions .sheet-primary { flex-shrink:0; }
+.sheet-actions.needs-update { background:#fffbeb; color:#854d0e; }
+.sheet-planner > .sheet-error { margin:0; border-radius:0; padding:10px 22px; flex-shrink:0; }
+@media(max-width:850px) {
+ .sheet-actions { padding:10px 12px; gap:10px; }
+ .sheet-update-note { font-size:12px; }
+}

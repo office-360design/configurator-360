@@ -167,3 +167,38 @@ export function legacyCornerMap(dimensions = {}) {
     backRight: poleId(grid.rows - 1, grid.columns - 1),
   };
 }
+
+export function roofCellId(row, column) {
+  return `roof-r${row}-c${column}`;
+}
+
+export function buildRoofCells(dimensions = {}) {
+  const grid = buildPoleGrid(dimensions);
+  const cellWidthMm = (grid.width - 150) / Math.max(1, grid.columns - 1);
+  const cellDepthMm = (grid.depth - 150) / Math.max(1, grid.rows - 1);
+  const cells = [];
+
+  for (let row = 0; row < grid.rows - 1; row += 1) {
+    for (let column = 0; column < grid.columns - 1; column += 1) {
+      cells.push({
+        id: roofCellId(row, column),
+        row,
+        column,
+        label: `Roof rectangle ${row + 1}-${column + 1}`,
+        widthMm: cellWidthMm,
+        depthMm: cellDepthMm,
+        frontLeft: poleId(row, column),
+        frontRight: poleId(row, column + 1),
+        backLeft: poleId(row + 1, column),
+        backRight: poleId(row + 1, column + 1),
+      });
+    }
+  }
+
+  return cells;
+}
+
+export function getRoofCell(gridOrDimensions, id) {
+  const dimensions = gridOrDimensions?.dimensions ?? gridOrDimensions;
+  return buildRoofCells(dimensions).find((cell) => cell.id === id) ?? null;
+}

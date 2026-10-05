@@ -6,6 +6,7 @@ const FX_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const FALLBACK_RATES_FROM_RON = Object.freeze({
   RON: 1,
   USD: 0.22,
+  EUR: 0.20,
 });
 
 export function normalizeUnits(value) {
@@ -13,8 +14,9 @@ export function normalizeUnits(value) {
 }
 
 export function normalizeCurrency(value) {
-  return value === 'USD' ? 'USD' : 'RON';
+  return ['USD', 'EUR'].includes(value) ? value : 'RON';
 }
+
 
 function formatNumber(value, locale, options = {}) {
   return new Intl.NumberFormat(locale, options).format(value);
@@ -94,7 +96,7 @@ export function displayLengthInputConfig(minMeters, maxMeters, stepMeters, units
 
 export function formatCurrency(value, currency) {
   const normalizedCurrency = normalizeCurrency(currency);
-  const locale = normalizedCurrency === 'RON' ? 'ro-RO' : 'en-US';
+  const locale = normalizedCurrency === 'RON' ? 'ro-RO' : normalizedCurrency === 'EUR' ? 'de-DE' : 'en-US';
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: normalizedCurrency,
@@ -132,7 +134,7 @@ export async function resolveCurrencyRate(currency) {
       currency: 'RON',
       rate: 1,
       date: null,
-      source: 'reference currency',
+      source: 'reference',
       isFallback: false,
     };
   }
@@ -140,7 +142,7 @@ export async function resolveCurrencyRate(currency) {
   const cached = readCachedRate(normalizedCurrency);
   const now = Date.now();
   if (cached && now - cached.fetchedAt < FX_CACHE_TTL_MS) {
-    return { ...cached, source: 'cached daily reference rate', isFallback: false };
+    return { ...cached, source: 'cached-reference', isFallback: false };
   }
 
   try {
@@ -157,16 +159,16 @@ export async function resolveCurrencyRate(currency) {
       fetchedAt: now,
     };
     writeCachedRate(result);
-    return { ...result, source: 'Frankfurter daily reference rate', isFallback: false };
+    return { ...result, source: 'frankfurter-reference', isFallback: false };
   } catch {
     if (cached) {
-      return { ...cached, source: 'cached daily reference rate', isFallback: false };
+      return { ...cached, source: 'cached-reference', isFallback: false };
     }
     return {
       currency: normalizedCurrency,
       rate: getFallbackCurrencyRate(normalizedCurrency),
       date: null,
-      source: 'offline fallback estimate',
+      source: 'offline-fallback',
       isFallback: true,
     };
   }

@@ -1,0 +1,213 @@
+import { MATERIAL_PRESETS } from './presets.js?v=platform-18';
+import { PBRTextureSets } from './PBRTextureSets.js?v=platform-18';
+import { PBR_TEXTURE_SETS, PBR_TEXTURE_VERSION } from './textureSets.js?v=platform-18';
+import { SurfaceTextures } from './SurfaceTextures.js?v=platform-18';
+import { getQualityProfile, normalizeQuality } from '../quality.js?v=platform-18';
+
+/** One library per scene. Materials are owned by callers; texture maps by the library. */
+export class MaterialLibrary {
+  constructor(THREE, { quality = 'balanced', maxAnisotropy = 8, textureAssets = true, loadTexture = null, textureSets = PBR_TEXTURE_SETS, textureTimeoutMs = 15000 } = {}) {
+    if (!THREE?.MeshStandardMaterial) throw new TypeError('Pass the configurator\'s Three.js namespace.');
+    this.THREE = THREE;
+    this.quality = normalizeQuality(quality);
+    this.maxAnisotropy = Math.max(1, maxAnisotropy);
+    this.presets = new Map(Object.entries(MATERIAL_PRESETS));
+    this.textures = new SurfaceTextures(THREE);
+    this.assets = new PBRTextureSets(THREE, { sets: textureSets, enabled: textureAssets, loadTexture, timeoutMs: textureTimeoutMs });
+    this.materials = new Map();
+    this.environmentIntensity = 1;
+    this.reflectionEnvironments = new Map();
+    this.disposed = false;
+  }
+  register(id, definition) {
+    if (this.disposed) throw new Error('Material library has been disposed.');
+    if (!id || this.presets.has(id)) throw new Error(`Material ID already exists or is invalid: ${id}`);
+    if (!['standard', 'physical', 'glass'].includes(definition?.type)) throw new Error('Material type must be standard, physical or glass.');
+    this.presets.set(id, Object.freeze({
+      ...definition,
+      ...(definition.tile ? { tile: Object.freeze([...definition.tile]) } : {}),
+      ...(definition.assetTile ? { assetTile: Object.freeze([...definition.assetTile]) } : {}),
+    }));
+    return this;
+  }
+  create(id, options = {}) {
+    if (this.disposed) throw new Error('Material library has been disposed.');
+    const definition = this.presets.get(id);
+    if (!definition) throw new Error(`Unknown surface material: ${id}`);
+    const THREE = this.THREE;
+    const material = ['glass', 'physical'].includes(definition.type)
+      ? new THREE.MeshPhysicalMaterial()
+      : new THREE.MeshStandardMaterial();
+    material.name = `360:${id}`;
+    material.color.set(options.color ?? definition.color ?? '#ffffff');
+    material.metalness = options.metalness ?? definition.metalness ?? 0;
+    material.roughness = options.roughness ?? definition.roughness ?? 0.7;
+    material.side = options.side ?? THREE.FrontSide;
+    material.fog = options.fog ?? definition.fog ?? true;
+    material.flatShading = options.flatShading ?? definition.flatShading ?? material.flatShading;
+    // Optional standard-surface flags. Existing presets retain Three's defaults;
+    // glass continues to own its separate quality-dependent path in apply().
+    material.transparent = options.transparent ?? definition.transparent ?? material.transparent;
+    material.opacity = options.opacity ?? definition.opacity ?? material.opacity;
+    material.depthWrite = options.depthWrite ?? definition.depthWrite ?? material.depthWrite;
+    material.forceSinglePass = options.forceSinglePass ?? definition.forceSinglePass ?? material.forceSinglePass;
+    if (options.emissive !== undefined || definition.emissive !== undefined) material.emissive.set(options.emissive ?? definition.emissive);
+    material.emissiveIntensity = options.emissiveIntensity ?? definition.emissiveIntensity ?? material.emissiveIntensity;
+    if (material.isMeshPhysicalMaterial && definition.type === 'physical') {
+      material.clearcoat = options.clearcoat ?? definition.clearcoat ?? material.clearcoat;
+      material.clearcoatRoughness = options.clearcoatRoughness ?? definition.clearcoatRoughness ?? material.clearcoatRoughness;
+      material.sheen = options.sheen ?? definition.sheen ?? material.sheen;
+      material.sheenRoughness = options.sheenRoughness ?? definition.sheenRoughness ?? material.sheenRoughness;
+      if (options.sheenColor !== undefined || definition.sheenColor !== undefined) material.sheenColor.set(options.sheenColor ?? definition.sheenColor);
+    }
+    material.userData.surface = { id, version: 7, uvUnits: 'metres', grainAxis: 'u' };
+    this.track(material, id, { ...options });
+    try {
+      this.apply(material);
+      return material;
+    } catch (error) {
+      material.dispose();
+      throw error;
+    }
+  }
+  track(material, id, options) {
+    const onDispose = () => {
+      material.removeEventListener('dispose', onDispose);
+      this.materials.get(material)?.assetLease?.release();
+      this.materials.delete(material);
+    };
+    material.addEventListener('dispose', onDispose);
+    this.materials.set(material, { id, options });
+  }
+  // Use instead of material.clone() for managed variants: keeps tier changes/disposal wired.
+  clone(material) {
+    const entry = this.materials.get(material);
+    if (!entry) return material.clone();
+    const clone = material.clone();
+    this.track(clone, entry.id, { ...entry.options });
+    try {
+      this.apply(clone);
+      return clone;
+    } catch (error) {
+      clone.dispose();
+      throw error;
+    }
+  }
+  apply(material) {
+    if (this.disposed || !this.materials.has(material)) return;
+    const entry = this.materials.get(material);
+    const { id, options } = entry;
+    const definition = this.presets.get(id);
+    const profile = getQualityProfile(this.quality);
+    const previousFeatures = `${!!material.normalMap}:${!!material.roughnessMap}:${!!material.map}:${!!material.alphaMap}:${material.transmission > 0}:${material.transparent}`;
+    material.envMapIntensity = (options.envMapIntensity ?? definition.envMapIntensity ?? 1) * this.environmentIntensity;
+    if (this.reflectionEnvironments.has(id)) material.envMap = this.reflectionEnvironments.get(id);
+    if (definition.type === 'glass') {
+      material.ior = definition.ior ?? 1.5;
+      material.transmission = profile.transmission ? definition.transmission : 0;
+      material.thickness = profile.transmission ? (options.thickness ?? definition.thickness ?? 0) : 0;
+      material.attenuationColor.set(definition.attenuationColor ?? '#ecf6f2');
+      material.attenuationDistance = definition.attenuationDistance ?? 2;
+      material.transparent = !profile.transmission;
+      material.opacity = profile.transmission ? 1 : (definition.lowOpacity ?? 0.18);
+      // Closed glazing is front-sided. Avoid opaque depth/shadow behavior for overlapping panes.
+      material.depthWrite = false;
+    } else if (definition.texture || definition.textureSet) {
+      // Wood retains its colour map even on Low; microscopic maps can be switched off.
+      let maps = definition.texture && (profile.surfaceDetail || definition.texture === 'oak' || definition.keepColorOnLow)
+        ? this.textures.get(definition.texture, definition.tile) : {};
+      const selection = definition.textureSet
+        ? this.assets.selection(definition.textureSet, this.quality, definition.assetTile ?? definition.tile) : null;
+      if (entry.assetLease?.key !== selection?.key) {
+        entry.assetLease?.release();
+        entry.assetLease = selection ? this.assets.acquire(definition.textureSet, this.quality,
+          definition.assetTile ?? definition.tile, () => this.apply(material)) : null;
+      }
+      const assetMaps = entry.assetLease?.maps;
+      if (assetMaps) maps = assetMaps;
+      material.userData.surface.textureSource = assetMaps ? 'asset' : 'procedural';
+      material.userData.surface.textureSet = definition.textureSet ?? null;
+      material.userData.surface.textureStatus = entry.assetLease?.status ?? (selection ? 'loading' : 'not-requested');
+      material.map = maps.color ?? null;
+      material.normalMap = profile.surfaceDetail ? (maps.normal ?? null) : null;
+      material.roughnessMap = profile.surfaceDetail ? (maps.roughness ?? null) : null;
+      material.alphaMap = profile.surfaceDetail ? (maps.alpha ?? null) : null;
+      if (definition.alphaMapMean !== undefined) {
+        const average = definition.alphaMapMean;
+        if (!Number.isFinite(average) || average <= 0 || average > 1) throw new RangeError('alphaMapMean must be in (0, 1].');
+        material.opacity = Math.min(1, (options.opacity ?? definition.opacity ?? 1) / (material.alphaMap ? average : 1));
+      }
+      const detailScale = profile.quality === 'high' ? 1 : (profile.surfaceDetail ? 0.85 : 0);
+      const normalStrength = assetMaps ? (definition.assetNormalStrength ?? definition.normalStrength) : definition.normalStrength;
+      material.normalScale.setScalar((normalStrength ?? 0.1) * detailScale);
+      this.textures.setAnisotropy(Math.min(this.maxAnisotropy, profile.anisotropy));
+      this.assets.setAnisotropy(Math.min(this.maxAnisotropy, profile.anisotropy));
+    }
+    const nextFeatures = `${!!material.normalMap}:${!!material.roughnessMap}:${!!material.map}:${!!material.alphaMap}:${material.transmission > 0}:${material.transparent}`;
+    if (previousFeatures !== nextFeatures) material.needsUpdate = true;
+  }
+  /** Bind a borrowed reflection texture to one semantic material only.
+   * The scene/environment owner disposes the target; materials never dispose it.
+   */
+  setReflectionEnvironment(id, texture) {
+    if (this.disposed) return false;
+    if (!this.presets.has(id)) throw new Error(`Unknown surface material: ${id}`);
+    if (texture !== null && !texture?.isTexture) throw new TypeError('A Texture or null is required.');
+    if (texture) this.reflectionEnvironments.set(id, texture);
+    else this.reflectionEnvironments.delete(id);
+    for (const [material, entry] of this.materials) if (entry.id === id && material.envMap !== texture) {
+      material.envMap = texture; material.needsUpdate = true;
+    }
+    return true;
+  }
+  getGlazingDiagnostics() {
+    const variants = [];
+    for (const [material, { id }] of this.materials) if (this.presets.get(id).type === 'glass') {
+      variants.push({ id, mode: material.transmission > 0 ? 'physical-transmission' : 'simple-transparency',
+        metalness: material.metalness, transmission: material.transmission, opacity: material.opacity,
+        ior: material.ior, roughness: material.roughness, opticalThicknessMetres: material.thickness,
+        normalIncidenceReflectance: ((material.ior - 1) / (material.ior + 1)) ** 2,
+        reflectionSource: material.envMap?.name || 'scene-environment' });
+    }
+    return { materialCount: variants.length, variants };
+  }
+  // Resolves after active sets have loaded OR selected their procedural fallback.
+  whenTexturesReady() { return this.assets.whenIdle(); }
+  setQuality(value) {
+    const next = normalizeQuality(value);
+    if (this.quality === next) return false;
+    this.quality = next;
+    for (const material of this.materials.keys()) this.apply(material);
+    return true;
+  }
+  setEnvironmentIntensity(value) {
+    this.environmentIntensity = Math.max(0, Number(value) || 0);
+    for (const [material, { id, options }] of this.materials) {
+      const definition = this.presets.get(id);
+      material.envMapIntensity = (options.envMapIntensity ?? definition?.envMapIntensity ?? 1) * this.environmentIntensity;
+    }
+  }
+  getDiagnostics() {
+    const activeMaterials = {}, surfaceDetails = {};
+    for (const [material, { id }] of this.materials) {
+      activeMaterials[id] = (activeMaterials[id] || 0) + 1;
+      const entry = surfaceDetails[id] ??= { materials: 0, normalMapped: 0, roughnessMapped: 0, colorMapped: 0, alphaMapped: 0,
+        tileMetres: this.presets.get(id).tile ? [...this.presets.get(id).tile] : null,
+        assetTileMetres: this.presets.get(id).assetTile ? [...this.presets.get(id).assetTile] : null, assetBacked: 0 };
+      entry.materials++;
+      if (material.userData.surface?.textureSource === 'asset') entry.assetBacked++;
+      if (material.normalMap) entry.normalMapped++;
+      if (material.roughnessMap) entry.roughnessMapped++;
+      if (material.map) entry.colorMapped++;
+      if (material.alphaMap) entry.alphaMapped++;
+    }
+    return { glazing: this.getGlazingDiagnostics(), textureAssets: { version: PBR_TEXTURE_VERSION, ...this.assets.getDiagnostics() }, quality: this.quality, surfaceDetailEnabled: getQualityProfile(this.quality).surfaceDetail, materialCount: this.materials.size, textureCount: this.textures.size + this.assets.getDiagnostics().textureCount, availableMaterials: [...this.presets.keys()], activeMaterials, surfaceDetails };
+  }
+  dispose() {
+    for (const material of [...this.materials.keys()]) material.dispose();
+    this.assets.dispose();
+    this.textures.dispose();
+    this.reflectionEnvironments.clear();
+    this.disposed = true;
+  }
+}
