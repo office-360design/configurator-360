@@ -27,6 +27,19 @@ const fs = require('node:fs/promises');
     editor.open();
   });
   const alert = page.locator('.layout-feedback');
+  // Repeated validation messages must never move or resize the drawing.
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const canvas = page.locator('.layout-drawing > svg');
+    const before = await canvas.boundingBox();
+    for (const message of ['Invalid point', 'Edges cannot cross. '.repeat(30), 'Invalid point']) {
+      await page.evaluate(message => editor.feedback(message), message);
+      assert.deepEqual(await canvas.boundingBox(), before);
+      await page.evaluate(() => editor.clearFeedback());
+      assert.deepEqual(await canvas.boundingBox(), before);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await clickTool(page, 'window');
   assert.ok(await alert.isVisible());
   assert.equal(await alert.getAttribute('data-severity'), 'warning');
