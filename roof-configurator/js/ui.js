@@ -1,10 +1,10 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=feedback-27';
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=feedback-27';
-import { RoofLayoutEditor } from './layoutEditor.js?v=feedback-27';
+import { localizeFeature, featureText } from './featureI18n.js?v=perimeter-28';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=perimeter-28';
+import { RoofLayoutEditor } from './layoutEditor.js?v=perimeter-28';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=layout-21';
-import { bomToCsv, calculateBom } from './bom.js?v=feedback-27';
+import { bomToCsv, calculateBom } from './bom.js?v=perimeter-28';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -15,7 +15,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=feedback-27';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=perimeter-28';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 

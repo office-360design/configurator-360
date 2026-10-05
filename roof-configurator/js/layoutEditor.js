@@ -1,5 +1,6 @@
-import { localizeFeature } from './featureI18n.js?v=feedback-27';
-import { RoofWindowTool } from './roofWindowTool.js?v=feedback-27';
+import { extendPerimeter } from './perimeter.js?v=perimeter-28';
+import { localizeFeature } from './featureI18n.js?v=perimeter-28';
+import { RoofWindowTool } from './roofWindowTool.js?v=perimeter-28';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
@@ -69,6 +70,7 @@ export class RoofLayoutEditor {
       <div class="layout-toolbar" aria-label="Drawing tools">
         <button type="button" data-action="select">Select / move</button>
         <button type="button" data-action="draw">New perimeter</button>
+        <button type="button" data-action="extend">Modify perimeter</button>
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert point</button>
         <button type="button" data-action="dormer">Add dormer</button>
@@ -177,7 +179,7 @@ export class RoofLayoutEditor {
         <button type="button" data-action="cancel">Cancel</button>
         <button type="button" data-action="apply" class="layout-primary">Apply roof</button></footer>`;
     this.windowTool = new RoofWindowTool(this);
-    const icons = { window: '▣', dormer: '⌂', select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
+    const icons = { extend: '⇥', window: '▣', dormer: '⌂', select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
       splitPlace: '⇉', joinPlace: '⋈', cycleCopy: '⇄', delete: '×', finish: '✓' };
     this.dialog.querySelectorAll('.layout-toolbar button').forEach(button => {
       const icon = document.createElement('span');
@@ -439,7 +441,7 @@ export class RoofLayoutEditor {
         this.selected = null;
         this.commit(next);
         this.status('Roof aligned. Undo restores the previous junction.');
-      } else if (['select', 'draw', 'split', 'insert'].includes(action)) {
+      } else if (['select', 'draw', 'split', 'insert', 'extend'].includes(action)) {
         this.panEnabled = false;
         this.mode = action;
         this.path = [];
@@ -870,6 +872,25 @@ export class RoofLayoutEditor {
         }
         if (this.path.length >= 160) throw new Error('Maximum 160 perimeter points.');
         this.path.push(point);
+      } else if (this.mode === 'extend') {
+        if (point.edgeIds) {
+          const [a, b] = point.edgeIds;
+          const boundary = this.layout.boundary;
+          const isBoundary = boundary.some((id, i) => {
+            const next = boundary[(i + 1) % boundary.length];
+            return (linkedPlanPoints(this.layout, id).includes(a) && linkedPlanPoints(this.layout, next).includes(b)) ||
+              (linkedPlanPoints(this.layout, id).includes(b) && linkedPlanPoints(this.layout, next).includes(a));
+          });
+          if (!isBoundary) throw new Error('Choose an outer perimeter edge to extend. Interior dividing edges cannot be extended.');
+          this.selected = null;
+          this.selectedEdge = point.edgeIds;
+          this.status('Edge selected. Click outside the roof to add a perimeter point.');
+        } else {
+          const added = extendPerimeter(this.layout, this.selectedEdge, point);
+          this.commit(added.layout);
+          this.selected = added.id;
+          this.status('Perimeter extended. Choose another outer edge to continue, or Select / move to adjust the new point.');
+        }
       } else if (this.mode === 'insert') {
         const added = addLayoutPoint(this.layout, point);
         this.selected = added.id;
@@ -961,7 +982,9 @@ export class RoofLayoutEditor {
         const [a, b] = this.selectedEdge.map(id => project(this.layout.vertices[id]));
         this.svg.append(svgElement('line', {
           x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-          stroke: '#dc2626', 'stroke-width': 5, 'pointer-events': 'none',
+          stroke: this.mode === 'extend' ? '#1260aa' : '#dc2626',
+          class: this.mode === 'extend' ? 'layout-perimeter-target' : '',
+          'stroke-width': 5, 'pointer-events': 'none',
         }));
       }
       const dividingFaces = this.mode === 'split' ? this.layout.faces.filter(face =>
@@ -1009,6 +1032,7 @@ export class RoofLayoutEditor {
     this.drawIssues();
     this.updatePanCursor();
     const hints = {
+      extend: 'Click an outer edge, then click outside the roof to extend it. Repeat on another outer edge to add more points. New points follow the adjoining slope. Existing surfaces and windows stay in place. Use Select / move to adjust points, or Undo to revert.',
       meetTarget: 'Click the target slope, then choose Keep position or Keep height. Review the ghost point and 3D preview before applying.',
       meetDirection: 'Click the connected ridge or edge to follow. The point can move along its line in either direction.',
 
@@ -1018,7 +1042,7 @@ export class RoofLayoutEditor {
       insert: 'Click an edge or inside a surface to add a point. Interior points connect to surrounding corners and keep the current roof height. Move or raise the point to shape the roof.',
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
-    this.dialog.querySelector('#layoutModeLabel').textContent = { select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    this.dialog.querySelector('#layoutModeLabel').textContent = { extend: this.selectedEdge ? 'Click outside the roof to extend the selected edge' : 'Choose an outer edge to extend', select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
     if (this.dormer) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click to place dormer front · Adjust size in the panel';
     if (this.windowTool.active) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag window or click to position · Update window to save';
     if (this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag to pan · Turn Pan off to edit · Fit to recenter';
@@ -1060,7 +1084,7 @@ export class RoofLayoutEditor {
     }
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
-      if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
+      if (['select', 'draw', 'split', 'insert', 'extend'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
       if (action === 'pan') button.setAttribute('aria-pressed', String(Boolean(this.panEnabled)));
       if (action === 'slopeArrows') button.setAttribute('aria-pressed', String(Boolean(this.showSlopeArrows)));
       if (action === 'meet') button.disabled = this.mode !== 'select' || this.selected === null;

@@ -1,5 +1,5 @@
 import { normalizeCurrency } from './preferences.js?v=platform-18';
-import { roofRateSource, roofT } from './i18n.js?v=feedback-27';
+import { roofRateSource, roofT } from './i18n.js?v=perimeter-28';
 
 const VAT_RATE = 0.19;
 const PANEL_EFFECTIVE_AREA = 0.47;
