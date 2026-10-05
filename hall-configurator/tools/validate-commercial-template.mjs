@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=hall-storage-1';
-import { HALL_TEMPLATES, AGRICULTURAL_TEMPLATE_ID, COMMERCIAL_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=hall-storage-1';
-import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=hall-storage-1';
-import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from '../js/commercial.js?v=hall-storage-1';
-import { getHallMessages } from '../js/i18n.js?v=hall-storage-1';
-import { estimateHallPrice } from '../js/pricing.js?v=hall-storage-1';
+import { state, deriveHallMetrics } from '../js/state.js?v=hall-production-1';
+import { HALL_TEMPLATES, AGRICULTURAL_TEMPLATE_ID, COMMERCIAL_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=hall-production-1';
+import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=hall-production-1';
+import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from '../js/commercial.js?v=hall-production-1';
+import { getHallMessages } from '../js/i18n.js?v=hall-production-1';
+import { estimateHallPrice } from '../js/pricing.js?v=hall-production-1';
 
 const initial = structuredClone(state);
 const a = createHallTemplate(COMMERCIAL_TEMPLATE_ID, state);
 const b = createHallTemplate(COMMERCIAL_TEMPLATE_ID, state);
 assert.deepEqual(state, initial);
-assert.equal(HALL_TEMPLATES.length, 3);
-assert.equal(new Set(HALL_TEMPLATES.map(t => t.id)).size, 3);
+assert.equal(HALL_TEMPLATES.length, 4);
+assert.equal(new Set(HALL_TEMPLATES.map(t => t.id)).size, 4);
 assert.deepEqual([a.width, a.length, a.eaveHeight, a.pitch], [24, 18, 4.5, 8]);
 assert.equal(a.openings.length, 12);
 assert.equal(a.openings.filter(o => o.type === 'window' && o.subtype === 'shopfront').length, 8);

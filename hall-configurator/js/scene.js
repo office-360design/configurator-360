@@ -1,12 +1,13 @@
-import { loadingSceneryExclusions } from './logistics.js?v=hall-storage-1';
+import { refreshProductionLabels } from './productionGeometry.js?v=hall-production-1';
+import { loadingSceneryExclusions } from './logistics.js?v=hall-production-1';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-storage-1';
-import { deriveHallMetrics } from './state.js?v=hall-storage-1';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=hall-storage-1';
-import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-storage-1';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-production-1';
+import { deriveHallMetrics } from './state.js?v=hall-production-1';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=hall-production-1';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-production-1';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -14,6 +15,7 @@ function disposeObject(object) {
     // Three's `removed` event only fires on the directly removed object, so nested
     // label DOM nodes would otherwise remain in CSS2DRenderer's overlay forever.
     if (child.element instanceof HTMLElement) child.element.remove();
+    if (child.userData?.productionLabelKey) child.material?.map?.dispose?.();
     child.geometry?.dispose?.();
     if (Array.isArray(child.material)) child.material.forEach((item) => item?.dispose?.());
     else child.material?.dispose?.();
@@ -977,6 +979,7 @@ export class HallScene {
 
   setLocale(locale = resolveHallLocale()) {
     this.locale = locale;
+    refreshProductionLabels(this.currentBuild?.root, locale);
     const plane = this.compassRoot?.children?.[0];
     if (plane?.material) {
       plane.material.map?.dispose?.();
@@ -1062,6 +1065,7 @@ export class HallScene {
     const frontage = get('commercial-frontage');
     const retail = get('retail-fitout');
     const logistics = get('loading-logistics');
+    const production = get('production-fitout');
 
     const mode = state.inspectionMode ?? 'all';
     if (primary) primary.visible = mode === 'all' || mode === 'primary' || mode === 'secondary' || mode === 'connections' || mode === 'foundations';
@@ -1072,6 +1076,7 @@ export class HallScene {
     if (openings) openings.visible = mode === 'all' || mode === 'envelope';
     if (frontage) frontage.visible = mode === 'all' || mode === 'envelope';
     if (retail) retail.visible = mode === 'all';
+    if (production) production.visible = state.productionLayout && (mode === 'all' || mode === 'services');
     if (logistics) logistics.visible = mode === 'all' || mode === 'envelope';
     if (services) services.visible = mode === 'all' || mode === 'services';
     if (planning) planning.visible = (mode === 'all' || mode === 'services') && (state.warehouseRacking || state.forkliftClearance);
@@ -1080,6 +1085,7 @@ export class HallScene {
       lighting: 'service-lighting',
       fire: 'service-fire',
       climate: 'service-climate',
+      production: 'service-production',
       drainage: 'service-drainage',
       skylights: 'service-skylights',
       coverage: 'service-coverage',
@@ -1156,7 +1162,7 @@ export class HallScene {
   }
 
   updateLoadingFog(state) {
-    if (state.cameraPreset !== 'loading' || !this.scene?.fog) return;
+    if (!['loading','production'].includes(state.cameraPreset) || !this.scene?.fog) return;
     const span = Math.max(state.width, state.length);
     const distance = this.camera.position.distanceTo(this.controls.target);
     // A portrait fit for a long loading hall can otherwise put the entire model in fog.
@@ -1165,14 +1171,16 @@ export class HallScene {
   }
 
   fitCamera(state, metrics) {
-    if (['customer', 'loading'].includes(state.cameraPreset) && this.currentBuild?.root) {
+    if (['customer', 'loading', 'production'].includes(state.cameraPreset) && this.currentBuild?.root) {
       // Fit the real commercial geometry (including canopy/forecourt) from the
       // customer side. A fixed distance can crop a wide shopfront on phones.
       this.currentBuild.root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(this.currentBuild.root);
       const center = bounds.getCenter(new THREE.Vector3());
       const towardCamera = (state.cameraPreset === 'loading'
-        ? new THREE.Vector3(1.5, .74, -.90) : new THREE.Vector3(.85, .42, -1.20)).normalize();
+        ? new THREE.Vector3(1.5, .74, -.90) : state.cameraPreset === 'production'
+          ? new THREE.Vector3(1.10, .85, state.productionFlow === 'back-to-front' ? 1.4 : -1.4)
+          : new THREE.Vector3(.85, .42, -1.20)).normalize();
       const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), towardCamera).normalize();
       const up = new THREE.Vector3().crossVectors(towardCamera, right).normalize();
       const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
@@ -1204,6 +1212,7 @@ export class HallScene {
     const span = Math.max(state.length, state.width, metrics.ridgeElevation);
     const target = new THREE.Vector3(0, state.eaveHeight * .48, 0);
     this.controls.target.copy(target);
+    if (view === 'production') { this.fitCamera({ ...state, cameraPreset: 'production' }, metrics); return; }
     if (view === 'loading') { this.fitCamera({ ...state, cameraPreset: 'loading' }, metrics); return; }
     if (view === 'customer') { this.fitCamera({ ...state, cameraPreset: 'customer' }, metrics); return; }
     else if (view === 'front') this.camera.position.set(0, state.eaveHeight * .62, -span * 1.45);

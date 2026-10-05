@@ -1,9 +1,9 @@
-import { createHallTemplate } from './templates.js?v=hall-storage-1';
-import { state, deriveHallMetrics } from './state.js?v=hall-storage-1';
-import { HallScene } from './scene.js?v=hall-storage-1';
-import { HallUI } from './ui.js?v=hall-storage-1';
-import { normalizeOpenings } from './openings.js?v=hall-storage-1';
-import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=hall-storage-1';
+import { createHallTemplate } from './templates.js?v=hall-production-1';
+import { state, deriveHallMetrics } from './state.js?v=hall-production-1';
+import { HallScene } from './scene.js?v=hall-production-1';
+import { HallUI } from './ui.js?v=hall-production-1';
+import { normalizeOpenings } from './openings.js?v=hall-production-1';
+import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=hall-production-1';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
@@ -186,7 +186,7 @@ function toggleCompass() {
 }
 
 function cycleCamera() {
-  const presets = state.openings.some((o) => o.type === 'garage' && o.subtype === 'sectional')
+  const presets = state.productionLayout ? ['production', 'front', 'side', 'top', '3d'] : state.openings.some((o) => o.type === 'garage' && o.subtype === 'sectional')
     ? ['loading', '3d', 'front', 'side', 'top'] : ['customer', '3d', 'front', 'side', 'top'];
   const index = Math.max(0, presets.indexOf(state.cameraPreset));
   state.cameraPreset = presets[(index + 1) % presets.length];

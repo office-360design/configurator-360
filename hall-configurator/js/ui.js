@@ -1,11 +1,12 @@
-import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout } from './logistics.js?v=hall-storage-1';
-import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from './commercial.js?v=hall-storage-1';
+import { PRODUCTION_DEFAULTS, normalizeProduction, productionLayout } from './production.js?v=hall-production-1';
+import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout } from './logistics.js?v=hall-production-1';
+import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from './commercial.js?v=hall-production-1';
 import { bindPanelAccordions, bindPanelRange } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { buildBom, bomToCsv } from './bom.js?v=hall-storage-1';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=hall-storage-1';
-import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, openingLabel } from './openings.js?v=hall-storage-1';
-import { getHeaProfile } from './heaProfiles.js?v=hall-storage-1';
-import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-storage-1';
+import { buildBom, bomToCsv } from './bom.js?v=hall-production-1';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=hall-production-1';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, openingLabel } from './openings.js?v=hall-production-1';
+import { getHeaProfile } from './heaProfiles.js?v=hall-production-1';
+import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-production-1';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
@@ -14,12 +15,13 @@ const formatters = {
   pitch: (v) => `${Math.round(v)}°`,
   targetBaySpacing: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
   loadingApronDepth: (v) => `${v.toFixed(1)} m`,
+  productionCellCount: (v) => String(Math.round(v)),
   sectionCutPosition: (v) => `${Math.round(v)}%`,
 };
 
 
 
-const modelSelects = new Set(['structurePreset', 'claddingProfile', 'climateSystem', 'rackDensity', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'warehouseLayout']);
+const modelSelects = new Set(['structurePreset', 'claddingProfile', 'climateSystem', 'rackDensity', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'warehouseLayout', 'productionFlow']);
 
 export class HallUI {
   constructor(state, callbacks, locale = resolveHallLocale()) {
@@ -52,6 +54,7 @@ export class HallUI {
     this.setPlacementMode(this.placementType);
     this.setSelectedOpening(this.selectedOpeningId);
     this.updateLoadingNotice();
+    this.updateProductionNotice();
     if (this.currentBuild) this.update(this.currentBuild);
   }
 
@@ -83,8 +86,10 @@ export class HallUI {
     normalizeOpenings(this.state);
     normalizeCommercialFeatures(this.state);
     normalizeLogistics(this.state);
+    normalizeProduction(this.state);
     this.updateCommercialNotice();
     this.updateLoadingNotice();
+    this.updateProductionNotice();
   }
 
   bindSelects() {
@@ -98,6 +103,7 @@ export class HallUI {
       inspectionMode: 'inspectionMode',
       rackDensity: 'rackDensity',
       warehouseLayout: 'warehouseLayout',
+      productionFlow: 'productionFlow',
       serviceVisibility: 'serviceVisibility',
     };
     Object.entries(bindings).forEach(([id, key]) => {
@@ -127,6 +133,11 @@ export class HallUI {
       loadingBayMarkingsToggle: 'loadingBayMarkings',
       loadingBayProtectionToggle: 'loadingBayProtection',
       loadingBayNumbersToggle: 'loadingBayNumbers',
+      productionLayoutToggle: 'productionLayout',
+      productionEquipmentToggle: 'productionEquipment',
+      productionStagingToggle: 'productionStaging',
+      productionMarkingsToggle: 'productionMarkings',
+      productionUtilitiesToggle: 'productionUtilities',
     };
     Object.entries(modelToggles).forEach(([id, key]) => {
       document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
@@ -283,6 +294,30 @@ export class HallUI {
   updateLoadingNotice() {
     const warning = document.querySelector('#loadingClearanceNote');
     if (warning) { warning.hidden = !loadingLayout(this.state).unavailable; warning.textContent = this.t('loading.clearanceNote'); }
+  }
+
+  updateProductionNotice() {
+    const active = Boolean(this.state.productionLayout);
+    const layout = productionLayout(this.state);
+    const options = document.querySelector('#productionOptions');
+    if (options) options.hidden = !active;
+    // Prevent mutually exclusive furniture/aisle previews from overlapping the production plan.
+    for (const id of ['warehouseRackingToggle', 'forkliftClearanceToggle', 'retailDisplaysToggle']) {
+      const node = document.querySelector(`#${id}`);
+      if (node) { node.disabled = active; if (active) node.checked = false; node.title = active ? this.t('production.exclusive') : ''; }
+    }
+    const summary = document.querySelector('#productionLayoutStatus');
+    if (summary) { summary.hidden = !active; summary.textContent = this.t('production.status', {
+      machines: layout.machines.length, benches: layout.benches.length, staging: layout.staging.length,
+    }); }
+    const warning = document.querySelector('#productionClearanceNote');
+    if (warning) {
+      const issues = [];
+      if (active && !layout.available) issues.push(this.t('production.tooSmall'));
+      if (active && layout.missingGates) issues.push(this.t('production.missingGates'));
+      if (active && layout.available && (layout.capacity < layout.requestedCells || layout.suppressed)) issues.push(this.t('production.clearanceNote'));
+      warning.hidden = !issues.length; warning.textContent = issues.join(' ');
+    }
   }
 
   bindOpeningControls() {
@@ -498,7 +533,7 @@ export class HallUI {
       if (output) output.value = formatters[key]?.(value) ?? String(value);
     });
 
-    ['structurePreset', 'claddingProfile', 'climateSystem', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'inspectionMode', 'rackDensity', 'warehouseLayout', 'serviceVisibility'].forEach((id) => {
+    ['structurePreset', 'claddingProfile', 'climateSystem', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'inspectionMode', 'rackDensity', 'warehouseLayout', 'productionFlow', 'serviceVisibility'].forEach((id) => {
       const element = document.querySelector(`#${id}`);
       if (element) element.value = this.state[id];
     });
@@ -517,6 +552,11 @@ export class HallUI {
       loadingBayMarkingsToggle: this.state.loadingBayMarkings,
       loadingBayProtectionToggle: this.state.loadingBayProtection,
       loadingBayNumbersToggle: this.state.loadingBayNumbers,
+      productionLayoutToggle: this.state.productionLayout,
+      productionEquipmentToggle: this.state.productionEquipment,
+      productionStagingToggle: this.state.productionStaging,
+      productionMarkingsToggle: this.state.productionMarkings,
+      productionUtilitiesToggle: this.state.productionUtilities,
       claddingToggle: this.state.showCladding,
       sceneryToggle: this.state.showScenery,
       connectionDetailsToggle: this.state.connectionDetails,
@@ -569,6 +609,7 @@ export class HallUI {
   update(build) {
     this.currentBuild = build;
     this.updateLoadingNotice();
+    this.updateProductionNotice();
     this.updateCommercialNotice();
     const { metrics } = build;
     document.querySelector('#frameCountInfo').textContent = String(metrics.frameCount);
@@ -658,8 +699,9 @@ export class HallUI {
 
   restoreState(snapshot) {
     if (!Array.isArray(snapshot?.openings)) this.state.openings = undefined;
-    Object.assign(this.state, COMMERCIAL_DEFAULTS, LOGISTICS_DEFAULTS, structuredClone(snapshot));
+    Object.assign(this.state, COMMERCIAL_DEFAULTS, LOGISTICS_DEFAULTS, PRODUCTION_DEFAULTS, structuredClone(snapshot));
     normalizeLogistics(this.state);
+    normalizeProduction(this.state);
     normalizeCommercialFeatures(this.state);
     delete this.state.buildingUse;
     normalizeOpenings(this.state);

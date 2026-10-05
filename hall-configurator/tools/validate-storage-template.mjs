@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=hall-storage-1';
-import { HALL_TEMPLATES, STORAGE_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=hall-storage-1';
-import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=hall-storage-1';
-import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout, storageRackLayout, loadingSceneryExclusions } from '../js/logistics.js?v=hall-storage-1';
-import { getHallMessages } from '../js/i18n.js?v=hall-storage-1';
-import { estimateHallPrice } from '../js/pricing.js?v=hall-storage-1';
+import { state, deriveHallMetrics } from '../js/state.js?v=hall-production-1';
+import { HALL_TEMPLATES, STORAGE_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=hall-production-1';
+import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=hall-production-1';
+import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout, storageRackLayout, loadingSceneryExclusions } from '../js/logistics.js?v=hall-production-1';
+import { getHallMessages } from '../js/i18n.js?v=hall-production-1';
+import { estimateHallPrice } from '../js/pricing.js?v=hall-production-1';
 const original=structuredClone(state);
 const t=createHallTemplate(STORAGE_TEMPLATE_ID,state), independent=createHallTemplate(STORAGE_TEMPLATE_ID,state);
-assert.deepEqual(state,original);assert.equal(HALL_TEMPLATES.length,3);
+assert.deepEqual(state,original);assert.equal(HALL_TEMPLATES.length,4);
 assert.deepEqual([t.length,t.width,t.eaveHeight,t.pitch,t.targetBaySpacing],[48,24,6.5,10,6]);
 assert.equal(t.openings.length,20);assert.equal(t.openings.filter(o=>o.type==='garage').length,8);
 assert.equal(t.openings.filter(o=>o.subtype==='sectional').length,6);
@@ -25,7 +25,7 @@ assert.equal(storageRackLayout({...t,width:12}).blocks.length,0);
 t.openings[0].isOpen=true;assert.equal(independent.openings[0].isOpen,false);
 assert.deepEqual(JSON.parse(JSON.stringify(t)),t);
 for(const template of HALL_TEMPLATES){const next=createHallTemplate(template.id,t);
- if(template.id!==STORAGE_TEMPLATE_ID) for(const key of Object.keys(LOGISTICS_DEFAULTS)) assert.equal(next[key],LOGISTICS_DEFAULTS[key],`${key} leaked into ${template.id}`);
+ if(![STORAGE_TEMPLATE_ID, 'production-flow'].includes(template.id)) for(const key of Object.keys(LOGISTICS_DEFAULTS)) assert.equal(next[key],LOGISTICS_DEFAULTS[key],`${key} leaked into ${template.id}`);
  assert.equal(validateOpenings(next,'en-US').valid,true);
 }
 for(const locale of ['en-US','ro-RO','de-DE']){

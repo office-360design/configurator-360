@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=hall-storage-1';
-import { createHallTemplate, AGRICULTURAL_TEMPLATE_ID } from '../js/templates.js?v=hall-storage-1';
-import { normalizeOpening, validateOpenings, openingCounts } from '../js/openings.js?v=hall-storage-1';
-import { getHallMessages } from '../js/i18n.js?v=hall-storage-1';
+import { state, deriveHallMetrics } from '../js/state.js?v=hall-production-1';
+import { createHallTemplate, AGRICULTURAL_TEMPLATE_ID } from '../js/templates.js?v=hall-production-1';
+import { normalizeOpening, validateOpenings, openingCounts } from '../js/openings.js?v=hall-production-1';
+import { getHallMessages } from '../js/i18n.js?v=hall-production-1';
 
 const before = structuredClone(state);
 const first = createHallTemplate(AGRICULTURAL_TEMPLATE_ID, state);

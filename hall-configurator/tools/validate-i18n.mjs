@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getHallMessages, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel } from '../js/i18n.js?v=hall-storage-1';
+import { getHallMessages, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel } from '../js/i18n.js?v=hall-production-1';
 import { CONFIGURATOR_PUBLIC_PATHS } from '../../shared-ui/src/config.js?v=platform-18';
-import { buildBom, bomToCsv } from '../js/bom.js?v=hall-storage-1';
-import { estimateHallPrice } from '../js/pricing.js?v=hall-storage-1';
+import { buildBom, bomToCsv } from '../js/bom.js?v=hall-production-1';
+import { estimateHallPrice } from '../js/pricing.js?v=hall-production-1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
