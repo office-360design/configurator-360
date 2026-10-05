@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadingLayout, storageRackLayout } from './logistics.js?v=hall-storage-1';
+import { loadingLayout, storageRackLayout } from './logistics.js?v=hall-production-1';
 
 function material(color, extra = {}) { return new THREE.MeshStandardMaterial({ color, roughness: .65, metalness: .15, ...extra }); }
 function box(parent, name, x, y, z, px, py, pz, mat) {

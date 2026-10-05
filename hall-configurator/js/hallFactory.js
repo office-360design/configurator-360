@@ -1,11 +1,13 @@
-import { normalizeLogistics } from './logistics.js?v=hall-storage-1';
-import { createSectionalDoorAssembly, createLoadingDetails, populateStoragePlanning } from './loadingGeometry.js?v=hall-storage-1';
-import { createShopfrontAssembly, createGlazedEntranceAssembly, createCommercialDetails, createLinearRetailLight } from './retailGeometry.js?v=hall-storage-1';
-import { normalizeCommercialFeatures } from './commercial.js?v=hall-storage-1';
-import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-storage-1';
+import { normalizeProduction } from './production.js?v=hall-production-1';
+import { createProductionDetails } from './productionGeometry.js?v=hall-production-1';
+import { normalizeLogistics } from './logistics.js?v=hall-production-1';
+import { createSectionalDoorAssembly, createLoadingDetails, populateStoragePlanning } from './loadingGeometry.js?v=hall-production-1';
+import { createShopfrontAssembly, createGlazedEntranceAssembly, createCommercialDetails, createLinearRetailLight } from './retailGeometry.js?v=hall-production-1';
+import { normalizeCommercialFeatures } from './commercial.js?v=hall-production-1';
+import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-production-1';
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-storage-1';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-storage-1';
+import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-production-1';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-production-1';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -624,6 +626,7 @@ function roofNormal(state, side) {
 export function buildHallModel(state) {
   normalizeCommercialFeatures(state);
   normalizeLogistics(state);
+  normalizeProduction(state);
   const metrics = deriveHallMetrics(state);
   const configuredOpenings = normalizeOpenings(state);
   const skylightLayout = roofSkylightLayout(state, metrics);
@@ -1466,7 +1469,9 @@ export function buildHallModel(state) {
   aisles.name = 'forklift-clearance';
   planning.add(racks, aisles);
 
-  if (state.warehouseLayout === 'loading-aisles') {
+  if (state.productionLayout) {
+    // The production floor plan replaces the warehouse planning preview.
+  } else if (state.warehouseLayout === 'loading-aisles') {
     populateStoragePlanning(racks, aisles, state);
   } else {
   const rackMat = material('#7b8d98', { metalness: .48, roughness: .48, transparent: true, opacity: .78 });
@@ -1505,6 +1510,9 @@ export function buildHallModel(state) {
   }
 
   root.add(createLoadingDetails(state));
+  const production = createProductionDetails(state);
+  root.add(production.fitout);
+  services.add(production.services);
 
   const commercial = createCommercialDetails(state);
   setExplode(commercial.facade, 0, .1, -2.8);

@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-1" />
-  <link rel="stylesheet" href="./styles.css?v=hall-storage-1" />
+  <link rel="stylesheet" href="./styles.css?v=hall-production-1" />
   <script type="importmap">
     {
       "imports": {
@@ -140,6 +140,28 @@
         </div>
       </section>
 
+      <section class="accordion-section" data-accordion="production">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.production">Production workflow</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <label class="toggle-row"><span><b data-hall-i18n="production.enable">Production floor plan</b><small data-hall-i18n="production.enableHelp">Linear material flow, with machinery and workstations to either side</small></span><input id="productionLayoutToggle" type="checkbox" /><i></i></label>
+          <div id="productionOptions" hidden>
+            <label class="select-label top-gap" for="productionFlow" data-hall-i18n="production.flow">Material intake end</label>
+            <select id="productionFlow"><option value="front-to-back" data-hall-i18n="production.front">Front intake → rear dispatch</option><option value="back-to-front" data-hall-i18n="production.back">Rear intake → front dispatch</option></select>
+            <label class="range-control top-gap" data-control="productionCellCount"><span class="control-label"><b data-hall-i18n="production.cells">Requested work cells</b><output>4</output></span><span class="range-row"><input type="range" min="2" max="6" step="1" value="4" /><input class="number-input" type="number" min="2" max="6" step="1" value="4" /></span></label>
+            <div class="toggle-stack">
+              <label class="toggle-row"><span><b data-hall-i18n="production.equipment">Machinery & workstations</b><small data-hall-i18n="production.equipmentHelp">Generic enclosed machines, assembly, inspection and packing benches</small></span><input id="productionEquipmentToggle" type="checkbox" checked /><i></i></label>
+              <label class="toggle-row"><span><b data-hall-i18n="production.staging">Raw / finished material staging</b><small data-hall-i18n="production.stagingHelp">Palletized material at intake and packed goods at dispatch</small></span><input id="productionStagingToggle" type="checkbox" checked /><i></i></label>
+              <label class="toggle-row"><span><b data-hall-i18n="production.markings">Flow signs & floor routes</b><small data-hall-i18n="production.markingsHelp">Direction arrows, a pedestrian route and end crosswalks</small></span><input id="productionMarkingsToggle" type="checkbox" checked /><i></i></label>
+              <label class="toggle-row"><span><b data-hall-i18n="production.utilities">Overhead service routes</b><small data-hall-i18n="production.utilitiesHelp">Indicative cable trays and compressed-air mains; not sized or connected</small></span><input id="productionUtilitiesToggle" type="checkbox" /><i></i></label>
+            </div>
+            <p class="section-copy" data-hall-i18n="production.inspect">Hide cladding under Model display to inspect the internal layout. Reversing flow swaps intake, dispatch and process order.</p>
+          </div>
+          <p id="productionLayoutStatus" class="section-copy" role="status" hidden></p>
+          <p id="productionClearanceNote" class="rule-note" role="status" hidden></p>
+          <p class="section-copy" data-hall-i18n="production.excludedNote">Planning placeholders only: machinery, workbenches, stock, markings and process service routes are excluded from the estimate.</p>
+        </div>
+      </section>
+
       <section class="accordion-section" data-accordion="services">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.services">Building services</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
@@ -193,7 +215,7 @@
           <div class="display-tool-group">
             <div class="display-tool-heading"><b data-hall-i18n="display.servicesInspection">Building-services inspection</b><small data-hall-i18n="display.servicesInspectionHelp">Isolate installed systems or show indicative service coverage.</small></div>
             <label class="select-label" for="serviceVisibility" data-hall-i18n="display.visibleServices">Visible services</label>
-            <select id="serviceVisibility"><option value="all" data-hall-i18n="service.all">All installed services</option><option value="lighting" data-hall-i18n="service.lighting">Lighting only</option><option value="fire" data-hall-i18n="service.fire">Fire protection only</option><option value="climate" data-hall-i18n="service.climate">Climate / refrigeration only</option><option value="drainage" data-hall-i18n="service.drainage">Roof drainage only</option><option value="none" data-hall-i18n="service.none">Hide all services</option></select>
+            <select id="serviceVisibility"><option value="all" data-hall-i18n="service.all">All installed services</option><option value="lighting" data-hall-i18n="service.lighting">Lighting only</option><option value="fire" data-hall-i18n="service.fire">Fire protection only</option><option value="climate" data-hall-i18n="service.climate">Climate / refrigeration only</option><option value="drainage" data-hall-i18n="service.drainage">Roof drainage only</option><option value="production" data-hall-i18n="service.production">Production routes only</option><option value="none" data-hall-i18n="service.none">Hide all services</option></select>
             <div class="toggle-stack compact-toggle-stack">
               <label class="toggle-row"><span><b data-hall-i18n="display.coverage">Coverage zones</b><small data-hall-i18n="display.coverageHelp">Show indicative lighting, sprinkler and climate service areas</small></span><input type="checkbox" id="serviceCoverageToggle" /><i></i></label>
             </div>
@@ -249,8 +271,8 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton" data-hall-i18n="bom.export">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-hall-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=hall-storage-1"></script>
-  <script type="module" src="./js/app.js?v=hall-storage-1"></script>
+  <script type="module" src="./js/sharedShell.js?v=hall-production-1"></script>
+  <script type="module" src="./js/app.js?v=hall-production-1"></script>
 </body>
 </html>
 

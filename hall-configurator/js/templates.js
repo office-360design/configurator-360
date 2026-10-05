@@ -1,8 +1,10 @@
-import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-storage-1';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-production-1';
 
-import { LOGISTICS_DEFAULTS } from './logistics.js?v=hall-storage-1';
-import { COMMERCIAL_DEFAULTS } from './commercial.js?v=hall-storage-1';
+import { PRODUCTION_DEFAULTS } from './production.js?v=hall-production-1';
+import { LOGISTICS_DEFAULTS } from './logistics.js?v=hall-production-1';
+import { COMMERCIAL_DEFAULTS } from './commercial.js?v=hall-production-1';
 
+export const PRODUCTION_TEMPLATE_ID = 'production-flow';
 export const STORAGE_TEMPLATE_ID = 'storage-loading';
 export const COMMERCIAL_TEMPLATE_ID = 'commercial-showroom';
 export const AGRICULTURAL_TEMPLATE_ID = 'agricultural-daylight';
@@ -21,16 +23,21 @@ export const HALL_TEMPLATES = Object.freeze([Object.freeze({
   id: STORAGE_TEMPLATE_ID, nameKey: 'templates.storage.name', copyPrefix: 'templates.storage',
   features: ['dimensions', 'loading', 'access', 'yard', 'interior', 'services'],
   image: new URL('../assets/templates/storage-hall.png', import.meta.url).href,
+}), Object.freeze({
+  id: PRODUCTION_TEMPLATE_ID, nameKey: 'templates.production.name', copyPrefix: 'templates.production',
+  features: ['dimensions', 'flow', 'equipment', 'access', 'services', 'yard'],
+  image: new URL('../assets/templates/production-hall.png', import.meta.url).href,
 })]);
 
 /** Independent editable design defaults, not measurements extracted from Histruct. */
 export function createHallTemplate(id, defaults) {
+  if (id === PRODUCTION_TEMPLATE_ID) return createProductionHall(defaults);
   if (id === STORAGE_TEMPLATE_ID) return createStorageHall(defaults);
   if (id === COMMERCIAL_TEMPLATE_ID) return createCommercialHall(defaults);
   if (id !== AGRICULTURAL_TEMPLATE_ID) throw new RangeError(`Unknown hall template: ${id}`);
   const next = {
     ...structuredClone(defaults),
-    ...COMMERCIAL_DEFAULTS, ...LOGISTICS_DEFAULTS,
+    ...COMMERCIAL_DEFAULTS, ...LOGISTICS_DEFAULTS, ...PRODUCTION_DEFAULTS,
     length: 30, width: 18, eaveHeight: 5.5, pitch: 16, targetBaySpacing: 6,
     structurePreset: 'standard', claddingProfile: 'sandwich',
     wallColor: '#d6d9dc', roofColor: '#38594a',
@@ -72,7 +79,7 @@ export function createHallTemplate(id, defaults) {
 
 function createCommercialHall(defaults) {
   const next = {
-    ...structuredClone(defaults), ...COMMERCIAL_DEFAULTS, ...LOGISTICS_DEFAULTS,
+    ...structuredClone(defaults), ...COMMERCIAL_DEFAULTS, ...LOGISTICS_DEFAULTS, ...PRODUCTION_DEFAULTS,
     length: 18, width: 24, eaveHeight: 4.5, pitch: 8, targetBaySpacing: 6,
     structurePreset: 'standard', claddingProfile: 'sandwich',
     wallColor: '#f2f3f4', roofColor: '#36424b', secondaryStructure: true, slab: true,
@@ -110,7 +117,7 @@ function createCommercialHall(defaults) {
 
 function createStorageHall(defaults) {
   const next = {
-    ...structuredClone(defaults), ...COMMERCIAL_DEFAULTS, ...LOGISTICS_DEFAULTS,
+    ...structuredClone(defaults), ...COMMERCIAL_DEFAULTS, ...LOGISTICS_DEFAULTS, ...PRODUCTION_DEFAULTS,
     length: 48, width: 24, eaveHeight: 6.5, pitch: 10, targetBaySpacing: 6,
     structurePreset: 'standard', claddingProfile: 'sandwich',
     wallColor: '#d6d9dc', roofColor: '#36424b', secondaryStructure: true, slab: true,
@@ -147,5 +154,44 @@ function createStorageHall(defaults) {
   delete next.buildingUse;
   normalizeOpenings(next);
   if (!validateOpenings(next, 'en-US').valid) throw new Error('Storage template openings overlap.');
+  return next;
+}
+
+
+function createProductionHall(defaults) {
+  const next = {
+    ...structuredClone(defaults), ...COMMERCIAL_DEFAULTS, ...LOGISTICS_DEFAULTS, ...PRODUCTION_DEFAULTS,
+    length: 36, width: 18, eaveHeight: 6, pitch: 12, targetBaySpacing: 6,
+    structurePreset: 'standard', claddingProfile: 'sandwich',
+    wallColor: '#d6d9dc', roofColor: '#36424b', secondaryStructure: true, slab: true,
+    climateSystem: 'none', highBayLighting: true, lightingStyle: 'high-bay',
+    fireSprinklers: false, roofSkylights: true, gutters: true,
+    loadingApron: true, loadingApronDepth: 8, loadingBayMarkings: true,
+    loadingBayProtection: true, loadingBayNumbers: false,
+    productionLayout: true, productionFlow: 'front-to-back', productionCellCount: 4,
+    productionEquipment: true, productionStaging: true, productionMarkings: true, productionUtilities: true,
+    warehouseRacking: false, forkliftClearance: false, retailDisplays: false,
+    inspectionMode: 'all', serviceVisibility: 'all', serviceCoverage: false,
+    showCladding: true, technicalEdges: false, sectionCutEnabled: false,
+    connectionDetails: false, explode: 0, cameraPreset: 'production', openings: [],
+  };
+  // Keep both end structural bays solid along the sides; daylight above working height.
+  for (const side of ['left', 'right']) for (const [i, offset] of [-9, -3, 3, 9].entries()) next.openings.push({
+    id: `production-daylight-${side}-${i+1}`, type: 'window', subtype: 'daylight-band',
+    side, offset, bottom: 4.1, width: 4.6, height: 1.0, color: '#a9d4df',
+  });
+  for (const side of ['front', 'back']) {
+    next.openings.push(
+      { id: `production-gate-${side}`, type: 'garage', subtype: 'sectional', side, offset: 0, bottom: 0, width: 4.5, height: 4.5, color: '#327b82', isOpen: false },
+      { id: `production-personnel-${side}`, type: 'personnel', side, offset: 6.2, bottom: 0, width: 1.1, height: 2.2, color: '#66727c' },
+    );
+    for (const offset of [-6.2, 6.2]) next.openings.push({
+      id: `production-vent-${side}-${offset < 0 ? 'left' : 'right'}`, type: 'vent', side,
+      offset, bottom: 3.4, width: 1.6, height: .8, color: '#66727c',
+    });
+  }
+  delete next.buildingUse;
+  normalizeOpenings(next);
+  if (!validateOpenings(next, 'en-US').valid) throw new Error('Production template openings overlap.');
   return next;
 }

@@ -1,7 +1,8 @@
-import { loadingLayout } from './logistics.js?v=hall-storage-1';
-import { commercialLayout } from './commercial.js?v=hall-storage-1';
-import { normalizeOpenings, openingLabel } from './openings.js?v=hall-storage-1';
-import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-storage-1';
+import { productionLayout } from './production.js?v=hall-production-1';
+import { loadingLayout } from './logistics.js?v=hall-production-1';
+import { commercialLayout } from './commercial.js?v=hall-production-1';
+import { normalizeOpenings, openingLabel } from './openings.js?v=hall-production-1';
+import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-production-1';
 
 const unit = (value, locale) => value === 'pcs' ? hallT(locale, 'bom.unit.pcs') : value;
 
@@ -75,6 +76,14 @@ export function buildBom(state, build, locale = resolveHallLocale()) {
     ['checkout', unit('pcs', locale), retail.checkoutCount],
   ]) if (quantity > 0) lines.push({ name: hallT(locale, `commercial.bom.${key}`), unit: unitName,
     quantity: unitName === 'm²' ? quantity.toFixed(2) : quantity, notes: hallT(locale, 'commercial.estimateNote') });
+  const production = productionLayout(state);
+  for (const [key, quantity, units] of [
+    ['machines', production.machines.length, unit('pcs', locale)],
+    ['benches', production.benches.length, unit('pcs', locale)],
+    ['staging', production.staging.length, unit('pcs', locale)],
+    ['utilityRoutes', production.utilityLength, 'm'],
+  ]) if (quantity > 0) lines.push({ name: hallT(locale, `production.bom.${key}`), unit: units,
+    quantity, notes: hallT(locale, 'production.excludedNote') });
   return lines;
 }
 

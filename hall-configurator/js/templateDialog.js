@@ -1,4 +1,4 @@
-import { hallT } from './i18n.js?v=hall-storage-1';
+import { hallT } from './i18n.js?v=hall-production-1';
 
 /** Hall-only preview/confirmation. The shared optional Templates menu is unchanged. */
 export function createHallTemplateDialog({ getLocale, applyTemplate, onApplied = null }) {
