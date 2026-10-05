@@ -1,4 +1,4 @@
-import { setupEditorToolbar } from './editorToolbar.js?v=panels-34';
+import { setupEditorToolbar } from './editorToolbar.js?v=positions-35';
 import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
 import { localizeFeature } from './featureI18n.js?v=navigation-32';
 import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';

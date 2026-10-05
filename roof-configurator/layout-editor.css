@@ -261,8 +261,6 @@
 .layout-toolbar [data-tool-group]::after { content: '\25BE'; font-size: 11px; }
 .layout-toolbar [data-tool-group][data-active="true"] { border-color: #1260aa; color: #1260aa; background: #edf5ff; }
 .layout-toolbar [data-tool-group][aria-expanded="true"] { background: #1260aa; color: white; }
-.layout-toolbar .layout-history { display: flex; gap: 4px; margin-left: auto; flex: none; }
-.layout-toolbar .layout-history button { min-height: 36px; padding: 5px 8px; }
 .layout-tool-options, .layout-context-actions {
   flex: none;
   padding: 8px 16px;
@@ -278,8 +276,6 @@
   .layout-toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 8px; gap: 5px; }
   .layout-toolbar > button { justify-content: center; min-width: 0; font-size: 11px; padding: 6px 4px; white-space: normal; }
   .layout-toolbar > button .layout-tool-icon { display: none; }
-  .layout-toolbar .layout-history { margin: 0; justify-content: center; gap: 2px; }
-  .layout-toolbar .layout-history button { font-size: 11px; padding: 4px; min-width: 0; }
   .layout-tool-options { order: 10; border-top: 1px solid #bac9da; max-height: 23dvh; overflow: auto; padding: 10px; }
   .layout-context-actions { order: 9; padding: 7px 10px; max-height: 18dvh; overflow: auto; }
   .roof-layout-dialog footer { order: 11; }
@@ -287,15 +283,13 @@
   .layout-current-tool { font-size: 12px; padding: 6px 10px; }
 }
 @media (max-width: 680px) {
-  .layout-toolbar .layout-history button { font-size: 0; min-width: 36px; }
-  .layout-toolbar .layout-history button span { font-size: 20px; }
 }
 
 /* Feedback overlays the drawing without changing its pointer coordinate system. */
 .layout-drawing > .layout-feedback {
   position: absolute;
   z-index: 5;
-  top: 64px;
+  bottom: 8px;
   left: 8px;
   right: 8px;
   margin: 0;
