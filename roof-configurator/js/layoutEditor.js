@@ -1,4 +1,4 @@
-import { setupEditorToolbar } from './editorToolbar.js?v=navigation-32';
+import { setupEditorToolbar } from './editorToolbar.js?v=panels-34';
 import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
 import { localizeFeature } from './featureI18n.js?v=navigation-32';
 import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
@@ -84,13 +84,14 @@ export class RoofLayoutEditor {
         <button type="button" data-action="delete">Delete selected</button>
         <button type="button" data-action="finish">Close perimeter</button>
       </div>
+      <div class="layout-workspace">
+        <div class="layout-drawing">
       <div id="layoutFeedback" class="layout-feedback" hidden role="alert" aria-live="assertive" aria-atomic="true">
         <span class="layout-feedback-icon" aria-hidden="true">!</span>
         <div><strong class="layout-feedback-title"></strong><div class="layout-feedback-message"></div></div>
         <button type="button" class="layout-feedback-dismiss" aria-label="Dismiss message">×</button>
       </div>
-      <div class="layout-workspace">
-        <div class="layout-drawing">
+
           <svg tabindex="0" aria-label="Roof plan drawing canvas" role="application"></svg>
           <div class="layout-canvas-controls layout-history" role="group" aria-label="History">
             <button type="button" data-action="undo" title="Undo (Ctrl/⌘ Z)"><span aria-hidden="true">↶</span> Undo</button>

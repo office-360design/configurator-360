@@ -290,3 +290,17 @@
   .layout-toolbar .layout-history button { font-size: 0; min-width: 36px; }
   .layout-toolbar .layout-history button span { font-size: 20px; }
 }
+
+/* Feedback overlays the drawing without changing its pointer coordinate system. */
+.layout-drawing > .layout-feedback {
+  position: absolute;
+  z-index: 5;
+  top: 64px;
+  left: 8px;
+  right: 8px;
+  margin: 0;
+  max-height: min(22dvh, 50%);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.layout-feedback-dismiss { pointer-events: auto; }

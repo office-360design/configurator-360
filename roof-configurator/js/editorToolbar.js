@@ -21,11 +21,16 @@ export function setupEditorToolbar(editor) {
   const selection = toolbar.querySelector('[data-action="select"]');
   const buttons = new Map();
   let open = null;
+  let selectionKey;
+  function refreshContext() {
+    context.hidden = open !== null || ![...context.children].some(button => !button.hidden);
+  }
 
   function close(focus = false) {
     const previous = open;
     open = null;
     options.hidden = true;
+    refreshContext();
     buttons.forEach(button => button.setAttribute('aria-expanded', 'false'));
     if (focus && previous) buttons.get(previous).focus();
   }
@@ -45,6 +50,7 @@ export function setupEditorToolbar(editor) {
     button.addEventListener('click', () => {
       if (open === key) { close(); return; }
       open = key;
+      refreshContext();
       options.hidden = false;
       options.setAttribute('aria-label', category.label);
       options.querySelectorAll('[data-tool-panel]').forEach(p => { p.hidden = p.dataset.toolPanel !== key; });
@@ -81,7 +87,10 @@ export function setupEditorToolbar(editor) {
       for (const button of context.querySelectorAll('[data-action]')) {
         if (button.dataset.action !== 'finish') button.hidden = button.disabled;
       }
-      context.hidden = ![...context.children].some(button => !button.hidden);
+      const nextSelection = JSON.stringify([editor.selected, editor.selectedEdge]);
+      if (selectionKey !== nextSelection) close();
+      selectionKey = nextSelection;
+      refreshContext();
       selection.setAttribute('aria-pressed', String(editor.mode === 'select' && !editor.windowTool.active && !editor.dormer && !editor.panEnabled && !editor.meet));
       const active = editor.panEnabled ? 'view' : editor.windowTool.active ? 'features' : editor.dormer ? 'features' :
         ['draw', 'extend', 'connect'].includes(editor.mode) ? 'perimeter' :
