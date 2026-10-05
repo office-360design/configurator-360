@@ -284,8 +284,14 @@ export class RoofLayoutEditor {
     this.panEnabled = false;
     this.spacePan = false;
     this.splitSelectionKey = null;
-    this.history = [];
-    this.future = [];
+    // Restore the last applied timeline, not edits discarded by Cancel/Escape.
+    // A different roof loaded outside the editor starts its own history.
+    const checkpoint = this.appliedHistory;
+    const sameRoof = this.state.roofType === 'layout' && checkpoint &&
+      JSON.stringify(this.layout) === JSON.stringify(checkpoint.layout);
+    this.history = sameRoof ? structuredClone(checkpoint.history) : [];
+    this.future = sameRoof ? structuredClone(checkpoint.future) : [];
+    if (!sameRoof) this.appliedHistory = null;
     this.path = [];
     this.mode = 'select';
     this.selected = null;
@@ -562,6 +568,11 @@ export class RoofLayoutEditor {
         this.state.roofLayout = cloneLayout(this.layout);
         this.state.roofType = 'layout';
         this.onApply();
+        this.appliedHistory = structuredClone({
+          layout: this.state.roofLayout,
+          history: this.history,
+          future: this.future,
+        });
         this.dialog.close();
         return;
       }
