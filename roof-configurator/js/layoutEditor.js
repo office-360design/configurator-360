@@ -1,7 +1,7 @@
-import { setupEditorToolbar } from './editorToolbar.js?v=toolbar-30';
-import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=toolbar-30';
-import { localizeFeature } from './featureI18n.js?v=toolbar-30';
-import { RoofWindowTool } from './roofWindowTool.js?v=toolbar-30';
+import { setupEditorToolbar } from './editorToolbar.js?v=navigation-31';
+import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-31';
+import { localizeFeature } from './featureI18n.js?v=navigation-31';
+import { RoofWindowTool } from './roofWindowTool.js?v=navigation-31';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
@@ -231,6 +231,7 @@ export class RoofLayoutEditor {
     });
     this.svg.addEventListener('auxclick', event => { if (event.button === 1) event.preventDefault(); });
     this.svg.addEventListener('pointerdown', event => this.click(event));
+    this.svg.addEventListener('wheel', event => this.zoomAtPointer(event), { passive: false });
     this.svg.addEventListener('pointermove', event => this.movePoint(event));
     this.svg.addEventListener('pointerup', event => this.endDrag(event));
     this.svg.addEventListener('pointercancel', event => this.endDrag(event, true));
@@ -703,6 +704,22 @@ export class RoofLayoutEditor {
     };
   }
 
+  zoomAtPointer(event) {
+    event.preventDefault();
+    if (this.drag) return;
+    const anchor = this.rawPointer(event);
+    const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.svg.clientHeight : 1;
+    const delta = Math.max(-300, Math.min(300, event.deltaY * units));
+    const span = Math.max(4, Math.min(220, this.span * Math.exp(delta * .002)));
+    const ratio = span / this.span;
+    this.center = {
+      x: anchor.x + (this.center.x - anchor.x) * ratio,
+      z: anchor.z + (this.center.z - anchor.z) * ratio,
+    };
+    this.span = span;
+    this.render();
+  }
+
   updatePanCursor() {
     this.svg.classList.toggle('pan-enabled', Boolean(this.panEnabled || this.spacePan));
     this.svg.classList.toggle('panning', this.drag?.kind === 'pan');
@@ -714,6 +731,8 @@ export class RoofLayoutEditor {
     event.preventDefault();
     if (drag.kind === 'window') { this.windowTool.moveDrag(event, drag); return; }
     if (drag.kind === 'pan') {
+      if (!drag.moved && Math.hypot(event.clientX - drag.screenX, event.clientY - drag.screenY) < 3) return;
+      drag.moved = true;
       const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(drag.inverse);
       this.center = {
         x: drag.center.x - (point.x - drag.start.x) / this.scale,
@@ -757,6 +776,7 @@ export class RoofLayoutEditor {
     if (drag.kind === 'window') { this.windowTool.finishDrag(drag, cancel); return; }
     if (drag.kind === 'pan') {
       if (cancel) this.center = drag.center;
+      else if (drag.automatic && !drag.moved) { this.selected = null; this.selectedEdge = null; }
       this.render();
       return;
     }
@@ -800,11 +820,16 @@ export class RoofLayoutEditor {
 
   click(event) {
     if (this.drag || event.isPrimary === false) return;
-    if (event.button === 1 || (event.button === 0 && (this.panEnabled || this.spacePan))) {
+    const hit = this.pointer(event);
+    const automatic = this.mode === 'select' && !this.windowTool.active && !this.dormer &&
+      !this.meet && !this.pickingSplitFaces && hit.id === undefined && !hit.edgeIds &&
+      !event.target.closest('[data-roof-window]');
+    if (event.button === 1 || (event.button === 0 && (this.panEnabled || this.spacePan || automatic))) {
       event.preventDefault();
       this.svg.focus();
       const inverse = this.svg.getScreenCTM().inverse();
-      this.drag = { kind: 'pan', pointerId: event.pointerId, inverse,
+      this.drag = { kind: 'pan', pointerId: event.pointerId, inverse, automatic, moved: false,
+        screenX: event.clientX, screenY: event.clientY,
         start: new DOMPoint(event.clientX, event.clientY).matrixTransform(inverse), center: { ...this.center } };
       this.svg.setPointerCapture(event.pointerId);
       this.updatePanCursor();
@@ -1061,7 +1086,7 @@ export class RoofLayoutEditor {
       insert: 'Click an edge or inside a surface to add a point. Interior points connect to surrounding corners and keep the current roof height. Move or raise the point to shape the roof.',
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
-    this.dialog.querySelector('#layoutModeLabel').textContent = { connect: this.selected === null ? 'Choose the first perimeter point' : 'Choose a second point across the gap', extend: this.selectedEdge ? 'Click outside the roof to extend the selected edge' : 'Choose an outer edge to extend', select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    this.dialog.querySelector('#layoutModeLabel').textContent = { connect: this.selected === null ? 'Choose the first perimeter point' : 'Choose a second point across the gap', extend: this.selectedEdge ? 'Click outside the roof to extend the selected edge' : 'Choose an outer edge to extend', select: 'Drag points to edit · Drag empty space to pan · Scroll to zoom', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
     if (this.dormer) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click to place dormer front · Adjust size in the panel';
     if (this.windowTool.active) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag window or click to position · Update window to save';
     if (this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag to pan · Turn Pan off to edit · Fit to recenter';
