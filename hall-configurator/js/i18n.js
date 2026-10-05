@@ -3,6 +3,11 @@ import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=tenant-dom
 
 const MESSAGES = Object.freeze({
   'en-US': Object.freeze({
+    'templates.label': 'Templates',
+    'templates.title': 'Hall templates',
+    'templates.close': 'Close hall templates',
+    'templates.empty': 'No hall templates are available yet.',
+
     'viewer.aria': 'Hall 3D viewer',
     'viewer.canvasAria': 'Interactive 3D hall model',
     'sidebar.aria': 'Hall settings',
@@ -61,12 +66,12 @@ const MESSAGES = Object.freeze({
     'envelope.gutters': 'Gutters & downpipes',
     'envelope.guttersHelp': 'Continuous eave gutters with four downpipes',
     'section.openings': 'Openings',
-    'openings.help': 'Add an opening, move the pointer over any wall and click to place it. After placement, drag openings between all four walls or resize them from their borders and selection handles.',
+    'openings.help': 'Add an opening, move the pointer over any wall and click to place it. Double-click a placed door or window to select it, then drag it or use its handles to resize it. Drag over unselected components to rotate the view.',
     'openings.add.personnel': 'Add human door',
     'openings.add.garage': 'Add garage door',
     'openings.add.window': 'Add window',
     'openings.cancelPlacement': 'Cancel placement',
-    'openings.selectPrompt': 'Select an opening in the model to edit it.',
+    'openings.selectPrompt': 'Double-click a door or window in the model to edit it.',
     'openings.placing': 'Placing {type}: move over any wall and click to confirm. Right-click or use Cancel placement to cancel.',
     'openings.selected': '{type} selected · drag to move, use its borders or square handles to resize.',
     'openings.overlapWarning': 'This opening overlaps another opening. Move or resize it before generating the summary.',
@@ -284,6 +289,11 @@ const MESSAGES = Object.freeze({
     'feedback.languageSwitchUnavailable': 'Could not preserve this configuration while changing language. Please try again.',
   }),
   'ro-RO': Object.freeze({
+    'templates.label': 'Șabloane',
+    'templates.title': 'Șabloane hale',
+    'templates.close': 'Închide șabloanele de hale',
+    'templates.empty': 'Nu există încă șabloane de hale disponibile.',
+
     'viewer.aria': 'Vizualizator 3D hală', 'viewer.canvasAria': 'Model 3D interactiv al halei',
     'sidebar.aria': 'Setări hală', 'sidebar.eyebrow': 'Clădire industrială', 'sidebar.title': 'Setări hală',
     'sidebar.copy': 'Configurează clădirea, structura, anvelopa, golurile și sistemele tehnice dintr-un singur panou.',
@@ -299,9 +309,9 @@ const MESSAGES = Object.freeze({
     'section.envelope': 'Anvelopă', 'envelope.cladding': 'Profil închidere', 'cladding.trapezoidal': 'Tablă cutată trapezoidală', 'cladding.sandwich': 'Panou sandwich', 'cladding.standingSeam': 'Acoperiș cu tablă fălțuită',
     'envelope.wallColour': 'Culoare pereți', 'envelope.roofColour': 'Culoare acoperiș', 'colour.lightGrey': 'Gri deschis', 'colour.white': 'Alb', 'colour.slateGrey': 'Gri ardezie', 'colour.blueGrey': 'Gri albăstrui', 'colour.graphite': 'Grafit', 'colour.grey': 'Gri', 'colour.redBrown': 'Maro roșcat', 'colour.green': 'Verde',
     'envelope.skylights': 'Luminatoare', 'envelope.skylightsHelp': 'Module translucide de lumină naturală distribuite pe ambele pante', 'envelope.gutters': 'Jgheaburi și burlane', 'envelope.guttersHelp': 'Jgheaburi continue la streașină cu patru burlane',
-    'section.openings': 'Goluri', 'openings.help': 'Adaugă un gol, deplasează cursorul peste orice perete și fă clic pentru amplasare. După amplasare, poți muta golurile între cei patru pereți sau le poți redimensiona din margini și mânere.',
+    'section.openings': 'Goluri', 'openings.help': 'Adaugă un gol și fă clic pe un perete pentru amplasare. Fă dublu clic pe o ușă sau o fereastră amplasată pentru a o selecta, apoi trage-o sau folosește mânerele pentru redimensionare. Tragerea peste componente neselectate rotește vederea.',
     'openings.add.personnel': 'Adaugă ușă pietonală', 'openings.add.garage': 'Adaugă ușă de garaj', 'openings.add.window': 'Adaugă fereastră', 'openings.cancelPlacement': 'Anulează amplasarea',
-    'openings.selectPrompt': 'Selectează un gol din model pentru a-l edita.', 'openings.placing': 'Amplasare {type}: deplasează cursorul peste un perete și fă clic pentru confirmare. Clic dreapta sau Anulează amplasarea pentru anulare.',
+    'openings.selectPrompt': 'Fă dublu clic pe o ușă sau o fereastră din model pentru editare.', 'openings.placing': 'Amplasare {type}: deplasează cursorul peste un perete și fă clic pentru confirmare. Clic dreapta sau Anulează amplasarea pentru anulare.',
     'openings.selected': '{type} selectat · trage pentru mutare și folosește marginile sau mânerele pătrate pentru redimensionare.', 'openings.overlapWarning': 'Acest gol se suprapune cu alt gol. Mută-l sau redimensionează-l înainte de generarea sumarului.',
     'openings.collisionCount': 'Suprapuneri între goluri de rezolvat: {count}.', 'openings.overlapError': '{a} și {b} se suprapun pe {wall}.',
     'opening.personnel': 'Ușă pietonală', 'opening.garage': 'Ușă de garaj', 'opening.window': 'Fereastră',
@@ -337,6 +347,11 @@ const MESSAGES = Object.freeze({
     'reset.confirm': 'Resetezi hala la configurația inițială?', 'feedback.languageSwitchUnavailable': 'Configurația nu a putut fi păstrată la schimbarea limbii. Încearcă din nou.',
   }),
   'de-DE': Object.freeze({
+    'templates.label': 'Vorlagen',
+    'templates.title': 'Hallenvorlagen',
+    'templates.close': 'Hallenvorlagen schließen',
+    'templates.empty': 'Es sind noch keine Hallenvorlagen verfügbar.',
+
     'viewer.aria': '3D-Hallenansicht', 'viewer.canvasAria': 'Interaktives 3D-Hallenmodell',
     'sidebar.aria': 'Halleneinstellungen', 'sidebar.eyebrow': 'Industriegebäude', 'sidebar.title': 'Halleneinstellungen', 'sidebar.copy': 'Konfigurieren Sie Gebäude, Tragwerk, Hülle, Öffnungen und technische Systeme in einem Bedienfeld.',
     'sidebar.show': 'Halleneinstellungen anzeigen', 'sidebar.hide': 'Halleneinstellungen ausblenden',
@@ -345,7 +360,7 @@ const MESSAGES = Object.freeze({
     'hea.aria': 'Referenz des automatisch ausgewählten HEA-Profils', 'hea.title': 'Automatisch ausgewähltes HEA-Profil', 'hea.note': 'Nur-Lese-Referenz · derzeit Platzhalterauswahl', 'hea.preview': 'Vorschau', 'hea.profile': 'Profil', 'hea.weight': 'Gewicht (kg/m)', 'hea.dimensions': 'Abmessungen (mm)', 'hea.section': 'Querschnitt', 'hea.modulus': 'Widerstandsmoment', 'hea.theoretical': 'Theor.', 'hea.commercial': 'Handel', 'hea.source': 'Referenzabmessungen: H-Metal HEA-Profiltabelle. Diese Anzeige verändert die Hallengeometrie nicht.',
     'structure.secondary': 'Sekundärträger', 'structure.secondaryHelp': 'Pfetten, Wandriegel, Streben, Druckstäbe und Windverbände', 'structure.slab': 'Betonbodenplatte', 'structure.slabHelp': 'Hallenbodenplatte und Stützenfundamente',
     'section.envelope': 'Gebäudehülle', 'envelope.cladding': 'Verkleidungsprofil', 'cladding.trapezoidal': 'Trapezblech', 'cladding.sandwich': 'Sandwichpaneel', 'cladding.standingSeam': 'Stehfalzdach', 'envelope.wallColour': 'Wandfarbe', 'envelope.roofColour': 'Dachfarbe', 'colour.lightGrey': 'Hellgrau', 'colour.white': 'Weiß', 'colour.slateGrey': 'Schiefergrau', 'colour.blueGrey': 'Blaugrau', 'colour.graphite': 'Graphit', 'colour.grey': 'Grau', 'colour.redBrown': 'Rotbraun', 'colour.green': 'Grün', 'envelope.skylights': 'Dachoberlichter', 'envelope.skylightsHelp': 'Transluzente Tageslichtmodule auf beiden Dachflächen', 'envelope.gutters': 'Dachrinnen & Fallrohre', 'envelope.guttersHelp': 'Durchgehende Traufrinnen mit vier Fallrohren',
-    'section.openings': 'Öffnungen', 'openings.help': 'Fügen Sie eine Öffnung hinzu, bewegen Sie den Zeiger über eine Wand und klicken Sie zum Platzieren. Danach können Öffnungen zwischen allen vier Wänden verschoben oder über Ränder und Auswahlgriffe skaliert werden.', 'openings.add.personnel': 'Personentür hinzufügen', 'openings.add.garage': 'Garagentor hinzufügen', 'openings.add.window': 'Fenster hinzufügen', 'openings.cancelPlacement': 'Platzierung abbrechen', 'openings.selectPrompt': 'Wählen Sie eine Öffnung im Modell zum Bearbeiten aus.', 'openings.placing': '{type} platzieren: Zeiger über eine Wand bewegen und zum Bestätigen klicken. Rechtsklick oder Platzierung abbrechen zum Abbrechen.', 'openings.selected': '{type} ausgewählt · zum Verschieben ziehen; Ränder oder quadratische Griffe zum Skalieren verwenden.', 'openings.overlapWarning': 'Diese Öffnung überlappt eine andere Öffnung. Verschieben oder skalieren Sie sie vor der Zusammenfassung.', 'openings.collisionCount': 'Zu behebende Öffnungskollisionen: {count}.', 'openings.overlapError': '{a} und {b} überlappen an {wall}.',
+    'section.openings': 'Öffnungen', 'openings.help': 'Fügen Sie eine Öffnung hinzu und klicken Sie auf eine Wand zum Platzieren. Wählen Sie eine platzierte Tür oder ein Fenster per Doppelklick aus, um sie zu verschieben oder über die Griffe zu skalieren. Ziehen über nicht ausgewählte Elemente dreht die Ansicht.', 'openings.add.personnel': 'Personentür hinzufügen', 'openings.add.garage': 'Garagentor hinzufügen', 'openings.add.window': 'Fenster hinzufügen', 'openings.cancelPlacement': 'Platzierung abbrechen', 'openings.selectPrompt': 'Wählen Sie eine Tür oder ein Fenster im Modell per Doppelklick zum Bearbeiten aus.', 'openings.placing': '{type} platzieren: Zeiger über eine Wand bewegen und zum Bestätigen klicken. Rechtsklick oder Platzierung abbrechen zum Abbrechen.', 'openings.selected': '{type} ausgewählt · zum Verschieben ziehen; Ränder oder quadratische Griffe zum Skalieren verwenden.', 'openings.overlapWarning': 'Diese Öffnung überlappt eine andere Öffnung. Verschieben oder skalieren Sie sie vor der Zusammenfassung.', 'openings.collisionCount': 'Zu behebende Öffnungskollisionen: {count}.', 'openings.overlapError': '{a} und {b} überlappen an {wall}.',
     'opening.personnel': 'Personentür', 'opening.garage': 'Garagentor', 'opening.window': 'Fenster', 'wall.frontWall': 'Vorderwand', 'wall.backWall': 'Rückwand', 'wall.leftWall': 'Linke Wand', 'wall.rightWall': 'Rechte Wand', 'wall.front': 'Vorne', 'wall.back': 'Hinten', 'wall.left': 'Links', 'wall.right': 'Rechts',
     'editor.aria': 'Editor für ausgewählte Öffnung', 'editor.deleteAria': 'Ausgewählte Öffnung löschen', 'editor.delete': 'Löschen', 'editor.wall': 'Wand', 'editor.width': 'Breite', 'editor.height': 'Höhe', 'editor.colour': 'Farbe',
     'section.services': 'Gebäudetechnik', 'services.use': 'Hallennutzung', 'use.general': 'Allgemeines Lager', 'use.workshop': 'Werkstatt / Produktion', 'use.food': 'Lebensmittellager', 'use.cold': 'Kühllager', 'services.climate': 'Klimasystem', 'climate.none': 'Kein aktives Klimasystem', 'climate.comfort': 'Komfort-Heizung / -Kühlung', 'climate.chilled': 'Kühllager · +2 bis +8 °C', 'climate.frozen': 'Tiefkühllager · ca. -20 °C', 'climate.note.none': 'Allgemeine Lagerhülle ohne aktive Kälteanlage.', 'climate.note.comfort': 'Komfort-HVAC mit Außengeräten und Innenluftaufbereitung.', 'climate.note.chilled': 'Kühllagerpaket für einen Betrieb bei etwa +2 bis +8 °C.', 'climate.note.frozen': 'Tiefkühlpaket für etwa -20 °C mit zusätzlicher Kälteleistung.', 'services.lighting': 'High-Bay-LED-Beleuchtung', 'services.lightingHelp': 'Abgehängte Industrieleuchten im Halleninneren', 'services.sprinklers': 'Sprinklernetz', 'services.sprinklersHelp': 'Indikatives Deckenrohrnetz und Sprinklerköpfe',

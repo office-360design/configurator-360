@@ -4,6 +4,11 @@ import { normalizeOpenings, validateOpenings } from './openings.js?v=platform-18
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);
+// Keep the slab perimeter inside the cladding's exterior face. Sharing that
+// plane makes the two materials fight for the same depth pixels at floor level.
+const WALL_THICKNESS = .10;
+const ENVELOPE_OFFSET = .075;
+const SLAB_EDGE_INSET = .01;
 
 function material(color, options = {}) {
   return new THREE.MeshStandardMaterial({
@@ -592,7 +597,8 @@ export function buildHallModel(state) {
   foundation.name = 'foundation';
   root.add(foundation);
   if (state.slab) {
-    const slab = boxMesh(new THREE.Vector3(state.width + .35, .16, state.length + .35), slabMat, 'concrete-slab', technicalEdges);
+    const slabOverhang = ENVELOPE_OFFSET + WALL_THICKNESS - SLAB_EDGE_INSET;
+    const slab = boxMesh(new THREE.Vector3(state.width + slabOverhang * 2, .16, state.length + slabOverhang * 2), slabMat, 'concrete-slab', technicalEdges);
     slab.position.y = .055;
     foundation.add(slab);
   }
@@ -947,8 +953,8 @@ export function buildHallModel(state) {
   // Give the wall panels a slightly thicker build-up so their exterior face sits
   // just outside the primary steel instead of sharing the exact same plane with it.
   // This removes the persistent wall/column z-fighting visible at corners and bay lines.
-  const wallThickness = .10;
-  const envelopeOffset = .075;
+  const wallThickness = WALL_THICKNESS;
+  const envelopeOffset = ENVELOPE_OFFSET;
   const roofThickness = .052;
   const purlinDepth = .20;
   const roofSurfaceOffset = preset.rafterDepth / 2 + purlinDepth + roofThickness / 2 - .004;
@@ -981,7 +987,9 @@ export function buildHallModel(state) {
   frontWall.add(frontRect);
   addWallSeams(frontWall, 'front', gableWallWidth, wallCladdingHeight, new THREE.Vector3(0, 0, frontZ - wallThickness / 2 - .004));
   const gableRoofWidth = state.width + .04;
-  const frontTriangle = createTriangleWall(gableRoofWidth, metrics.ridgeRise, wallMat, 'front-gable-cladding', technicalEdges, false);
+  // The front gable faces -Z. Its outward normal must agree with the wall
+  // below it so normal-biased shadow sampling is offset out of the envelope.
+  const frontTriangle = createTriangleWall(gableRoofWidth, metrics.ridgeRise, wallMat, 'front-gable-cladding', technicalEdges, true);
   frontTriangle.position.set(0, wallCladdingHeight, frontZ - wallThickness / 2);
   frontWall.add(frontTriangle);
 
