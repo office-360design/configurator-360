@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-fixes-1';
-import { deriveHallMetrics } from './state.js?v=platform-18';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=platform-18';
-import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-fixes-1';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-agri-1';
+import { deriveHallMetrics } from './state.js?v=hall-agri-1';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=hall-agri-1';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-agri-1';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -569,6 +569,23 @@ export class HallScene {
     this.callbacks.onOpeningChange?.({ immediate: true });
   }
 
+  clearOpeningInteraction() {
+    const pointerId = this.openingPointerGesture?.pointerId;
+    if (pointerId != null && this.renderer.domElement.hasPointerCapture?.(pointerId)) {
+      this.renderer.domElement.releasePointerCapture(pointerId);
+    }
+    this.placement = null;
+    this.openingDrag = null;
+    this.openingResize = null;
+    this.openingPointerGesture = null;
+    this.lastOpeningTap = null;
+    this.lastOpeningGestureMoved = false;
+    this.selectedOpeningId = null;
+    this.controls.enabled = true;
+    this.callbacks.onOpeningPlacementChange?.(null);
+    this.callbacks.onOpeningSelectionChange?.(null);
+  }
+
   deleteOpening(id, state = this.currentState) {
     if (!state || !id) return;
     if (this.placement?.id === id) this.placement = null;
@@ -863,6 +880,13 @@ export class HallScene {
     shadow.camera.top = bounds.max.y;
     shadow.camera.near = Math.max(.1, -bounds.max.z - 1);
     shadow.camera.far = Math.max(shadow.camera.near + 1, -bounds.min.z + 1);
+    const texel = Math.max((bounds.max.x - bounds.min.x) / shadow.mapSize.x,
+      (bounds.max.y - bounds.min.y) / shadow.mapSize.y);
+    // Metric offsets remain consistent when the hall size/sun direction changes.
+    // Front-side cladding shadow casters (hallFactory) avoid the opposite skin
+    // becoming a second occluder on these thin, closed panel solids.
+    shadow.normalBias = Math.min(.09, Math.max(.025, texel * 1.5));
+    shadow.bias = -Math.max(.0001, texel * .65 / (shadow.camera.far - shadow.camera.near));
     shadow.camera.updateProjectionMatrix();
     shadow.needsUpdate = true;
   }

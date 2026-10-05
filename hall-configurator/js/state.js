@@ -1,4 +1,4 @@
-import { defaultOpenings, openingArea } from './openings.js?v=platform-18';
+import { defaultOpenings, openingArea } from './openings.js?v=hall-agri-1';
 
 export const structurePresets = {
   light: {
@@ -33,7 +33,6 @@ export const state = {
   secondaryStructure: true,
   slab: true,
   openings: defaultOpenings(),
-  buildingUse: 'general',
   climateSystem: 'none',
   highBayLighting: true,
   fireSprinklers: false,
@@ -93,6 +92,8 @@ export function deriveHallMetrics(input = state) {
     slopeLength,
     footprint,
     roofArea,
+    skylightArea: skylightCount * Math.min(1.35, slopeLength * .25) * 1.15,
+    netRoofArea: Math.max(0, roofArea - skylightCount * Math.min(1.35, slopeLength * .25) * 1.15),
     grossWallArea,
     netWallArea,
     openingArea: configuredOpeningArea,
@@ -101,4 +102,14 @@ export function deriveHallMetrics(input = state) {
     sprinklerHeadCount,
     skylightCount,
   };
+}
+
+export function roofSkylightLayout(input, metrics = deriveHallMetrics(input)) {
+  if (!input.roofSkylights) return [];
+  const perSide = Math.max(1, Math.floor(metrics.skylightCount / 2));
+  return [-1, 1].flatMap((side) => Array.from({ length: perSide }, (_, i) => ({
+    side, index: i, t: .52,
+    z: perSide === 1 ? 0 : -input.length * .36 + i * (input.length * .72 / (perSide - 1)),
+    slopeSpan: Math.min(1.35, metrics.slopeLength * .25), runSpan: 1.15,
+  })));
 }

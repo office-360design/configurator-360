@@ -1,4 +1,4 @@
-import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=platform-18';
+import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-agri-1';
 export const OPENING_TYPES = {
   personnel: {
     label: 'Human door',
@@ -22,6 +22,11 @@ export const OPENING_TYPES = {
     defaultBottom: 0,
     defaultColor: '#24445a',
   },
+  vent: {
+    label: 'Ventilation grille', defaultWidth: 1.6, defaultHeight: .8,
+    minWidth: .4, maxWidth: 3, minHeight: .4, maxHeight: 2,
+    defaultBottom: 3.0, defaultColor: '#66727c',
+  },
   window: {
     label: 'Window',
     defaultWidth: 1.8,
@@ -37,8 +42,11 @@ export const OPENING_TYPES = {
 
 export const WALL_SIDES = ['front', 'right', 'back', 'left'];
 
-export function openingType(type) {
-  return OPENING_TYPES[type] ?? OPENING_TYPES.window;
+export function openingType(type, subtype = 'standard') {
+  const spec = OPENING_TYPES[type] ?? OPENING_TYPES.window;
+  return type === 'window' && subtype === 'daylight-band'
+    ? { ...spec, defaultWidth: 4.8, defaultHeight: 1.1, maxWidth: 12, defaultBottom: 3.6 }
+    : spec;
 }
 
 export function wallSpan(state, side) {
@@ -51,7 +59,7 @@ export function wallLabel(side, locale = resolveHallLocale()) {
 
 
 export function makeOpening(type, side = 'front', offset = 0, overrides = {}) {
-  const spec = openingType(type);
+  const spec = openingType(type, overrides.subtype);
   return {
     id: overrides.id ?? `opening-${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     type,
@@ -98,7 +106,10 @@ export function ensureOpeningsState(state) {
 }
 
 export function normalizeOpening(opening, state) {
-  const spec = openingType(opening.type);
+  if (!Object.prototype.hasOwnProperty.call(OPENING_TYPES, opening.type)) opening.type = 'window';
+  if (opening.type === 'window') opening.subtype = opening.subtype === 'daylight-band' ? 'daylight-band' : 'standard';
+  else delete opening.subtype;
+  const spec = openingType(opening.type, opening.subtype);
   if (!WALL_SIDES.includes(opening.side)) opening.side = 'front';
   const usableSpan = Math.max(spec.minWidth, wallSpan(state, opening.side) - .24);
   opening.width = Math.max(spec.minWidth, Math.min(Number(opening.width) || spec.defaultWidth, spec.maxWidth, usableSpan));
@@ -152,7 +163,7 @@ export function validateOpenings(state, locale = resolveHallLocale()) {
 }
 
 export function openingCounts(state) {
-  const counts = { personnel: 0, garage: 0, window: 0 };
+  const counts = { personnel: 0, garage: 0, window: 0, vent: 0 };
   normalizeOpenings(state).forEach((opening) => { counts[opening.type] = (counts[opening.type] ?? 0) + 1; });
   return counts;
 }
