@@ -9,6 +9,13 @@ function entries(rows) {
   }
 }
 entries(`
+Enter X and Z between -100 and 100 m, and a height between -30 and 30 m.|Introdu X și Z între -100 și 100 m și o înălțime între -30 și 30 m.|X und Z zwischen -100 und 100 m sowie eine Höhe zwischen -30 und 30 m eingeben.
+{0} Move cancelled; the original point has been restored.|{0} Mutare anulată; punctul inițial a fost restabilit.|{0} Verschiebung abgebrochen; ursprünglicher Punkt wiederhergestellt.
+Dismiss message|Închide mesajul|Meldung schließen
+Complete this step|Completează acest pas|Diesen Schritt abschließen
+Change not applied|Modificarea nu a fost aplicată|Änderung nicht übernommen
+Preview needs attention|Previzualizarea necesită corecturi|Vorschau muss korrigiert werden
+Check this position|Verifică această poziție|Diese Position prüfen
 Not estimated|Neestimat|Nicht geschätzt
 {0} m² roof area|{0} m² suprafață acoperiș|{0} m² Dachfläche
 Flashings, gutters and material quantities require a separate estimate.|Șorțurile, jgheaburile și cantitățile de materiale necesită o estimare separată.|Anschlussbleche, Dachrinnen und Materialmengen benötigen eine separate Schätzung.
