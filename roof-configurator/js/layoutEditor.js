@@ -1,7 +1,7 @@
-import { setupEditorToolbar } from './editorToolbar.js?v=navigation-31';
-import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-31';
-import { localizeFeature } from './featureI18n.js?v=navigation-31';
-import { RoofWindowTool } from './roofWindowTool.js?v=navigation-31';
+import { setupEditorToolbar } from './editorToolbar.js?v=navigation-32';
+import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
+import { localizeFeature } from './featureI18n.js?v=navigation-32';
+import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
@@ -229,6 +229,7 @@ export class RoofLayoutEditor {
       if (this.dialog.open) this.endDrag(null, true);
       this.updatePanCursor();
     });
+    this.svg.addEventListener('contextmenu', event => event.preventDefault());
     this.svg.addEventListener('auxclick', event => { if (event.button === 1) event.preventDefault(); });
     this.svg.addEventListener('pointerdown', event => this.click(event));
     this.svg.addEventListener('wheel', event => this.zoomAtPointer(event), { passive: false });
@@ -776,7 +777,6 @@ export class RoofLayoutEditor {
     if (drag.kind === 'window') { this.windowTool.finishDrag(drag, cancel); return; }
     if (drag.kind === 'pan') {
       if (cancel) this.center = drag.center;
-      else if (drag.automatic && !drag.moved) { this.selected = null; this.selectedEdge = null; }
       this.render();
       return;
     }
@@ -820,15 +820,11 @@ export class RoofLayoutEditor {
 
   click(event) {
     if (this.drag || event.isPrimary === false) return;
-    const hit = this.pointer(event);
-    const automatic = this.mode === 'select' && !this.windowTool.active && !this.dormer &&
-      !this.meet && !this.pickingSplitFaces && hit.id === undefined && !hit.edgeIds &&
-      !event.target.closest('[data-roof-window]');
-    if (event.button === 1 || (event.button === 0 && (this.panEnabled || this.spacePan || automatic))) {
+    if (event.button === 1 || event.button === 2 || (event.button === 0 && (this.panEnabled || this.spacePan))) {
       event.preventDefault();
       this.svg.focus();
       const inverse = this.svg.getScreenCTM().inverse();
-      this.drag = { kind: 'pan', pointerId: event.pointerId, inverse, automatic, moved: false,
+      this.drag = { kind: 'pan', pointerId: event.pointerId, inverse, moved: false,
         screenX: event.clientX, screenY: event.clientY,
         start: new DOMPoint(event.clientX, event.clientY).matrixTransform(inverse), center: { ...this.center } };
       this.svg.setPointerCapture(event.pointerId);
@@ -1086,7 +1082,7 @@ export class RoofLayoutEditor {
       insert: 'Click an edge or inside a surface to add a point. Interior points connect to surrounding corners and keep the current roof height. Move or raise the point to shape the roof.',
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
-    this.dialog.querySelector('#layoutModeLabel').textContent = { connect: this.selected === null ? 'Choose the first perimeter point' : 'Choose a second point across the gap', extend: this.selectedEdge ? 'Click outside the roof to extend the selected edge' : 'Choose an outer edge to extend', select: 'Drag points to edit · Drag empty space to pan · Scroll to zoom', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    this.dialog.querySelector('#layoutModeLabel').textContent = { connect: this.selected === null ? 'Choose the first perimeter point' : 'Choose a second point across the gap', extend: this.selectedEdge ? 'Click outside the roof to extend the selected edge' : 'Choose an outer edge to extend', select: 'Drag points to edit · Right-drag to pan · Scroll to zoom', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
     if (this.dormer) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click to place dormer front · Adjust size in the panel';
     if (this.windowTool.active) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag window or click to position · Update window to save';
     if (this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag to pan · Turn Pan off to edit · Fit to recenter';
