@@ -1,6 +1,7 @@
-import { commercialLayout } from './commercial.js?v=hall-commercial-1';
-import { normalizeOpenings, openingLabel } from './openings.js?v=hall-commercial-1';
-import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
+import { loadingLayout } from './logistics.js?v=hall-storage-1';
+import { commercialLayout } from './commercial.js?v=hall-storage-1';
+import { normalizeOpenings, openingLabel } from './openings.js?v=hall-storage-1';
+import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-storage-1';
 
 const unit = (value, locale) => value === 'pcs' ? hallT(locale, 'bom.unit.pcs') : value;
 
@@ -60,6 +61,13 @@ export function buildBom(state, build, locale = resolveHallLocale()) {
     unit: unit('pcs', locale), quantity: metrics.refrigerationUnitCount || Math.max(1, Math.ceil(metrics.footprint / 280)), notes: hallValueLabel('climateSystem', state.climateSystem, locale),
   });
 
+  const loading = loadingLayout(state);
+  for (const [key, unitName, quantity] of [['apron', 'm²', loading.apronArea],
+    ['bollards', unit('pcs', locale), loading.bollardCount], ['markings', unit('pcs', locale), loading.markingCount],
+    ['numbers', unit('pcs', locale), loading.numberCount]]) if (quantity > 0) lines.push({
+      name: hallT(locale, `loading.bom.${key}`), unit: unitName, quantity: unitName === 'm²' ? quantity.toFixed(2) : quantity,
+      notes: hallT(locale, 'loading.estimateNote'),
+    });
   const retail = commercialLayout(state);
   for (const [key, unitName, quantity] of [
     ['canopy', 'm²', retail.canopyArea], ['sign', 'm²', retail.signArea],

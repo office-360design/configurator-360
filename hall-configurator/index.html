@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-1" />
-  <link rel="stylesheet" href="./styles.css?v=hall-commercial-1" />
+  <link rel="stylesheet" href="./styles.css?v=hall-storage-1" />
   <script type="importmap">
     {
       "imports": {
@@ -122,6 +122,24 @@
         </div>
       </section>
 
+      <section class="accordion-section" data-accordion="loading">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.loading">Loading &amp; logistics</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <p class="opening-help" data-hall-i18n="loading.help">Optional yard details for floor-level sectional doors. Accessories follow the doors when moved. Choose the sectional style in the garage-door editor.</p>
+          <div class="toggle-stack">
+            <label class="toggle-row"><span><b data-hall-i18n="loading.apron">Paved loading apron</b><small data-hall-i18n="loading.apronHelp">One apron along each wall containing floor-level sectional doors; not a verified truck turning envelope</small></span><input id="loadingApronToggle" type="checkbox" /><i></i></label>
+            <label class="toggle-row"><span><b data-hall-i18n="loading.markings">Loading-bay guide lines</b><small data-hall-i18n="loading.markingsHelp">Ground markings on the apron; requires the apron option</small></span><input id="loadingBayMarkingsToggle" type="checkbox" /><i></i></label>
+            <label class="toggle-row"><span><b data-hall-i18n="loading.protection">Protective bollards</b><small data-hall-i18n="loading.protectionHelp">Two yellow/black bollards beside each eligible loading door</small></span><input id="loadingBayProtectionToggle" type="checkbox" /><i></i></label>
+            <label class="toggle-row"><span><b data-hall-i18n="loading.numbers">Bay numbers</b><small data-hall-i18n="loading.numbersHelp">Sequential number plates above sectional doors where headroom allows</small></span><input id="loadingBayNumbersToggle" type="checkbox" /><i></i></label>
+          </div>
+          <label class="range-control top-gap" data-control="loadingApronDepth"><span class="control-label"><b data-hall-i18n="loading.apronDepth">Apron depth</b><output>12.0 m</output></span><span class="range-row"><input type="range" min="6" max="24" step="0.5" value="12" /><input class="number-input" type="number" min="6" max="24" step="0.5" value="12" /></span></label>
+          <label class="select-label" for="warehouseLayout" data-hall-i18n="loading.plan">Warehouse planning layout</label><select id="warehouseLayout"><option value="standard" data-hall-i18n="loading.planStandard">Standard rack rows</option><option value="loading-aisles" data-hall-i18n="loading.planAisles">Loading staging &amp; cross-aisles</option></select>
+          <p class="opening-help" data-hall-i18n="loading.planHelp">Enable or hide racking and aisle previews under Model display. This is an indicative layout, not a clearance certification.</p>
+          <p class="service-note" id="loadingClearanceNote" hidden data-hall-i18n="loading.clearanceNote">Some bay accessories do not fit after the door edit.</p>
+          <p class="opening-help" data-hall-i18n="loading.conceptNote">Ground-level loading concept: no raised dock or leveller is included. Site-specific verification is required.</p>
+        </div>
+      </section>
+
       <section class="accordion-section" data-accordion="services">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.services">Building services</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
@@ -208,6 +226,7 @@
     <div class="opening-editor__header"><div><small id="openingEditorSide">Front wall</small><strong id="openingEditorTitle">Window</strong></div><button type="button" id="openingDeleteButton" class="opening-delete-button" aria-label="Delete selected opening" title="Delete" data-hall-i18n-aria-label="editor.deleteAria" data-hall-i18n-title="editor.delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button></div>
     <label class="opening-editor__side"><span data-hall-i18n="editor.wall">Wall</span><select id="openingSideSelect"><option value="front" data-hall-i18n="wall.front">Front</option><option value="right" data-hall-i18n="wall.right">Right</option><option value="back" data-hall-i18n="wall.back">Back</option><option value="left" data-hall-i18n="wall.left">Left</option></select></label>
     <label class="opening-editor__side" id="openingWindowSubtypeRow" hidden><span data-hall-i18n="editor.windowSubtype">Window style</span><select id="openingWindowSubtype"><option value="standard" data-hall-i18n="window.standard">Standard window</option><option value="daylight-band" data-hall-i18n="window.daylightBand">Daylight band</option><option value="shopfront" data-hall-i18n="window.shopfront">Shopfront glazing</option></select></label>
+    <label class="opening-editor__side" id="openingGarageSubtypeRow" hidden><span data-hall-i18n="editor.garageSubtype">Garage-door style</span><select id="openingGarageSubtype"><option value="roller" data-hall-i18n="garage.roller">Roller shutter</option><option value="sectional" data-hall-i18n="garage.sectional">Sectional loading door</option></select></label>
     <label class="opening-editor__side" id="openingEntranceSubtypeRow" hidden><span data-hall-i18n="editor.entranceSubtype">Entrance style</span><select id="openingEntranceSubtype"><option value="sliding-glass" data-hall-i18n="entrance.slidingGlass">Automatic sliding glass entrance</option><option value="double-glass" data-hall-i18n="entrance.doubleGlass">Double hinged glass entrance</option></select></label>
     <label class="opening-editor__open" id="openingEntranceOpenRow" hidden><input type="checkbox" id="openingEntranceOpen" /><span data-hall-i18n="editor.entranceOpen">Preview doors open</span></label>
     <div class="opening-editor__dimensions"><label><span data-hall-i18n="editor.width">Width</span><div><input id="openingWidthInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label><label><span data-hall-i18n="editor.height">Height</span><div><input id="openingHeightInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label></div>
@@ -230,8 +249,8 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton" data-hall-i18n="bom.export">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-hall-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=hall-commercial-1"></script>
-  <script type="module" src="./js/app.js?v=hall-commercial-1"></script>
+  <script type="module" src="./js/sharedShell.js?v=hall-storage-1"></script>
+  <script type="module" src="./js/app.js?v=hall-storage-1"></script>
 </body>
 </html>
 

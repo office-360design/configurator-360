@@ -1,5 +1,6 @@
-import { COMMERCIAL_DEFAULTS } from './commercial.js?v=hall-commercial-1';
-import { defaultOpenings, openingArea } from './openings.js?v=hall-commercial-1';
+import { LOGISTICS_DEFAULTS } from './logistics.js?v=hall-storage-1';
+import { COMMERCIAL_DEFAULTS } from './commercial.js?v=hall-storage-1';
+import { defaultOpenings, openingArea } from './openings.js?v=hall-storage-1';
 
 export const structurePresets = {
   light: {
@@ -21,6 +22,7 @@ export const structurePresets = {
 
 export const state = {
   ...COMMERCIAL_DEFAULTS,
+  ...LOGISTICS_DEFAULTS,
   length: 24,
   width: 12,
   eaveHeight: 5,

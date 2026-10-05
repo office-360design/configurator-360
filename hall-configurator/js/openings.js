@@ -1,4 +1,4 @@
-import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
+import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-storage-1';
 export const OPENING_TYPES = {
   personnel: {
     label: 'Human door',
@@ -49,6 +49,7 @@ export const WALL_SIDES = ['front', 'right', 'back', 'left'];
 
 export function openingType(type, subtype = 'standard') {
   const spec = OPENING_TYPES[type] ?? OPENING_TYPES.window;
+  if (type === 'garage' && subtype === 'sectional') return { ...spec, defaultWidth: 4, defaultHeight: 4.5, maxWidth: 6, maxHeight: 6, headroom: .50 };
   if (type === 'window' && subtype === 'daylight-band') return { ...spec, defaultWidth: 4.8, defaultHeight: 1.1, maxWidth: 12, defaultBottom: 3.6 };
   if (type === 'window' && subtype === 'shopfront') return { ...spec, defaultWidth: 4.4, defaultHeight: 2.8, maxWidth: 12, maxHeight: 4, defaultBottom: .15 };
   if (type === 'entrance' && subtype === 'double-glass') return { ...spec, minWidth: 1.4, maxWidth: 3.2, defaultWidth: 1.8, defaultHeight: 2.5 };
@@ -117,18 +118,22 @@ export function normalizeOpening(opening, state) {
   else if (opening.type === 'entrance') {
     opening.subtype = opening.subtype === 'double-glass' ? 'double-glass' : 'sliding-glass';
     opening.isOpen = opening.isOpen === true;
+  } else if (opening.type === 'garage') {
+    opening.subtype = opening.subtype === 'sectional' ? 'sectional' : 'roller';
+    if (opening.subtype === 'sectional') opening.isOpen = opening.isOpen === true;
+    else delete opening.isOpen;
   } else delete opening.subtype;
-  if (opening.type !== 'entrance') delete opening.isOpen;
+  if (opening.type !== 'entrance' && !(opening.type === 'garage' && opening.subtype === 'sectional')) delete opening.isOpen;
   const spec = openingType(opening.type, opening.subtype);
   if (!WALL_SIDES.includes(opening.side)) opening.side = 'front';
   const usableSpan = Math.max(spec.minWidth, wallSpan(state, opening.side) - .24);
   opening.width = Math.max(spec.minWidth, Math.min(Number(opening.width) || spec.defaultWidth, spec.maxWidth, usableSpan));
-  const usableHeight = Math.max(spec.minHeight, state.eaveHeight - .12);
+  const usableHeight = Math.max(spec.minHeight, state.eaveHeight - (spec.headroom ?? .12));
   opening.height = Math.max(spec.minHeight, Math.min(Number(opening.height) || spec.defaultHeight, spec.maxHeight, usableHeight));
   const halfSpan = wallSpan(state, opening.side) / 2;
   const halfWidth = opening.width / 2;
   opening.offset = Math.max(-halfSpan + halfWidth + .06, Math.min(Number(opening.offset) || 0, halfSpan - halfWidth - .06));
-  const maxBottom = Math.max(0, state.eaveHeight - opening.height - .06);
+  const maxBottom = Math.max(0, state.eaveHeight - opening.height - (spec.headroom ?? .06));
   opening.bottom = Math.max(0, Math.min(Number(opening.bottom) || 0, maxBottom));
   opening.color = typeof opening.color === 'string' && /^#[0-9a-f]{6}$/i.test(opening.color) ? opening.color : spec.defaultColor;
   return opening;
@@ -179,6 +184,7 @@ export function openingCounts(state) {
 }
 
 export function openingLabel(opening, locale = resolveHallLocale()) {
+  if (opening.type === 'garage' && opening.subtype === 'sectional') return hallT(locale, 'garage.sectional');
   if (opening.type === 'entrance') return hallT(locale, opening.subtype === 'double-glass' ? 'entrance.doubleGlass' : 'entrance.slidingGlass');
   if (opening.type === 'window' && opening.subtype === 'shopfront') return hallT(locale, 'window.shopfront');
   if (opening.type === 'window' && opening.subtype === 'daylight-band') return hallT(locale, 'window.daylightBand');
