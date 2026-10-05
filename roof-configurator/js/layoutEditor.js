@@ -1,3 +1,4 @@
+import { localizeFeature } from './featureI18n.js?v=feature-i18n-26';
 import { RoofWindowTool } from './roofWindowTool.js?v=windows-25';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
@@ -184,6 +185,7 @@ export class RoofLayoutEditor {
       button.replaceChildren(icon, label);
     });
     document.body.appendChild(this.dialog);
+    this.translation = localizeFeature(this.dialog, () => this.state.locale);
     this.dialog.querySelectorAll('.layout-info').forEach(button => {
       const tip = this.dialog.querySelector(`#${button.getAttribute('popovertarget')}`);
       const show = () => {

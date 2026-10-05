@@ -1,4 +1,5 @@
-import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=windows-24';
+import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=feature-i18n-26';
+import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=feature-i18n-26';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 import { defaultLayout } from './roofLayout.js?v=layout-21';
 
@@ -8,17 +9,17 @@ const fields = [
   ['minModules', 'Min. modules per sheet'], ['maxModules', 'Max. modules per sheet'],
   ['maxLength', 'Max. sheet length (mm)'], ['kgPerM2', 'Weight (kg/m²)'], ['minPitch', 'Minimum pitch (°)'],
 ];
-const number = value => value.toLocaleString('en-GB', { maximumFractionDigits: 2 });
+const formatNumber = (value, locale) => value.toLocaleString(featureLocale(locale), { maximumFractionDigits: 2 });
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const polygonPath = polygon => polygon.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' ') + ' Z';
 const points = polygon => polygon.map(p => `${p.x},${-p.y}`).join(' ');
 const table = rows => `<div class="sheet-table-wrap"><table><thead><tr>${rows[0].map(cell => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-const lengthTable = groups => table([
+const lengthTable = (groups, locale) => table([
   ['Length (mm)', 'Modules / sheet', 'Quantity', 'Piece IDs'],
-  ...groups.map(g => [number(g.length), g.modules, g.count, g.ids.join(', ')]),
+  ...groups.map(g => [formatNumber(g.length, locale), g.modules, g.count, g.ids.join(', ')]),
 ]);
 
-export function slopeDiagram(slope, profile) {
+export function slopeDiagram(slope, profile, locale = 'en-US') {
   const pad = Math.max(slope.width, slope.height, 1) * 0.09;
   const stockTop = Math.max(slope.height, ...slope.pieces.map(p => p.y + p.length / 1000));
   const side = profile.width / 1000;
@@ -30,7 +31,7 @@ export function slopeDiagram(slope, profile) {
       <rect x="${piece.stockX}" y="${-piece.y - piece.length / 1000}" width="${side}" height="${piece.length / 1000}" fill="none" stroke="#94a3b8" stroke-width=".012" stroke-dasharray=".06 .04"/>
       <path d="${piece.polygons.map(poly => polygonPath(poly.map(p => ({ x: p.x, y: -p.y })))).join(' ')}" fill="${i % 2 ? '#bfdbfe' : '#dbeafe'}"/>
       <rect x="${piece.x}" y="${-piece.y - piece.coverageLength}" width="${profile.usefulWidth / 1000}" height="${piece.coverageLength}" fill="none" stroke="#2563eb" stroke-width=".014"/>
-      <text x="${piece.x + profile.usefulWidth / 2000}" y="${-piece.y - piece.coverageLength / 2}" font-size="${font}" text-anchor="middle" fill="#12345a" paint-order="stroke" stroke="white" stroke-width=".035">${piece.id}<tspan x="${piece.x + profile.usefulWidth / 2000}" dy="${font * 1.3}">${(piece.length / 1000).toLocaleString('en-GB', { maximumFractionDigits: 3 })} m</tspan></text>
+      <text x="${piece.x + profile.usefulWidth / 2000}" y="${-piece.y - piece.coverageLength / 2}" font-size="${font}" text-anchor="middle" fill="#12345a" paint-order="stroke" stroke="white" stroke-width=".035">${piece.id}<tspan x="${piece.x + profile.usefulWidth / 2000}" dy="${font * 1.3}">${(piece.length / 1000).toLocaleString(featureLocale(locale), { maximumFractionDigits: 3 })} m</tspan></text>
       <title>${piece.id}: ${piece.modules} modules, ${piece.length} mm stock length</title>
     </g>`).join('')}
     ${slope.outline.map(edge => `<polyline points="${points(edge)}" fill="none" stroke="#0f172a" stroke-width=".025"/>`).join('')}
@@ -80,12 +81,17 @@ export class SheetPlannerUI {
       </form><div class="sheet-output" aria-live="polite"></div></div>
       <footer><span class="sheet-status" role="status"></span><button type="button" data-sheet="csv">Export CSV</button><button type="button" data-sheet="print">Print / PDF</button><button type="button" data-sheet="close">Done</button></footer>`;
     document.body.append(this.dialog);
+    this.translation = localizeFeature(this.dialog, () => this.state.locale);
+    window.addEventListener('roof-locale-applied', () => {
+      if (this.plan) { this.render(); this.buttons(!this.stale); }
+      this.translation.refresh();
+    });
     this.dialog.addEventListener('click', event => {
       const button = event.target.closest('[data-slope-svg]');
       if (!button || !this.plan || this.stale) return;
       const index = Number(button.dataset.slopeSvg);
       const slope = this.plan.slopes[index];
-      const markup = slopeDiagram(slope, this.plan.profile).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" ');
+      const markup = translatedMarkup(slopeDiagram(slope, this.plan.profile, this.state.locale), this.state.locale).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" ');
       const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }));
       const link = document.createElement('a');
       link.href = url; link.download = `roof-slope-${slope.id}.svg`; link.click();
@@ -116,10 +122,11 @@ export class SheetPlannerUI {
 
   note() {
     const preset = this.form.elements.preset.value;
-    this.dialog.querySelector('.sheet-profile-note').textContent = preset === 'clasic'
+    this.profileNote = preset === 'clasic'
       ? 'Photo discrepancy: table width 1,100 mm; diagram 1,080 mm (used here). 22 × 365 + 125 = 8,155 mm, above the printed 8,150 mm maximum, so 21 modules are allowed. End allowance of 125 mm is inferred from the listed minimum length; confirm with supplier.'
       : preset === 'antic' ? '350 mm profile reference: 1,130 / 1,000 mm width, 350 mm module, 3–22 modules. The 100 mm end allowance is inferred from the listed sheet lengths; confirm with supplier.'
       : 'Custom dimensions. Length = modules × module length + end allowance. The maximum length also limits the allowed module count.';
+    this.dialog.querySelector('.sheet-profile-note').textContent = this.profileNote;
   }
 
   open() {
@@ -165,6 +172,7 @@ export class SheetPlannerUI {
       const settings = { direction: this.form.elements.direction.value, offset: Number(this.form.elements.offset.value || 0) };
       const layout = this.state.roofType === 'layout' ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state);
       this.plan = planRoofSheets(layout, profile, settings);
+      this.planProfileNote = this.profileNote;
       this.state.sheetPlanOptions = { preset: this.form.elements.preset.value, profile, ...settings };
       this.render();
       this.stale = false;
@@ -186,6 +194,7 @@ export class SheetPlannerUI {
 
   render() {
     const { profile, totals, slopes, groups } = this.plan;
+    const number = value => formatNumber(value, this.state.locale);
     const stats = [['Sheets', totals.count], ['Modules', totals.modules], ['Roof area', `${number(totals.netArea)} m²`],
       ['Order area', `${number(totals.stockArea)} m²`], ['Cut allowance', `${number(totals.cutArea)} m²`],
       ['Overlap / end allowance', `${number(totals.overlapArea)} m²`], ['Total sheet length', `${number(totals.linearMetres)} m`],
@@ -196,18 +205,18 @@ export class SheetPlannerUI {
       ${overview(this.plan)}<p>Plan view: letters identify connected coplanar slopes, combining subdivisions from the editor. Roof area includes the roof edges as drawn (including overhangs); vertical closing walls are excluded.</p>
       <p>Order area includes all rectangular sheets. Cut allowance is unused effective coverage; overlap / end allowance includes side laps and extra sheet length. Neither assumes offcut reuse. Weight uses the listed kg/m² against order area.</p>
       ${profile.allowedMaxModules < profile.maxModules ? '<p class="sheet-warning">Maximum module count reduced to respect the maximum physical sheet length.</p>' : ''}
-      <p class="sheet-warning">${escape(this.dialog.querySelector('.sheet-profile-note').textContent)}</p></section>
+      <p class="sheet-warning">${escape(this.planProfileNote)}</p></section>
       ${slopes.map((slope, index) => `<section class="sheet-slope"><h2>Slope ${slope.id}</h2><button type="button" data-slope-svg="${index}">Download diagram (SVG)</button><p>${number(slope.netArea)} m² · ${number(slope.pitch)}° pitch · ${slope.pieces.length} sheets · ${slope.columns} columns · ${number(slope.stockArea)} m² order area</p>
         ${slope.warnings.map(w => `<p class="sheet-warning">${escape(w)}</p>`).join('')}
-        ${slopeDiagram(slope, profile)}<p class="sheet-legend">Black: roof cut line · Blue: usable sheet area · Dashed: full ordered sheet · ↑ Uphill installation start</p>
-        ${lengthTable(slope.groups)}<p>Dimensions follow the actual slope, not its horizontal projection. Piece IDs are slope–column.segment, counted from the selected start side and from eave to ridge.</p></section>`).join('')}
-      <section class="sheet-slope"><h2>Combined order list</h2>${lengthTable(groups)}<p><strong>${totals.count} sheets · ${totals.modules} modules · ${number(totals.stockArea)} m² ordered</strong></p>
+        ${slopeDiagram(slope, profile, this.state.locale)}<p class="sheet-legend">Black: roof cut line · Blue: usable sheet area · Dashed: full ordered sheet · ↑ Uphill installation start</p>
+        ${lengthTable(slope.groups, this.state.locale)}<p>Dimensions follow the actual slope, not its horizontal projection. Piece IDs are slope–column.segment, counted from the selected start side and from eave to ridge.</p></section>`).join('')}
+      <section class="sheet-slope"><h2>Combined order list</h2>${lengthTable(groups, this.state.locale)}<p><strong>${totals.count} sheets · ${totals.modules} modules · ${number(totals.stockArea)} m² ordered</strong></p>
       <p>This is a geometric cutting estimate. Cut-outs remain offcuts; reuse, trim accessories and fixing quantities are not optimized.</p></section>`;
   }
 
   download() {
     if (!this.plan || this.stale) return;
-    const url = URL.createObjectURL(new Blob(['\uFEFF' + sheetPlanCsv(this.plan)], { type: 'text/csv;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + sheetPlanCsv(this.plan, text => featureText(this.state.locale, text))], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url; link.download = 'roof-sheet-plan.csv'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -216,12 +225,13 @@ export class SheetPlannerUI {
   print() {
     if (!this.plan || this.stale) return;
     const frame = document.createElement('iframe');
-    frame.title = 'Printable roof cutting plan';
+    this.translation.refresh();
+    frame.title = featureText(this.state.locale, 'Printable roof cutting plan');
     frame.style.cssText = 'position:fixed;width:1px;height:1px;left:-10000px;border:0';
     document.body.append(frame);
     const doc = frame.contentDocument;
     doc.open();
-    doc.write(`<!doctype html><html><head><title>Roof sheet cutting plan</title><style>
+    doc.write(`<!doctype html><html lang="${featureLocale(this.state.locale)}"><head><title>${featureText(this.state.locale, 'Roof sheet cutting plan')}</title><style>
       @page { size:A4 landscape; margin:12mm; } body { font:11px Arial,sans-serif; color:#172c45; }
       button { display:none; } h2 { font-size:20px; margin:8px 0; } p { line-height:1.4; } section { break-before:page; } section:first-child { break-before:auto; }
       .sheet-stats { display:grid;grid-template-columns:repeat(4,1fr);gap:8px; } article { padding:8px;border:1px solid #ccc; } article span,article strong { display:block; } article strong { font-size:18px; }

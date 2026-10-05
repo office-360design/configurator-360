@@ -198,12 +198,16 @@ export function planRoofSheets(layout, profile, settings = {}) {
   return { profile: p, slopes, totals, groups: groupSheetLengths(pieces) };
 }
 
-export function sheetPlanCsv(plan) {
+export function sheetPlanCsv(plan, translate = text => text) {
   const rows = [['Slope', 'Piece', 'Column', 'Modules', 'Length mm', 'Width mm', 'Usable width mm', 'Net covered m2', 'Stock m2']];
   plan.slopes.forEach(slope => slope.pieces.forEach(piece => rows.push([slope.id, piece.id, piece.column, piece.modules,
     piece.length, plan.profile.width, plan.profile.usefulWidth, piece.netArea.toFixed(4), (piece.length * plan.profile.width / 1e6).toFixed(4)])));
   rows.push([], ['TOTAL pieces', plan.totals.count], ['TOTAL modules', plan.totals.modules],
     ['Roof area m2', plan.totals.netArea.toFixed(4)], ['Stock area m2', plan.totals.stockArea.toFixed(4)],
     ['Cut allowance m2', plan.totals.cutArea.toFixed(4)], ['Overlap / end allowance m2', plan.totals.overlapArea.toFixed(4)]);
-  return rows.map(row => row.join(',')).join('\r\n');
+  // Keep machine-readable decimal points; translate headings without changing IDs or quantities.
+  return rows.map((row, index) => row.map((cell, column) => {
+    const value = String(index === 0 || (column === 0 && row.length === 2) ? translate(cell) : cell);
+    return /[",\r\n]/.test(value) ? '"' + value.replace(/"/g, '""') + '"' : value;
+  }).join(',')).join('\r\n');
 }
