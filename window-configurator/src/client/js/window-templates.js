@@ -1,3 +1,5 @@
+import { mountTemplatesMenu } from '../shared-ui/src/components/templatesMenu.js?v=templates-1';
+
 const WINDOW_TEMPLATES = Object.freeze([
     {
         id: 'single-fixed',
@@ -38,35 +40,10 @@ const WINDOW_TEMPLATES = Object.freeze([
 ]);
 
 
-const STYLE_ID = 'window-templates-styles';
-const LAUNCHER_ID = 'window-templates-launcher';
-const POPOVER_ID = 'window-templates-popover';
+let menu = null;
+let sidebarObserver = null;
 
-function ensureStylesheet() {
-    if (document.getElementById(STYLE_ID)) return;
-    const link = document.createElement('link');
-    link.id = STYLE_ID;
-    link.rel = 'stylesheet';
-    link.href = './css/window-templates.css?v=6';
-    document.head.appendChild(link);
-}
-
-function getToolsLauncher() {
-    return document.querySelector('.shared-ui-host [data-shared-tools] > .tool-launcher[data-action="toggle-tools"]');
-}
-
-function getSharedUiHost() {
-    return document.querySelector('.shared-ui-host') || document.body;
-}
-
-function isPhoneUi() {
-    return window.matchMedia('(max-width: 760px)').matches;
-}
-
-function closeToolsMenu() {
-    const toolsLauncher = getToolsLauncher();
-    if (toolsLauncher?.getAttribute('aria-expanded') === 'true') toolsLauncher.click();
-}
+function closePopover() { menu?.close(); }
 
 const TEMPLATE_CELL_WIDTH_M = 0.6;
 const TEMPLATE_HEIGHT_M = 0.9;
@@ -93,206 +70,52 @@ async function applyTemplate(template) {
     return true;
 }
 
-function createPopover() {
-    const popover = document.createElement('section');
-    popover.id = POPOVER_ID;
-    popover.className = 'window-templates-popover';
-    popover.hidden = true;
-    popover.setAttribute('role', 'dialog');
-    popover.setAttribute('aria-modal', 'false');
-    popover.setAttribute('aria-label', 'Window templates');
-
-    const header = document.createElement('div');
-    header.className = 'window-templates-popover__header';
-    header.innerHTML = `
-        <div>
-            <strong>Window templates</strong>
-        </div>
-        <button type="button" class="window-templates-popover__close" aria-label="Close window templates">×</button>
-    `;
-
-    const grid = document.createElement('div');
-    grid.className = 'window-templates-grid';
-
-    WINDOW_TEMPLATES.forEach(template => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'window-template-card';
-        card.dataset.windowTemplate = template.id;
-        card.innerHTML = `
-            <span class="window-template-card__image-wrap">
-                <img class="window-template-card__image" src="${template.image}" alt="" loading="eager">
-            </span>
-            <span class="window-template-card__copy">
-                <strong>${template.name}</strong>
-            </span>
-        `;
-        card.addEventListener('click', async () => {
-            card.disabled = true;
-            try {
-                if (await applyTemplate(template)) closePopover();
-            } finally {
-                card.disabled = false;
-            }
-        });
-        grid.appendChild(card);
-    });
-
-    popover.append(header, grid);
-    header.querySelector('.window-templates-popover__close')?.addEventListener('click', closePopover);
-    getSharedUiHost().appendChild(popover);
-    return popover;
-}
-
-function positionElements() {
-    const toolsLauncher = getToolsLauncher();
-    const launcher = document.getElementById(LAUNCHER_ID);
-    const popover = document.getElementById(POPOVER_ID);
-    if (!toolsLauncher || !launcher) return;
-
-    const toolsRect = toolsLauncher.getBoundingClientRect();
-    const gap = 10;
-    if (isPhoneUi()) {
-        launcher.style.removeProperty('top');
-        launcher.style.removeProperty('left');
-    } else {
-        launcher.style.top = `${Math.round(toolsRect.top)}px`;
-        launcher.style.left = `${Math.round(toolsRect.right + gap)}px`;
-    }
-
-    if (popover && !popover.hidden) {
-        const margin = 12;
-        const launcherRect = launcher.getBoundingClientRect();
-        const availableWidth = Math.max(0, window.innerWidth - margin * 2);
-        const width = isPhoneUi()
-            ? Math.min(720, availableWidth)
-            : Math.min(720, Math.max(300, availableWidth));
-        const left = Math.min(
-            Math.max(margin, launcherRect.left),
-            Math.max(margin, window.innerWidth - width - margin),
-        );
-        const top = Math.max(margin, Math.round(launcherRect.bottom + 10));
-        const availableHeight = Math.max(0, window.innerHeight - top - margin);
-        popover.style.width = `${width}px`;
-        popover.style.left = `${Math.round(left)}px`;
-        popover.style.top = `${top}px`;
-        popover.style.removeProperty('height');
-        popover.style.maxHeight = `${availableHeight}px`;
-    }
-}
-
-function closePopover() {
-    const launcher = document.getElementById(LAUNCHER_ID);
-    const popover = document.getElementById(POPOVER_ID);
-    if (!launcher || !popover || popover.hidden) return;
-    popover.hidden = true;
-    launcher.classList.remove('is-active');
-    launcher.setAttribute('aria-expanded', 'false');
-}
-
-function togglePopover() {
-    const launcher = document.getElementById(LAUNCHER_ID);
-    const popover = document.getElementById(POPOVER_ID) || createPopover();
-    if (!launcher) return;
-
-    const willOpen = popover.hidden;
-    if (willOpen) {
-        closeToolsMenu();
-        popover.hidden = false;
-        launcher.classList.add('is-active');
-        launcher.setAttribute('aria-expanded', 'true');
-        positionElements();
-        popover.querySelector('.window-template-card')?.focus({ preventScroll: true });
-    } else {
-        closePopover();
-    }
-}
-
-function createLauncher(toolsLauncher) {
-    const launcher = toolsLauncher.cloneNode(false);
-    launcher.id = LAUNCHER_ID;
-    launcher.classList.remove('is-active');
-    launcher.classList.add('window-templates-launcher');
-    launcher.dataset.action = 'toggle-window-templates';
-    launcher.textContent = 'Templates';
-    launcher.setAttribute('aria-label', 'Window templates');
-    launcher.setAttribute('aria-controls', POPOVER_ID);
-    launcher.setAttribute('aria-expanded', 'false');
-    launcher.removeAttribute('title');
-    launcher.addEventListener('click', togglePopover);
-    const toolsToolbar = toolsLauncher.closest('[data-shared-tools]');
-    (toolsToolbar || getSharedUiHost()).appendChild(launcher);
-    return launcher;
-}
-
-function mountOnce() {
-    if (document.getElementById(LAUNCHER_ID)) {
-        positionElements();
-        return true;
-    }
-    const toolsLauncher = getToolsLauncher();
-    if (!toolsLauncher) return false;
-    createLauncher(toolsLauncher);
-    createPopover();
-    positionElements();
-    return true;
-}
-
 export function mountWindowTemplates() {
-    ensureStylesheet();
-    mountOnce();
-
-    const observer = new MutationObserver(() => {
-        const launcher = document.getElementById(LAUNCHER_ID);
-        const toolsLauncher = getToolsLauncher();
-        if (!toolsLauncher) return;
-        if (!launcher || !launcher.isConnected) mountOnce();
-        else positionElements();
+    // This sheet also contains window-specific phone/editor layout rules.
+    if (!document.getElementById('window-templates-styles')) {
+        const link = document.createElement('link');
+        link.id = 'window-templates-styles';
+        link.rel = 'stylesheet';
+        link.href = './css/window-templates.css?v=6';
+        document.head.appendChild(link);
+    }
+    menu = mountTemplatesMenu({
+        enabled: true,
+        idPrefix: 'window',
+        items: WINDOW_TEMPLATES,
+        labels: { launcher: 'Templates', title: 'Window templates', close: 'Close window templates' },
+        cardDataKey: 'windowTemplate',
+        // Preserve existing selectors used by the window's mobile editor.
+        classes: {
+            launcher: 'window-templates-launcher',
+            panel: 'window-templates-popover',
+            header: 'window-templates-popover__header',
+            close: 'window-templates-popover__close',
+            grid: 'window-templates-grid',
+            card: 'window-template-card',
+            imageWrap: 'window-template-card__image-wrap',
+            image: 'window-template-card__image',
+            copy: 'window-template-card__copy',
+        },
+        onSelect: applyTemplate,
+        onError(error) { console.error('Could not apply window template:', error); },
     });
-    observer.observe(document.body, { childList: true, subtree: true });
 
-    window.addEventListener('resize', positionElements, { passive: true });
-    window.addEventListener('scroll', positionElements, { passive: true });
-
-    const sidebarObserver = new MutationObserver(() => {
-        if (!isPhoneUi()) return;
-
-        // A translated sidebar used to leave the document horizontally scrolled
-        // after collapsing on mobile. Keep the visual viewport pinned to x=0 so
-        // the shared top-bar actions and the sidebar reopen button cannot drift
-        // outside the screen even while the close animation is running.
-        document.documentElement.scrollLeft = 0;
-        document.body.scrollLeft = 0;
-        requestAnimationFrame(() => {
+    if (!sidebarObserver) {
+        sidebarObserver = new MutationObserver(() => {
+            if (!window.matchMedia('(max-width: 760px)').matches) return;
             document.documentElement.scrollLeft = 0;
             document.body.scrollLeft = 0;
+            requestAnimationFrame(() => {
+                document.documentElement.scrollLeft = 0;
+                document.body.scrollLeft = 0;
+            });
+            if (document.body.classList.contains('sidebar-is-collapsed')) return;
+            menu?.close();
+            const tools = document.querySelector('.shared-ui-host [data-action="toggle-tools"]');
+            if (tools?.getAttribute('aria-expanded') === 'true') tools.click();
         });
-
-        if (document.body.classList.contains('sidebar-is-collapsed')) return;
-        closePopover();
-        closeToolsMenu();
-    });
-    sidebarObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-    document.addEventListener('click', event => {
-        if (!event.target.closest('.shared-ui-host [data-shared-tools] > .tool-launcher[data-action="toggle-tools"]')) return;
-        closePopover();
-    }, true);
-
-    document.addEventListener('pointerdown', event => {
-        const launcher = document.getElementById(LAUNCHER_ID);
-        const popover = document.getElementById(POPOVER_ID);
-        if (!popover || popover.hidden) return;
-        if (launcher?.contains(event.target) || popover.contains(event.target)) return;
-        closePopover();
-    }, true);
-    document.addEventListener('keydown', event => {
-        if (event.key !== 'Escape') return;
-        const popover = document.getElementById(POPOVER_ID);
-        if (!popover || popover.hidden) return;
-        closePopover();
-        document.getElementById(LAUNCHER_ID)?.focus({ preventScroll: true });
-    });
-
-    return { close: closePopover, reposition: positionElements };
+        sidebarObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
+    return menu;
 }

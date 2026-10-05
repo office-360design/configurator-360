@@ -92,13 +92,13 @@
       <section class="accordion-section" data-accordion="openings">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.openings">Openings</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
-          <p class="opening-help" data-hall-i18n="openings.help">Add an opening, move the pointer over any wall and click to place it. After placement, drag openings between all four walls or resize them from their borders and selection handles.</p>
+          <p class="opening-help" data-hall-i18n="openings.help">Add an opening, move the pointer over any wall and click to place it. Double-click a placed door or window to select it, then drag it or use its handles to resize it. Drag over unselected components to rotate the view.</p>
           <div class="opening-add-grid">
             <button type="button" class="opening-add-button" data-add-opening="personnel"><span>＋</span><b data-hall-i18n="openings.add.personnel">Add human door</b></button>
             <button type="button" class="opening-add-button" data-add-opening="garage"><span>＋</span><b data-hall-i18n="openings.add.garage">Add garage door</b></button>
             <button type="button" class="opening-add-button" data-add-opening="window"><span>＋</span><b data-hall-i18n="openings.add.window">Add window</b></button>
           </div>
-          <div class="opening-status" id="openingStatusText" data-hall-i18n="openings.selectPrompt">Select an opening in the model to edit it.</div>
+          <div class="opening-status" id="openingStatusText" data-hall-i18n="openings.selectPrompt">Double-click a door or window in the model to edit it.</div>
         </div>
       </section>
 
@@ -206,8 +206,8 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton" data-hall-i18n="bom.export">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-hall-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=tenant-branding-1"></script>
-  <script type="module" src="./js/app.js?v=tenant-domains-1"></script>
+  <script type="module" src="./js/sharedShell.js?v=hall-fixes-1"></script>
+  <script type="module" src="./js/app.js?v=hall-fixes-1"></script>
 </body>
 </html>
 

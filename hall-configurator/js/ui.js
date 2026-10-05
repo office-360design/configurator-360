@@ -3,7 +3,7 @@ import { buildBom, bomToCsv } from './bom.js?v=platform-18';
 import { estimateHallPrice, formatPrice } from './pricing.js?v=platform-18';
 import { normalizeOpening, normalizeOpenings, openingType, validateOpenings } from './openings.js?v=platform-18';
 import { getHeaProfile } from './heaProfiles.js?v=platform-18';
-import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=platform-18';
+import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-fixes-1';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,
