@@ -1,9 +1,9 @@
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
-import { validateSheetProfile } from './sheetPlanner.js?v=navigation-31';
+import { validateSheetProfile } from './sheetPlanner.js?v=navigation-32';
 import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import { state, pitchRules, roofNames } from './state.js?v=layout-21';
-import { RoofScene } from './scene.js?v=navigation-31';
-import { RoofUI } from './ui.js?v=navigation-31';
+import { RoofScene } from './scene.js?v=navigation-32';
+import { RoofUI } from './ui.js?v=navigation-32';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
@@ -11,7 +11,7 @@ import {
   resolveCurrencyRate,
 } from './preferences.js?v=platform-18';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=navigation-31';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=navigation-32';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 await requireTenantConfiguratorAccess('roof');
