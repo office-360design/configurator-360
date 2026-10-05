@@ -1,17 +1,29 @@
-import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-agri-1';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-commercial-1';
 
+import { COMMERCIAL_DEFAULTS } from './commercial.js?v=hall-commercial-1';
+
+export const COMMERCIAL_TEMPLATE_ID = 'commercial-showroom';
 export const AGRICULTURAL_TEMPLATE_ID = 'agricultural-daylight';
 export const HALL_TEMPLATES = Object.freeze([Object.freeze({
   id: AGRICULTURAL_TEMPLATE_ID,
   nameKey: 'templates.agricultural.name',
+  copyPrefix: 'templates.agricultural',
+  features: ['dimensions', 'windows', 'access', 'ventilation', 'services', 'finish'],
   image: new URL('../assets/templates/agricultural-hall.png', import.meta.url).href,
+}), Object.freeze({
+  id: COMMERCIAL_TEMPLATE_ID, nameKey: 'templates.commercial.name',
+  copyPrefix: 'templates.commercial',
+  features: ['dimensions', 'windows', 'access', 'frontage', 'services', 'interior'],
+  image: new URL('../assets/templates/commercial-hall.png', import.meta.url).href,
 })]);
 
 /** Independent editable design defaults, not measurements extracted from Histruct. */
 export function createHallTemplate(id, defaults) {
+  if (id === COMMERCIAL_TEMPLATE_ID) return createCommercialHall(defaults);
   if (id !== AGRICULTURAL_TEMPLATE_ID) throw new RangeError(`Unknown hall template: ${id}`);
   const next = {
     ...structuredClone(defaults),
+    ...COMMERCIAL_DEFAULTS,
     length: 30, width: 18, eaveHeight: 5.5, pitch: 16, targetBaySpacing: 6,
     structurePreset: 'standard', claddingProfile: 'sandwich',
     wallColor: '#d6d9dc', roofColor: '#38594a',
@@ -48,5 +60,42 @@ export function createHallTemplate(id, defaults) {
   delete next.buildingUse;
   normalizeOpenings(next);
   if (!validateOpenings(next, 'en-US').valid) throw new Error('Template openings overlap.');
+  return next;
+}
+
+function createCommercialHall(defaults) {
+  const next = {
+    ...structuredClone(defaults), ...COMMERCIAL_DEFAULTS,
+    length: 18, width: 24, eaveHeight: 4.5, pitch: 8, targetBaySpacing: 6,
+    structurePreset: 'standard', claddingProfile: 'sandwich',
+    wallColor: '#f2f3f4', roofColor: '#36424b', secondaryStructure: true, slab: true,
+    climateSystem: 'comfort', highBayLighting: true, lightingStyle: 'linear-retail',
+    fireSprinklers: false, roofSkylights: false, gutters: true,
+    entranceCanopy: true, facadeSign: true, customerApron: true, retailDisplays: true,
+    signText: 'SHOWROOM', commercialAccent: '#b4663e', wallBracingLayout: 'rear-service', climateUnitLocation: 'rear-service',
+    warehouseRacking: false, forkliftClearance: false,
+    inspectionMode: 'all', serviceVisibility: 'all', serviceCoverage: false,
+    showCladding: true, technicalEdges: false, sectionCutEnabled: false,
+    connectionDetails: false, explode: 0, cameraPreset: 'customer', openings: [],
+  };
+  // Four tall shopfront bays, separated by narrow solid piers around a central entrance.
+  for (const [index, offset] of [-9, -4.5, 4.5, 9].entries()) next.openings.push({
+    id: `commercial-front-glazing-${index + 1}`, type: 'window', subtype: 'shopfront',
+    side: 'front', offset, bottom: .15, width: 4.15, height: 2.8, color: '#acd0d8',
+  });
+  // Keep the rear bay solid for bracing and back-of-house access.
+  for (const side of ['left', 'right']) for (const [index, offset] of [-6, 0].entries()) next.openings.push({
+    id: `commercial-${side}-glazing-${index + 1}`, type: 'window', subtype: 'shopfront',
+    side, offset, bottom: .15, width: 4.8, height: 2.8, color: '#acd0d8',
+  });
+  next.openings.push(
+    { id: 'commercial-main-entrance', type: 'entrance', subtype: 'sliding-glass', side: 'front', offset: 0, bottom: 0, width: 3.6, height: 2.95, color: '#acd0d8', isOpen: false },
+    { id: 'commercial-secondary-entrance', type: 'entrance', subtype: 'double-glass', side: 'back', offset: 0, bottom: 0, width: 1.8, height: 2.5, color: '#acd0d8', isOpen: false },
+    { id: 'commercial-delivery-door', type: 'garage', side: 'back', offset: -6, bottom: 0, width: 3.2, height: 3.2, color: '#66727c' },
+    { id: 'commercial-staff-door', type: 'personnel', side: 'back', offset: 6, bottom: 0, width: 1.1, height: 2.2, color: '#66727c' },
+  );
+  delete next.buildingUse;
+  normalizeOpenings(next);
+  if (!validateOpenings(next, 'en-US').valid) throw new Error('Commercial template openings overlap.');
   return next;
 }

@@ -803,3 +803,12 @@ body.shared-ui-dark-mode .opening-editor__sill input { color: #edf5f8; backgroun
   .hall-template-dialog__footer button { flex: 1 1 150px; }
   .hall-template-dialog__image { max-height: 190px; }
 }
+
+/* Optional commercial detail controls, local to the hall. */
+.commercial-sign-input { width: 100%; padding: 12px; border: 1px solid #cad7df; border-radius: 10px; background: #fff; color: #243741; font: inherit; }
+.commercial-accent { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-weight: 700; font-size: 12px; }
+.commercial-accent input { width: 48px; height: 36px; padding: 2px; border: 1px solid #cad7df; border-radius: 8px; background: #fff; }
+.opening-editor__open { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 10px 0; }
+.opening-editor__open[hidden] { display: none; }
+.opening-editor { max-height: calc(100dvh - var(--shared-topbar-height, 47px) - 36px); overflow-y: auto; }
+.is-dark-mode .commercial-sign-input { background: #22313b; color: #eff5f8; border-color: #4f626f; }

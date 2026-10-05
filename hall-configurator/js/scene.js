@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-agri-1';
-import { deriveHallMetrics } from './state.js?v=hall-agri-1';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=hall-agri-1';
-import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-agri-1';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=hall-commercial-1';
+import { deriveHallMetrics } from './state.js?v=hall-commercial-1';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=hall-commercial-1';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=hall-commercial-1';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -1051,6 +1051,8 @@ export class HallScene {
     const openings = get('openings');
     const services = get('building-services');
     const planning = get('warehouse-planning');
+    const frontage = get('commercial-frontage');
+    const retail = get('retail-fitout');
 
     const mode = state.inspectionMode ?? 'all';
     if (primary) primary.visible = mode === 'all' || mode === 'primary' || mode === 'secondary' || mode === 'connections' || mode === 'foundations';
@@ -1059,6 +1061,8 @@ export class HallScene {
     if (foundation) foundation.visible = mode === 'all' || mode === 'foundations';
     if (envelope) envelope.visible = state.showCladding && (mode === 'all' || mode === 'envelope');
     if (openings) openings.visible = mode === 'all' || mode === 'envelope';
+    if (frontage) frontage.visible = mode === 'all' || mode === 'envelope';
+    if (retail) retail.visible = mode === 'all';
     if (services) services.visible = mode === 'all' || mode === 'services';
     if (planning) planning.visible = (mode === 'all' || mode === 'services') && (state.warehouseRacking || state.forkliftClearance);
 
@@ -1142,9 +1146,32 @@ export class HallScene {
   }
 
   fitCamera(state, metrics) {
+    if (state.cameraPreset === 'customer' && this.currentBuild?.root) {
+      // Fit the real commercial geometry (including canopy/forecourt) from the
+      // customer side. A fixed distance can crop a wide shopfront on phones.
+      this.currentBuild.root.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(this.currentBuild.root);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const towardCamera = new THREE.Vector3(.85, .42, -1.20).normalize();
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), towardCamera).normalize();
+      const up = new THREE.Vector3().crossVectors(towardCamera, right).normalize();
+      const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+      const tanH = tanV * this.camera.aspect;
+      let distance = 1;
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+        const q = new THREE.Vector3(x, y, z).sub(center);
+        distance = Math.max(distance, q.dot(towardCamera) + Math.max(Math.abs(q.dot(right)) / tanH, Math.abs(q.dot(up)) / tanV));
+      }
+      distance *= 1.12;
+      this.controls.target.copy(center);
+      this.camera.position.copy(center).addScaledVector(towardCamera, distance);
+      this.camera.near = .1; this.camera.far = Math.max(300, distance * 8);
+      this.camera.updateProjectionMatrix(); this.controls.update();
+      return;
+    }
     const radius = Math.max(state.length, state.width, metrics.ridgeElevation) * .72;
     this.controls.target.set(0, Math.max(2, state.eaveHeight * .48), 0);
-    this.camera.position.set(radius * .88, radius * .62, radius * 1.12);
+    this.camera.position.set(radius * .88, radius * .62, radius * 1.12 * (state.cameraPreset === 'customer' ? -1 : 1));
     this.camera.near = .1;
     this.camera.far = Math.max(300, radius * 8);
     this.camera.updateProjectionMatrix();
@@ -1155,7 +1182,8 @@ export class HallScene {
     const span = Math.max(state.length, state.width, metrics.ridgeElevation);
     const target = new THREE.Vector3(0, state.eaveHeight * .48, 0);
     this.controls.target.copy(target);
-    if (view === 'front') this.camera.position.set(0, state.eaveHeight * .62, -span * 1.45);
+    if (view === 'customer') { this.fitCamera({ ...state, cameraPreset: 'customer' }, metrics); return; }
+    else if (view === 'front') this.camera.position.set(0, state.eaveHeight * .62, -span * 1.45);
     else if (view === 'side') this.camera.position.set(span * 1.35, state.eaveHeight * .62, 0);
     else if (view === 'top') this.camera.position.set(0, span * 1.85, .001);
     else this.camera.position.set(span * .78, span * .55, span * 1.02);

@@ -1,4 +1,4 @@
-import { hallT } from './i18n.js?v=hall-agri-1';
+import { hallT } from './i18n.js?v=hall-commercial-1';
 
 /** Hall-only preview/confirmation. The shared optional Templates menu is unchanged. */
 export function createHallTemplateDialog({ getLocale, applyTemplate, onApplied = null }) {
@@ -27,12 +27,12 @@ export function createHallTemplateDialog({ getLocale, applyTemplate, onApplied =
     q('#hall-template-preview-title').textContent = t(selected.nameKey);
     q('[data-template-close]').setAttribute('aria-label', t('templates.close'));
     q('[data-template-image]').src = selected.image;
-    q('[data-template-image]').alt = t('templates.previewAlt');
-    q('[data-template-intro]').textContent = t('templates.agricultural.intro');
-    q('[data-template-features]').replaceChildren(...['dimensions', 'windows', 'access', 'ventilation', 'services', 'finish'].map((key) => {
-      const li = document.createElement('li'); li.textContent = t(`templates.agricultural.${key}`); return li;
+    q('[data-template-image]').alt = t(`${selected.copyPrefix}.previewAlt`);
+    q('[data-template-intro]').textContent = t(`${selected.copyPrefix}.intro`);
+    q('[data-template-features]').replaceChildren(...selected.features.map((key) => {
+      const li = document.createElement('li'); li.textContent = t(`${selected.copyPrefix}.${key}`); return li;
     }));
-    q('[data-template-note]').textContent = t('templates.designNote');
+    q('[data-template-note]').textContent = t(selected.copyPrefix === 'templates.commercial' ? 'templates.commercial.designNote' : 'templates.designNote');
     q('[data-template-warning]').textContent = t('templates.replaceWarning');
     q('[data-template-cancel]').textContent = t('templates.cancel');
     q('[data-template-apply]').textContent = t(busy ? 'templates.loading' : 'templates.apply');

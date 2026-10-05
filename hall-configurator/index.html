@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-1" />
-  <link rel="stylesheet" href="./styles.css?v=hall-agri-1" />
+  <link rel="stylesheet" href="./styles.css?v=hall-commercial-1" />
   <script type="importmap">
     {
       "imports": {
@@ -95,6 +95,7 @@
           <p class="opening-help" data-hall-i18n="openings.help">Add an opening, move the pointer over any wall and click to place it. Double-click a placed door or window to select it, then drag it or use its handles to resize it. Drag over unselected components to rotate the view.</p>
           <div class="opening-add-grid">
             <button type="button" class="opening-add-button" data-add-opening="personnel"><span>＋</span><b data-hall-i18n="openings.add.personnel">Add human door</b></button>
+            <button type="button" class="opening-add-button" data-add-opening="entrance"><span>＋</span><b data-hall-i18n="openings.add.entrance">Add glazed entrance</b></button>
             <button type="button" class="opening-add-button" data-add-opening="garage"><span>＋</span><b data-hall-i18n="openings.add.garage">Add garage door</b></button>
             <button type="button" class="opening-add-button" data-add-opening="window"><span>＋</span><b data-hall-i18n="openings.add.window">Add window</b></button>
             <button type="button" class="opening-add-button" data-add-opening="vent"><span>＋</span><b data-hall-i18n="openings.add.vent">Add ventilation grille</b></button>
@@ -103,11 +104,31 @@
         </div>
       </section>
 
+      <section class="accordion-section" data-accordion="commercial">
+        <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.commercial">Shopfront & retail</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" hidden>
+          <p class="opening-help" data-hall-i18n="commercial.help">Optional retail details, independent of the template. The canopy follows the first glazed entrance on the front wall.</p>
+          <div class="toggle-stack">
+            <label class="toggle-row"><span><b data-hall-i18n="commercial.canopy">Entrance canopy</b><small data-hall-i18n="commercial.canopyHelp">Slim 8 × 1.8 m canopy, scaled to narrower halls</small></span><input id="entranceCanopyToggle" type="checkbox" /><i></i></label>
+            <label class="toggle-row"><span><b data-hall-i18n="commercial.sign">Front fascia sign</b><small data-hall-i18n="commercial.signHelp">A horizontal brand panel above the shopfront</small></span><input id="facadeSignToggle" type="checkbox" /><i></i></label>
+            <label class="toggle-row"><span><b data-hall-i18n="commercial.apron">Customer forecourt</b><small data-hall-i18n="commercial.apronHelp">A 3 m-deep paved approach, gently sloped to the slab</small></span><input id="customerApronToggle" type="checkbox" /><i></i></label>
+            <label class="toggle-row"><span><b data-hall-i18n="commercial.displays">Retail display layout</b><small data-hall-i18n="commercial.displaysHelp">Four low display islands and a checkout counter; no warehouse racking</small></span><input id="retailDisplaysToggle" type="checkbox" /><i></i></label>
+          </div>
+          <label class="select-label" for="wallBracingLayout" data-hall-i18n="commercial.bracing">Wall-bracing concept</label><select id="wallBracingLayout"><option value="end-bays" data-hall-i18n="bracing.endBays">Both end bays</option><option value="rear-service" data-hall-i18n="bracing.rearService">Rear service bay</option></select>
+          <label class="select-label" for="hallSignText" data-hall-i18n="commercial.signText">Sign text</label><input class="commercial-sign-input" id="hallSignText" type="text" maxlength="40" value="SHOWROOM" />
+          <label class="commercial-accent"><span data-hall-i18n="commercial.accent">Sign & canopy accent</span><input id="hallCommercialAccent" type="color" value="#b4663e" /></label>
+          <p class="service-note" id="commercialClearanceNote" hidden data-hall-i18n="commercial.clearanceNote">There is not enough space above the front openings for the canopy or sign. Increase the eave height or lower the openings. Items that do not fit are omitted from the model and estimate.</p>
+          <p class="opening-help" data-hall-i18n="commercial.conceptNote">Concept fittings and indicative pricing only. Access, safety glazing, supports and service capacities require project-specific design.</p>
+        </div>
+      </section>
+
       <section class="accordion-section" data-accordion="services">
         <button class="accordion-toggle" type="button" aria-expanded="false"><span data-hall-i18n="section.services">Building services</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" hidden>
           <label class="select-label" for="climateSystem" data-hall-i18n="services.climate">Climate system</label>
           <select id="climateSystem"><option value="none" data-hall-i18n="climate.none">No active climate system</option><option value="comfort" data-hall-i18n="climate.comfort">Comfort heating / cooling</option><option value="chilled" data-hall-i18n="climate.chilled">Chilled storage · +2 to +8 °C</option><option value="frozen" data-hall-i18n="climate.frozen">Frozen storage · around -20 °C</option></select>
+          <label class="select-label" for="climateUnitLocation" data-hall-i18n="services.unitLocation">External unit layout</label><select id="climateUnitLocation"><option value="along-side" data-hall-i18n="climateLocation.side">Along sidewall</option><option value="rear-service" data-hall-i18n="climateLocation.rear">Rear service bay</option></select>
+          <label class="select-label" for="lightingStyle" data-hall-i18n="services.lightingStyle">Luminaire style</label><select id="lightingStyle"><option value="high-bay" data-hall-i18n="lighting.highBay">High-bay LED</option><option value="linear-retail" data-hall-i18n="lighting.linearRetail">Linear retail LED</option></select>
           <div class="service-note" id="climateNote">General warehouse envelope with no active refrigeration package.</div>
           <div class="toggle-stack"><label class="toggle-row"><span><b data-hall-i18n="services.lighting">High-bay LED lighting</b><small data-hall-i18n="services.lightingHelp">Suspended industrial luminaires inside the hall</small></span><input id="highBayLightingToggle" type="checkbox" checked /><i></i></label><label class="toggle-row"><span><b data-hall-i18n="services.sprinklers">Fire sprinkler network</b><small data-hall-i18n="services.sprinklersHelp">Indicative ceiling pipe grid and sprinkler heads</small></span><input id="fireSprinklersToggle" type="checkbox" /><i></i></label></div>
         </div>
@@ -186,7 +207,9 @@
   <section class="opening-editor" id="openingEditor" hidden aria-label="Selected opening editor" data-hall-i18n-aria-label="editor.aria">
     <div class="opening-editor__header"><div><small id="openingEditorSide">Front wall</small><strong id="openingEditorTitle">Window</strong></div><button type="button" id="openingDeleteButton" class="opening-delete-button" aria-label="Delete selected opening" title="Delete" data-hall-i18n-aria-label="editor.deleteAria" data-hall-i18n-title="editor.delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button></div>
     <label class="opening-editor__side"><span data-hall-i18n="editor.wall">Wall</span><select id="openingSideSelect"><option value="front" data-hall-i18n="wall.front">Front</option><option value="right" data-hall-i18n="wall.right">Right</option><option value="back" data-hall-i18n="wall.back">Back</option><option value="left" data-hall-i18n="wall.left">Left</option></select></label>
-    <label class="opening-editor__side" id="openingWindowSubtypeRow" hidden><span data-hall-i18n="editor.windowSubtype">Window style</span><select id="openingWindowSubtype"><option value="standard" data-hall-i18n="window.standard">Standard window</option><option value="daylight-band" data-hall-i18n="window.daylightBand">Daylight band</option></select></label>
+    <label class="opening-editor__side" id="openingWindowSubtypeRow" hidden><span data-hall-i18n="editor.windowSubtype">Window style</span><select id="openingWindowSubtype"><option value="standard" data-hall-i18n="window.standard">Standard window</option><option value="daylight-band" data-hall-i18n="window.daylightBand">Daylight band</option><option value="shopfront" data-hall-i18n="window.shopfront">Shopfront glazing</option></select></label>
+    <label class="opening-editor__side" id="openingEntranceSubtypeRow" hidden><span data-hall-i18n="editor.entranceSubtype">Entrance style</span><select id="openingEntranceSubtype"><option value="sliding-glass" data-hall-i18n="entrance.slidingGlass">Automatic sliding glass entrance</option><option value="double-glass" data-hall-i18n="entrance.doubleGlass">Double hinged glass entrance</option></select></label>
+    <label class="opening-editor__open" id="openingEntranceOpenRow" hidden><input type="checkbox" id="openingEntranceOpen" /><span data-hall-i18n="editor.entranceOpen">Preview doors open</span></label>
     <div class="opening-editor__dimensions"><label><span data-hall-i18n="editor.width">Width</span><div><input id="openingWidthInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label><label><span data-hall-i18n="editor.height">Height</span><div><input id="openingHeightInput" type="number" min="0.5" step="0.05" /><em>m</em></div></label></div>
     <label class="opening-editor__sill"><span data-hall-i18n="editor.bottom">Height above floor</span><div><input id="openingBottomInput" type="number" min="0" step="0.05" /><em>m</em></div></label>
     <label class="opening-editor__color"><span data-hall-i18n="editor.colour">Colour</span><input id="openingColorInput" type="color" /></label>
@@ -207,8 +230,8 @@
     <footer class="bom-footer"><button type="button" class="secondary-action" id="bomExportButton" data-hall-i18n="bom.export">Export CSV</button><button type="button" class="primary-action" id="bomDoneButton" data-hall-i18n="bom.done">Done</button></footer>
   </dialog>
 
-  <script type="module" src="./js/sharedShell.js?v=hall-agri-1"></script>
-  <script type="module" src="./js/app.js?v=hall-agri-1"></script>
+  <script type="module" src="./js/sharedShell.js?v=hall-commercial-1"></script>
+  <script type="module" src="./js/app.js?v=hall-commercial-1"></script>
 </body>
 </html>
 
