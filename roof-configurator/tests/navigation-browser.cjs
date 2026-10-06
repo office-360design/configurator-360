@@ -64,11 +64,34 @@ const fs = require('node:fs/promises');
   await page.locator('[data-action=undo]').click();
   assert.equal(await page.evaluate(() => JSON.stringify(editor.layout)),original);
   await clickTool(page,'draw');
-  const drawAt = await screen(3,2);
+  assert.deepEqual(await page.evaluate(() => editor.path), [{x:0,z:0}]);
+  await page.keyboard.press('Backspace');
+  assert.deepEqual(await page.evaluate(() => editor.path), [{x:0,z:0}]);
+  await clickTool(page, 'axes');
+  assert.equal(await page.locator('.layout-axes').count(), 0);
+  await clickTool(page, 'axes');
+  assert.equal(await page.locator('.layout-axes').count(), 1);
+  const drawAt = await screen(3,-2);
   await page.mouse.click(drawAt.x,drawAt.y);
-  assert.equal(await page.evaluate(() => editor.path.length),1);
+  assert.equal(await page.evaluate(() => editor.path.length),2);
   await page.mouse.wheel(0,-100);
-  assert.equal(await page.evaluate(() => editor.path.length),1);
+  assert.equal(await page.evaluate(() => editor.path.length),2);
+  await page.evaluate(() => {
+    editor.path = [{x:0,z:0},{x:8,z:0},{x:8,z:-6},{x:0,z:-6}];
+    editor.action('finish');
+  });
+  assert.ok(await page.evaluate(() => editor.layout.vertices.some(p => p.x === 0 && p.z === 0)));
+  for (const roofType of ['gable', 'shed', 'hip', 'dormer']) {
+    const result = await page.evaluate(roofType => {
+      editor.dialog.close();
+      Object.assign(state, {roofType, length:10, depth:7, pitch:30, overhang:.45, wallHeight:3});
+      editor.open();
+      return {minX: Math.min(...editor.layout.vertices.map(p => p.x)),
+        maxZ: Math.max(...editor.layout.vertices.map(p => p.z))};
+    }, roofType);
+    assert.deepEqual(result, {minX:0, maxZ:0});
+  }
+  await page.screenshot({path:'/tmp/roof-axes.png'});
   assert.deepEqual(errors,[]);
   await browser.close();
   console.log('PASS right-drag pan, cursor-anchored wheel zoom, unchanged geometry/history, point dragging and drawing');

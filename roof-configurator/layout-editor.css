@@ -298,3 +298,6 @@
   pointer-events: none;
 }
 .layout-feedback-dismiss { pointer-events: auto; }
+
+.layout-axes line { stroke: #475569; stroke-width: 1.5; stroke-dasharray: 7 4; }
+.layout-drawing .layout-axes text { font: 600 13px system-ui; fill: #334155; }
