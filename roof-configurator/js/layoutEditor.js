@@ -1,7 +1,7 @@
-import { setupEditorTouch } from './editorTouch.js?v=touch-40';
+import { setupEditorTouch } from './editorTouch.js?v=mobile-41';
 import { setupEditorToolbar } from './editorToolbar.js?v=axes-36';
 import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
-import { localizeFeature } from './featureI18n.js?v=touch-40';
+import { localizeFeature } from './featureI18n.js?v=mobile-41';
 import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
@@ -68,6 +68,7 @@ export class RoofLayoutEditor {
     };
     this.dialog.innerHTML = `
       <header><div><small>ROOF DESIGN STUDIO</small><h2 id="layoutTitle">Draw your roof</h2></div>
+        <button type="button" class="layout-mobile-properties" aria-expanded="false" aria-controls="layoutProperties">Properties</button>
         <button type="button" data-action="cancel" aria-label="Close layout editor">×</button></header>
       <div class="layout-toolbar" aria-label="Drawing tools">
         <button type="button" data-action="select">Select / move</button>
@@ -111,7 +112,7 @@ export class RoofLayoutEditor {
           <div class="layout-mode-hint"><span id="layoutModeLabel">Select / move</span>
             ${help('Drawing tools', '<span class="layout-help"></span>')}</div>
         </div>
-        <aside aria-label="Roof properties">
+        <aside id="layoutProperties" aria-label="Roof properties">
           <div class="layout-panel-heading">Roof properties
             ${help('Coordinates', 'All coordinates are in metres. Heights are relative to the wall top; negative values place eaves below it. Drag points to move them; Shift-drag changes height.')}</div>
           <fieldset class="layout-dormer" hidden aria-labelledby="dormerTitle">
@@ -215,6 +216,12 @@ export class RoofLayoutEditor {
       // Click also positions the native popover for touch users.
       tip.addEventListener('toggle', () => { if (tip.matches(':popover-open')) show(); });
     });
+    const propertiesButton = this.dialog.querySelector('.layout-mobile-properties');
+    propertiesButton.addEventListener('click', () => {
+      const open = this.dialog.classList.toggle('mobile-properties-open');
+      propertiesButton.setAttribute('aria-expanded', String(open));
+      if (open) this.dialog.querySelector('aside').scrollTop = 0;
+    });
     this.svg = this.dialog.querySelector('svg');
     this.dialog.querySelector('.layout-feedback-dismiss').addEventListener('click', () => this.clearFeedback());
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
@@ -278,6 +285,8 @@ export class RoofLayoutEditor {
   }
 
   open() {
+    this.dialog.classList.remove('mobile-properties-open');
+    this.dialog.querySelector('.layout-mobile-properties').setAttribute('aria-expanded', 'false');
     this.toolbar.close();
     this.windowTool.close();
     this.stopMeet();
