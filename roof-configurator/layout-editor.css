@@ -301,3 +301,22 @@
 
 .layout-axes line { stroke: #475569; stroke-width: 1.5; stroke-dasharray: 7 4; }
 .layout-drawing .layout-axes text { font: 600 13px system-ui; fill: #334155; }
+
+/* Keep mobile chrome compact while giving the plan most of the workspace. */
+@media (max-width: 680px) {
+  .roof-layout-dialog[open] { height:98dvh; max-height:98dvh; border-radius:10px; }
+  .roof-layout-dialog header { padding:6px 10px; }
+  .roof-layout-dialog header small { display:none; }
+  .roof-layout-dialog h2 { font-size:16px; }
+  .roof-layout-dialog header button { min-height:34px; padding:3px 10px; }
+  .layout-toolbar { padding:5px 8px; gap:4px; }
+  .layout-toolbar > button { min-height:34px; font-size:12px; padding:4px; line-height:1.2; }
+  .layout-current-tool { padding:4px 8px; font-size:11px; line-height:1.3; }
+  .layout-drawing { height:58dvh; min-height:320px; }
+  .layout-tool-options, .layout-context-actions { padding:5px 8px; }
+  .layout-tool-options button, .layout-context-actions button { min-height:34px; padding:4px 7px; font-size:12px; }
+  .roof-layout-dialog footer { padding:5px 8px; gap:4px; }
+  .roof-layout-dialog footer button { min-height:34px; padding:4px 9px; font-size:12px; }
+  .layout-status { font-size:11px; line-height:1.2; }
+  .layout-status:empty { display:none; }
+}
