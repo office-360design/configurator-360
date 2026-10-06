@@ -1,7 +1,7 @@
 import { roofWindowGeometry, cutRoofWindows } from './roofWindows.js?v=windows-24';
 import { roofSurfaceGroups, validateLayout, inside } from './roofLayout.js?v=layout-21';
 
-// Dimensions transcribed from the two supplied Rodach catalogue photographs.
+// Dimensions transcribed from the supplied profile reference photographs.
 // End overlap is the inferred length allowance: length - modules * module pitch.
 export const sheetProfiles = {
   antic: { name: '350 mm profile', width: 1130, usefulWidth: 1000, module: 350,
@@ -96,6 +96,39 @@ export function groupSheetLengths(pieces) {
   return [...groups.values()].sort((a, b) => a.length - b.length);
 }
 
+// Partitions replace an automatic sheet section, retaining its coverage and grid.
+export function validateSheetPartition(parts, modules, profile) {
+  const p = validateSheetProfile(profile);
+  if (!Array.isArray(parts) || !parts.length || parts.length > 100 ||
+      parts.some(n => !Number.isInteger(n) || n < p.minModules || n > p.allowedMaxModules)) {
+    throw new Error('Each partition must use whole module counts within the profile limits.');
+  }
+  if (parts.reduce((sum, n) => sum + n, 0) !== modules) {
+    throw new Error('The partition must add up to the original module count.');
+  }
+  return parts;
+}
+
+export function partitionTargets(plan, baseId, scope) {
+  const columns = plan.slopes.flatMap(slope => {
+    const byColumn = new Map();
+    for (const piece of slope.pieces) {
+      if (!byColumn.has(piece.column)) byColumn.set(piece.column, new Map());
+      byColumn.get(piece.column).set(piece.baseId, piece);
+    }
+    return [...byColumn.values()].map(sections => ({ slope: slope.id, sections: [...sections.values()] }));
+  });
+  const selectedColumn = columns.find(column => column.sections.some(p => p.baseId === baseId));
+  if (!selectedColumn) throw new Error('Select a column section first.');
+  if (scope === 'column') return [baseId];
+  const sectionIndex = selectedColumn.sections.findIndex(p => p.baseId === baseId);
+  const signature = column => column.sections.map(p => p.baseModules).join('+');
+  // Match the original full column partition, then replace the corresponding
+  // section only. Two equal sections in one long column remain independent.
+  return columns.filter(column => (scope === 'global' || column.slope === selectedColumn.slope) &&
+    signature(column) === signature(selectedColumn)).map(column => column.sections[sectionIndex].baseId);
+}
+
 export function planRoofSheets(layout, profile, settings = {}) {
   validateLayout(layout);
   const windows = roofWindowGeometry(layout);
@@ -155,22 +188,27 @@ export function planRoofSheets(layout, profile, settings = {}) {
           last[1] = last[0] + Math.max(count, Math.ceil(count / p.allowedMaxModules) * p.minModules) * module;
         } else alignedRuns.push([low, high]);
       });
-      let segment = 0;
+      let segment = 0, baseSegment = 0;
       for (const [start, end] of alignedRuns) {
         let y = start;
         while (y < end - 1e-8) {
           const remaining = Math.round((end - y) / module);
           const sheetsLeft = Math.ceil(remaining / p.allowedMaxModules);
-          const modules = Math.min(p.allowedMaxModules, remaining - (sheetsLeft - 1) * p.minModules);
-          const coverageLength = modules * module;
-          const cuts = clipped.map(poly => clip(clip(poly, 'y', y, 1), 'y', y + coverageLength, -1))
-            .filter(poly => poly.length >= 3 && area(poly) > 1e-10);
-          pieces.push({ id: `${slopeLetter(index)}-${column + 1}.${++segment}`, column: column + 1,
-            modules, length: modules * p.module + p.endOverlap, x: left, y,
-            stockX: reverse ? left - (p.width - p.usefulWidth) / 1000 : left,
-            coverageLength, polygons: cuts, netArea: cuts.reduce((sum, poly) => sum + area(poly), 0) });
-          y += coverageLength;
-          if (++pieceCount > 10000) throw new Error('Too many pieces. Increase the sheet dimensions.');
+          const baseModules = Math.min(p.allowedMaxModules, remaining - (sheetsLeft - 1) * p.minModules);
+          const baseId = `${slopeLetter(index)}-${column + 1}.${++baseSegment}`;
+          const parts = settings.partitions?.[baseId] || [baseModules];
+          validateSheetPartition(parts, baseModules, p);
+          for (const modules of parts) {
+            const coverageLength = modules * module;
+            const cuts = clipped.map(poly => clip(clip(poly, 'y', y, 1), 'y', y + coverageLength, -1))
+              .filter(poly => poly.length >= 3 && area(poly) > 1e-10);
+            pieces.push({ id: `${slopeLetter(index)}-${column + 1}.${++segment}`, column: column + 1,
+              baseId, baseModules, modules, length: modules * p.module + p.endOverlap, x: left, y,
+              stockX: reverse ? left - (p.width - p.usefulWidth) / 1000 : left,
+              coverageLength, polygons: cuts, netArea: cuts.reduce((sum, poly) => sum + area(poly), 0) });
+            y += coverageLength;
+            if (++pieceCount > 10000) throw new Error('Too many pieces. Increase the sheet dimensions.');
+          }
         }
       }
     }

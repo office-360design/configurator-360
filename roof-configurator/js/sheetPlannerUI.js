@@ -1,5 +1,6 @@
-import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=navigation-32';
-import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=navigation-32';
+import { SheetPartitionUI } from './sheetPartitionUI.js?v=partition-37';
+import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=partition-37';
+import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=partition-37';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 import { defaultLayout } from './roofLayout.js?v=layout-21';
 
@@ -19,7 +20,7 @@ const lengthTable = (groups, locale) => table([
   ...groups.map(g => [formatNumber(g.length, locale), g.modules, g.count, g.ids.join(', ')]),
 ]);
 
-export function slopeDiagram(slope, profile, locale = 'en-US') {
+export function slopeDiagram(slope, profile, locale = 'en-US', interactive = false) {
   const pad = Math.max(slope.width, slope.height, 1) * 0.09;
   const stockTop = Math.max(slope.height, ...slope.pieces.map(p => p.y + p.length / 1000));
   const side = profile.width / 1000;
@@ -27,10 +28,10 @@ export function slopeDiagram(slope, profile, locale = 'en-US') {
   const maxX = Math.max(slope.width, ...slope.pieces.map(p => p.stockX + side));
   const font = Math.max(0.06, Math.min(0.22, profile.usefulWidth / 1000 * 0.22));
   return `<svg class="sheet-diagram" viewBox="${minX - pad} ${-stockTop - pad} ${maxX - minX + 2 * pad} ${stockTop + 2.5 * pad}" role="img" aria-label="Unfolded cutting plan for slope ${slope.id}">
-    ${slope.pieces.map((piece, i) => `<g>
+    ${slope.pieces.map((piece, i) => `<g ${interactive ? `data-piece-base="${piece.baseId}"` : ''}>
       <rect x="${piece.stockX}" y="${-piece.y - piece.length / 1000}" width="${side}" height="${piece.length / 1000}" fill="none" stroke="#94a3b8" stroke-width=".012" stroke-dasharray=".06 .04"/>
       <path d="${piece.polygons.map(poly => polygonPath(poly.map(p => ({ x: p.x, y: -p.y })))).join(' ')}" fill="${i % 2 ? '#bfdbfe' : '#dbeafe'}"/>
-      <rect x="${piece.x}" y="${-piece.y - piece.coverageLength}" width="${profile.usefulWidth / 1000}" height="${piece.coverageLength}" fill="none" stroke="#2563eb" stroke-width=".014"/>
+      <rect x="${piece.x}" y="${-piece.y - piece.coverageLength}" width="${profile.usefulWidth / 1000}" height="${piece.coverageLength}" fill="transparent" stroke="#2563eb" stroke-width=".014"/>
       <text x="${piece.x + profile.usefulWidth / 2000}" y="${-piece.y - piece.coverageLength / 2}" font-size="${font}" text-anchor="middle" fill="#12345a" paint-order="stroke" stroke="white" stroke-width=".035">${piece.id}<tspan x="${piece.x + profile.usefulWidth / 2000}" dy="${font * 1.3}">${(piece.length / 1000).toLocaleString(featureLocale(locale), { maximumFractionDigits: 3 })} m</tspan></text>
       <title>${piece.id}: ${piece.modules} modules, ${piece.length} mm stock length</title>
     </g>`).join('')}
@@ -99,6 +100,7 @@ export class SheetPlannerUI {
     });
     this.form = this.dialog.querySelector('form');
     this.output = this.dialog.querySelector('.sheet-output');
+    this.partitionUI = new SheetPartitionUI(this);
     this.form.elements.preset.addEventListener('change', () => {
       const preset = sheetProfiles[this.form.elements.preset.value];
       if (preset) this.setFields(preset);
@@ -157,7 +159,7 @@ export class SheetPlannerUI {
 
   buttons(enabled) {
     ['csv', 'print'].forEach(action => { this.dialog.querySelector(`[data-sheet="${action}"]`).disabled = !enabled; });
-    this.output.querySelectorAll('[data-slope-svg]').forEach(button => { button.disabled = !enabled; });
+    this.output.querySelectorAll('[data-slope-svg], .sheet-partition input, .sheet-partition select, .sheet-partition button').forEach(button => { button.disabled = !enabled; });
   }
 
   generate() {
@@ -171,9 +173,16 @@ export class SheetPlannerUI {
       profile.name = sheetProfiles[this.form.elements.preset.value]?.name || 'Custom profile';
       const settings = { direction: this.form.elements.direction.value, offset: Number(this.form.elements.offset.value || 0) };
       const layout = this.state.roofType === 'layout' ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state);
+      const partitionContext = JSON.stringify([layout, profile, settings]);
+      const saved = this.state.sheetPlanOptions;
+      const partitionsReset = Object.keys(saved?.partitions || {}).length > 0 && saved.partitionContext !== partitionContext;
+      if (saved?.partitionContext === partitionContext) settings.partitions = saved.partitions;
       this.plan = planRoofSheets(layout, profile, settings);
+      this.planLayout = structuredClone(layout);
+      this.planSettings = settings;
+      this.partitionsReset = partitionsReset;
       this.planProfileNote = this.profileNote;
-      this.state.sheetPlanOptions = { preset: this.form.elements.preset.value, profile, ...settings };
+      this.state.sheetPlanOptions = { preset: this.form.elements.preset.value, profile, ...settings, partitionContext };
       this.render();
       this.stale = false;
       this.dialog.querySelector('.sheet-actions').classList.remove('needs-update');
@@ -192,6 +201,23 @@ export class SheetPlannerUI {
     }
   }
 
+  applyPartitions(partitions) {
+    const settings = { ...this.planSettings, partitions };
+    const next = planRoofSheets(this.planLayout, this.plan.profile, settings);
+    const scroll = this.output.scrollTop;
+    const workspace = this.dialog.querySelector('.sheet-workspace');
+    const mobileScroll = workspace.scrollTop;
+    this.plan = next;
+    this.planSettings = settings;
+    this.state.sheetPlanOptions.partitions = partitions;
+    this.partitionsReset = false;
+    this.render();
+    this.buttons(true);
+    this.output.scrollTop = scroll;
+    workspace.scrollTop = mobileScroll;
+    this.dialog.querySelector('.sheet-status').textContent = `${next.slopes.length} slopes · ${next.totals.count} sheets`;
+  }
+
   render() {
     const { profile, totals, slopes, groups } = this.plan;
     const number = value => formatNumber(value, this.state.locale);
@@ -199,19 +225,20 @@ export class SheetPlannerUI {
       ['Order area', `${number(totals.stockArea)} m²`], ['Cut allowance', `${number(totals.cutArea)} m²`],
       ['Overlap / end allowance', `${number(totals.overlapArea)} m²`], ['Total sheet length', `${number(totals.linearMetres)} m`],
       ['Estimated weight', `${number(totals.weight)} kg`]];
-    this.output.innerHTML = `<section class="sheet-report-summary"><h2>${escape(profile.name)} · Cutting plan</h2>
+    this.output.innerHTML = `<section class="sheet-report-summary">${this.partitionsReset ? '<p class="sheet-warning">Custom partitions were reset because the roof or profile settings changed.</p>' : ''}<h2>${escape(profile.name)} · Cutting plan</h2>
       <p>${profile.width} mm total / ${profile.usefulWidth} mm usable width · ${profile.module} mm module · ${profile.endOverlap} mm end allowance · ${profile.minModules}–${profile.allowedMaxModules} modules/sheet</p><p>Start: ${slopes[0].reverse ? 'right to left' : 'left to right'} · Offset: ${number(slopes[0].offset)} mm</p>
       <div class="sheet-stats">${stats.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join('')}</div>
       ${overview(this.plan)}<p>Plan view: letters identify connected coplanar slopes, combining subdivisions from the editor. Roof area includes the roof edges as drawn (including overhangs); vertical closing walls are excluded.</p>
       <p>Order area includes all rectangular sheets. Cut allowance is unused effective coverage; overlap / end allowance includes side laps and extra sheet length. Neither assumes offcut reuse. Weight uses the listed kg/m² against order area.</p>
       ${profile.allowedMaxModules < profile.maxModules ? '<p class="sheet-warning">Maximum module count reduced to respect the maximum physical sheet length.</p>' : ''}
       <p class="sheet-warning">${escape(this.planProfileNote)}</p></section>
-      ${slopes.map((slope, index) => `<section class="sheet-slope"><h2>Slope ${slope.id}</h2><button type="button" data-slope-svg="${index}">Download diagram (SVG)</button><p>${number(slope.netArea)} m² · ${number(slope.pitch)}° pitch · ${slope.pieces.length} sheets · ${slope.columns} columns · ${number(slope.stockArea)} m² order area</p>
+      ${slopes.map((slope, index) => `<section class="sheet-slope" data-plan-slope="${index}"><h2>Slope ${slope.id}</h2><button type="button" data-slope-svg="${index}">Download diagram (SVG)</button><p>${number(slope.netArea)} m² · ${number(slope.pitch)}° pitch · ${slope.pieces.length} sheets · ${slope.columns} columns · ${number(slope.stockArea)} m² order area</p>
         ${slope.warnings.map(w => `<p class="sheet-warning">${escape(w)}</p>`).join('')}
-        ${slopeDiagram(slope, profile, this.state.locale)}<p class="sheet-legend">Black: roof cut line · Blue: usable sheet area · Dashed: full ordered sheet · ↑ Uphill installation start</p>
+        ${this.partitionUI.markup(slope, index)}${slopeDiagram(slope, profile, this.state.locale, true)}<p class="sheet-legend">Black: roof cut line · Blue: usable sheet area · Dashed: full ordered sheet · ↑ Uphill installation start</p>
         ${lengthTable(slope.groups, this.state.locale)}<p>Dimensions follow the actual slope, not its horizontal projection. Piece IDs are slope–column.segment, counted from the selected start side and from eave to ridge.</p></section>`).join('')}
       <section class="sheet-slope"><h2>Combined order list</h2>${lengthTable(groups, this.state.locale)}<p><strong>${totals.count} sheets · ${totals.modules} modules · ${number(totals.stockArea)} m² ordered</strong></p>
       <p>This is a geometric cutting estimate. Cut-outs remain offcuts; reuse, trim accessories and fixing quantities are not optimized.</p></section>`;
+    this.partitionUI.highlight();
   }
 
   download() {
@@ -233,7 +260,7 @@ export class SheetPlannerUI {
     doc.open();
     doc.write(`<!doctype html><html lang="${featureLocale(this.state.locale)}"><head><title>${featureText(this.state.locale, 'Roof sheet cutting plan')}</title><style>
       @page { size:A4 landscape; margin:12mm; } body { font:11px Arial,sans-serif; color:#172c45; }
-      button { display:none; } h2 { font-size:20px; margin:8px 0; } p { line-height:1.4; } section { break-before:page; } section:first-child { break-before:auto; }
+      button, .sheet-partition { display:none; } h2 { font-size:20px; margin:8px 0; } p { line-height:1.4; } section { break-before:page; } section:first-child { break-before:auto; }
       .sheet-stats { display:grid;grid-template-columns:repeat(4,1fr);gap:8px; } article { padding:8px;border:1px solid #ccc; } article span,article strong { display:block; } article strong { font-size:18px; }
       .sheet-overview { display:block;height:85mm;width:100%; } .sheet-diagram { display:block;width:100%;height:85mm; }
       table { border-collapse:collapse;width:100%;font-size:11px; } th,td { border:1px solid #aaa;padding:5px;text-align:left; } td:last-child { overflow-wrap:anywhere; } tr { break-inside:avoid; }

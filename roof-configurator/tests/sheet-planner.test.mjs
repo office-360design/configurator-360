@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planRoofSheets, sheetProfiles, validateSheetProfile, sheetPlanCsv } from '../js/sheetPlanner.js';
+import { planRoofSheets, sheetProfiles, validateSheetProfile, sheetPlanCsv, partitionTargets } from '../js/sheetPlanner.js';
 import { defaultLayout, layoutMetrics } from '../js/roofLayout.js';
 import { presetRoofLayout } from '../js/presetLayout.js';
 import { addDormer } from '../js/roofFeatures.js';
@@ -88,4 +88,53 @@ test('CSV piece quantities and grouped order counts reconcile', () => {
   const plan = planRoofSheets(defaultLayout(), sheetProfiles.clasic);
   assert.equal(plan.groups.reduce((sum, g) => sum + g.count, 0), plan.totals.count);
   assert.equal(sheetPlanCsv(plan).split('\r\n').filter(row => /^[A-Z]+,/.test(row)).length, plan.totals.count);
+});
+
+
+test('custom sections keep coverage while adding allowance for each sheet', () => {
+  const layout = rectangle(2, 12.25);
+  const automatic = planRoofSheets(layout, sheetProfiles.antic);
+  const first = automatic.slopes[0].pieces[0].baseId;
+  for (const parts of [[11, 11], [7, 7, 8]]) {
+    const plan = planRoofSheets(layout, sheetProfiles.antic, { partitions: { [first]: parts } });
+    assert.deepEqual(plan.slopes[0].pieces.filter(p => p.column === 1).map(p => p.modules), [...parts, 13]);
+    assert.deepEqual(plan.slopes[0].pieces.filter(p => p.column === 2).map(p => p.modules), [22, 13]);
+    close(plan.totals.modules, automatic.totals.modules);
+    close(plan.totals.netArea, automatic.totals.netArea);
+    close(plan.totals.linearMetres - automatic.totals.linearMetres, (parts.length - 1) * .1);
+    assert.equal(plan.slopes[0].pieces.filter(p => p.baseId === first).reduce((n,p) => n + p.length - p.modules * 350, 0), parts.length * 100);
+    assert.equal(new Set(plan.slopes[0].pieces.map(p => p.id)).size, plan.totals.count);
+    checkCoverage(plan);
+    assert.match(sheetPlanCsv(plan), new RegExp(',1,' + parts[0] + ','));
+  }
+});
+
+test('bulk targets match original section lengths, even after splitting', () => {
+  const layout = defaultLayout();
+  const plan = planRoofSheets(layout, sheetProfiles.antic);
+  const base = plan.slopes[0].pieces[0];
+  assert.deepEqual(partitionTargets(plan, base.baseId, 'column'), [base.baseId]);
+  const surface = partitionTargets(plan, base.baseId, 'surface');
+  const global = partitionTargets(plan, base.baseId, 'global');
+  assert.ok(surface.length > 1);
+  assert.ok(global.length > surface.length);
+  for (const key of global) assert.equal(plan.slopes.flatMap(s => s.pieces).find(p => p.baseId === key).baseModules, base.baseModules);
+  const parts = [3, base.baseModules - 3];
+  const next = planRoofSheets(layout, sheetProfiles.antic, {partitions: Object.fromEntries(global.map(key => [key, parts]))});
+  assert.deepEqual(partitionTargets(next, base.baseId, 'global'), global);
+  checkCoverage(next);
+});
+
+test('invalid partitions fail instead of changing roof coverage', () => {
+  const layout = rectangle(1, 7.7);
+  for (const parts of [[11,10], [1,21], [7.5,14.5], [23], [], [NaN], ['11',11]]) {
+    assert.throws(() => planRoofSheets(layout, sheetProfiles.antic, {partitions:{'A-1.1':parts}}), /partition/);
+  }
+});
+
+
+test('bulk partitioning skips different column lengths and repeated sections', () => {
+  const pieces = (column, counts) => counts.map((baseModules, i) => ({column, baseModules, baseId:`A-${column}.${i+1}`}));
+  const plan = {slopes:[{id:'A', pieces:[...pieces(1,[22,22,13]), ...pieces(2,[22,22,13]), ...pieces(3,[22,13])]}]};
+  assert.deepEqual(partitionTargets(plan, 'A-1.1', 'surface'), ['A-1.1','A-2.1']);
 });
