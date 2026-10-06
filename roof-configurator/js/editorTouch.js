@@ -39,21 +39,12 @@ export function setupEditorTouch(editor) {
     frame = null;
     if (!gesture || touches.size !== 2) return;
     const points = [...touches.values()];
-    const mid = midpoint(points);
     const separation = Math.max(1, distance(points));
-    const travel = Math.hypot(mid.clientX - gesture.midpoint.clientX, mid.clientY - gesture.midpoint.clientY);
-    const spread = Math.abs(separation - gesture.distance);
-    // Lock the intent until the fingers lift: small spacing changes during a
-    // drag must not turn it into a zoom, nor should pinch wobble move the plan.
-    if (!gesture.mode) {
-      if (spread >= 10 && spread > travel * 1.2) gesture.mode = 'zoom';
-      else if (travel >= 6) gesture.mode = 'pan';
-      else return;
-    }
-    const target = gesture.mode === 'pan' ? mid : gesture.midpoint;
+    if (!gesture.mode && Math.abs(separation - gesture.distance) < 10) return;
+    gesture.mode = 'zoom';
+    const target = gesture.midpoint;
     const local = new DOMPoint(target.clientX, target.clientY).matrixTransform(svg.getScreenCTM().inverse());
-    editor.span = gesture.mode === 'pan' ? gesture.span :
-      Math.max(4, Math.min(220, gesture.span * gesture.distance / separation));
+    editor.span = Math.max(4, Math.min(220, gesture.span * gesture.distance / separation));
     const scale = 550 / editor.span;
     editor.center = { x: gesture.anchor.x - (local.x - 400) / scale, z: gesture.anchor.z - (local.y - 300) / scale };
     editor.render();
@@ -69,10 +60,20 @@ export function setupEditorTouch(editor) {
       if (frame === null) frame = requestAnimationFrame(updateGesture);
       return;
     }
-    if (pending && Math.hypot(event.clientX - pending.clientX, event.clientY - pending.clientY) >= 5 &&
-        (editor.panEnabled || (editor.mode === 'select' && !editor.dormer && !editor.meet &&
-          (!editor.windowTool.active || pending.target.dataset.roofWindow !== undefined)))) {
-      editor.click(pending);
+    if (pending && Math.hypot(event.clientX - pending.clientX, event.clientY - pending.clientY) >= 5) {
+      const editingPoint = editor.mode === 'select' && !editor.dormer && !editor.meet &&
+        !editor.windowTool.active && editor.pointer(pending).id !== undefined;
+      const editingWindow = pending.target.dataset.roofWindow !== undefined;
+      if (!editor.panEnabled && (editingPoint || editingWindow)) editor.click(pending);
+      else {
+        const inverse = svg.getScreenCTM().inverse();
+        editor.drag = {
+          kind: 'pan', pointerId: pending.pointerId, inverse, moved: false,
+          screenX: pending.clientX, screenY: pending.clientY,
+          start: new DOMPoint(pending.clientX, pending.clientY).matrixTransform(inverse),
+          center: { ...editor.center },
+        };
+      }
       pending = null;
     }
     if (editor.drag) editor.movePoint(event);

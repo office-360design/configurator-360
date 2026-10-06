@@ -9,6 +9,7 @@ function entries(rows) {
   }
 }
 entries(`
+Drag canvas to pan · Pinch to zoom · Drag points to edit|Trage planul pentru deplasare · Ciupește pentru zoom · Trage punctele pentru editare|Zeichenfläche ziehen zum Verschieben · Zwei Finger zum Zoomen · Punkte ziehen zum Bearbeiten
 Properties|Proprietăți|Eigenschaften
 One finger to edit · Two fingers to pan / zoom|Un deget pentru editare · Două degete pentru deplasare / zoom|Ein Finger zum Bearbeiten · Zwei Finger zum Verschieben / Zoomen
 Partition history|Istoricul împărțirilor|Aufteilungsverlauf
