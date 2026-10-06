@@ -292,7 +292,7 @@ export class RoofLayoutEditor {
     this.stopMeet();
     this.stopDormer();
     this.layout = cloneLayout(this.state.roofType === 'layout' || !this.state.roofType
-      ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state));
+      ? this.state.roofLayout || this.atOrigin(defaultLayout()) : presetRoofLayout(this.state));
     if (this.state.roofType && this.state.roofType !== 'layout') this.layout = this.atOrigin(this.layout);
     this.pickingSplitFaces = false;
     this.panEnabled = false;
