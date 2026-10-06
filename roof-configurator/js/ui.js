@@ -1,6 +1,6 @@
 import { localizeFeature, featureText } from './featureI18n.js?v=navigation-32';
 import { SheetPlannerUI } from './sheetPlannerUI.js?v=pan-42';
-import { RoofLayoutEditor } from './layoutEditor.js?v=pan-42';
+import { RoofLayoutEditor } from './layoutEditor.js?v=origin-43';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=layout-21';
@@ -62,7 +62,7 @@ export class RoofUI {
     document.querySelectorAll('[data-roof-type]').forEach((button) => {
       button.addEventListener('click', () => {
         this.state.roofType = button.dataset.roofType;
-        if (this.state.roofType === 'layout') this.state.roofLayout ||= defaultLayout();
+        if (this.state.roofType === 'layout') this.state.roofLayout ||= this.layoutEditor.atOrigin(defaultLayout());
         document.querySelectorAll('[data-roof-type]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
         this.viewerTitle.textContent = roofName(this.state.locale, this.state.roofType);
         this.updateCustomMode();

@@ -91,6 +91,33 @@ const fs = require('node:fs/promises');
     }, roofType);
     assert.deepEqual(result, {minX:0, maxZ:0});
   }
+  // Exercise the actual Draw layout button binding before opening the editor.
+  await page.evaluate(async () => {
+    editor.dialog.close();
+    const { RoofUI } = await import('/roof-configurator/js/ui.js');
+    document.body.insertAdjacentHTML('beforeend', '<button data-roof-type="layout" id="drawLayoutTest">Draw layout</button>');
+    state.roofType = 'gable';
+    delete state.roofLayout;
+    const ui = { state, layoutEditor: editor, viewerTitle: document.createElement('h2'),
+      updateCustomMode() {}, onChange() {} };
+    RoofUI.prototype.bindRoofTypes.call(ui);
+  });
+  await page.locator('#drawLayoutTest').click();
+  await page.evaluate(() => editor.open());
+  assert.deepEqual(await page.evaluate(() => ({
+    minX: Math.min(...editor.layout.vertices.map(p => p.x)),
+    maxZ: Math.max(...editor.layout.vertices.map(p => p.z)),
+  })), {minX:0, maxZ:0});
+  const aligned = await page.evaluate(() => JSON.stringify(state.roofLayout));
+  await page.evaluate(() => editor.dialog.close());
+  await page.locator('#drawLayoutTest').click();
+  assert.equal(await page.evaluate(() => JSON.stringify(state.roofLayout)), aligned);
+  // Opening a custom editor without an initialized layout uses the same origin.
+  await page.evaluate(() => { delete state.roofLayout; editor.open(); });
+  assert.deepEqual(await page.evaluate(() => ({
+    minX: Math.min(...editor.layout.vertices.map(p => p.x)),
+    maxZ: Math.max(...editor.layout.vertices.map(p => p.z)),
+  })), {minX:0, maxZ:0});
   await page.screenshot({path:'/tmp/roof-axes.png'});
   assert.deepEqual(errors,[]);
   await browser.close();
