@@ -1,6 +1,7 @@
+import { setupEditorTouch } from './editorTouch.js?v=touch-40';
 import { setupEditorToolbar } from './editorToolbar.js?v=axes-36';
 import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
-import { localizeFeature } from './featureI18n.js?v=axes-36';
+import { localizeFeature } from './featureI18n.js?v=touch-40';
 import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
@@ -233,6 +234,7 @@ export class RoofLayoutEditor {
     });
     this.svg.addEventListener('contextmenu', event => event.preventDefault());
     this.svg.addEventListener('auxclick', event => { if (event.button === 1) event.preventDefault(); });
+    setupEditorTouch(this);
     this.svg.addEventListener('pointerdown', event => this.click(event));
     this.svg.addEventListener('wheel', event => this.zoomAtPointer(event), { passive: false });
     this.svg.addEventListener('pointermove', event => this.movePoint(event));
@@ -1131,6 +1133,7 @@ export class RoofLayoutEditor {
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
     this.dialog.querySelector('#layoutModeLabel').textContent = { connect: this.selected === null ? 'Choose the first perimeter point' : 'Choose a second point across the gap', extend: this.selectedEdge ? 'Click outside the roof to extend the selected edge' : 'Choose an outer edge to extend', select: 'Drag points to edit · Right-drag to pan · Scroll to zoom', draw: 'Start at (0, 0) · Click to add points · Click origin to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    if (this.mode === 'select' && matchMedia('(pointer: coarse)').matches) this.dialog.querySelector('#layoutModeLabel').textContent = 'One finger to edit · Two fingers to pan / zoom';
     if (this.dormer) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click to place dormer front · Adjust size in the panel';
     if (this.windowTool.active) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag window or click to position · Update window to save';
     if (this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag to pan · Turn Pan off to edit · Fit to recenter';
