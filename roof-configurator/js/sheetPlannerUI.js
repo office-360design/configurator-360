@@ -1,6 +1,6 @@
-import { SheetPartitionUI } from './sheetPartitionUI.js?v=partition-37';
-import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=partition-37';
-import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=partition-37';
+import { SheetPartitionUI } from './sheetPartitionUI.js?v=history-38';
+import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=history-38';
+import { planRoofSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=history-38';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 import { defaultLayout } from './roofLayout.js?v=layout-21';
 
@@ -62,6 +62,8 @@ function overview(plan) {
 export class SheetPlannerUI {
   constructor(state) {
     this.state = state;
+    this.partitionHistory = [];
+    this.partitionFuture = [];
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'sheet-planner';
     this.dialog.setAttribute('aria-labelledby', 'sheetPlanTitle');
@@ -69,6 +71,11 @@ export class SheetPlannerUI {
       <div class="sheet-actions">
         <span class="sheet-update-note" role="status">Generate a cutting plan from the settings below.</span>
         <button type="submit" form="sheetPlanSettings" class="sheet-primary">Generate plan</button>
+      </div>
+      <div class="sheet-partition-history" role="group" aria-label="Partition history">
+        <button type="button" data-sheet="undo" disabled>↶ Undo</button>
+        <button type="button" data-sheet="redo" disabled>↷ Redo</button>
+        <button type="button" data-sheet="restoreAll" disabled>Restore all partitions</button>
       </div>
       <p class="sheet-error" role="alert" hidden></p>
       <div class="sheet-workspace"><form id="sheetPlanSettings" class="sheet-settings">
@@ -117,7 +124,32 @@ export class SheetPlannerUI {
       if (button.dataset.sheet === 'close') this.dialog.close();
       if (button.dataset.sheet === 'csv' && this.plan) this.download();
       if (button.dataset.sheet === 'print' && this.plan) this.print();
+      if (button.dataset.sheet === 'undo') this.partitionUndoRedo('undo');
+      if (button.dataset.sheet === 'redo') this.partitionUndoRedo('redo');
+      if (button.dataset.sheet === 'restoreAll' && !this.stale) this.restorePartitions();
     }));
+  }
+
+  partitionUndoRedo(action) {
+    if (!this.plan || this.stale) return;
+    const from = action === 'undo' ? this.partitionHistory : this.partitionFuture;
+    const to = action === 'undo' ? this.partitionFuture : this.partitionHistory;
+    if (!from.length) return;
+    const current = structuredClone(this.planSettings.partitions || {});
+    this.applyPartitions(from.at(-1), false);
+    from.pop();
+    to.push(current);
+    this.buttons(true);
+  }
+
+  restorePartitions(index = null) {
+    if (!this.plan || this.stale) return;
+    const partitions = structuredClone(this.planSettings.partitions || {});
+    if (index === null) this.applyPartitions({});
+    else {
+      for (const piece of this.plan.slopes[index].pieces) delete partitions[piece.baseId];
+      this.applyPartitions(partitions);
+    }
   }
 
   setFields(profile) { fields.forEach(([key]) => { this.form.elements[key].value = profile[key]; }); }
@@ -158,6 +190,9 @@ export class SheetPlannerUI {
   }
 
   buttons(enabled) {
+    this.dialog.querySelector('[data-sheet="undo"]').disabled = !enabled || !this.partitionHistory.length;
+    this.dialog.querySelector('[data-sheet="redo"]').disabled = !enabled || !this.partitionFuture.length;
+    this.dialog.querySelector('[data-sheet="restoreAll"]').disabled = !enabled || !Object.keys(this.planSettings?.partitions || {}).length;
     ['csv', 'print'].forEach(action => { this.dialog.querySelector(`[data-sheet="${action}"]`).disabled = !enabled; });
     this.output.querySelectorAll('[data-slope-svg], .sheet-partition input, .sheet-partition select, .sheet-partition button').forEach(button => { button.disabled = !enabled; });
   }
@@ -178,6 +213,13 @@ export class SheetPlannerUI {
       const partitionsReset = Object.keys(saved?.partitions || {}).length > 0 && saved.partitionContext !== partitionContext;
       if (saved?.partitionContext === partitionContext) settings.partitions = saved.partitions;
       this.plan = planRoofSheets(layout, profile, settings);
+      const historyValue = JSON.stringify(settings.partitions || {});
+      if (this.partitionHistoryContext !== partitionContext || this.partitionHistoryValue !== historyValue) {
+        this.partitionHistory = [];
+        this.partitionFuture = [];
+      }
+      this.partitionHistoryContext = partitionContext;
+      this.partitionHistoryValue = historyValue;
       this.planLayout = structuredClone(layout);
       this.planSettings = settings;
       this.partitionsReset = partitionsReset;
@@ -201,9 +243,17 @@ export class SheetPlannerUI {
     }
   }
 
-  applyPartitions(partitions) {
+  applyPartitions(partitions, recordHistory = true) {
+    const previous = this.planSettings.partitions || {};
+    if (JSON.stringify(previous) === JSON.stringify(partitions)) return;
     const settings = { ...this.planSettings, partitions };
     const next = planRoofSheets(this.planLayout, this.plan.profile, settings);
+    if (recordHistory) {
+      this.partitionHistory.push(structuredClone(previous));
+      if (this.partitionHistory.length > 60) this.partitionHistory.shift();
+      this.partitionFuture = [];
+    }
+    this.partitionHistoryValue = JSON.stringify(partitions);
     const scroll = this.output.scrollTop;
     const workspace = this.dialog.querySelector('.sheet-workspace');
     const mobileScroll = workspace.scrollTop;
