@@ -7,7 +7,7 @@ export function setupEditorToolbar(editor) {
     perimeter: { label: 'Perimeter', actions: ['draw', 'extend', 'connect'] },
     surfaces: { label: 'Surfaces', actions: ['split', 'insert'] },
     features: { label: 'Add feature', actions: ['window', 'dormer'] },
-    view: { label: 'View', actions: ['pan', 'fit', 'slopeArrows'] },
+    view: { label: 'View', actions: ['pan', 'fit', 'slopeArrows', 'axes'] },
   };
   const options = document.createElement('div');
   options.className = 'layout-tool-options';
