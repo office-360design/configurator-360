@@ -9,6 +9,22 @@ function entries(rows) {
   }
 }
 entries(`
+Each partition must use whole module counts within the profile limits.|Fiecare segment trebuie să aibă un număr întreg de module în limitele profilului.|Jeder Abschnitt muss eine ganze Modulanzahl innerhalb der Profilgrenzen haben.
+The partition must add up to the original module count.|Suma segmentelor trebuie să fie egală cu numărul inițial de module.|Die Summe der Abschnitte muss der ursprünglichen Modulanzahl entsprechen.
+Select a column section first.|Selectează mai întâi un segment al coloanei.|Zuerst einen Spaltenabschnitt auswählen.
+Column partition|Împărțirea coloanei|Spaltenaufteilung
+Click a sheet in the diagram or select a column. Split one section; other sections stay unchanged.|Fă clic pe o foaie din diagramă sau selectează o coloană. Împarte un segment; celelalte segmente rămân neschimbate.|Ein Blech im Diagramm anklicken oder eine Spalte auswählen. Einen Abschnitt aufteilen; die anderen Abschnitte bleiben unverändert.
+Original section|Segment inițial|Ursprünglicher Abschnitt
+Modules per sheet|Module pe foaie|Module pro Blech
+Apply to|Aplică pentru|Anwenden auf
+Selected section only|Doar segmentul selectat|Nur ausgewählten Abschnitt
+Same length on this surface|Aceeași lungime pe această suprafață|Gleiche Länge auf dieser Fläche
+Same length on all surfaces|Aceeași lungime pe toate suprafețele|Gleiche Länge auf allen Flächen
+{0} modules total · {1} sheets · {2} mm total end allowance|{0} module în total · {1} foi · {2} mm adaos total la capete|{0} Module insgesamt · {1} Bleche · {2} mm gesamte Endzugabe
+Enter module counts separated by +, from eave to ridge. Their sum must equal the original section.|Introdu numerele de module separate prin +, de la streașină spre coamă. Suma trebuie să fie egală cu segmentul inițial.|Modulanzahlen mit + getrennt von der Traufe zum First eingeben. Die Summe muss dem ursprünglichen Abschnitt entsprechen.
+Apply partition|Aplică împărțirea|Aufteilung anwenden
+Restore automatic partition|Restabilește împărțirea automată|Automatische Aufteilung wiederherstellen
+Custom partitions were reset because the roof or profile settings changed.|Împărțirile personalizate au fost resetate deoarece s-au modificat acoperișul sau setările profilului.|Benutzerdefinierte Aufteilungen wurden zurückgesetzt, da Dach- oder Profileinstellungen geändert wurden.
 Coordinate axes|Axe de coordonate|Koordinatenachsen
 Start at (0, 0) · Click to add points · Click origin to close|Start la (0, 0) · Clic pentru puncte noi · Clic pe origine pentru închidere|Start bei (0, 0) · Klicken für weitere Punkte · Ursprung zum Schließen anklicken
 Enter X and Z between -100 and 100 m, and a height between -30 and 30 m.|Introdu X și Z între -100 și 100 m și o înălțime între -30 și 30 m.|X und Z zwischen -100 und 100 m sowie eine Höhe zwischen -30 und 30 m eingeben.

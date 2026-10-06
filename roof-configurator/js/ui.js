@@ -1,6 +1,6 @@
 import { localizeFeature, featureText } from './featureI18n.js?v=navigation-32';
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=navigation-32';
-import { RoofLayoutEditor } from './layoutEditor.js?v=axes-36';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=partition-37';
+import { RoofLayoutEditor } from './layoutEditor.js?v=partition-37';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=layout-21';
