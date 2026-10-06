@@ -9,6 +9,7 @@ function entries(rows) {
   }
 }
 entries(`
+Properties|Proprietăți|Eigenschaften
 One finger to edit · Two fingers to pan / zoom|Un deget pentru editare · Două degete pentru deplasare / zoom|Ein Finger zum Bearbeiten · Zwei Finger zum Verschieben / Zoomen
 Partition history|Istoricul împărțirilor|Aufteilungsverlauf
 Restore all partitions|Restabilește toate împărțirile|Alle Aufteilungen zurücksetzen

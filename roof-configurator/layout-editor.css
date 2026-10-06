@@ -320,3 +320,17 @@
   .layout-status { font-size:11px; line-height:1.2; }
   .layout-status:empty { display:none; }
 }
+
+.layout-mobile-properties { display:none; }
+@media (max-width:680px) {
+  .roof-layout-dialog header > div { flex:1; min-width:0; }
+  .roof-layout-dialog header h2 { font-size:14px; }
+  .layout-mobile-properties { display:block; font-size:12px !important; }
+  .layout-mobile-properties[aria-expanded="true"] { background:#1260aa; color:white; }
+  .layout-workspace aside { display:none; }
+  .mobile-properties-open .layout-workspace aside {
+    display:block; position:absolute; z-index:20; left:6px; right:6px; bottom:70px;
+    max-height:55dvh; overflow:auto; border:1px solid #bac9da; border-radius:12px;
+    box-shadow:0 -6px 24px #172b4333;
+  }
+}
