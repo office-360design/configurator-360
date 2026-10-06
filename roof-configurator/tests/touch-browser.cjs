@@ -48,13 +48,21 @@ const fs = require('node:fs/promises');
   assert.notDeepEqual(await page.evaluate(() => editor.center),before.center);
   assert.equal(await page.evaluate(() => JSON.stringify(editor.layout)),original);
   assert.equal(await page.evaluate(() => editor.history.length),0);
-  // Parallel movement with slight spacing jitter stays a pan at fixed zoom.
+  // A single finger pans empty canvas without changing the zoom or geometry.
   const panSpan = await page.evaluate(() => editor.span);
-  await touch('touchStart', [[1,x-35,y],[2,x+35,y]]);
-  await touch('touchMove', [[1,x-14,y+20],[2,x+56,y+20]]);
-  await page.evaluate(() => new Promise(requestAnimationFrame));
-  await touch('touchMove', [[1,x-5,y+30],[2,x+72,y+30]]);
+  const panCenter = await page.evaluate(() => ({...editor.center}));
+  await touch('touchStart', [[1,x,y]]);
+  await touch('touchMove', [[1,x+30,y+20]]);
   await touch('touchEnd', []);
+  assert.equal(await page.evaluate(() => editor.span),panSpan);
+  assert.notDeepEqual(await page.evaluate(() => editor.center),panCenter);
+  assert.equal(await page.evaluate(() => JSON.stringify(editor.layout)),original);
+  // Moving two fingers together no longer pans the view.
+  const twoFingerCenter = await page.evaluate(() => ({...editor.center}));
+  await touch('touchStart', [[1,x-35,y],[2,x+35,y]]);
+  await touch('touchMove', [[1,x-5,y+20],[2,x+65,y+20]]);
+  await touch('touchEnd', []);
+  assert.deepEqual(await page.evaluate(() => editor.center),twoFingerCenter);
   assert.equal(await page.evaluate(() => editor.span),panSpan);
   // Once pinching, midpoint drift does not introduce panning.
   const anchor = await page.evaluate(({x,y}) => editor.rawPointer({clientX:x,clientY:y}),{x,y});
