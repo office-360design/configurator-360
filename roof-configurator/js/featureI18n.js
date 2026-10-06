@@ -9,6 +9,9 @@ function entries(rows) {
   }
 }
 entries(`
+Partition history|Istoricul împărțirilor|Aufteilungsverlauf
+Restore all partitions|Restabilește toate împărțirile|Alle Aufteilungen zurücksetzen
+Restore surface partitions|Restabilește împărțirile suprafeței|Aufteilungen dieser Fläche zurücksetzen
 Each partition must use whole module counts within the profile limits.|Fiecare segment trebuie să aibă un număr întreg de module în limitele profilului.|Jeder Abschnitt muss eine ganze Modulanzahl innerhalb der Profilgrenzen haben.
 The partition must add up to the original module count.|Suma segmentelor trebuie să fie egală cu numărul inițial de module.|Die Summe der Abschnitte muss der ursprünglichen Modulanzahl entsprechen.
 Select a column section first.|Selectează mai întâi un segment al coloanei.|Zuerst einen Spaltenabschnitt auswählen.

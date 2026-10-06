@@ -1,4 +1,4 @@
-import { partitionTargets, validateSheetPartition } from './sheetPlanner.js?v=partition-37';
+import { partitionTargets, validateSheetPartition } from './sheetPlanner.js?v=history-38';
 
 const sections = slope => [...new Map(slope.pieces.map(p => [p.baseId, p])).values()];
 
@@ -17,7 +17,8 @@ export class SheetPartitionUI {
         this.refresh(index);
       }
       const action = event.target.closest('[data-partition-action]')?.dataset.partitionAction;
-      if (action) this.apply(index, action === 'reset');
+      if (action === 'restoreSurface') planner.restorePartitions(index);
+      else if (action) this.apply(index, action === 'reset');
     });
     planner.output.addEventListener('change', event => {
       const section = event.target.closest('[data-plan-slope]');
@@ -59,6 +60,7 @@ export class SheetPartitionUI {
       <p>Enter module counts separated by +, from eave to ridge. Their sum must equal the original section.</p>
       <button type="button" data-partition-action="apply">Apply partition</button>
       <button type="button" data-partition-action="reset">Restore automatic partition</button>
+      <button type="button" data-partition-action="restoreSurface">Restore surface partitions</button>
       <p class="sheet-partition-error" data-partition-error role="alert" hidden></p>
     </fieldset>`;
   }

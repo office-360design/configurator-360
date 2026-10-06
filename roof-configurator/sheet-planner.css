@@ -69,3 +69,6 @@
 .sheet-diagram .selected-section path { fill:#fdba74; }
 .sheet-diagram .selected-section rect { stroke:#c2410c; stroke-width:.04; }
 @media(max-width:550px) { .sheet-partition-fields { grid-template-columns:1fr; } }
+
+.sheet-partition-history { display:flex; flex-wrap:wrap; gap:8px; padding:8px 22px; border-bottom:1px solid #dbe4ef; flex-shrink:0; }
+.sheet-partition-history button { padding:6px 9px; font-size:13px; }
