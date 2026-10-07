@@ -3,9 +3,7 @@ import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=tenant-dom
 
 const MESSAGES = Object.freeze({
   'en-US': Object.freeze({
-    'panel.eyebrow': 'Roof design',
-    'panel.title': 'Roof settings',
-    'panel.description': 'Configure the roof shape, dimensions, covering and colour from one panel.',
+    'panel.title': 'Configure your roof',
     'brand.subtitle': 'Parametric roof studio',
     'common.live': 'Live',
     'step.1': 'Step 1',
@@ -18,7 +16,9 @@ const MESSAGES = Object.freeze({
     'roof.type.lshape': 'L-shaped',
     'roof.type.dormer': 'Dormer',
     'roof.type.custom': 'Custom',
-    'roof.type.layout': 'Draw layout',
+    'roof.type.layout': 'Draw whole roof',
+    'roof.type.sketch': 'Draw each slope',
+    'roof.name.sketch': 'Slopes drawn one by one (2D)',
     'roof.name.layout': 'Drawn roof layout',
     'roof.name.gable': 'Two-slope roof',
     'roof.name.hip': 'Four-slope roof',
@@ -207,9 +207,7 @@ const MESSAGES = Object.freeze({
     'compass.west': 'W',
   }),
   'ro-RO': Object.freeze({
-    'panel.eyebrow': 'Proiectare acoperiș',
-    'panel.title': 'Setări acoperiș',
-    'panel.description': 'Configurează forma, dimensiunile, învelitoarea și culoarea acoperișului dintr-un singur panou.',
+    'panel.title': 'Configurează acoperișul',
     'brand.subtitle': 'Studio parametric pentru acoperișuri',
     'common.live': 'Live',
     'step.1': 'Pasul 1',
@@ -222,7 +220,9 @@ const MESSAGES = Object.freeze({
     'roof.type.lshape': 'În formă de L',
     'roof.type.dormer': 'Cu lucarnă',
     'roof.type.custom': 'Personalizat',
-    'roof.type.layout': 'Desenează planul',
+    'roof.type.layout': 'Desenează întregul acoperiș',
+    'roof.type.sketch': 'Desenează fiecare apă',
+    'roof.name.sketch': 'Ape desenate individual (2D)',
     'roof.name.layout': 'Plan de acoperiș desenat',
     'roof.name.gable': 'Acoperiș în două ape',
     'roof.name.hip': 'Acoperiș în patru ape',
@@ -411,9 +411,7 @@ const MESSAGES = Object.freeze({
     'compass.west': 'V',
   }),
   'de-DE': Object.freeze({
-    'panel.eyebrow': 'Dachplanung',
-    'panel.title': 'Dacheinstellungen',
-    'panel.description': 'Dachform, Abmessungen, Eindeckung und Farbe in einem Bereich konfigurieren.',
+    'panel.title': 'Dach konfigurieren',
     'brand.subtitle': 'Parametrisches Dachstudio',
     'common.live': 'Live',
     'step.1': 'Schritt 1',
@@ -426,7 +424,9 @@ const MESSAGES = Object.freeze({
     'roof.type.lshape': 'L-förmig',
     'roof.type.dormer': 'Mit Gaube',
     'roof.type.custom': 'Individuell',
-    'roof.type.layout': 'Grundriss zeichnen',
+    'roof.type.layout': 'Ganzes Dach zeichnen',
+    'roof.type.sketch': 'Dachflächen einzeln zeichnen',
+    'roof.name.sketch': 'Einzeln gezeichnete Dachflächen (2D)',
     'roof.name.layout': 'Gezeichneter Dachgrundriss',
     'roof.name.gable': 'Satteldach',
     'roof.name.hip': 'Walmdach',
@@ -641,7 +641,7 @@ const RAINWATER = Object.freeze({
     ['Discharge elbow', 'Directs water away from the façade at the base of the downpipe.'],
   ]),
   'ro-RO': Object.freeze([
-    ['Jgheab', 'Colectează apa de pe versanți. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.'],
+    ['Jgheab', 'Colectează apa de pe acoperiș. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.'],
     ['Burlan', 'Tub vertical Ø 90 mm sau Ø 100 mm care coboară apa spre sol.'],
     ['Colțar interior', 'Schimbă direcția jgheabului la 90° spre interiorul clădirii.'],
     ['Colțar exterior', 'Schimbă direcția jgheabului la 90° spre exteriorul clădirii.'],
@@ -792,11 +792,9 @@ export function applyRoofTranslations(locale) {
 
   setText('.brand-subtitle', resolved, 'brand.subtitle');
   setLivePill(resolved);
-  setText('#roofPanelEyebrow', resolved, 'panel.eyebrow');
   setText('#roofPanelTitle', resolved, 'panel.title');
-  setText('#roofPanelDescription', resolved, 'panel.description');
   setText('#roofSectionType', resolved, 'roof.type');
-  ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom', 'layout'].forEach((type) => setRoofCard(type, resolved));
+  ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom', 'layout', 'sketch'].forEach((type) => setRoofCard(type, resolved));
   setText('.custom-plan-copy strong', resolved, 'custom.uploadTitle');
   setText('.custom-plan-copy span', resolved, 'custom.uploadBody');
   setText('.custom-plan-main', resolved, 'custom.choose');

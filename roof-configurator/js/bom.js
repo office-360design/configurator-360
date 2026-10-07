@@ -1,5 +1,5 @@
 import { normalizeCurrency } from './preferences.js?v=platform-18';
-import { roofRateSource, roofT } from './i18n.js?v=navigation-32';
+import { roofRateSource, roofT } from './i18n.js?v=sketch-1';
 
 const VAT_RATE = 0.19;
 const PANEL_EFFECTIVE_AREA = 0.47;
@@ -139,7 +139,7 @@ function addLine(lines, state, key, nameKey, unitKey, quantity, unitPrice, noteK
 
 export function calculateBom(state, metrics) {
   const locale = state.locale || 'en-US';
-  if (['custom', 'layout'].includes(state.roofType)) {
+  if (['custom', 'layout', 'sketch'].includes(state.roofType)) {
     return {
       lines: [],
       subtotal: 0,

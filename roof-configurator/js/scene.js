@@ -4,7 +4,7 @@ import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildRoofModel } from './roofFactory.js?v=windows-24';
 import { createDimensions } from './dimensions.js?v=platform-18';
-import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=navigation-32';
+import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=sketch-1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
@@ -315,7 +315,7 @@ export class RoofScene {
     const { group, metrics } = buildRoofModel(state);
     this.modelRoot.add(group);
 
-    if (state.showDimensions && !['custom', 'layout'].includes(state.roofType)) {
+    if (state.showDimensions && !['custom', 'layout', 'sketch'].includes(state.roofType)) {
       this.dimensionsRoot.add(createDimensions(state, metrics.ridgeElevation));
     }
 

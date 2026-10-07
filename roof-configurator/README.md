@@ -100,7 +100,7 @@ Each generated BOM row includes an inclusion checkbox. Excluding a row immediate
 
 ## Drawn roof layouts
 
-Choose **Draw layout → Edit roof layout** to open the drawing editor. The existing
+Choose **Draw whole roof** above the stage to open the drawing editor. The existing
 five presets and the separate file-upload placeholder remain available.
 
 The **L-shaped roof** example has two perpendicular hipped wings, a ridge along
@@ -230,3 +230,36 @@ at the meeting height; other split copies keep their heights and follow the shar
 plan position. Applying the roof and saving/sharing works as for other edits.
 
 Alignment regression check: `node roof-configurator/tests/alignment-browser.cjs`.
+
+## Slopes drawn one by one (2D)
+
+The **Draw each slope** mode (centred above the stage, next to **Draw whole
+roof**; the Roof type grid keeps the templates) is for roofers who measure on site and sketch each
+slope separately on paper. There is no 3D model: each slope is an independent
+flat polygon at its true size (measured on the slope, not in plan).
+
+- Shapes are entered from the lengths measured on site: triangle (eave + two
+  sides), trapezoid (eave + ridge + two sides), rectangle (eave + slope length),
+  parallelogram (eave + side + slope length) and a free polygon (X along the
+  eave, Y uphill, anticlockwise). The slope length is derived from the sides.
+  Decimal commas are accepted.
+- In the preview, drag a corner to resize the slope quickly (5 cm steps; hold
+  Alt for 1 cm). Eave and ridge stay level, rectangles stay square and a
+  parallelogram's ridge moves as one edge. Double-click (tap on touch) a length
+  or the slope length to type the exact value; Enter applies, Escape cancels.
+- **Identical slopes** (× n) are planned once and counted n times in the totals,
+  the combined order list and the CSV (`Identical slopes` column).
+- Each edge has a type (eave, ridge, hip, valley, verge, wall abutment). The
+  cutting plan reports the linear metres per type; ridge, hip and valley count
+  half per drawing because two slopes share them.
+- **Sheet cutting plan** uses the drawn shapes directly (`planSketchSheets`),
+  with the same strip, module and partition logic as drawn layouts. BOM prices
+  are not estimated for this mode.
+- Saved as versioned JSON in `slopeSketch` (`{ version: 1, slopes: [...] }`) in
+  capture/restore, share links and saved configurations. Invalid sketches are
+  rejected before state changes.
+- Joining the slopes into a 3D roof (angles between slopes) is future work.
+
+Checks: `tests/slope-sketch.test.mjs` (part of `npm run check:roof`) and
+`node roof-configurator/tests/slope-sketch-browser.cjs` (same browser
+environment as the other browser tests).

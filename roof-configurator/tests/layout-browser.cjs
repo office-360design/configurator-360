@@ -13,8 +13,8 @@ const assert = require('node:assert/strict');
   page.on('pageerror', error => { errors.push(error.message); console.error('Browser:', error.message); });
   await page.goto('http://127.0.0.1:8080/roof-configurator/?profile', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.ROOF_CONFIGURATOR_API, { timeout: 30000 });
+  // Choosing the drawing mode opens the layout editor directly.
   await page.locator('[data-roof-type="layout"]').click();
-  await page.locator('#editRoofLayout').click();
   const editor = page.locator('.roof-layout-dialog');
   const deleteButton = editor.locator('[data-action="delete"]');
   assert.ok(await deleteButton.isDisabled());
