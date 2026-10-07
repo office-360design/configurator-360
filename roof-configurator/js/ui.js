@@ -252,7 +252,7 @@ export class RoofUI {
     document.querySelector('#sketchLaunch').hidden = !isSketch;
     // Slopes drawn one by one are 2D only: the overview replaces the 3D stage.
     this.sketchViewer.hidden = !isSketch;
-    document.querySelectorAll('.view-actions, .model-options, .stage-hint').forEach(element => { element.hidden = isSketch; });
+    document.querySelectorAll('.stage-hint').forEach(element => { element.hidden = isSketch; });
     document.querySelector('[data-accordion="dimensions"]').hidden = isSketch;
     const launchMessage = document.querySelector('#layoutLaunch p');
     launchMessage.classList.remove('layout-launch-error');

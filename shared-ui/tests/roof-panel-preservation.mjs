@@ -153,7 +153,7 @@ try {
   for (let index = 0; index < 5; index++) {
     await act('Color', (index) => document.querySelectorAll('.swatch')[index].click(), index);
   }
-  await act('Technical edges', () => document.querySelector('#wireframeToggle').click());
+  await act('Technical edges', () => window.ROOF_CONFIGURATOR_API.setTechnicalEdges(true));
   for (const page of pages) {
     await page.locator('#customPlanInput').setInputFiles({
       name: 'roof-plan.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 test plan'),

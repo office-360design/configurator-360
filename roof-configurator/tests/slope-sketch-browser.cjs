@@ -26,7 +26,7 @@ const path = require('node:path');
   assert.ok(await viewer.isVisible());
   assert.ok(await page.locator('#sketchLaunch').isVisible());
   assert.ok(await page.locator('#layoutLaunch').isHidden());
-  assert.ok(await page.locator('.view-actions').isHidden());
+  assert.equal(await page.locator('.view-actions, #wireframeToggle').count(), 0);
   assert.equal(await viewer.locator('.sketch-card').count(), 2);
   assert.match(await page.locator('#metricRoofArea').textContent(), /50\.2 m²/);
   assert.equal(await viewer.locator('.sketch-card strong').first().textContent(), 'Slope A');
