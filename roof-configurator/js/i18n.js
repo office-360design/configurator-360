@@ -820,17 +820,6 @@ export function applyRoofTranslations(locale) {
   setSwatch('#315449', resolved, 'colour.forestGreen');
 
   setText('#bomOpenButton span', resolved, 'viewer.bomPrice');
-  setAttribute('.view-actions', 'aria-label', resolved, 'viewer.cameraControls');
-  setText('[data-view="front"]', resolved, 'viewer.front');
-  setText('[data-view="top"]', resolved, 'viewer.top');
-  setText('[data-view="reset"]', resolved, 'viewer.reset');
-  setAttribute('[data-view="reset"]', 'title', resolved, 'viewer.resetTitle');
-  setAttribute('.model-options', 'aria-label', resolved, 'viewer.modelOptions');
-  const technicalLabel = document.querySelector('.model-options label');
-  if (technicalLabel) {
-    const textNode = [...technicalLabel.childNodes].find((node) => node.nodeType === Node.TEXT_NODE);
-    if (textNode) textNode.textContent = ` ${roofT(resolved, 'viewer.technicalEdges')}`;
-  }
   setText('.viewer-title-block .eyebrow', resolved, 'viewer.realtime');
   setAttribute('#roofToolsAnchor', 'aria-label', resolved, 'viewer.toolsControl');
   setAttribute('#canvasHost', 'aria-label', resolved, 'viewer.canvasAria');
