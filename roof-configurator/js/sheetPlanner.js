@@ -1,5 +1,6 @@
 import { roofWindowGeometry, cutRoofWindows } from './roofWindows.js?v=windows-24';
-import { roofSurfaceGroups, validateLayout, inside } from './roofLayout.js?v=layout-21';
+import { roofSurfaceGroups, validateLayout, inside, triangulate } from './roofLayout.js?v=layout-21';
+import { sketchSlopes, sketchEdgeTotals } from './slopeSketch.js?v=sketch-1';
 
 // Dimensions transcribed from the supplied profile reference photographs.
 // End overlap is the inferred length allowance: length - modules * module pitch.
@@ -90,8 +91,8 @@ export function groupSheetLengths(pieces) {
     const key = `${piece.modules}:${piece.length}`;
     if (!groups.has(key)) groups.set(key, { modules: piece.modules, length: piece.length, count: 0, ids: [] });
     const group = groups.get(key);
-    group.count++;
-    group.ids.push(piece.id);
+    group.count += piece.quantity ?? 1;
+    group.ids.push(piece.quantity > 1 ? `${piece.id} ×${piece.quantity}` : piece.id);
   });
   return [...groups.values()].sort((a, b) => a.length - b.length);
 }
@@ -129,12 +130,92 @@ export function partitionTargets(plan, baseId, scope) {
     signature(column) === signature(selectedColumn)).map(column => column.sections[sectionIndex].baseId);
 }
 
+// Strips one unfolded slope. Polygons use slope coordinates: x along the eave, y uphill.
+function stripSlope(index, polygons, width, p, settings, counter) {
+  const useful = p.usefulWidth / 1000, module = p.module / 1000;
+  const options = settings.slopes?.[index] || {};
+  const offset = Number(options.offset ?? settings.offset ?? 0) / 1000;
+  const reverse = (options.direction ?? settings.direction) === 'right';
+  if (!Number.isFinite(offset) || offset < 0 || offset >= useful) throw new Error('Start offset must be from 0 up to (but below) the usable sheet width.');
+  const columns = Math.ceil((width + offset - 1e-9) / useful);
+  if (columns > 3000) throw new Error('Too many sheet columns. Increase the usable width.');
+  const pieces = [];
+  for (let column = 0; column < columns; column++) {
+    const left = reverse ? width + offset - (column + 1) * useful : column * useful - offset;
+    const clipped = polygons.map(poly => clipStrip(poly, left, left + useful)).filter(poly => poly.length >= 3 && area(poly) > 1e-10);
+    // Separate full-width gaps (e.g. dormers) while allowing cut-outs in a sheet.
+    const intervals = clipped.map(poly => [Math.min(...poly.map(p => p.y)), Math.max(...poly.map(p => p.y))]).sort((a, b) => a[0] - b[0]);
+    const runs = [];
+    intervals.forEach(([start, end]) => {
+      const last = runs.at(-1);
+      if (last && start <= last[1] + 1e-8) last[1] = Math.max(last[1], end);
+      else runs.push([start, end]);
+    });
+    // Share one module grid across columns so tile courses line up. Merge
+    // nearby gaps when rounding would otherwise order overlapping sheets.
+    const alignedRuns = [];
+    runs.forEach(([start, end]) => {
+      const low = Math.floor((start + 1e-8) / module) * module;
+      let count = Math.max(p.minModules, Math.ceil((end - low - 1e-8) / module));
+      const sheetCount = Math.ceil(count / p.allowedMaxModules);
+      count = Math.max(count, sheetCount * p.minModules);
+      const high = low + count * module;
+      const last = alignedRuns.at(-1);
+      if (last && low <= last[1] + 1e-8) {
+        const count = Math.round((Math.max(last[1], high) - last[0]) / module);
+        last[1] = last[0] + Math.max(count, Math.ceil(count / p.allowedMaxModules) * p.minModules) * module;
+      } else alignedRuns.push([low, high]);
+    });
+    let segment = 0, baseSegment = 0;
+    for (const [start, end] of alignedRuns) {
+      let y = start;
+      while (y < end - 1e-8) {
+        const remaining = Math.round((end - y) / module);
+        const sheetsLeft = Math.ceil(remaining / p.allowedMaxModules);
+        const baseModules = Math.min(p.allowedMaxModules, remaining - (sheetsLeft - 1) * p.minModules);
+        const baseId = `${slopeLetter(index)}-${column + 1}.${++baseSegment}`;
+        const parts = settings.partitions?.[baseId] || [baseModules];
+        validateSheetPartition(parts, baseModules, p);
+        for (const modules of parts) {
+          const coverageLength = modules * module;
+          const cuts = clipped.map(poly => clip(clip(poly, 'y', y, 1), 'y', y + coverageLength, -1))
+            .filter(poly => poly.length >= 3 && area(poly) > 1e-10);
+          pieces.push({ id: `${slopeLetter(index)}-${column + 1}.${++segment}`, column: column + 1,
+            baseId, baseModules, modules, length: modules * p.module + p.endOverlap, x: left, y,
+            stockX: reverse ? left - (p.width - p.usefulWidth) / 1000 : left,
+            coverageLength, polygons: cuts, netArea: cuts.reduce((sum, poly) => sum + area(poly), 0) });
+          y += coverageLength;
+          if (++counter.pieces > 10000) throw new Error('Too many pieces. Increase the sheet dimensions.');
+        }
+      }
+    }
+  }
+  const netArea = polygons.reduce((sum, poly) => sum + area(poly), 0);
+  const stockArea = pieces.reduce((sum, piece) => sum + p.width * piece.length / 1e6, 0);
+  const usefulArea = pieces.reduce((sum, piece) => sum + useful * piece.coverageLength, 0);
+  return { id: slopeLetter(index), pieces, polygons, columns, reverse, offset: offset * 1000,
+    netArea, stockArea, usefulArea, cutArea: Math.max(0, usefulArea - netArea),
+    overlapArea: stockArea - usefulArea, groups: groupSheetLengths(pieces) };
+}
+
+// Identical slopes (quantity > 1) are planned once and counted per copy.
+function planTotals(p, slopes) {
+  const copies = slope => slope.quantity ?? 1;
+  const pieces = slopes.flatMap(slope => slope.pieces.map(piece => ({ ...piece, quantity: copies(slope) })));
+  const sum = key => slopes.reduce((total, slope) => total + slope[key] * copies(slope), 0);
+  const totals = { count: pieces.reduce((sum, p) => sum + p.quantity, 0),
+    modules: pieces.reduce((sum, p) => sum + p.modules * p.quantity, 0),
+    linearMetres: pieces.reduce((sum, p) => sum + p.length / 1000 * p.quantity, 0),
+    netArea: sum('netArea'), stockArea: sum('stockArea'), cutArea: sum('cutArea'), overlapArea: sum('overlapArea') };
+  totals.weight = totals.stockArea * p.kgPerM2;
+  return { profile: p, slopes, totals, groups: groupSheetLengths(pieces) };
+}
+
 export function planRoofSheets(layout, profile, settings = {}) {
   validateLayout(layout);
   const windows = roofWindowGeometry(layout);
   const p = validateSheetProfile(profile);
-  const useful = p.usefulWidth / 1000, module = p.module / 1000;
-  let pieceCount = 0;
+  const counter = { pieces: 0 };
   const slopes = connectedSlopes(layout).map((group, index) => {
     const { normal } = group;
     const sx = -normal.x / normal.y, sz = -normal.z / normal.y;
@@ -155,91 +236,48 @@ export function planRoofSheets(layout, profile, settings = {}) {
     const polygons = triangles.map(points => points.map(local));
     const width = Math.max(...all.map(p => p.x)) - minX;
     const height = Math.max(...all.map(p => p.y)) - minY;
-    const options = settings.slopes?.[index] || {};
-    const offset = Number(options.offset ?? settings.offset ?? 0) / 1000;
-    const reverse = (options.direction ?? settings.direction) === 'right';
-    if (!Number.isFinite(offset) || offset < 0 || offset >= useful) throw new Error('Start offset must be from 0 up to (but below) the usable sheet width.');
-    const columns = Math.ceil((width + offset - 1e-9) / useful);
-    if (columns > 3000) throw new Error('Too many sheet columns. Increase the usable width.');
-    const pieces = [];
-    for (let column = 0; column < columns; column++) {
-      const left = reverse ? width + offset - (column + 1) * useful : column * useful - offset;
-      const clipped = polygons.map(poly => clipStrip(poly, left, left + useful)).filter(poly => poly.length >= 3 && area(poly) > 1e-10);
-      // Separate full-width gaps (e.g. dormers) while allowing cut-outs in a sheet.
-      const intervals = clipped.map(poly => [Math.min(...poly.map(p => p.y)), Math.max(...poly.map(p => p.y))]).sort((a, b) => a[0] - b[0]);
-      const runs = [];
-      intervals.forEach(([start, end]) => {
-        const last = runs.at(-1);
-        if (last && start <= last[1] + 1e-8) last[1] = Math.max(last[1], end);
-        else runs.push([start, end]);
-      });
-      // Share one module grid across columns so tile courses line up. Merge
-      // nearby gaps when rounding would otherwise order overlapping sheets.
-      const alignedRuns = [];
-      runs.forEach(([start, end]) => {
-        const low = Math.floor((start + 1e-8) / module) * module;
-        let count = Math.max(p.minModules, Math.ceil((end - low - 1e-8) / module));
-        const sheetCount = Math.ceil(count / p.allowedMaxModules);
-        count = Math.max(count, sheetCount * p.minModules);
-        const high = low + count * module;
-        const last = alignedRuns.at(-1);
-        if (last && low <= last[1] + 1e-8) {
-          const count = Math.round((Math.max(last[1], high) - last[0]) / module);
-          last[1] = last[0] + Math.max(count, Math.ceil(count / p.allowedMaxModules) * p.minModules) * module;
-        } else alignedRuns.push([low, high]);
-      });
-      let segment = 0, baseSegment = 0;
-      for (const [start, end] of alignedRuns) {
-        let y = start;
-        while (y < end - 1e-8) {
-          const remaining = Math.round((end - y) / module);
-          const sheetsLeft = Math.ceil(remaining / p.allowedMaxModules);
-          const baseModules = Math.min(p.allowedMaxModules, remaining - (sheetsLeft - 1) * p.minModules);
-          const baseId = `${slopeLetter(index)}-${column + 1}.${++baseSegment}`;
-          const parts = settings.partitions?.[baseId] || [baseModules];
-          validateSheetPartition(parts, baseModules, p);
-          for (const modules of parts) {
-            const coverageLength = modules * module;
-            const cuts = clipped.map(poly => clip(clip(poly, 'y', y, 1), 'y', y + coverageLength, -1))
-              .filter(poly => poly.length >= 3 && area(poly) > 1e-10);
-            pieces.push({ id: `${slopeLetter(index)}-${column + 1}.${++segment}`, column: column + 1,
-              baseId, baseModules, modules, length: modules * p.module + p.endOverlap, x: left, y,
-              stockX: reverse ? left - (p.width - p.usefulWidth) / 1000 : left,
-              coverageLength, polygons: cuts, netArea: cuts.reduce((sum, poly) => sum + area(poly), 0) });
-            y += coverageLength;
-            if (++pieceCount > 10000) throw new Error('Too many pieces. Increase the sheet dimensions.');
-          }
-        }
-      }
-    }
+    const strips = stripSlope(index, polygons, width, p, settings, counter);
     const pitch = Math.atan(gradient) * 180 / Math.PI;
-    const netArea = polygons.reduce((sum, poly) => sum + area(poly), 0);
-    const stockArea = pieces.reduce((sum, piece) => sum + p.width * piece.length / 1e6, 0);
-    const usefulArea = pieces.reduce((sum, piece) => sum + useful * piece.coverageLength, 0);
     const warnings = [];
     if (pitch + 1e-6 < p.minPitch) warnings.push(`Pitch ${pitch.toFixed(1)}° is below this profile’s ${p.minPitch}° minimum.`);
     if (gradient < 1e-8) warnings.push('Flat surface: sheet direction defaults to the plan Z axis.');
-    return { id: slopeLetter(index), pitch, width, height, pieces, polygons, columns, reverse, offset: offset * 1000,
+    return { ...strips, pitch, width, height,
       outline: [...group.boundary.map(ids => ids.map(id => local(flatten(layout.vertices[id])))),
         ...openings.flatMap(window => window.corners.map((p, i) =>
           [p, window.corners[(i + 1) % 4]].map(p => local(flatten(p)))))],
       planPolygons: cutPolygons.flatMap(poly => poly.slice(1, -1).map((_, i) => [poly[0], poly[i + 1], poly[i + 2]])),
-      netArea, stockArea, usefulArea, cutArea: Math.max(0, usefulArea - netArea),
-      overlapArea: stockArea - usefulArea, warnings, groups: groupSheetLengths(pieces) };
+      warnings };
   });
-  const pieces = slopes.flatMap(slope => slope.pieces);
-  const sum = key => slopes.reduce((total, slope) => total + slope[key], 0);
-  const totals = { count: pieces.length, modules: pieces.reduce((sum, p) => sum + p.modules, 0),
-    linearMetres: pieces.reduce((sum, p) => sum + p.length / 1000, 0),
-    netArea: sum('netArea'), stockArea: sum('stockArea'), cutArea: sum('cutArea'), overlapArea: sum('overlapArea') };
-  totals.weight = totals.stockArea * p.kgPerM2;
-  return { profile: p, slopes, totals, groups: groupSheetLengths(pieces) };
+  return planTotals(p, slopes);
+}
+
+// Slopes drawn individually at their true size (see slopeSketch.js). There is no
+// 3D roof: the overview places the slopes side by side.
+export function planSketchSheets(sketch, profile, settings = {}) {
+  const p = validateSheetProfile(profile);
+  const counter = { pieces: 0 };
+  let planX = 0;
+  const slopes = sketchSlopes(sketch).map((slope, index) => {
+    const ring = slope.points.map(pt => ({ x: pt.x, z: pt.y }));
+    const polygons = triangulate(ring.map((_, i) => i), ring).map(ids => ids.map(i => slope.points[i]));
+    const strips = stripSlope(index, polygons, slope.width, p, settings, counter);
+    const warnings = [];
+    if (slope.pitch != null && slope.pitch + 1e-6 < p.minPitch) warnings.push(`Pitch ${slope.pitch.toFixed(1)}° is below this profile’s ${p.minPitch}° minimum.`);
+    const planPolygons = polygons.map(poly => poly.map(pt => ({ x: planX + pt.x, z: -pt.y })));
+    planX += slope.width + 1;
+    return { ...strips, pitch: slope.pitch, width: slope.width, height: slope.height, quantity: slope.quantity,
+      outline: slope.points.map((pt, i) => [pt, slope.points[(i + 1) % slope.points.length]]),
+      planPolygons, warnings, edges: slope.edges };
+  });
+  const plan = planTotals(p, slopes);
+  plan.edgeTotals = sketchEdgeTotals(slopes);
+  return plan;
 }
 
 export function sheetPlanCsv(plan, translate = text => text) {
-  const rows = [['Slope', 'Piece', 'Column', 'Modules', 'Length mm', 'Width mm', 'Usable width mm', 'Net covered m2', 'Stock m2']];
+  const rows = [['Slope', 'Piece', 'Column', 'Modules', 'Length mm', 'Width mm', 'Usable width mm', 'Net covered m2', 'Stock m2', 'Identical slopes']];
   plan.slopes.forEach(slope => slope.pieces.forEach(piece => rows.push([slope.id, piece.id, piece.column, piece.modules,
-    piece.length, plan.profile.width, plan.profile.usefulWidth, piece.netArea.toFixed(4), (piece.length * plan.profile.width / 1e6).toFixed(4)])));
+    piece.length, plan.profile.width, plan.profile.usefulWidth, piece.netArea.toFixed(4), (piece.length * plan.profile.width / 1e6).toFixed(4), slope.quantity ?? 1])));
   rows.push([], ['TOTAL pieces', plan.totals.count], ['TOTAL modules', plan.totals.modules],
     ['Roof area m2', plan.totals.netArea.toFixed(4)], ['Stock area m2', plan.totals.stockArea.toFixed(4)],
     ['Cut allowance m2', plan.totals.cutArea.toFixed(4)], ['Overlap / end allowance m2', plan.totals.overlapArea.toFixed(4)]);

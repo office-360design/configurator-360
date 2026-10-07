@@ -1,7 +1,7 @@
 import { setupEditorTouch } from './editorTouch.js?v=pan-42';
 import { setupEditorToolbar } from './editorToolbar.js?v=axes-36';
 import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
-import { localizeFeature } from './featureI18n.js?v=pan-42';
+import { localizeFeature } from './featureI18n.js?v=sketch-1';
 import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {

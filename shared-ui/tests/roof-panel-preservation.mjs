@@ -222,7 +222,7 @@ try {
           'de-DE': ['Dachform', 'Abmessungen', 'Dacheindeckung'],
         };
         assert.deepEqual(result.headings, labels[locale]);
-        assert.equal(result.title, { 'en-US': 'Roof settings', 'ro-RO': 'Setări acoperiș', 'de-DE': 'Dacheinstellungen' }[locale]);
+        assert.equal(result.title, { 'en-US': 'Configure your roof', 'ro-RO': 'Configurează acoperișul', 'de-DE': 'Dach konfigurieren' }[locale]);
       }
     }
     console.log(`PASS: ${viewport.width}×${viewport.height}, light/dark, EN/RO/DE`);

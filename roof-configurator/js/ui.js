@@ -1,10 +1,12 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=navigation-32';
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=pan-42';
-import { RoofLayoutEditor } from './layoutEditor.js?v=origin-43';
+import { localizeFeature, featureText } from './featureI18n.js?v=sketch-1';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=sketch-1';
+import { RoofLayoutEditor } from './layoutEditor.js?v=sketch-1';
+import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=sketch-1';
+import { defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { pitchRules } from './state.js?v=layout-21';
-import { bomToCsv, calculateBom } from './bom.js?v=navigation-32';
+import { pitchRules } from './state.js?v=sketch-1';
+import { bomToCsv, calculateBom } from './bom.js?v=sketch-1';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -15,7 +17,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=platform-18';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=navigation-32';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=sketch-1';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -43,9 +45,21 @@ export class RoofUI {
         message.textContent = `This preset cannot be edited at its current settings: ${error.message} Try adjusting its dimensions or pitch.`;
       }
     });
+    this.sketchEditor = new SlopeSketchEditor(state, () => {
+      this.onChange({ fitCamera: false });
+      this.applyStateToControls();
+    });
+    document.querySelector('#editSlopeSketch').addEventListener('click', () => this.sketchEditor.open());
+    this.sketchViewer = document.querySelector('#sketchViewer');
+    this.sketchViewerTranslation = localizeFeature(this.sketchViewer, () => this.state.locale);
     this.sheetPlanner = new SheetPlannerUI(state);
     document.querySelector('#sheetPlanOpenButton').addEventListener('click', () => this.sheetPlanner.open());
     this.bindRoofTypes();
+    // The drawing modes sit above the stage; choosing one opens its editor at once.
+    document.querySelectorAll('[data-draw-mode]').forEach(button => button.addEventListener('click', () => {
+      if (button.dataset.roofType === 'sketch') this.sketchEditor.open();
+      else document.querySelector('#editRoofLayout').click();
+    }));
     this.bindRanges();
     this.bindCovering();
     this.bindSwatches();
@@ -53,7 +67,7 @@ export class RoofUI {
     this.bindBom();
     this.bindCustomPlan();
     this.updateCustomMode();
-    for (const selector of ['#layoutLaunch', '#sheetPlanOpenButton']) {
+    for (const selector of ['#layoutLaunch', '#sketchLaunch', '#sheetPlanOpenButton', '.draw-mode-switch']) {
       localizeFeature(document.querySelector(selector), () => this.state.locale);
     }
   }
@@ -63,6 +77,7 @@ export class RoofUI {
       button.addEventListener('click', () => {
         this.state.roofType = button.dataset.roofType;
         if (this.state.roofType === 'layout') this.state.roofLayout ||= this.layoutEditor.atOrigin(defaultLayout());
+        if (this.state.roofType === 'sketch') this.state.slopeSketch ||= defaultSketch();
         document.querySelectorAll('[data-roof-type]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
         this.viewerTitle.textContent = roofName(this.state.locale, this.state.roofType);
         this.updateCustomMode();
@@ -232,7 +247,13 @@ export class RoofUI {
 
   updateCustomMode() {
     const isLayout = this.state.roofType === 'layout';
-    document.querySelector('#layoutLaunch').hidden = this.state.roofType === 'custom';
+    const isSketch = this.state.roofType === 'sketch';
+    document.querySelector('#layoutLaunch').hidden = ['custom', 'sketch'].includes(this.state.roofType);
+    document.querySelector('#sketchLaunch').hidden = !isSketch;
+    // Slopes drawn one by one are 2D only: the overview replaces the 3D stage.
+    this.sketchViewer.hidden = !isSketch;
+    document.querySelectorAll('.view-actions, .model-options, .stage-hint').forEach(element => { element.hidden = isSketch; });
+    document.querySelector('[data-accordion="dimensions"]').hidden = isSketch;
     const launchMessage = document.querySelector('#layoutLaunch p');
     launchMessage.classList.remove('layout-launch-error');
     launchMessage.removeAttribute('role');
@@ -384,7 +405,7 @@ export class RoofUI {
     const bom = calculateBom(this.state, metrics);
     this.currentBom = bom;
 
-    if (['custom', 'layout'].includes(this.state.roofType)) {
+    if (['custom', 'layout', 'sketch'].includes(this.state.roofType)) {
       document.querySelector('#headerEstimateTotal').textContent = roofT(this.state.locale, 'bom.awaitingPlan');
       document.querySelector('#bomSubtotal').textContent = '—';
       document.querySelector('#bomVat').textContent = '—';
@@ -403,12 +424,14 @@ export class RoofUI {
       assumptionGrid.replaceChildren(status);
       const currencyNote = document.querySelector('#bomCurrencyNote');
       if (currencyNote) currencyNote.textContent = roofT(this.state.locale, 'bom.customCurrencyNote');
-      if (this.state.roofType === 'layout') {
+      if (['layout', 'sketch'].includes(this.state.roofType)) {
         document.querySelector('#headerEstimateTotal').textContent = featureText(this.state.locale, 'Not estimated');
         row.replaceChildren();
         const cell = document.createElement('td');
         cell.colSpan = 7;
-        cell.textContent = featureText(this.state.locale, 'Custom layout quantities and prices are not yet available. Roof area is calculated from the drawn surfaces.');
+        cell.textContent = featureText(this.state.locale, this.state.roofType === 'sketch'
+          ? 'Prices are not yet available for slopes drawn one by one. Open Sheet cutting plan for panel lengths, quantities and trim lengths.'
+          : 'Custom layout quantities and prices are not yet available. Roof area is calculated from the drawn surfaces.');
         row.appendChild(cell);
         status.textContent = featureText(this.state.locale, `${metrics.roofArea.toLocaleString(this.state.locale, { maximumFractionDigits: 2 })} m² roof area`);
         if (currencyNote) currencyNote.textContent = featureText(this.state.locale, 'Flashings, gutters and material quantities require a separate estimate.');
@@ -503,10 +526,12 @@ export class RoofUI {
   updateMetrics(metrics) {
     this.lastMetrics = metrics;
     const prefix = metrics.approximate ? '~' : '';
-    document.querySelector('#metricFootprint').textContent = `${prefix}${formatArea(metrics.footprint, this.state.units)}`;
+    const isSketch = this.state.roofType === 'sketch';
+    document.querySelector('#metricFootprint').textContent = isSketch ? '—' : `${prefix}${formatArea(metrics.footprint, this.state.units)}`;
     document.querySelector('#metricRoofArea').textContent = `${prefix}${formatArea(metrics.roofArea, this.state.units)}`;
-    document.querySelector('#metricRidge').textContent = formatLength(metrics.ridgeElevation, this.state.units);
-    document.querySelector('#metricPitch').textContent = `${Math.round(this.state.pitch)}°`;
+    document.querySelector('#metricRidge').textContent = isSketch ? '—' : formatLength(metrics.ridgeElevation, this.state.units);
+    document.querySelector('#metricPitch').textContent = isSketch ? '—' : `${Math.round(this.state.pitch)}°`;
+    if (isSketch) renderSketchViewer(this.sketchViewer, this.state, index => this.sketchEditor.open(index));
     this.updateBom(metrics);
   }
 }
