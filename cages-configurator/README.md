@@ -1,7 +1,15 @@
 # Cages configurator (bored piles and diaphragm walls)
 
-3D configurator for rebar cages: bored piles (circular) and diaphragm wall
-panels (square or rectangular). Ported from the Claude artifact prototype.
+3D configurator for rebar cages: bored piles (circular, square or
+rectangular, with a spiral) and diaphragm wall panels for building retaining
+walls (flat cages with two bar mats). Ported from the Claude artifact prototype.
+
+Diaphragm wall panel: wall thickness and cage width, vertical and horizontal
+bars on both faces (horizontals outermost), links between the faces at every
+n-th vertical bar, optional lattice trusses for lifting stiffness, spacers on
+both faces and starter bars at the head. Ranges are usual engineering values
+(wall 400–1500 mm, cage width 1–7 m, length up to 30 m); the Damila machine
+limits apply to piles only.
 
 ## Features
 

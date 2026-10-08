@@ -1,16 +1,16 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
-import { CageScene } from './scene.js?v=cages-3';
-import { sectionSvg } from './section.js?v=cages-3';
+import { CageScene } from './scene.js?v=cages-4';
+import { sectionSvg } from './section.js?v=cages-4';
 import {
   DEFAULT, LIM, PRESETS, barsFor, checks, clampState, fmt, markCode, model, sectionLabel, specText,
-} from './model.js?v=cages-3';
+} from './model.js?v=cages-4';
 
 await requireTenantConfiguratorAccess('cages');
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const VIEWS = ['all', 'head', 'axial'];
-const UNITS = { bendLen: 'mm', bendIn: 'mm', D: 'mm', B: 'mm', H: 'mm', Lm: 'm', cover: 'mm', n: 'buc', free: 'mm', pitch: 'mm', pitchEnd: 'mm', zoneEnd: 'mm', ringStep: 'mm', spacerPer: 'buc', spacerStep: 'mm', qty: 'buc' };
+const UNITS = { T: 'mm', W: 'mm', sv: 'mm', sh: 'mm', linkStep: 'mm', trussCount: 'buc', bendLen: 'mm', bendIn: 'mm', D: 'mm', B: 'mm', H: 'mm', Lm: 'm', cover: 'mm', n: 'buc', free: 'mm', pitch: 'mm', pitchEnd: 'mm', zoneEnd: 'mm', ringStep: 'mm', spacerPer: 'buc', spacerStep: 'mm', qty: 'buc' };
 const shared = await readShareState({ productType: 'cages' });
 let S = clampState(shared && typeof shared === 'object' ? { ...DEFAULT, ...shared } : DEFAULT);
 let viewIndex = 0;
@@ -23,22 +23,34 @@ function fillSelect(select, values, value) {
 }
 
 function syncUI() {
-  const lim = LIM[S.type];
+  const lim = LIM.pilot, wall = LIM.perete, isWall = S.type === 'perete';
+  $$('[data-for]').forEach(el => { el.hidden = el.dataset.for !== S.type; });
   $$('[data-type]').forEach(b => { const on = b.dataset.type === S.type; b.classList.toggle('selected', on); b.setAttribute('aria-pressed', String(on)); });
   $$('[data-shape]').forEach(b => { const on = b.dataset.shape === S.shape; b.classList.toggle('selected', on); b.setAttribute('aria-pressed', String(on)); });
   $$('[data-show]').forEach(el => {
     const w = el.dataset.show;
-    el.hidden = !(w === S.shape || (w === 'rect' && S.shape !== 'circ'));
+    el.hidden = isWall || !(w === S.shape || (w === 'rect' && S.shape !== 'circ'));
   });
   $('#lblB').textContent = S.shape === 'patrat' ? 'Latură' : 'Lățime B';
   ['D', 'B', 'H'].forEach(k => { const r = $(`#r-${k}`), n = $(`#n-${k}`); r.min = n.min = lim.D[0]; r.max = n.max = lim.D[1]; });
   $('#r-pitch').max = $('#n-pitch').max = lim.p;
   $('#r-pitchEnd').max = $('#n-pitchEnd').max = S.pitch;
-  $('#r-free').max = $('#n-free').max = Math.min(2000, S.Lm * 1000 - 1000);
-  $('#r-L').max = $('#n-L').max = lim.L / 1000;
+  ['#r-free', '#n-free', '#r-free-w', '#n-free-w'].forEach(id => { $(id).max = Math.min(2000, S.Lm * 1000 - 1000); });
+  $('#r-L').max = $('#n-L').max = LIM[S.type].L / 1000;
+  fillSelect($('#sel-dv'), barsFor(wall.dv), S.dv);
+  fillSelect($('#sel-dh'), barsFor(wall.dh), S.dh);
+  fillSelect($('#sel-dt'), barsFor(wall.dt), S.dt);
+  fillSelect($('#sel-trussD'), barsFor(wall.dv), S.trussD);
+  $('#r-sv').min = $('#n-sv').min = S.dv + 50;
+  $('#r-sh').min = $('#n-sh').min = S.dh + 50;
+  $('#trussSub').setAttribute('aria-disabled', String(!S.trusses));
+  $('#spacerHint').textContent = isWall ? 'Roți din plastic pe ambele fețe' : 'Roți din plastic pe spirală';
+  $('#spacerPerLabel').textContent = isWall ? 'Distanțieri pe față' : 'Distanțieri pe secțiune';
   fillSelect($('#sel-dl'), barsFor(lim.dl), S.dl);
   fillSelect($('#sel-ds'), barsFor(lim.ds), S.ds);
-  $('#limGeo').textContent = `${lim.D[0]}–${lim.D[1]} mm · L ≤ ${lim.L / 1000} m`;
+  $('#limGeo').textContent = isWall
+    ? `T ${wall.T[0]}–${wall.T[1]} mm · L ≤ ${wall.L / 1000} m`
+    : `${lim.D[0]}–${lim.D[1]} mm · L ≤ ${lim.L / 1000} m`;
   $('#limDl').textContent = `Ø${lim.dl[0]}–${lim.dl[1]} mm`;
   $('#limDs').textContent = `Ø${lim.ds[0]}–${lim.ds[1]} mm · pas ≤ ${lim.p} mm`;
   $$('[data-k]').forEach(el => {
@@ -60,28 +72,26 @@ function syncUI() {
 }
 
 function render(m) {
-  const lim = LIM[S.type];
-  const tag = $('#tag');
-  tag.innerHTML = `<div class="mark">${markCode(S)}</div>
-    ${lim.name} · ${sectionLabel(S)} · L ${fmt(S.Lm, 2)} m<br>${S.n}Ø${S.dl} ${S.grade} · SP Ø${S.ds}/${S.pitch}${S.dense ? ` (${S.pitchEnd})` : ''}<br>
+  const lim = LIM[S.type], isWall = m.kind === 'wall';
+  const reinforcement = isWall
+    ? `2×${m.nv}Ø${S.dv} vert. · Ø${S.dh}/${S.sh} oriz. · agrafe Ø${S.dt}`
+    : `${S.n}Ø${S.dl} ${S.grade} · SP Ø${S.ds}/${S.pitch}${S.dense ? ` (${S.pitchEnd})` : ''}`;
+  $('#tag').innerHTML = `<div class="mark">${markCode(S)}</div>
+    ${lim.name} · ${sectionLabel(S)} · L ${fmt(S.Lm, 2)} m<br>${reinforcement}<br>
     <b>${fmt(m.mass)} kg</b> / buc · ${fmt(m.mass / S.Lm, 1)} kg/m${m.bend ? ' · cap îndoit' : ''}`;
-  $('#boreHint').textContent = m.circ ? `Diametru foraj rezultat: Ø${m.boreB} mm` : `Secțiune panou rezultată: ${m.boreB}×${m.boreH} mm`;
+  $('#boreHint').textContent = isWall ? `Carcasă ${S.W} × ${fmt(m.Tc)} mm (perete ${S.T} mm)`
+    : m.circ ? `Diametru foraj rezultat: Ø${m.boreB} mm` : `Secțiune panou rezultată: ${m.boreB}×${m.boreH} mm`;
 
-  const rows = [
-    ['Bare longitudinale', `${S.n} × ${fmt(m.barLength / 1000, 2)} m Ø${S.dl}${m.bend ? ' (cu îndoire)' : ''}`, `${fmt(S.n * m.barLength / 1000, 1)} m`, fmt(m.mBars, 1)],
-    ['Spirală', `${fmt(m.Ttot, 1)} spire Ø${S.ds}`, `${fmt(m.spiralLen / 1000, 1)} m`, fmt(m.mSpiral, 1)],
-  ];
-  if (S.rings) rows.push(['Inele rigidizare', `${m.ringZ.length} buc Ø${S.ringD}`, `${fmt(m.ringZ.length * m.ringPerim / 1000, 1)} m`, fmt(m.mRings, 1)]);
-  if (S.spacers) rows.push(['Distanțieri', `${m.spacerZ.length * S.spacerPer} buc`, '', '–']);
-  const volume = m.Ac / 1e6 * S.Lm;
+  const rows = m.items.map(item => [item.name, item.desc, item.length == null ? '' : `${fmt(item.length, 1)} m`, item.kg == null ? '–' : fmt(item.kg, 1)]);
+  const volume = m.volume;
   $('#qty').innerHTML = `<div class="table-wrap"><table>
     <thead><tr><th>Element</th><th>Descriere</th><th class="n">Lungime</th><th class="n">kg</th></tr></thead>
     <tbody>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="n">${r[2]}</td><td class="n">${r[3]}</td></tr>`).join('')}
     <tr class="total"><td>Total / buc</td><td>${fmt(m.mass / S.Lm, 1)} kg/m</td><td class="n"></td><td class="n">${fmt(m.mass, 1)}</td></tr>
     <tr class="total"><td>Total comandă</td><td>${S.qty} buc</td><td class="n"></td><td class="n">${fmt(m.mass * S.qty)}</td></tr></tbody></table></div>
     <table class="extra"><tbody>
-      <tr><td>Puncte de sudură / buc</td><td class="n">${fmt(m.weldCount + m.weldRings)}</td></tr>
-      <tr><td>Volum beton ${S.type === 'pilot' ? 'pilot' : 'panou'} (${m.circ ? `Ø${m.boreB}` : `${m.boreB}×${m.boreH}`})</td><td class="n">${fmt(volume, 2)} m³</td></tr>
+      <tr><td>${m.nodesLabel}</td><td class="n">${fmt(m.nodes)}</td></tr>
+      <tr><td>${m.volumeLabel}</td><td class="n">${fmt(volume, 2)} m³</td></tr>
       <tr><td>Consum armătură</td><td class="n">${fmt(m.mass / volume)} kg/m³</td></tr>
     </tbody></table>`;
 

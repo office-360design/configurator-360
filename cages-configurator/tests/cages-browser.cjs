@@ -25,10 +25,14 @@ const path = require('node:path');
   await page.locator('[data-preset="pm"]').click();
   await page.waitForFunction(() => window.CAGES_CONFIGURATOR_API.captureState().type === 'perete');
   await page.waitForTimeout(200);
-  assert.match(await page.locator('#tag .mark').textContent(), /^PM-400x600-14$/);
-  assert.ok(await page.locator('[data-show="drept"]').isVisible());
+  assert.match(await page.locator('#tag .mark').textContent(), /^PM-800x2500-15$/);
+  // Diaphragm wall: panel controls replace the pile section, spiral and rings.
+  assert.ok(await page.locator('[data-out="T"]').isVisible());
   assert.ok(await page.locator('[data-show="circ"]').isHidden());
-  assert.equal(await page.locator('#sel-dl option').last().textContent(), 'Ø20');
+  assert.ok(await page.locator('[data-accordion="spiral"]').isHidden());
+  assert.ok(await page.locator('[data-accordion="wall"]').isVisible());
+  assert.match(await page.locator('#qty').textContent(), /Bare verticale.*Bare orizontale.*Agrafe/s);
+  assert.equal(await page.locator('#sel-dv option').last().textContent(), 'Ø32');
   if (shots) await page.screenshot({ path: path.join(shots, 'cages-wall.png') });
 
   // Typed values are clamped to the machine limits.

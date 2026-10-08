@@ -45,12 +45,16 @@ test('state is clamped to the manufacturing limits of each cage type', () => {
   assert.equal(pile.pitch, LIM.pilot.p);
   assert.equal(pile.n, 4);
   assert.equal(pile.qty, 1);
-  const wall = clampState({ ...DEFAULT, type: 'perete', shape: 'patrat', B: 700, dl: 32, ds: 16, pitch: 400 });
-  assert.equal(wall.B, 600);
-  assert.equal(wall.H, 600, 'square sections keep H = B');
-  assert.equal(wall.dl, 20);
-  assert.equal(wall.ds, 12);
-  assert.equal(wall.pitch, 300);
+  const wall = clampState({ ...DEFAULT, type: 'perete', T: 2000, W: 500, Lm: 40, dv: 40, dh: 8, dt: 20, sv: 60, sh: 20, linkEvery: 9 });
+  assert.equal(wall.T, LIM.perete.T[1]);
+  assert.equal(wall.W, LIM.perete.W[0]);
+  assert.equal(wall.Lm, 30);
+  assert.equal(wall.dv, 32);
+  assert.equal(wall.dh, 10);
+  assert.equal(wall.dt, 16);
+  assert.equal(wall.sv, wall.dv + 50, 'pitch leaves at least 50 mm between bars');
+  assert.equal(wall.sh, wall.dh + 50);
+  assert.equal(wall.linkEvery, 4);
   assert.equal(clampState({ ...DEFAULT, pitch: 150, pitchEnd: 400 }).pitchEnd, 150, 'end pitch never exceeds the regular pitch');
 });
 
@@ -69,17 +73,37 @@ test('circular pile: bars, spiral length and masses', () => {
   assert.equal(markCode(S), 'PF-800-12');
 });
 
-test('rectangular wall cage: corner and side bars, clear spacing', () => {
+test('diaphragm wall panel: two faces of bars, links, trusses and masses', () => {
   const S = clampState({ ...DEFAULT, ...PRESETS.pm });
   const m = model(S);
-  assert.equal(m.bars.length, S.n);
-  assert.equal(m.B, 400);
-  assert.equal(m.H, 600);
-  assert.ok(m.clear[0] > 0 && m.clear[0] <= m.clear[1]);
-  for (const bar of m.bars) {
-    assert.ok(Math.abs(bar.u) < m.B / 2 && Math.abs(bar.v) < m.H / 2, 'bars stay inside the cage');
-  }
+  assert.equal(m.kind, 'wall');
+  assert.equal(m.Tc, 800 - 2 * 75);
+  // 2500 mm wide at 150 mm: 17 verticals per face, edge bars inside the width.
+  assert.equal(m.nv, 17);
+  assert.equal(m.verticals.length, 17);
+  close(m.verticals[0], -(2500 - 25) / 2);
+  close(m.verticals.at(-1), (2500 - 25) / 2);
+  // Horizontals stop below the 1 m starter bars at the head.
+  assert.ok(m.horizontals.at(-1) <= m.Ls);
+  assert.equal(m.nh, Math.floor((14000 - 16) / 200) + 1);
+  // Every 2nd vertical tied, both edges always tied.
+  assert.equal(m.linkCols[0], 0);
+  assert.equal(m.linkCols.at(-1), 16);
+  assert.equal(m.nLinks, m.linkRows.length * m.linkCols.length);
+  close(m.mV, 2 * 17 * 15 * kgm(25));
+  close(m.mH, 2 * m.nh * 2.5 * kgm(16));
+  close(m.mass, m.mV + m.mH + m.mLinks + m.mTruss);
+  assert.equal(m.trussU.length, 3);
+  // Usual diaphragm wall consumption is about 80–150 kg/m³.
+  const ratio = m.mass / m.volume;
+  assert.ok(ratio > 80 && ratio < 150, `kg/m³ ${ratio}`);
+  assert.equal(markCode(S), 'PM-800x2500-15');
+  assert.match(specText(S, m), /^CARCASĂ PERETE MULAT — PM-800x2500-15/);
   assert.ok(!checks(S, m).some(c => c.t.includes('SR EN 1536 recomandă')), 'pile-only rules do not apply to walls');
+  assert.ok(m.items.every(item => item.kg == null || item.kg > 0));
+  // Without trusses the panel stiffness is flagged.
+  const bare = clampState({ ...S, trusses: false });
+  assert.ok(checks(bare, model(bare)).some(c => c.lv === 'warn' && c.t.startsWith('Fără zăbrele')));
 });
 
 test('checks flag bars that do not fit; there is no mass limit', () => {
@@ -96,7 +120,7 @@ test('rings and spacers always sit inside the cage, also for short cages', () =>
   assert.deepEqual(evenlyAlong(12000, 2500), [1000, 3500, 6000, 8500, 11000]);
   assert.deepEqual(evenlyAlong(2000, 2500), [1000]);
   for (let Lm = 1; Lm <= 24; Lm += 0.5) {
-    for (const extra of [{}, { headBend: false }, { free: 0 }, PRESETS.pm]) {
+    for (const extra of [{}, { headBend: false }, { free: 0 }]) {
       const S = clampState({ ...DEFAULT, ...extra, Lm });
       const m = model(S);
       for (const z of m.ringZ) assert.ok(z > 0 && z < m.L, `ring at ${z} outside L=${m.L}`);
