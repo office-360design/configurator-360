@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
         'shared-ui/admin/sales-dashboard/index.html': 'SALES DASHBOARD',
         'sitemap-en.xml': 'SITEMAP EN', 'sitemap-ro.xml': 'SITEMAP RO', 'sitemap-de.xml': 'SITEMAP DE',
     }
-    for product in ['window', 'pergola', 'roof', 'solar', 'hall', 'fence', 'cardbox', 'tiles', 'chair', 'bookshelf']:
+    for product in ['window', 'pergola', 'roof', 'solar', 'hall', 'fence', 'cardbox', 'tiles', 'chair', 'bookshelf', 'cages']:
         fixtures[f'{product}-configurator/index.html'] = f'APP {product}'
         fixtures[f'{product}-configurator/js/app.js'] = f'ASSET {product}'
         fixtures[f'{product}-configurator/styles.css'] = f'CSS {product}'
