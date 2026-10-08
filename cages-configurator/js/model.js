@@ -69,6 +69,16 @@ export function clampState(state) {
   return S;
 }
 
+// Positions at a regular step, centred and kept inside the cage with an end
+// margin; a cage shorter than the step gets a single row in the middle.
+export function evenlyAlong(L, step) {
+  const margin = Math.min(500, L / 4);
+  const count = Math.max(1, Math.floor((L - 2 * margin) / step + 1e-9) + 1);
+  if (count === 1) return [L / 2];
+  const z0 = (L - (count - 1) * step) / 2;
+  return Array.from({ length: count }, (_, i) => z0 + i * step);
+}
+
 // Cage geometry. `path(s, offset)` walks the spiral centreline (s in 0..1 per
 // turn), optionally offset inwards. The axis z runs from the tip (0) to the head.
 export function model(S) {
@@ -178,8 +188,7 @@ export function model(S) {
   const ringOff = off + dl / 2 + (+S.ringD) / 2;
   let ringZ = [];
   if (S.rings) {
-    const cnt = Math.max(2, Math.floor((L - 1000) / S.ringStep) + 1), span = (cnt - 1) * S.ringStep, z0 = (L - span) / 2;
-    for (let i = 0; i < cnt; i++) ringZ.push(z0 + i * S.ringStep);
+    ringZ = evenlyAlong(L, S.ringStep);
     if (bend) ringZ = ringZ.filter(z => z < L - bend.len - 50);
   }
   let ringPerim;
@@ -189,11 +198,8 @@ export function model(S) {
     let prev = path(0, ringOff);
     for (let i = 1; i <= 200; i++) { const q = path(i / 200, ringOff); ringPerim += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q; }
   }
-  const spacerZ = [];
-  if (S.spacers) {
-    const cnt = Math.max(2, Math.floor((L - 1000) / S.spacerStep) + 1), span = (cnt - 1) * S.spacerStep, z0 = (L - span) / 2;
-    for (let i = 0; i < cnt; i++) spacerZ.push(z0 + i * S.spacerStep);
-  }
+  // Spacers ride on the spiral, so they stay within its length.
+  const spacerZ = S.spacers ? evenlyAlong(Ls, S.spacerStep) : [];
   // Welds where the spiral crosses each bar (drawn up to 40 000).
   const welds = [];
   let weldCount = 0;
