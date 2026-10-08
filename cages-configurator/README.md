@@ -56,9 +56,19 @@ npm run check:cages:browser
 
 `CAGES_TEST_BROWSER` can point to a local Chrome/Chromium executable.
 
+## Platform integration
+
+- Uses the shared 360Configurator shell (top bar, Tools with camera views,
+  collapsible settings panel) and the shared panel controls and colours.
+- Public route `/cages-configurator/` on every language domain (nginx), copied
+  by the Cloud Run deploy workflow; the page is `noindex` until marketing pages
+  exist.
+- Platform domain only: `requireTenantConfiguratorAccess('cages')` blocks tenant
+  domains because `cages` is not in the tenant catalogue.
+
 ## Not yet done
 
-- Shared 360Configurator shell (top bar, save/share, tenant access, SEO entry).
+- Save, share and quotation are disabled. They need `cages` in the backend
+  product list (`firebase-share-backend/functions/index.js` `ALLOWED_PRODUCTS`,
+  Firestore rules), which also adds it to the tenant catalogue and plans.
 - Translations (UI is Romanian only).
-- Production deployment: the Cloud Run workflow copies an explicit list of
-  configurator folders; `cages-configurator` must be added there.

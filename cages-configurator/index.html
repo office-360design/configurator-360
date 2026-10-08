@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Configurator carcase piloți și pereți mulați | 360Configurator</title>
   <meta name="description" content="Configurator 3D pentru carcase de armătură pentru piloți forați și pereți mulați: geometrie, spirală, inele, masă, verificări și fișă tehnică." />
+  <meta name="robots" content="noindex, follow" />
   <link rel="icon" href="data:," />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
-  <link rel="stylesheet" href="./styles.css?v=cages-1" />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
+  <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-3" />
+  <link rel="stylesheet" href="./styles.css?v=cages-3" />
   <script type="importmap">
     {
       "imports": {
@@ -20,104 +20,154 @@
   </script>
 </head>
 <body>
-<div class="app">
-  <aside class="controls" aria-label="Parametri carcasă">
-    <div class="brand">
-      <span class="eyebrow">Armătură fundații · configurator 3D</span>
-      <h1>Carcase piloți forați &amp; pereți mulați</h1>
-      <div class="presets" role="group" aria-label="Exemple">
-        <button type="button" class="chip" data-preset="p600">Pilot Ø600 · 12 m</button>
-        <button type="button" class="chip" data-preset="p1200">Pilot Ø1200 · 20 m</button>
-        <button type="button" class="chip" data-preset="pm">Perete mulat 400×600</button>
+<main class="app-shell">
+  <section class="viewer-panel" aria-label="Vizualizare carcasă">
+    <div class="viewer-stage">
+      <div id="canvasHost" aria-label="Model 3D interactiv al carcasei"></div>
+      <div class="tag" id="tag" aria-live="polite"></div>
+      <div class="model-toggles" aria-label="Afișare">
+        <label><input type="checkbox" id="c-welds" checked> Suduri</label>
+        <label><input type="checkbox" id="c-bore"> Foraj / panou</label>
       </div>
+      <div class="stage-hint">Grilă 1 m · trage pentru rotire · scroll pentru zoom</div>
     </div>
-
-    <section class="group">
-      <h2>Tip carcasă</h2>
-      <div class="seg" role="radiogroup" aria-label="Tip">
-        <input type="radio" name="type" id="t-pilot" value="pilot" checked><label for="t-pilot">Pilot forat</label>
-        <input type="radio" name="type" id="t-perete" value="perete"><label for="t-perete">Perete mulat</label>
+    <section class="sheet" aria-label="Fișă tehnică">
+      <div class="sheet-grid">
+        <div class="cell" id="section"><h3>Secțiune transversală</h3><div id="sectionSvg"></div></div>
+        <div class="cell"><h3>Cantități <button type="button" class="copy" id="copyBtn">Copiază fișa</button></h3><div id="qty"></div></div>
+        <div class="cell checks-cell"><h3>Verificări</h3><ul class="checks" id="checks"></ul></div>
       </div>
-      <div class="seg" role="radiogroup" aria-label="Secțiune">
-        <input type="radio" name="shape" id="s-circ" value="circ" checked><label for="s-circ">Circulară</label>
-        <input type="radio" name="shape" id="s-patrat" value="patrat"><label for="s-patrat">Pătrată</label>
-        <input type="radio" name="shape" id="s-drept" value="drept"><label for="s-drept">Dreptunghi</label>
-      </div>
+      <textarea id="specText" aria-hidden="true" tabindex="-1"></textarea>
     </section>
-
-    <section class="group">
-      <h2>Geometrie <small id="limGeo"></small></h2>
-      <div class="field" data-show="circ"><label for="n-D">Diametru carcasă</label><div class="num"><input id="n-D" type="number" data-k="D"><span>mm</span></div><input id="r-D" type="range" data-k="D" step="10" aria-label="Diametru carcasă"></div>
-      <div class="field" data-show="rect"><label for="n-B" id="lblB">Lățime B</label><div class="num"><input id="n-B" type="number" data-k="B"><span>mm</span></div><input id="r-B" type="range" data-k="B" step="10" aria-label="Lățime"></div>
-      <div class="field" data-show="drept"><label for="n-H">Înălțime H</label><div class="num"><input id="n-H" type="number" data-k="H"><span>mm</span></div><input id="r-H" type="range" data-k="H" step="10" aria-label="Înălțime H"></div>
-      <div class="field"><label for="n-L">Lungime carcasă</label><div class="num"><input id="n-L" type="number" data-k="Lm" step="0.5"><span>m</span></div><input id="r-L" type="range" data-k="Lm" min="1" max="24" step="0.5" aria-label="Lungime carcasă"></div>
-      <div class="field"><label for="n-cover">Acoperire beton</label><div class="num"><input id="n-cover" type="number" data-k="cover" min="40" max="150"><span>mm</span></div><input id="r-cover" type="range" data-k="cover" min="40" max="150" step="5" aria-label="Acoperire beton"><div class="hint" id="boreHint"></div></div>
-    </section>
-
-    <section class="group">
-      <h2>Bare longitudinale <small id="limDl"></small></h2>
-      <div class="field"><label for="n-n">Număr bare</label><div class="num"><input id="n-n" type="number" data-k="n" min="4" max="60"><span>buc</span></div><input id="r-n" type="range" data-k="n" min="4" max="60" step="1" aria-label="Număr bare"></div>
-      <div class="field"><label for="sel-dl">Diametru bară</label><select id="sel-dl" data-k="dl"></select></div>
-      <div class="field"><label for="sel-grade">Oțel beton</label><select id="sel-grade" data-k="grade"><option>BST500S</option><option>B500C</option><option>PC52</option></select></div>
-      <div class="field"><label for="n-free">Mustăți la cap (fără spirală)</label><div class="num"><input id="n-free" type="number" data-k="free" min="0" max="2000"><span>mm</span></div><input id="r-free" type="range" data-k="free" min="0" max="2000" step="50" aria-label="Mustăți la cap"></div>
-    </section>
-
-    <section class="group">
-      <h2>Spirală / fretă <small id="limDs"></small></h2>
-      <div class="field"><label for="sel-ds">Diametru fir spirală</label><select id="sel-ds" data-k="ds"></select></div>
-      <div class="field"><label for="n-pitch">Pas curent (pas sudură)</label><div class="num"><input id="n-pitch" type="number" data-k="pitch"><span>mm</span></div><input id="r-pitch" type="range" data-k="pitch" min="50" step="5" aria-label="Pas curent"></div>
-      <label class="check"><input type="checkbox" id="c-dense" data-k="dense"> Pas variabil: îndesire la capete</label>
-      <div class="sub" id="denseSub">
-        <div class="field"><label for="n-pitchEnd">Pas în zona de capăt</label><div class="num"><input id="n-pitchEnd" type="number" data-k="pitchEnd"><span>mm</span></div><input id="r-pitchEnd" type="range" data-k="pitchEnd" min="50" step="5" aria-label="Pas în zona de capăt"></div>
-        <div class="field"><label for="n-zoneEnd">Lungime zonă îndesită</label><div class="num"><input id="n-zoneEnd" type="number" data-k="zoneEnd" min="300" max="4000"><span>mm</span></div><input id="r-zoneEnd" type="range" data-k="zoneEnd" min="300" max="4000" step="100" aria-label="Lungime zonă îndesită"></div>
-      </div>
-      <label class="check"><input type="checkbox" id="c-closing" data-k="closing"> Spire de închidere la ambele capete</label>
-    </section>
-
-    <section class="group">
-      <h2>Accesorii</h2>
-      <label class="check"><input type="checkbox" id="c-rings" data-k="rings"> Inele interioare de rigidizare</label>
-      <div class="sub" id="ringsSub">
-        <div class="field"><label for="sel-ringD">Diametru inel</label><select id="sel-ringD" data-k="ringD"><option value="12">Ø12</option><option value="14">Ø14</option><option value="16">Ø16</option><option value="20">Ø20</option><option value="25">Ø25</option></select></div>
-        <div class="field"><label for="n-ringStep">Distanță între inele</label><div class="num"><input id="n-ringStep" type="number" data-k="ringStep" min="1500" max="4000"><span>mm</span></div><input id="r-ringStep" type="range" data-k="ringStep" min="1500" max="4000" step="100" aria-label="Distanță între inele"></div>
-      </div>
-      <label class="check"><input type="checkbox" id="c-spacers" data-k="spacers"> Distanțieri (roți din plastic)</label>
-      <div class="sub" id="spacersSub">
-        <div class="field"><label for="n-spacerPer">Distanțieri pe secțiune</label><div class="num"><input id="n-spacerPer" type="number" data-k="spacerPer" min="3" max="8"><span>buc</span></div><input id="r-spacerPer" type="range" data-k="spacerPer" min="3" max="8" step="1" aria-label="Distanțieri pe secțiune"></div>
-        <div class="field"><label for="n-spacerStep">Pas distanțieri</label><div class="num"><input id="n-spacerStep" type="number" data-k="spacerStep" min="1500" max="5000"><span>mm</span></div><input id="r-spacerStep" type="range" data-k="spacerStep" min="1500" max="5000" step="100" aria-label="Pas distanțieri"></div>
-      </div>
-    </section>
-
-    <section class="group">
-      <h2>Comandă</h2>
-      <div class="field"><label for="n-qty">Cantitate</label><div class="num"><input id="n-qty" type="number" data-k="qty" min="1" max="999"><span>buc</span></div></div>
-    </section>
-
-    <p class="src">Limitele de fabricație (diametre, lungime max. 24 m, pas sudură, masă max.) sunt preluate din fișa tehnică publicată de <a href="https://productiedamila.ro/productia-de-carcase-pentru-piloti-forati-si-pereti-mulati/" target="_blank" rel="noopener">Damila Producție</a> pentru utilajul MEP GAM 1500 HS. Verificările normative sunt orientative și nu înlocuiesc calculul proiectantului.</p>
-  </aside>
-
-  <main class="view" aria-label="Vizualizare 3D">
-    <div id="canvasHost"></div>
-    <div class="tag" id="tag" aria-live="polite"></div>
-    <div class="legend">Grilă 1 m · trage pentru rotire, scroll pentru zoom</div>
-    <div class="hud">
-      <button type="button" data-view="all">Ansamblu</button>
-      <button type="button" data-view="head">Detaliu cap</button>
-      <button type="button" data-view="axial">Vedere axială</button>
-      <label><input type="checkbox" id="c-welds" checked> Suduri</label>
-      <label><input type="checkbox" id="c-bore"> Foraj</label>
-    </div>
-  </main>
-
-  <section class="sheet" aria-label="Fișă tehnică">
-    <div class="sheet-grid">
-      <div class="cell" id="section"><h3>Secțiune transversală</h3><div id="sectionSvg"></div></div>
-      <div class="cell"><h3>Cantități <button type="button" class="copy" id="copyBtn">Copiază fișa</button></h3><div id="qty"></div></div>
-      <div class="cell checks-cell"><h3>Verificări</h3><ul class="checks" id="checks"></ul></div>
-    </div>
-    <textarea id="specText" aria-hidden="true" tabindex="-1"></textarea>
   </section>
-</div>
-<script type="module" src="./js/app.js?v=cages-1"></script>
+
+  <aside class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light" aria-label="Parametri carcasă">
+    <section class="panel-section intro-section intro-compact">
+      <h1>Configurează carcasa</h1>
+    </section>
+
+    <section class="accordion-section is-open" data-accordion="type">
+      <button class="accordion-toggle" type="button" aria-expanded="true">
+        <span>Tip carcasă</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="accordion-panel">
+        <div class="choice-grid two-col" role="group" aria-label="Tip">
+          <button type="button" class="choice-card" data-type="pilot" aria-pressed="true">
+            <svg viewBox="0 0 76 42" aria-hidden="true"><ellipse cx="14" cy="21" rx="7" ry="13"/><path d="M14 8h50M14 34h50"/><ellipse cx="64" cy="21" rx="7" ry="13"/><path d="M24 8v26M34 8v26M44 8v26M54 8v26"/></svg>
+            <span>Pilot forat</span>
+          </button>
+          <button type="button" class="choice-card" data-type="perete" aria-pressed="false">
+            <svg viewBox="0 0 76 42" aria-hidden="true"><path d="M8 12h58v18H8z"/><path d="M16 12v18M26 12v18M36 12v18M46 12v18M56 12v18"/></svg>
+            <span>Perete mulat</span>
+          </button>
+        </div>
+        <span class="select-label top-gap">Secțiune</span>
+        <div class="choice-grid three-col" role="group" aria-label="Secțiune">
+          <button type="button" class="choice-card" data-shape="circ" aria-pressed="true"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="13"/></svg><span>Circulară</span></button>
+          <button type="button" class="choice-card" data-shape="patrat" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="24" rx="2"/></svg><span>Pătrată</span></button>
+          <button type="button" class="choice-card" data-shape="drept" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="12" y="5" width="16" height="30" rx="2"/></svg><span>Dreptunghi</span></button>
+        </div>
+        <span class="select-label top-gap">Exemple</span>
+        <div class="preset-row" role="group" aria-label="Exemple">
+          <button type="button" class="preset-chip" data-preset="p600">Pilot Ø600 · 12 m</button>
+          <button type="button" class="preset-chip" data-preset="p1200">Pilot Ø1200 · 20 m</button>
+          <button type="button" class="preset-chip" data-preset="pm">Perete mulat 400×600</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="accordion-section is-open" data-accordion="geometry">
+      <button class="accordion-toggle" type="button" aria-expanded="true">
+        <span>Geometrie</span><small class="limit" id="limGeo"></small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="accordion-panel">
+        <div class="control-list">
+          <label class="range-control" data-show="circ"><span class="control-label"><b>Diametru carcasă</b><output data-out="D"></output></span><span class="range-row"><input id="r-D" type="range" data-k="D" step="10" aria-label="Diametru carcasă"><input id="n-D" class="number-input" type="number" data-k="D" aria-label="Diametru carcasă (mm)"></span></label>
+          <label class="range-control" data-show="rect"><span class="control-label"><b id="lblB">Lățime B</b><output data-out="B"></output></span><span class="range-row"><input id="r-B" type="range" data-k="B" step="10" aria-label="Lățime"><input id="n-B" class="number-input" type="number" data-k="B" aria-label="Lățime (mm)"></span></label>
+          <label class="range-control" data-show="drept"><span class="control-label"><b>Înălțime H</b><output data-out="H"></output></span><span class="range-row"><input id="r-H" type="range" data-k="H" step="10" aria-label="Înălțime H"><input id="n-H" class="number-input" type="number" data-k="H" aria-label="Înălțime H (mm)"></span></label>
+          <label class="range-control"><span class="control-label"><b>Lungime carcasă</b><output data-out="Lm"></output></span><span class="range-row"><input id="r-L" type="range" data-k="Lm" min="1" max="24" step="0.5" aria-label="Lungime carcasă"><input id="n-L" class="number-input" type="number" data-k="Lm" step="0.5" aria-label="Lungime carcasă (m)"></span></label>
+          <label class="range-control"><span class="control-label"><b>Acoperire beton</b><output data-out="cover"></output></span><span class="range-row"><input id="r-cover" type="range" data-k="cover" min="40" max="150" step="5" aria-label="Acoperire beton"><input id="n-cover" class="number-input" type="number" data-k="cover" min="40" max="150" aria-label="Acoperire beton (mm)"></span></label>
+        </div>
+        <div class="info-card"><span>Rezultat</span><strong id="boreHint"></strong></div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="bars">
+      <button class="accordion-toggle" type="button" aria-expanded="false">
+        <span>Bare longitudinale</span><small class="limit" id="limDl"></small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="accordion-panel" hidden>
+        <div class="control-list">
+          <label class="range-control"><span class="control-label"><b>Număr bare</b><output data-out="n"></output></span><span class="range-row"><input id="r-n" type="range" data-k="n" min="4" max="60" step="1" aria-label="Număr bare"><input id="n-n" class="number-input" type="number" data-k="n" min="4" max="60" aria-label="Număr bare (buc)"></span></label>
+          <div class="select-pair">
+            <label><span class="select-label">Diametru bară</span><select id="sel-dl" data-k="dl"></select></label>
+            <label><span class="select-label">Oțel beton</span><select id="sel-grade" data-k="grade"><option>BST500S</option><option>B500C</option><option>PC52</option></select></label>
+          </div>
+          <label class="range-control"><span class="control-label"><b>Mustăți la cap (fără spirală)</b><output data-out="free"></output></span><span class="range-row"><input id="r-free" type="range" data-k="free" min="0" max="2000" step="50" aria-label="Mustăți la cap"><input id="n-free" class="number-input" type="number" data-k="free" min="0" max="2000" aria-label="Mustăți la cap (mm)"></span></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="spiral">
+      <button class="accordion-toggle" type="button" aria-expanded="false">
+        <span>Spirală / fretă</span><small class="limit" id="limDs"></small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="accordion-panel" hidden>
+        <div class="control-list">
+          <label><span class="select-label">Diametru fir spirală</span><select id="sel-ds" data-k="ds"></select></label>
+          <label class="range-control"><span class="control-label"><b>Pas curent (pas sudură)</b><output data-out="pitch"></output></span><span class="range-row"><input id="r-pitch" type="range" data-k="pitch" min="50" step="5" aria-label="Pas curent"><input id="n-pitch" class="number-input" type="number" data-k="pitch" aria-label="Pas curent (mm)"></span></label>
+          <label class="toggle-row"><span><b>Pas variabil</b><small>Îndesire la capete</small></span><input type="checkbox" id="c-dense" data-k="dense"><i></i></label>
+          <div class="sub" id="denseSub">
+            <label class="range-control"><span class="control-label"><b>Pas în zona de capăt</b><output data-out="pitchEnd"></output></span><span class="range-row"><input id="r-pitchEnd" type="range" data-k="pitchEnd" min="50" step="5" aria-label="Pas în zona de capăt"><input id="n-pitchEnd" class="number-input" type="number" data-k="pitchEnd" aria-label="Pas în zona de capăt (mm)"></span></label>
+            <label class="range-control"><span class="control-label"><b>Lungime zonă îndesită</b><output data-out="zoneEnd"></output></span><span class="range-row"><input id="r-zoneEnd" type="range" data-k="zoneEnd" min="300" max="4000" step="100" aria-label="Lungime zonă îndesită"><input id="n-zoneEnd" class="number-input" type="number" data-k="zoneEnd" min="300" max="4000" aria-label="Lungime zonă îndesită (mm)"></span></label>
+          </div>
+          <label class="toggle-row"><span><b>Spire de închidere</b><small>La ambele capete</small></span><input type="checkbox" id="c-closing" data-k="closing"><i></i></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="accessories">
+      <button class="accordion-toggle" type="button" aria-expanded="false">
+        <span>Accesorii</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="accordion-panel" hidden>
+        <div class="control-list">
+          <label class="toggle-row"><span><b>Inele de rigidizare</b><small>Interioare, sudate pe bare</small></span><input type="checkbox" id="c-rings" data-k="rings"><i></i></label>
+          <div class="sub" id="ringsSub">
+            <label><span class="select-label">Diametru inel</span><select id="sel-ringD" data-k="ringD"><option value="12">Ø12</option><option value="14">Ø14</option><option value="16">Ø16</option><option value="20">Ø20</option><option value="25">Ø25</option></select></label>
+            <label class="range-control"><span class="control-label"><b>Distanță între inele</b><output data-out="ringStep"></output></span><span class="range-row"><input id="r-ringStep" type="range" data-k="ringStep" min="1500" max="4000" step="100" aria-label="Distanță între inele"><input id="n-ringStep" class="number-input" type="number" data-k="ringStep" min="1500" max="4000" aria-label="Distanță între inele (mm)"></span></label>
+          </div>
+          <label class="toggle-row"><span><b>Distanțieri</b><small>Roți din plastic pe spirală</small></span><input type="checkbox" id="c-spacers" data-k="spacers"><i></i></label>
+          <div class="sub" id="spacersSub">
+            <label class="range-control"><span class="control-label"><b>Distanțieri pe secțiune</b><output data-out="spacerPer"></output></span><span class="range-row"><input id="r-spacerPer" type="range" data-k="spacerPer" min="3" max="8" step="1" aria-label="Distanțieri pe secțiune"><input id="n-spacerPer" class="number-input" type="number" data-k="spacerPer" min="3" max="8" aria-label="Distanțieri pe secțiune (buc)"></span></label>
+            <label class="range-control"><span class="control-label"><b>Pas distanțieri</b><output data-out="spacerStep"></output></span><span class="range-row"><input id="r-spacerStep" type="range" data-k="spacerStep" min="1500" max="5000" step="100" aria-label="Pas distanțieri"><input id="n-spacerStep" class="number-input" type="number" data-k="spacerStep" min="1500" max="5000" aria-label="Pas distanțieri (mm)"></span></label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="order">
+      <button class="accordion-toggle" type="button" aria-expanded="false">
+        <span>Comandă</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="accordion-panel" hidden>
+        <label class="range-control"><span class="control-label"><b>Cantitate</b><output data-out="qty"></output></span><span class="range-row range-row--single"><input id="n-qty" class="number-input" type="number" data-k="qty" min="1" max="999" aria-label="Cantitate (buc)"></span></label>
+        <p class="source-note">Limitele de fabricație (diametre, lungime max. 24 m, pas sudură, masă max.) sunt preluate din fișa tehnică <a href="https://productiedamila.ro/productia-de-carcase-pentru-piloti-forati-si-pereti-mulati/" target="_blank" rel="noopener">Damila Producție</a> pentru utilajul MEP GAM 1500 HS. Verificările normative sunt orientative și nu înlocuiesc calculul proiectantului.</p>
+      </div>
+    </section>
+    <strong id="cageTotalMass" hidden></strong>
+  </aside>
+</main>
+<button id="cagesSidebarToggle" type="button" aria-label="Ascunde setările" aria-expanded="true">
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+</button>
+<script type="module" src="./js/sharedShell.js?v=cages-2"></script>
+<script type="module" src="./js/app.js?v=cages-2"></script>
 </body>
 </html>

@@ -157,6 +157,9 @@ jobs:
           mkdir -p dist/site/chair-configurator
           cp -R chair-configurator/. dist/site/chair-configurator/
 
+          mkdir -p dist/site/cages-configurator
+          cp -R cages-configurator/. dist/site/cages-configurator/
+
       - name: Verify static site
         shell: bash
         run: |
@@ -174,6 +177,7 @@ jobs:
           test -f dist/site/tiles-configurator/index.html
           test -f dist/site/bookshelf-configurator/index.html
           test -f dist/site/chair-configurator/index.html
+          test -f dist/site/cages-configurator/index.html
           test -d dist/site/shared-ui
           test -d dist/site/shared-3d
           test -f dist/site/shared-ui/admin/tenant-provisioning/index.html
@@ -265,6 +269,7 @@ jobs:
           curl -fsSL --retry 5 "${SERVICE_URL}/solar-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/hall-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/fence-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/cages-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/cardbox-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/bookshelf-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/internal/tenant-provisioning/" > /dev/null

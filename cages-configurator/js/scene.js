@@ -15,8 +15,8 @@ function labelSprite(text) {
   const canvas = document.createElement('canvas');
   canvas.width = 256; canvas.height = 96;
   const g = canvas.getContext('2d');
-  g.fillStyle = '#E3AB00'; g.fillRect(0, 0, 256, 96);
-  g.fillStyle = '#1B1606'; g.font = "700 54px 'Barlow Condensed', 'Arial Narrow', sans-serif";
+  g.fillStyle = '#0878c9'; g.beginPath(); g.roundRect(0, 0, 256, 96, 22); g.fill();
+  g.fillStyle = '#ffffff'; g.font = "800 50px Inter, 'Segoe UI', Arial, sans-serif";
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 52);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

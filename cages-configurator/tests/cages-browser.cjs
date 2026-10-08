@@ -7,7 +7,8 @@ const path = require('node:path');
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const errors = [];
   page.on('pageerror', error => { errors.push(error.message); console.error('Browser:', error.message); });
-  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  // /api/region-defaults only exists on the production server.
+  page.on('response', response => { if (response.status() >= 400 && !response.url().includes('/api/region-defaults')) errors.push(`${response.status()} ${response.url()}`); });
   await page.goto('http://127.0.0.1:8080/cages-configurator/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.CAGES_CONFIGURATOR_API?.getModel(), { timeout: 30000 });
   const shots = process.env.CAGES_TEST_SHOTS;
@@ -31,14 +32,17 @@ const path = require('node:path');
   if (shots) await page.screenshot({ path: path.join(shots, 'cages-wall.png') });
 
   // Typed values are clamped to the machine limits.
-  await page.locator('label[for="t-pilot"]').click();
-  await page.locator('label[for="s-circ"]').click();
+  await page.locator('[data-type="pilot"]').click();
+  await page.locator('[data-shape="circ"]').click();
+  assert.equal(await page.locator('[data-type="pilot"]').getAttribute('aria-pressed'), 'true');
   await page.locator('#n-D').fill('5000');
   await page.locator('#n-D').press('Enter');
   await page.locator('#n-D').blur();
   await page.waitForTimeout(200);
   assert.equal(await page.locator('#n-D').inputValue(), '1400');
+  assert.equal(await page.locator('[data-out="D"]').textContent(), '1.400 mm');
   // An overweight cage shows an error.
+  await page.locator('[data-accordion="bars"] .accordion-toggle').click();
   await page.locator('#n-n').fill('60');
   await page.locator('#n-n').blur();
   await page.selectOption('#sel-dl', '40');
@@ -46,8 +50,11 @@ const path = require('node:path');
   assert.ok(await page.locator('#tag.over').count() === 1);
   assert.ok(await page.locator('#checks .pill.err').count() >= 1);
   // Views and overlays.
-  await page.locator('[data-view="head"]').click();
+  assert.equal(await page.evaluate(() => window.CAGES_CONFIGURATOR_API.cycleCamera()), 'head');
   await page.locator('#c-bore').check();
+  // Shared 360Configurator shell: top bar and Tools.
+  assert.ok(await page.locator('[data-shared-tools]').count() === 1);
+  assert.ok(await page.locator('.sidebar.shared-panel-controls').isVisible());
 
   // Phone layout.
   await page.setViewportSize({ width: 390, height: 844 });

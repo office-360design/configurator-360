@@ -1,11 +1,19 @@
-import { CageScene } from './scene.js?v=cages-1';
-import { sectionSvg } from './section.js?v=cages-1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { CageScene } from './scene.js?v=cages-2';
+import { sectionSvg } from './section.js?v=cages-2';
 import {
   DEFAULT, LIM, PRESETS, barsFor, checks, clampState, fmt, markCode, model, sectionLabel, specText, weightLimit,
-} from './model.js?v=cages-1';
+} from './model.js?v=cages-2';
+
+await requireTenantConfiguratorAccess('cages');
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-let S = clampState(DEFAULT);
+const VIEWS = ['all', 'head', 'axial'];
+const UNITS = { D: 'mm', B: 'mm', H: 'mm', Lm: 'm', cover: 'mm', n: 'buc', free: 'mm', pitch: 'mm', pitchEnd: 'mm', zoneEnd: 'mm', ringStep: 'mm', spacerPer: 'buc', spacerStep: 'mm', qty: 'buc' };
+const shared = await readShareState({ productType: 'cages' });
+let S = clampState(shared && typeof shared === 'object' ? { ...DEFAULT, ...shared } : DEFAULT);
+let viewIndex = 0;
 let M = null;
 const view = new CageScene($('#canvasHost'));
 
@@ -16,8 +24,8 @@ function fillSelect(select, values, value) {
 
 function syncUI() {
   const lim = LIM[S.type];
-  $(`input[name=type][value=${S.type}]`).checked = true;
-  $(`input[name=shape][value=${S.shape}]`).checked = true;
+  $$('[data-type]').forEach(b => { const on = b.dataset.type === S.type; b.classList.toggle('selected', on); b.setAttribute('aria-pressed', String(on)); });
+  $$('[data-shape]').forEach(b => { const on = b.dataset.shape === S.shape; b.classList.toggle('selected', on); b.setAttribute('aria-pressed', String(on)); });
   $$('[data-show]').forEach(el => {
     const w = el.dataset.show;
     el.hidden = !(w === S.shape || (w === 'rect' && S.shape !== 'circ'));
@@ -38,6 +46,10 @@ function syncUI() {
     if (el.type === 'checkbox') el.checked = Boolean(S[k]);
     else if (el.tagName === 'SELECT') el.value = String(S[k]);
     else if (document.activeElement !== el) el.value = S[k];
+  });
+  $$('[data-out]').forEach(out => {
+    const k = out.dataset.out, value = k === 'Lm' ? fmt(S.Lm, 1) : fmt(S[k]);
+    out.value = `${value} ${UNITS[k]}`;
   });
   $('#denseSub').setAttribute('aria-disabled', String(!S.dense));
   $('#ringsSub').setAttribute('aria-disabled', String(!S.rings));
@@ -88,7 +100,7 @@ function schedule(fitAfter = false) {
     M = model(S);
     view.build(S, M);
     render(M);
-    if (refit || previous === null || Math.abs(previous - view.length) > 0.01) view.fit('all');
+    if (refit || previous === null || Math.abs(previous - view.length) > 0.01) { viewIndex = 0; view.fit('all'); }
     refit = false;
   });
 }
@@ -110,7 +122,6 @@ document.addEventListener('input', event => {
 });
 document.addEventListener('change', event => {
   const el = event.target;
-  if (el.name === 'type' || el.name === 'shape') return update({ ...S, [el.name]: el.value }, true);
   if (el.dataset.k && el.type === 'number') {
     const value = parseFloat(String(el.value).replace(',', '.'));
     if (!Number.isNaN(value)) update({ ...S, [el.dataset.k]: value });
@@ -119,7 +130,8 @@ document.addEventListener('change', event => {
   }
 });
 $$('[data-preset]').forEach(button => button.addEventListener('click', () => update({ ...DEFAULT, ...PRESETS[button.dataset.preset] }, true)));
-$$('[data-view]').forEach(button => button.addEventListener('click', () => view.fit(button.dataset.view)));
+$$('[data-type]').forEach(button => button.addEventListener('click', () => update({ ...S, type: button.dataset.type }, true)));
+$$('[data-shape]').forEach(button => button.addEventListener('click', () => update({ ...S, shape: button.dataset.shape }, true)));
 $('#c-welds').addEventListener('change', event => view.setWelds(event.target.checked));
 $('#c-bore').addEventListener('change', event => view.setBore(event.target.checked));
 
@@ -135,15 +147,12 @@ $('#copyBtn').addEventListener('click', async () => {
   setTimeout(() => { button.textContent = 'Copiază fișa'; }, 1600);
 });
 
-const refreshTheme = () => { view.applyTheme(); if (M) $('#sectionSvg').innerHTML = sectionSvg(S, M); };
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refreshTheme);
-new MutationObserver(refreshTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-
 // Small API for tests and future shell integration.
 window.CAGES_CONFIGURATOR_API = {
   captureState: () => ({ ...S }),
   restoreState(snapshot) { if (!snapshot || typeof snapshot !== 'object') return false; update({ ...DEFAULT, ...snapshot }, true); return true; },
   resetConfiguration() { update(DEFAULT, true); return true; },
+  cycleCamera() { viewIndex = (viewIndex + 1) % VIEWS.length; view.fit(VIEWS[viewIndex]); return VIEWS[viewIndex]; },
   getModel: () => M,
 };
 
