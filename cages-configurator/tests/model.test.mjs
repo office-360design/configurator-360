@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT, PRESETS, LIM, checks, clampState, kgm, markCode, model, specText } from '../js/model.js';
+import { DEFAULT, PRESETS, LIM, checks, clampState, evenlyAlong, kgm, markCode, model, specText } from '../js/model.js';
 
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 
@@ -90,4 +90,18 @@ test('checks flag bars that do not fit; there is no mass limit', () => {
   const ok = clampState(DEFAULT);
   assert.ok(checks(ok, model(ok)).every(c => c.lv !== 'err'));
   assert.match(specText(ok, model(ok)), /^CARCASĂ PILOT FORAT — PF-800-12/);
+});
+
+test('rings and spacers always sit inside the cage, also for short cages', () => {
+  assert.deepEqual(evenlyAlong(12000, 2500), [1000, 3500, 6000, 8500, 11000]);
+  assert.deepEqual(evenlyAlong(2000, 2500), [1000]);
+  for (let Lm = 1; Lm <= 24; Lm += 0.5) {
+    for (const extra of [{}, { headBend: false }, { free: 0 }, PRESETS.pm]) {
+      const S = clampState({ ...DEFAULT, ...extra, Lm });
+      const m = model(S);
+      for (const z of m.ringZ) assert.ok(z > 0 && z < m.L, `ring at ${z} outside L=${m.L}`);
+      for (const z of m.spacerZ) assert.ok(z > 0 && z <= m.Ls, `spacer at ${z} outside spiral ${m.Ls}`);
+      assert.ok(m.spacerZ.length >= 1);
+    }
+  }
 });
