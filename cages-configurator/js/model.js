@@ -13,19 +13,13 @@ export const GRADES = ['BST500S', 'B500C', 'PC52'];
 // kg/m for a round bar, steel density 7850 kg/m³.
 export const kgm = d => 0.0061654 * d * d;
 
-// Maximum cage mass: 5 000 kg at 12 m, 8 000 kg at 20 m.
-export function weightLimit(Lm) {
-  if (Lm <= 12) return 5000;
-  if (Lm <= 20) return 5000 + (Lm - 12) * 375;
-  return 8000 + (Lm - 20) * 400;
-}
-
 export const fmt = (x, d = 0) => Number(x).toLocaleString('ro-RO', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 export const DEFAULT = {
   type: 'pilot', shape: 'circ', D: 800, B: 500, H: 500, Lm: 12, cover: 75, n: 12, dl: 20, grade: 'BST500S', free: 500,
   ds: 10, pitch: 150, dense: true, pitchEnd: 100, zoneEnd: 1500, closing: true, rings: true, ringD: 16, ringStep: 2500,
   spacers: true, spacerPer: 4, spacerStep: 3000, qty: 10,
+  headBend: true, bendLen: 400, bendIn: 120,
 };
 
 export const PRESETS = {
@@ -68,7 +62,10 @@ export function clampState(state) {
   S.spacerPer = clamp(Math.round(S.spacerPer), 3, 8);
   S.spacerStep = clamp(Math.round(S.spacerStep), 1500, 5000);
   S.qty = clamp(Math.round(S.qty) || 1, 1, 999);
-  for (const key of ['dense', 'closing', 'rings', 'spacers']) S[key] = Boolean(S[key]);
+  // The head bend sits in the starter-bar zone, inside the cage.
+  S.bendLen = clamp(Math.round(S.bendLen) || 0, 100, 1000);
+  S.bendIn = clamp(Math.round(S.bendIn) || 0, 30, Math.round(Math.min(S.shape === 'circ' ? S.D : Math.min(S.B, S.H), 1400) * 0.3));
+  for (const key of ['dense', 'closing', 'rings', 'spacers', 'headBend']) S[key] = Boolean(S[key]);
   return S;
 }
 
@@ -163,12 +160,27 @@ export function model(S) {
   const Tinv = t => { for (const g of zones) { if (t <= g.T1 + 1e-9) return g.z0 + (t - g.T0) * g.p; } return Ls; };
   let spiralLen = 0;
   zones.forEach(g => { spiralLen += (g.T1 - g.T0) * Math.hypot(perimS, g.p); });
-  // Stiffening rings, centred along the cage.
+  // Head bend ("coșuleț"): the bars curve inwards over the starter-bar zone and
+  // end pointing to the axis (quarter ellipse, semi-axes bendLen × bendIn).
+  const bend = S.headBend && S.free >= 100
+    ? { len: Math.min(S.bendLen, S.free), inward: S.bendIn }
+    : null;
+  if (bend) {
+    let arc = 0, prev = [0, 0];
+    for (let i = 1; i <= 64; i++) {
+      const a = i / 64 * Math.PI / 2, q = [bend.len * Math.sin(a), bend.inward * (1 - Math.cos(a))];
+      arc += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q;
+    }
+    bend.arc = arc;
+  }
+  const barLength = L - (bend ? bend.len - bend.arc : 0);
+  // Stiffening rings, centred along the cage and kept clear of the head bend.
   const ringOff = off + dl / 2 + (+S.ringD) / 2;
-  const ringZ = [];
+  let ringZ = [];
   if (S.rings) {
     const cnt = Math.max(2, Math.floor((L - 1000) / S.ringStep) + 1), span = (cnt - 1) * S.ringStep, z0 = (L - span) / 2;
     for (let i = 0; i < cnt; i++) ringZ.push(z0 + i * S.ringStep);
+    if (bend) ringZ = ringZ.filter(z => z < L - bend.len - 50);
   }
   let ringPerim;
   if (circ) ringPerim = 2 * Math.PI * (S.D / 2 - ds / 2 - ringOff);
@@ -189,14 +201,14 @@ export function model(S) {
     for (let t = b.s; t <= Ttot; t += 1) { weldCount++; if (welds.length < 40000) welds.push([Tinv(t), bi]); }
   });
   const weldRings = ringZ.length * S.n;
-  const mBars = S.n * L / 1000 * kgm(dl);
+  const mBars = S.n * barLength / 1000 * kgm(dl);
   const mSpiral = spiralLen / 1000 * kgm(ds);
   const mRings = ringZ.length * ringPerim / 1000 * kgm(+S.ringD);
   const mass = mBars + mSpiral + mRings;
   const boreB = B + 2 * S.cover, boreH = H + 2 * S.cover;
   const Ac = circ ? Math.PI * boreB * boreB / 4 : boreB * boreH; // mm²
   const As = S.n * Math.PI * dl * dl / 4;
-  return { L, B, H, ds, dl, off, circ, path, bars, perimS, clear, zones, Ttot, Tinv, Ls, spiralLen, ringZ, ringOff, ringPerim, spacerZ,
+  return { L, B, H, ds, dl, off, circ, path, bars, bend, barLength, perimS, clear, zones, Ttot, Tinv, Ls, spiralLen, ringZ, ringOff, ringPerim, spacerZ,
     welds, weldCount, weldRings, mBars, mSpiral, mRings, mass, boreB, boreH, Ac, As };
 }
 
@@ -206,9 +218,7 @@ export function checks(S, m) {
   const push = (lv, t) => out.push({ lv, t });
   const dimTxt = m.circ ? `Ø${S.D} mm` : `${m.B}×${m.H} mm`;
   push('ok', `Secțiune ${dimTxt} în domeniul de fabricație ${lim.D[0]}–${lim.D[1]} mm.`);
-  const lmt = weightLimit(S.Lm);
-  if (m.mass > lmt) push('err', `Masa ${fmt(m.mass)} kg depășește limita de ~${fmt(lmt)} kg pentru L = ${fmt(S.Lm, 1)} m. Reduceți armarea sau împărțiți carcasa în tronsoane.`);
-  else push('ok', `Masă ${fmt(m.mass)} kg din max. ~${fmt(lmt)} kg (5 000 kg la 12 m, 8 000 kg la 20 m).`);
+  if (S.headBend && !m.bend) push('warn', 'Capul îndoit are nevoie de mustăți de minim 100 mm. Măriți mustățile la cap.');
   const cmin = Math.round(m.clear[0]), cmax = Math.round(m.clear[1]);
   if (cmin < 0) push('err', `Barele nu încap pe perimetru (${S.n}Ø${S.dl}). Micșorați numărul sau diametrul barelor.`);
   else if (cmin < 100) push('warn', `Distanța liberă între bare ${cmin} mm < 100 mm. Poate îngreuna curgerea betonului (recomandare uzuală SR EN 1536/1538).`);
@@ -242,6 +252,7 @@ export function specText(S, m) {
     `CARCASĂ ${lim.name.toUpperCase()} — ${markCode(S)}`,
     `Secțiune: ${({ circ: 'circulară', patrat: 'pătrată', drept: 'dreptunghiulară' })[S.shape]} ${sectionLabel(S)} mm, L = ${fmt(S.Lm, 2)} m, acoperire ${S.cover} mm (${m.circ ? `foraj Ø${m.boreB}` : `panou ${m.boreB}×${m.boreH}`} mm)`,
     `Longitudinale: ${S.n}Ø${S.dl} ${S.grade}, L = ${fmt(S.Lm, 2)} m${S.free ? `, mustăți ${S.free} mm la cap` : ''}`,
+    m.bend ? `Cap îndoit (coșuleț): îndoire pe ${m.bend.len} mm, retragere ${m.bend.inward} mm spre interior; lungime desfășurată bară ${fmt(m.barLength / 1000, 2)} m` : null,
     `Spirală: ${spiral}`,
     S.rings ? `Inele rigidizare: ${m.ringZ.length} × Ø${S.ringD} la ${fmt(S.ringStep / 1000, 2)} m` : null,
     S.spacers ? `Distanțieri: ${S.spacerPer}/secțiune la ${fmt(S.spacerStep / 1000, 2)} m (${m.spacerZ.length * S.spacerPer} buc/carcasă)` : null,

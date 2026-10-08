@@ -41,15 +41,16 @@ const path = require('node:path');
   await page.waitForTimeout(200);
   assert.equal(await page.locator('#n-D').inputValue(), '1400');
   assert.equal(await page.locator('[data-out="D"]').textContent(), '1.400 mm');
-  // An overweight cage shows an error.
+  // Head bend controls and no mass limit in the tag.
   await page.locator('[data-accordion="bars"] .accordion-toggle').click();
+  assert.ok(await page.locator('#c-headBend').isChecked());
+  assert.doesNotMatch(await page.locator('#tag').textContent(), /limită/);
+  assert.match(await page.locator('#tag').textContent(), /cap îndoit/);
   await page.locator('#n-n').fill('60');
   await page.locator('#n-n').blur();
   await page.selectOption('#sel-dl', '40');
   await page.waitForTimeout(200);
-  assert.ok(await page.locator('#tag.over').count() === 1);
-  assert.ok(await page.locator('#checks .pill.err').count() >= 1);
-  // Views and overlays.
+  assert.equal(await page.locator('#checks .pill.err').count(), 0);
   assert.equal(await page.evaluate(() => window.CAGES_CONFIGURATOR_API.cycleCamera()), 'head');
   await page.locator('#c-bore').check();
   // Shared 360Configurator shell: top bar and Tools.
