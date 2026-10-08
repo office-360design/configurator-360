@@ -1,10 +1,12 @@
 // Rebar cage model for bored piles and diaphragm walls. Pure functions: all
 // lengths are millimetres unless the name says otherwise (Lm is metres).
 
-// Manufacturing limits from the Damila Producție data sheet (MEP GAM 1500 HS).
+// Pile limits come from the Damila Producție data sheet (MEP GAM 1500 HS spiral
+// cage machine). Diaphragm wall panels are flat cages with two bar mats; their
+// ranges are usual engineering values for building retaining walls.
 export const LIM = {
   pilot: { dl: [8, 40], D: [200, 1400], ds: [8, 16], L: 24000, p: 500, name: 'Pilot forat', code: 'PF' },
-  perete: { dl: [8, 20], D: [160, 600], ds: [8, 12], L: 24000, p: 300, name: 'Perete mulat', code: 'PM' },
+  perete: { T: [400, 1500], W: [1000, 7000], dv: [12, 32], dh: [10, 25], dt: [8, 16], L: 30000, name: 'Perete mulat', code: 'PM' },
 };
 export const BARS = [8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40];
 export const RING_DIAMETERS = [12, 14, 16, 20, 25];
@@ -20,12 +22,15 @@ export const DEFAULT = {
   ds: 10, pitch: 150, dense: true, pitchEnd: 100, zoneEnd: 1500, closing: true, rings: true, ringD: 16, ringStep: 2500,
   spacers: true, spacerPer: 4, spacerStep: 3000, qty: 10,
   headBend: true, bendLen: 400, bendIn: 120,
+  // Diaphragm wall panel: wall thickness T, cage width W, two faces of bars.
+  T: 800, W: 2500, dv: 25, sv: 150, dh: 16, sh: 200, dt: 12, linkStep: 600, linkEvery: 2,
+  trusses: true, trussCount: 3, trussD: 16,
 };
 
 export const PRESETS = {
   p600: { type: 'pilot', shape: 'circ', D: 600, Lm: 12, n: 10, dl: 16, ds: 8, pitch: 200, dense: true, pitchEnd: 100, zoneEnd: 1200, free: 600, rings: true, ringD: 14, ringStep: 2500, cover: 75, qty: 24 },
   p1200: { type: 'pilot', shape: 'circ', D: 1200, Lm: 20, n: 24, dl: 28, ds: 12, pitch: 200, dense: true, pitchEnd: 100, zoneEnd: 2500, free: 1000, rings: true, ringD: 20, ringStep: 2000, cover: 75, qty: 6 },
-  pm: { type: 'perete', shape: 'drept', B: 400, H: 600, Lm: 14, n: 14, dl: 16, ds: 10, pitch: 200, dense: true, pitchEnd: 100, zoneEnd: 1000, free: 500, rings: false, cover: 70, qty: 18 },
+  pm: { type: 'perete', T: 800, W: 2500, Lm: 15, dv: 25, sv: 150, dh: 16, sh: 200, dt: 12, linkStep: 600, linkEvery: 2, trusses: true, trussCount: 3, trussD: 16, free: 1000, cover: 75, spacers: true, spacerPer: 3, spacerStep: 3000, qty: 12 },
 };
 
 export const barsFor = range => BARS.filter(d => d >= range[0] && d <= range[1]);
@@ -33,8 +38,8 @@ export const barsFor = range => BARS.filter(d => d >= range[0] && d <= range[1])
 // Returns a copy of the state clamped to the manufacturing limits.
 export function clampState(state) {
   const S = { ...state };
-  const lim = LIM[S.type] || LIM.pilot;
   if (!LIM[S.type]) S.type = 'pilot';
+  const lim = LIM.pilot, wall = LIM.perete;
   if (!['circ', 'patrat', 'drept'].includes(S.shape)) S.shape = 'circ';
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const nearest = (list, value) => list.reduce((a, b) => (Math.abs(b - value) < Math.abs(a - value) ? b : a));
@@ -42,7 +47,7 @@ export function clampState(state) {
   S.B = clamp(Math.round(S.B), lim.D[0], lim.D[1]);
   S.H = clamp(Math.round(S.H), lim.D[0], lim.D[1]);
   if (S.shape === 'patrat') S.H = S.B;
-  S.Lm = clamp(Math.round(S.Lm * 2) / 2, 1, lim.L / 1000);
+  S.Lm = clamp(Math.round(S.Lm * 2) / 2, 1, LIM[S.type].L / 1000);
   const dls = barsFor(lim.dl);
   if (!dls.includes(+S.dl)) S.dl = nearest(dls, +S.dl || 0);
   S.dl = +S.dl;
@@ -65,7 +70,20 @@ export function clampState(state) {
   // The head bend sits in the starter-bar zone, inside the cage.
   S.bendLen = clamp(Math.round(S.bendLen) || 0, 100, 1000);
   S.bendIn = clamp(Math.round(S.bendIn) || 0, 30, Math.round(Math.min(S.shape === 'circ' ? S.D : Math.min(S.B, S.H), 1400) * 0.3));
-  for (const key of ['dense', 'closing', 'rings', 'spacers', 'headBend']) S[key] = Boolean(S[key]);
+  // Diaphragm wall panel.
+  S.T = clamp(Math.round(S.T), wall.T[0], wall.T[1]);
+  S.W = clamp(Math.round(S.W), wall.W[0], wall.W[1]);
+  const pick = (key, range) => {
+    const list = barsFor(range);
+    S[key] = list.includes(+S[key]) ? +S[key] : nearest(list, +S[key] || 0);
+  };
+  pick('dv', wall.dv); pick('dh', wall.dh); pick('dt', wall.dt); pick('trussD', wall.dv);
+  S.sv = clamp(Math.round(S.sv), S.dv + 50, 400);
+  S.sh = clamp(Math.round(S.sh), S.dh + 50, 400);
+  S.linkStep = clamp(Math.round(S.linkStep), 300, 1500);
+  S.linkEvery = clamp(Math.round(S.linkEvery) || 1, 1, 4);
+  S.trussCount = clamp(Math.round(S.trussCount), 1, 8);
+  for (const key of ['dense', 'closing', 'rings', 'spacers', 'headBend', 'trusses']) S[key] = Boolean(S[key]);
   return S;
 }
 
@@ -79,9 +97,11 @@ export function evenlyAlong(L, step) {
   return Array.from({ length: count }, (_, i) => z0 + i * step);
 }
 
-// Cage geometry. `path(s, offset)` walks the spiral centreline (s in 0..1 per
+export const model = S => (S.type === 'perete' ? wallModel(S) : pileModel(S));
+
+// Pile cage geometry. `path(s, offset)` walks the spiral centreline (s in 0..1 per
 // turn), optionally offset inwards. The axis z runs from the tip (0) to the head.
-export function model(S) {
+export function pileModel(S) {
   const L = S.Lm * 1000, ds = +S.ds, dl = +S.dl;
   const circ = S.shape === 'circ';
   const B = circ ? S.D : S.B, H = circ ? S.D : (S.shape === 'patrat' ? S.B : S.H);
@@ -214,12 +234,23 @@ export function model(S) {
   const boreB = B + 2 * S.cover, boreH = H + 2 * S.cover;
   const Ac = circ ? Math.PI * boreB * boreB / 4 : boreB * boreH; // mm²
   const As = S.n * Math.PI * dl * dl / 4;
-  return { L, B, H, ds, dl, off, circ, path, bars, bend, barLength, perimS, clear, zones, Ttot, Tinv, Ls, spiralLen, ringZ, ringOff, ringPerim, spacerZ,
+  const volume = Ac / 1e6 * S.Lm;
+  const items = [
+    { name: 'Bare longitudinale', desc: `${S.n} × ${fmt(barLength / 1000, 2)} m Ø${dl}${bend ? ' (cu îndoire)' : ''}`, length: S.n * barLength / 1000, kg: mBars },
+    { name: 'Spirală', desc: `${fmt(Ttot, 1)} spire Ø${ds}`, length: spiralLen / 1000, kg: mSpiral },
+  ];
+  if (S.rings) items.push({ name: 'Inele rigidizare', desc: `${ringZ.length} buc Ø${S.ringD}`, length: ringZ.length * ringPerim / 1000, kg: mRings });
+  if (S.spacers) items.push({ name: 'Distanțieri', desc: `${spacerZ.length * S.spacerPer} buc`, length: null, kg: null });
+  return { kind: 'pile', items, nodes: weldCount + weldRings, nodesLabel: 'Puncte de sudură / buc', volume,
+    volumeLabel: `Volum beton pilot (${circ ? `Ø${boreB}` : `${boreB}×${boreH}`})`,
+    L, B, H, ds, dl, off, circ, path, bars, bend, barLength, perimS, clear, zones, Ttot, Tinv, Ls, spiralLen, ringZ, ringOff, ringPerim, spacerZ,
     welds, weldCount, weldRings, mBars, mSpiral, mRings, mass, boreB, boreH, Ac, As };
 }
 
 // Indicative checks (SR EN 1536 / 1538); they do not replace the designer's calculation.
-export function checks(S, m) {
+export const checks = (S, m) => (m.kind === 'wall' ? wallChecks(S, m) : pileChecks(S, m));
+
+function pileChecks(S, m) {
   const lim = LIM[S.type], out = [];
   const push = (lv, t) => out.push({ lv, t });
   const dimTxt = m.circ ? `Ø${S.D} mm` : `${m.B}×${m.H} mm`;
@@ -245,11 +276,14 @@ export function checks(S, m) {
   return out;
 }
 
-export const sectionLabel = S => (S.shape === 'circ' ? `Ø${S.D}` : (S.shape === 'patrat' ? `${S.B}×${S.B}` : `${S.B}×${S.H}`));
-export const markCode = S => `${LIM[S.type].code}-${S.shape === 'circ' ? S.D : `${S.B}x${S.shape === 'patrat' ? S.B : S.H}`}-${String(S.Lm).replace('.', ',')}`;
+export const sectionLabel = S => (S.type === 'perete' ? `${S.T}×${S.W}`
+  : S.shape === 'circ' ? `Ø${S.D}` : (S.shape === 'patrat' ? `${S.B}×${S.B}` : `${S.B}×${S.H}`));
+export const markCode = S => `${LIM[S.type].code}-${S.type === 'perete' ? `${S.T}x${S.W}`
+  : S.shape === 'circ' ? S.D : `${S.B}x${S.shape === 'patrat' ? S.B : S.H}`}-${String(S.Lm).replace('.', ',')}`;
 
 // Plain-text specification for copying into an order.
 export function specText(S, m) {
+  if (m.kind === 'wall') return wallSpecText(S, m);
   const lim = LIM[S.type];
   const spiral = `Ø${S.ds} ${S.grade}, pas curent ${S.pitch} mm`
     + (S.dense ? `, capete ${S.pitchEnd} mm pe ${fmt(S.zoneEnd / 1000, 2)} m` : '')
@@ -264,5 +298,86 @@ export function specText(S, m) {
     S.spacers ? `Distanțieri: ${S.spacerPer}/secțiune la ${fmt(S.spacerStep / 1000, 2)} m (${m.spacerZ.length * S.spacerPer} buc/carcasă)` : null,
     `Masă: ${fmt(m.mass)} kg/buc × ${S.qty} buc = ${fmt(m.mass * S.qty)} kg`,
     `Puncte sudură: ${fmt(m.weldCount + m.weldRings)}/buc`,
+  ].filter(Boolean).join('\n');
+}
+
+// Diaphragm wall panel cage: two flat bar mats (excavation and soil faces)
+// tied by links, with optional lattice trusses for lifting stiffness. Local
+// axes: u across the cage width, v through the wall thickness, z from the tip
+// (0) to the head (L). Horizontal bars are outermost, verticals inside them.
+export function wallModel(S) {
+  const L = S.Lm * 1000, W = S.W, T = S.T, cover = S.cover;
+  const Tc = T - 2 * cover; // cage outer thickness
+  const { dv, dh, dt } = S;
+  const Ls = L - S.free; // starter bars at the head have no horizontals
+  const vH = Tc / 2 - dh / 2, vV = Tc / 2 - dh - dv / 2;
+  const nv = Math.max(2, Math.floor((W - dv) / S.sv + 1e-9) + 1);
+  const svActual = (W - dv) / (nv - 1);
+  const verticals = Array.from({ length: nv }, (_, i) => -(W - dv) / 2 + i * svActual);
+  const nh = Math.max(2, Math.floor((Ls - dh) / S.sh + 1e-9) + 1);
+  const horizontals = Array.from({ length: nh }, (_, i) => dh / 2 + i * S.sh);
+  // Links tie each linkEvery-th vertical pair (always both edges) at linkStep rows.
+  const linkCols = verticals.map((u, i) => i).filter(i => i % S.linkEvery === 0 || i === nv - 1);
+  const linkRows = evenlyAlong(Ls, S.linkStep);
+  const linkLength = 2 * vV + dv + 2 * 10 * dt; // across both faces plus two hooks
+  // Lattice trusses between the faces, zig-zag every 300 mm along the length.
+  const trussU = S.trusses ? Array.from({ length: S.trussCount }, (_, i) => -W / 2 + W * (i + 1) / (S.trussCount + 1)) : [];
+  const trussDepth = 2 * vV - dv - S.trussD;
+  const trussLength = Ls / 300 * Math.hypot(300, trussDepth);
+  const spacerZ = S.spacers ? evenlyAlong(Ls, S.spacerStep) : [];
+  const mV = 2 * nv * L / 1000 * kgm(dv);
+  const mH = 2 * nh * W / 1000 * kgm(dh);
+  const nLinks = linkRows.length * linkCols.length;
+  const mLinks = nLinks * linkLength / 1000 * kgm(dt);
+  const mTruss = trussU.length * trussLength / 1000 * kgm(S.trussD);
+  const mass = mV + mH + mLinks + mTruss;
+  const Ac = T * W; // mm², wall section served by the cage
+  const As = 2 * nv * Math.PI * dv * dv / 4;
+  const volume = Ac / 1e6 * S.Lm;
+  const items = [
+    { name: 'Bare verticale', desc: `2 fețe × ${nv} buc Ø${dv} × ${fmt(S.Lm, 2)} m`, length: 2 * nv * L / 1000, kg: mV },
+    { name: 'Bare orizontale', desc: `2 fețe × ${nh} buc Ø${dh} × ${fmt(W / 1000, 2)} m`, length: 2 * nh * W / 1000, kg: mH },
+    { name: 'Agrafe', desc: `${nLinks} buc Ø${dt} × ${fmt(linkLength / 1000, 2)} m`, length: nLinks * linkLength / 1000, kg: mLinks },
+  ];
+  if (trussU.length) items.push({ name: 'Zăbrele rigidizare', desc: `${trussU.length} buc Ø${S.trussD}`, length: trussU.length * trussLength / 1000, kg: mTruss });
+  if (S.spacers) items.push({ name: 'Distanțieri', desc: `${spacerZ.length * S.spacerPer * 2} buc (2 fețe)`, length: null, kg: null });
+  return {
+    kind: 'wall', items, mass, volume, nodes: 2 * nv * nh, nodesLabel: 'Noduri bare verticale × orizontale',
+    volumeLabel: `Volum beton panou (${T}×${W})`,
+    L, W, T, Tc, Ls, vH, vV, verticals, horizontals, nv, nh, svActual, linkCols, linkRows, linkLength, nLinks,
+    trussU, trussDepth, spacerZ, mV, mH, mLinks, mTruss, Ac, As,
+    clearV: svActual - dv, clearH: S.sh - dh,
+    boreB: W, boreH: T,
+  };
+}
+
+function wallChecks(S, m) {
+  const out = [];
+  const push = (lv, t) => out.push({ lv, t });
+  push('ok', `Panou ${S.T}×${S.W} mm, carcasă ${fmt(m.Tc)} mm grosime (acoperire ${S.cover} mm pe fiecare față).`);
+  const cv = Math.round(m.clearV), ch = Math.round(m.clearH);
+  if (cv < 100) push('warn', `Distanța liberă între barele verticale ${cv} mm < 100 mm. Poate îngreuna betonarea sub apă/bentonită (SR EN 1538).`);
+  else push('ok', `Distanța liberă între barele verticale ${cv} mm (${m.nv} bare pe fiecare față, pas ${fmt(m.svActual)} mm).`);
+  if (ch < 100) push('warn', `Distanța liberă între barele orizontale ${ch} mm < 100 mm (SR EN 1538).`);
+  else push('ok', `Distanța liberă între barele orizontale ${ch} mm.`);
+  if (S.cover < 75) push('warn', `Acoperire ${S.cover} mm: la pereți mulați betonați sub bentonită se folosesc uzual minim 75 mm.`);
+  const pct = m.As / m.Ac * 100;
+  push('ok', `Armare verticală ${fmt(m.As / 100, 1)} cm² = ${fmt(pct, 2)}% din secțiunea peretelui.`);
+  if (m.trussDepth < 100) push('warn', 'Grosimea carcasei e prea mică pentru zăbrele de rigidizare.');
+  if (!S.trusses) push('warn', 'Fără zăbrele de rigidizare: verificați rigiditatea panoului la ridicare.');
+  if (S.dt < 10 && S.dv >= 25) push('warn', `Agrafe Ø${S.dt} pentru bare Ø${S.dv}: verificați diametrul agrafelor.`);
+  return out;
+}
+
+function wallSpecText(S, m) {
+  return [
+    `CARCASĂ PERETE MULAT — ${markCode(S)}`,
+    `Panou: perete ${S.T} mm grosime, carcasă ${S.W} × ${fmt(m.Tc)} mm, L = ${fmt(S.Lm, 2)} m, acoperire ${S.cover} mm`,
+    `Bare verticale: 2 × ${m.nv}Ø${S.dv} ${S.grade}, pas ${fmt(m.svActual)} mm${S.free ? `, mustăți ${S.free} mm la cap` : ''}`,
+    `Bare orizontale: 2 × ${m.nh}Ø${S.dh} ${S.grade}, pas ${S.sh} mm, L = ${fmt(S.W / 1000, 2)} m`,
+    `Agrafe: ${m.nLinks} × Ø${S.dt}, la fiecare a ${S.linkEvery}-a bară, rânduri la ${fmt(S.linkStep / 1000, 2)} m`,
+    m.trussU.length ? `Zăbrele rigidizare: ${m.trussU.length} × Ø${S.trussD}` : null,
+    S.spacers ? `Distanțieri: ${S.spacerPer}/față la ${fmt(S.spacerStep / 1000, 2)} m (${m.spacerZ.length * S.spacerPer * 2} buc/carcasă)` : null,
+    `Masă: ${fmt(m.mass)} kg/buc × ${S.qty} buc = ${fmt(m.mass * S.qty)} kg`,
   ].filter(Boolean).join('\n');
 }

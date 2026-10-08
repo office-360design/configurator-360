@@ -71,6 +71,7 @@ export class CageScene {
 
   build(S, M) {
     if (this.cage) { this.scene.remove(this.cage); disposeTree(this.cage); }
+    if (M.kind === 'wall') return this.buildWall(S, M);
     const cage = new THREE.Group();
     const k = 0.001, L = M.L * k, halfH = M.H / 2 * k, yc = halfH + 0.12, x0 = -L / 2;
     cage.userData = { L, yc, R: Math.max(M.B, M.H) / 2 * k };
@@ -187,6 +188,100 @@ export class CageScene {
     [head, tip].forEach(s => s.scale.set(ls * 2.67 / 2, ls / 2, 1));
     head.position.set(L / 2 + ls * 0.9, yc + halfH + ls * 0.5, 0);
     tip.position.set(-L / 2 - ls * 0.9, yc + halfH + ls * 0.5, 0);
+    cage.add(head, tip);
+
+    this.cage = cage;
+    this.scene.add(cage);
+    this.applyTheme();
+  }
+
+  // Diaphragm wall panel lying flat: length along x, cage width along z,
+  // wall thickness vertical (y).
+  buildWall(S, M) {
+    const cage = new THREE.Group();
+    const k = 0.001, L = M.L * k, yc = M.Tc / 2 * k + 0.12, x0 = -L / 2;
+    cage.userData = { L, yc, R: Math.max(M.W, M.Tc) / 2 * k };
+    const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3();
+    const instanced = (geometry, material, transforms) => {
+      const mesh = new THREE.InstancedMesh(geometry, material, transforms.length);
+      transforms.forEach(([x, y, z], i) => { mtx.makeTranslation(x, y, z); mesh.setMatrixAt(i, mtx); });
+      cage.add(mesh);
+      return mesh;
+    };
+    const faces = [-1, 1];
+
+    // Vertical bars (along the cage length) on both faces.
+    const vGeo = new THREE.CylinderGeometry(S.dv / 2 * k, S.dv / 2 * k, L, 10, 1); vGeo.rotateZ(Math.PI / 2);
+    instanced(vGeo, this.mat.bar, faces.flatMap(f => M.verticals.map(u => [0, yc + f * M.vV * k, u * k])));
+
+    // Horizontal bars across the width, outermost on both faces.
+    const hGeo = new THREE.CylinderGeometry(S.dh / 2 * k, S.dh / 2 * k, M.W * k, 8, 1); hGeo.rotateX(Math.PI / 2);
+    instanced(hGeo, this.mat.spiral, faces.flatMap(f => M.horizontals.map(z => [x0 + z * k, yc + f * M.vH * k, 0])));
+
+    // Links through the thickness at the tied vertical bars.
+    const linkH = (2 * M.vV + S.dv) * k;
+    const lGeo = new THREE.CylinderGeometry(S.dt / 2 * k, S.dt / 2 * k, linkH, 8, 1);
+    instanced(lGeo, this.mat.ring, M.linkRows.flatMap(z => M.linkCols.map(i => [x0 + z * k, yc, M.verticals[i] * k])));
+
+    // Lattice trusses: zig-zag between the faces every 300 mm.
+    M.trussU.forEach(u => {
+      const half = M.trussDepth / 2;
+      class Zigzag extends THREE.Curve {
+        getPoint(t, target = new THREE.Vector3()) {
+          const z = t * M.Ls, phase = z / 300, f = phase - Math.floor(phase);
+          const tri = Math.floor(phase) % 2 === 0 ? f : 1 - f;
+          return target.set(x0 + z * k, yc + (-half + 2 * half * tri) * k, u * k);
+        }
+      }
+      const segments = Math.max(8, Math.ceil(M.Ls / 300) * 2);
+      cage.add(new THREE.Mesh(new THREE.TubeGeometry(new Zigzag(), segments, S.trussD / 2 * k, 6, false), this.mat.ring));
+    });
+
+    // Welded nodes where verticals cross horizontals (drawn up to 40 000).
+    const wr = Math.max(S.dv, S.dh) * 0.55 * k;
+    const nodes = [];
+    faces.forEach(f => M.horizontals.forEach(z => M.verticals.forEach(u => {
+      if (nodes.length < 40000) nodes.push([x0 + z * k, yc + f * ((M.vH + M.vV) / 2) * k, u * k]);
+    })));
+    this.weldMesh = instanced(new THREE.SphereGeometry(wr, 6, 4), this.mat.weld, nodes);
+    this.weldMesh.visible = this.showWelds;
+
+    // Spacer wheels on the outer horizontal bars of both faces.
+    if (M.spacerZ.length) {
+      const wheel = new THREE.CylinderGeometry(S.cover * k, S.cover * k, 0.018, 20);
+      const im = new THREE.InstancedMesh(wheel, this.mat.spacer, M.spacerZ.length * S.spacerPer * 2);
+      q.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1));
+      let i = 0;
+      M.spacerZ.forEach(z => faces.forEach(f => {
+        for (let j = 0; j < S.spacerPer; j++) {
+          const u = -M.W / 2 + M.W * (j + 1) / (S.spacerPer + 1);
+          v.set(x0 + z * k, yc + f * (M.Tc / 2) * k, u * k);
+          mtx.compose(v, q, one); im.setMatrixAt(i++, mtx);
+        }
+      }));
+      cage.add(im);
+    }
+
+    // Timber sleepers under the panel.
+    const sleeper = new THREE.BoxGeometry(0.14, 0.12, M.W * k + 0.5);
+    (L > 14 ? [-0.36 * L, 0, 0.36 * L] : [-0.3 * L, 0.3 * L]).forEach(x => {
+      const b = new THREE.Mesh(sleeper, this.mat.wood); b.position.set(x, 0.06, 0); cage.add(b);
+    });
+
+    // Panel outline (wall thickness × cage width).
+    this.boreGroup = new THREE.Group();
+    const panel = new THREE.BoxGeometry(L + 0.6, M.T * k, M.W * k);
+    const pm = new THREE.Mesh(panel, this.mat.bore); pm.position.set(0, yc, 0); this.boreGroup.add(pm);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(panel, 20), this.mat.boreEdge);
+    edges.position.copy(pm.position); this.boreGroup.add(edges);
+    this.boreGroup.visible = this.showBore;
+    cage.add(this.boreGroup);
+
+    const head = labelSprite('CAP'), tip = labelSprite('VÂRF');
+    const ls = Math.max(0.14, Math.min(0.45, L * 0.03));
+    [head, tip].forEach(sp => sp.scale.set(ls * 2.67 / 2, ls / 2, 1));
+    head.position.set(L / 2 + ls * 0.9, yc + M.Tc / 2 * k + ls * 0.5, 0);
+    tip.position.set(-L / 2 - ls * 0.9, yc + M.Tc / 2 * k + ls * 0.5, 0);
     cage.add(head, tip);
 
     this.cage = cage;

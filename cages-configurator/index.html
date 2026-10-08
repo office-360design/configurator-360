@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-3" />
-  <link rel="stylesheet" href="./styles.css?v=cages-4" />
+  <link rel="stylesheet" href="./styles.css?v=cages-5" />
   <script type="importmap">
     {
       "imports": {
@@ -62,17 +62,19 @@
             <span>Perete mulat</span>
           </button>
         </div>
+        <div data-for="pilot">
         <span class="select-label top-gap">Secțiune</span>
         <div class="choice-grid three-col" role="group" aria-label="Secțiune">
           <button type="button" class="choice-card" data-shape="circ" aria-pressed="true"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="13"/></svg><span>Circulară</span></button>
           <button type="button" class="choice-card" data-shape="patrat" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="24" rx="2"/></svg><span>Pătrată</span></button>
           <button type="button" class="choice-card" data-shape="drept" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="12" y="5" width="16" height="30" rx="2"/></svg><span>Dreptunghi</span></button>
         </div>
+        </div>
         <span class="select-label top-gap">Exemple</span>
         <div class="preset-row" role="group" aria-label="Exemple">
           <button type="button" class="preset-chip" data-preset="p600">Pilot Ø600 · 12 m</button>
           <button type="button" class="preset-chip" data-preset="p1200">Pilot Ø1200 · 20 m</button>
-          <button type="button" class="preset-chip" data-preset="pm">Perete mulat 400×600</button>
+          <button type="button" class="preset-chip" data-preset="pm">Perete mulat 0,8 × 2,5 m</button>
         </div>
       </div>
     </section>
@@ -87,6 +89,8 @@
           <label class="range-control" data-show="circ"><span class="control-label"><b>Diametru carcasă</b><output data-out="D"></output></span><span class="range-row"><input id="r-D" type="range" data-k="D" step="10" aria-label="Diametru carcasă"><input id="n-D" class="number-input" type="number" data-k="D" aria-label="Diametru carcasă (mm)"></span></label>
           <label class="range-control" data-show="rect"><span class="control-label"><b id="lblB">Lățime B</b><output data-out="B"></output></span><span class="range-row"><input id="r-B" type="range" data-k="B" step="10" aria-label="Lățime"><input id="n-B" class="number-input" type="number" data-k="B" aria-label="Lățime (mm)"></span></label>
           <label class="range-control" data-show="drept"><span class="control-label"><b>Înălțime H</b><output data-out="H"></output></span><span class="range-row"><input id="r-H" type="range" data-k="H" step="10" aria-label="Înălțime H"><input id="n-H" class="number-input" type="number" data-k="H" aria-label="Înălțime H (mm)"></span></label>
+          <label class="range-control" data-for="perete"><span class="control-label"><b>Grosime perete</b><output data-out="T"></output></span><span class="range-row"><input id="r-T" type="range" data-k="T" min="400" max="1500" step="50" aria-label="Grosime perete"><input id="n-T" class="number-input" type="number" data-k="T" min="400" max="1500" aria-label="Grosime perete (mm)"></span></label>
+          <label class="range-control" data-for="perete"><span class="control-label"><b>Lățime carcasă (panou)</b><output data-out="W"></output></span><span class="range-row"><input id="r-W" type="range" data-k="W" min="1000" max="7000" step="50" aria-label="Lățime carcasă"><input id="n-W" class="number-input" type="number" data-k="W" min="1000" max="7000" aria-label="Lățime carcasă (mm)"></span></label>
           <label class="range-control"><span class="control-label"><b>Lungime carcasă</b><output data-out="Lm"></output></span><span class="range-row"><input id="r-L" type="range" data-k="Lm" min="1" max="24" step="0.5" aria-label="Lungime carcasă"><input id="n-L" class="number-input" type="number" data-k="Lm" step="0.5" aria-label="Lungime carcasă (m)"></span></label>
           <label class="range-control"><span class="control-label"><b>Acoperire beton</b><output data-out="cover"></output></span><span class="range-row"><input id="r-cover" type="range" data-k="cover" min="40" max="150" step="5" aria-label="Acoperire beton"><input id="n-cover" class="number-input" type="number" data-k="cover" min="40" max="150" aria-label="Acoperire beton (mm)"></span></label>
         </div>
@@ -94,7 +98,39 @@
       </div>
     </section>
 
-    <section class="accordion-section" data-accordion="bars">
+    <section class="accordion-section" data-accordion="wall" data-for="perete">
+      <button class="accordion-toggle" type="button" aria-expanded="false">
+        <span>Armare perete</span><small class="limit">2 plase · agrafe</small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="accordion-panel" hidden>
+        <div class="control-list">
+          <span class="select-label">Bare verticale (pe fiecare față)</span>
+          <div class="select-pair">
+            <label><span class="select-label">Diametru</span><select id="sel-dv" data-k="dv"></select></label>
+            <label><span class="select-label">Oțel beton</span><select id="sel-grade-w" data-k="grade"><option>BST500S</option><option>B500C</option><option>PC52</option></select></label>
+          </div>
+          <label class="range-control"><span class="control-label"><b>Pas bare verticale</b><output data-out="sv"></output></span><span class="range-row"><input id="r-sv" type="range" data-k="sv" min="100" max="400" step="5" aria-label="Pas bare verticale"><input id="n-sv" class="number-input" type="number" data-k="sv" min="100" max="400" aria-label="Pas bare verticale (mm)"></span></label>
+          <span class="select-label top-gap">Bare orizontale (pe fiecare față)</span>
+          <label><span class="select-label">Diametru</span><select id="sel-dh" data-k="dh"></select></label>
+          <label class="range-control"><span class="control-label"><b>Pas bare orizontale</b><output data-out="sh"></output></span><span class="range-row"><input id="r-sh" type="range" data-k="sh" min="100" max="400" step="5" aria-label="Pas bare orizontale"><input id="n-sh" class="number-input" type="number" data-k="sh" min="100" max="400" aria-label="Pas bare orizontale (mm)"></span></label>
+          <span class="select-label top-gap">Agrafe între fețe</span>
+          <div class="select-pair">
+            <label><span class="select-label">Diametru</span><select id="sel-dt" data-k="dt"></select></label>
+            <label><span class="select-label">La fiecare</span><select id="sel-linkEvery" data-k="linkEvery"><option value="1">bară</option><option value="2">a 2-a bară</option><option value="3">a 3-a bară</option><option value="4">a 4-a bară</option></select></label>
+          </div>
+          <label class="range-control"><span class="control-label"><b>Distanță între rânduri de agrafe</b><output data-out="linkStep"></output></span><span class="range-row"><input id="r-linkStep" type="range" data-k="linkStep" min="300" max="1500" step="50" aria-label="Distanță între rânduri de agrafe"><input id="n-linkStep" class="number-input" type="number" data-k="linkStep" min="300" max="1500" aria-label="Distanță între rânduri de agrafe (mm)"></span></label>
+          <label class="toggle-row"><span><b>Zăbrele de rigidizare</b><small>Între fețe, pentru ridicarea panoului</small></span><input type="checkbox" id="c-trusses" data-k="trusses"><i></i></label>
+          <div class="sub" id="trussSub">
+            <label class="range-control"><span class="control-label"><b>Număr zăbrele</b><output data-out="trussCount"></output></span><span class="range-row"><input id="r-trussCount" type="range" data-k="trussCount" min="1" max="8" step="1" aria-label="Număr zăbrele"><input id="n-trussCount" class="number-input" type="number" data-k="trussCount" min="1" max="8" aria-label="Număr zăbrele (buc)"></span></label>
+            <label><span class="select-label">Diametru zăbrele</span><select id="sel-trussD" data-k="trussD"></select></label>
+          </div>
+          <label class="range-control"><span class="control-label"><b>Mustăți la cap (fără bare orizontale)</b><output data-out="free"></output></span><span class="range-row"><input id="r-free-w" type="range" data-k="free" min="0" max="2000" step="50" aria-label="Mustăți la cap"><input id="n-free-w" class="number-input" type="number" data-k="free" min="0" max="2000" aria-label="Mustăți la cap (mm)"></span></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="bars" data-for="pilot">
       <button class="accordion-toggle" type="button" aria-expanded="false">
         <span>Bare longitudinale</span><small class="limit" id="limDl"></small>
         <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -116,7 +152,7 @@
       </div>
     </section>
 
-    <section class="accordion-section" data-accordion="spiral">
+    <section class="accordion-section" data-accordion="spiral" data-for="pilot">
       <button class="accordion-toggle" type="button" aria-expanded="false">
         <span>Spirală / fretă</span><small class="limit" id="limDs"></small>
         <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -142,14 +178,14 @@
       </button>
       <div class="accordion-panel" hidden>
         <div class="control-list">
-          <label class="toggle-row"><span><b>Inele de rigidizare</b><small>Interioare, sudate pe bare</small></span><input type="checkbox" id="c-rings" data-k="rings"><i></i></label>
-          <div class="sub" id="ringsSub">
+          <label class="toggle-row" data-for="pilot"><span><b>Inele de rigidizare</b><small>Interioare, sudate pe bare</small></span><input type="checkbox" id="c-rings" data-k="rings"><i></i></label>
+          <div class="sub" id="ringsSub" data-for="pilot">
             <label><span class="select-label">Diametru inel</span><select id="sel-ringD" data-k="ringD"><option value="12">Ø12</option><option value="14">Ø14</option><option value="16">Ø16</option><option value="20">Ø20</option><option value="25">Ø25</option></select></label>
             <label class="range-control"><span class="control-label"><b>Distanță între inele</b><output data-out="ringStep"></output></span><span class="range-row"><input id="r-ringStep" type="range" data-k="ringStep" min="1500" max="4000" step="100" aria-label="Distanță între inele"><input id="n-ringStep" class="number-input" type="number" data-k="ringStep" min="1500" max="4000" aria-label="Distanță între inele (mm)"></span></label>
           </div>
-          <label class="toggle-row"><span><b>Distanțieri</b><small>Roți din plastic pe spirală</small></span><input type="checkbox" id="c-spacers" data-k="spacers"><i></i></label>
+          <label class="toggle-row"><span><b>Distanțieri</b><small id="spacerHint">Roți din plastic pe spirală</small></span><input type="checkbox" id="c-spacers" data-k="spacers"><i></i></label>
           <div class="sub" id="spacersSub">
-            <label class="range-control"><span class="control-label"><b>Distanțieri pe secțiune</b><output data-out="spacerPer"></output></span><span class="range-row"><input id="r-spacerPer" type="range" data-k="spacerPer" min="3" max="8" step="1" aria-label="Distanțieri pe secțiune"><input id="n-spacerPer" class="number-input" type="number" data-k="spacerPer" min="3" max="8" aria-label="Distanțieri pe secțiune (buc)"></span></label>
+            <label class="range-control"><span class="control-label"><b id="spacerPerLabel">Distanțieri pe secțiune</b><output data-out="spacerPer"></output></span><span class="range-row"><input id="r-spacerPer" type="range" data-k="spacerPer" min="3" max="8" step="1" aria-label="Distanțieri pe secțiune"><input id="n-spacerPer" class="number-input" type="number" data-k="spacerPer" min="3" max="8" aria-label="Distanțieri pe secțiune (buc)"></span></label>
             <label class="range-control"><span class="control-label"><b>Pas distanțieri</b><output data-out="spacerStep"></output></span><span class="range-row"><input id="r-spacerStep" type="range" data-k="spacerStep" min="1500" max="5000" step="100" aria-label="Pas distanțieri"><input id="n-spacerStep" class="number-input" type="number" data-k="spacerStep" min="1500" max="5000" aria-label="Pas distanțieri (mm)"></span></label>
           </div>
         </div>
@@ -173,6 +209,6 @@
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
 </button>
 <script type="module" src="./js/sharedShell.js?v=cages-3"></script>
-<script type="module" src="./js/app.js?v=cages-3"></script>
+<script type="module" src="./js/app.js?v=cages-4"></script>
 </body>
 </html>
