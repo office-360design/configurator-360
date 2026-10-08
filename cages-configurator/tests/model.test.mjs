@@ -1,15 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT, PRESETS, LIM, checks, clampState, kgm, markCode, model, specText, weightLimit } from '../js/model.js';
+import { DEFAULT, PRESETS, LIM, checks, clampState, kgm, markCode, model, specText } from '../js/model.js';
 
 const close = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`);
 
-test('bar mass and weight limit follow the data sheet', () => {
+test('bar mass per metre (steel 7850 kg/m³)', () => {
   close(kgm(20), 2.46616, 1e-5); // Ø20: 2.466 kg/m
-  assert.equal(weightLimit(12), 5000);
-  assert.equal(weightLimit(20), 8000);
-  assert.equal(weightLimit(16), 6500);
-  assert.equal(weightLimit(24), 9600);
+  close(kgm(10), 0.61654, 1e-5);
+});
+
+test('masses add up element by element (1160×970 pile, 12Ø20, Ø10/150)', () => {
+  const S = clampState({ ...DEFAULT, shape: 'drept', B: 1160, H: 970, headBend: false });
+  const m = model(S);
+  close(m.mBars, 12 * 12 * kgm(20));
+  close(m.mSpiral, m.spiralLen / 1000 * kgm(10));
+  close(m.mRings, m.ringZ.length * m.ringPerim / 1000 * kgm(16));
+  close(m.mass, m.mBars + m.mSpiral + m.mRings);
+  assert.ok(Math.abs(m.mass - 617.5) < 1, `mass ${m.mass}`);
+});
+
+test('head bend: bars curve inwards in the starter zone and gain the arc length', () => {
+  const S = clampState(DEFAULT);
+  const m = model(S);
+  assert.ok(m.bend, 'default cage has the bent head');
+  assert.equal(m.bend.len, 400);
+  assert.equal(m.bend.inward, 120);
+  assert.ok(m.bend.arc > m.bend.len && m.bend.arc < m.bend.len + m.bend.inward);
+  close(m.barLength, m.L - m.bend.len + m.bend.arc);
+  assert.ok(m.ringZ.every(z => z < m.L - m.bend.len), 'no ring inside the bend');
+  // The bend needs starter bars; without them it is reported, not drawn.
+  const none = clampState({ ...DEFAULT, free: 0 });
+  assert.equal(model(none).bend, null);
+  assert.ok(checks(none, model(none)).some(c => c.lv === 'warn' && c.t.startsWith('Capul îndoit')));
+  assert.equal(model(clampState({ ...DEFAULT, free: 300 })).bend.len, 300, 'bend fits within the starter bars');
+  assert.match(specText(S, m), /Cap îndoit \(coșuleț\)/);
 });
 
 test('state is clamped to the manufacturing limits of each cage type', () => {
@@ -34,7 +58,7 @@ test('circular pile: bars, spiral length and masses', () => {
   const S = clampState(DEFAULT);
   const m = model(S);
   assert.equal(m.bars.length, S.n);
-  close(m.mBars, S.n * S.Lm * kgm(S.dl));
+  close(m.mBars, S.n * m.barLength / 1000 * kgm(S.dl));
   // Spiral turns: closing turns, dense ends and regular middle add up to the spiral length.
   close(m.zones.at(-1).z1, m.Ls);
   assert.ok(m.Ttot > m.Ls / S.pitch, 'dense ends add turns');
@@ -58,10 +82,9 @@ test('rectangular wall cage: corner and side bars, clear spacing', () => {
   assert.ok(!checks(S, m).some(c => c.t.includes('SR EN 1536 recomandă')), 'pile-only rules do not apply to walls');
 });
 
-test('checks flag overweight cages and bars that do not fit', () => {
+test('checks flag bars that do not fit; there is no mass limit', () => {
   const heavy = clampState({ ...DEFAULT, D: 1400, Lm: 12, n: 60, dl: 40 });
-  const heavyChecks = checks(heavy, model(heavy));
-  assert.ok(heavyChecks.some(c => c.lv === 'err' && c.t.startsWith('Masa')));
+  assert.ok(!checks(heavy, model(heavy)).some(c => /Mas[aă]/.test(c.t)));
   const crowded = clampState({ ...DEFAULT, D: 400, n: 60, dl: 40 });
   assert.ok(checks(crowded, model(crowded)).some(c => c.lv === 'err' && c.t.startsWith('Barele nu încap')));
   const ok = clampState(DEFAULT);

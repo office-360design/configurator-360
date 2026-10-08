@@ -78,12 +78,28 @@ export class CageScene {
     const mtx = new THREE.Matrix4();
     const v = new THREE.Vector3();
 
-    // Longitudinal bars.
-    const barGeo = new THREE.CylinderGeometry(M.dl / 2 * k, M.dl / 2 * k, L, 10, 1);
+    // Longitudinal bars: straight up to the head bend.
+    const straight = (M.L - (M.bend ? M.bend.len : 0)) * k;
+    const barGeo = new THREE.CylinderGeometry(M.dl / 2 * k, M.dl / 2 * k, straight, 10, 1);
     barGeo.rotateZ(Math.PI / 2);
     const bars = new THREE.InstancedMesh(barGeo, this.mat.bar, M.bars.length);
-    M.bars.forEach((b, i) => { mtx.makeTranslation(0, yc + b.v * k, b.u * k); bars.setMatrixAt(i, mtx); });
+    M.bars.forEach((b, i) => { mtx.makeTranslation(x0 + straight / 2, yc + b.v * k, b.u * k); bars.setMatrixAt(i, mtx); });
     cage.add(bars);
+
+    // Head bend ("coșuleț"): each bar curves towards the axis and ends across it.
+    if (M.bend) {
+      const z0 = M.L - M.bend.len;
+      M.bars.forEach(b => {
+        const r = Math.hypot(b.u, b.v) || 1, nu = -b.u / r, nv = -b.v / r;
+        class Hook extends THREE.Curve {
+          getPoint(t, target = new THREE.Vector3()) {
+            const a = t * Math.PI / 2, inward = M.bend.inward * (1 - Math.cos(a));
+            return W(z0 + M.bend.len * Math.sin(a), b.u + nu * inward, b.v + nv * inward, target);
+          }
+        }
+        cage.add(new THREE.Mesh(new THREE.TubeGeometry(new Hook(), 16, M.dl / 2 * k, 8, false), this.mat.bar));
+      });
+    }
 
     // Spiral.
     if (M.Ttot > 0) {

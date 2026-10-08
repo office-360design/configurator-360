@@ -1,16 +1,16 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
-import { CageScene } from './scene.js?v=cages-2';
-import { sectionSvg } from './section.js?v=cages-2';
+import { CageScene } from './scene.js?v=cages-3';
+import { sectionSvg } from './section.js?v=cages-3';
 import {
-  DEFAULT, LIM, PRESETS, barsFor, checks, clampState, fmt, markCode, model, sectionLabel, specText, weightLimit,
-} from './model.js?v=cages-2';
+  DEFAULT, LIM, PRESETS, barsFor, checks, clampState, fmt, markCode, model, sectionLabel, specText,
+} from './model.js?v=cages-3';
 
 await requireTenantConfiguratorAccess('cages');
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const VIEWS = ['all', 'head', 'axial'];
-const UNITS = { D: 'mm', B: 'mm', H: 'mm', Lm: 'm', cover: 'mm', n: 'buc', free: 'mm', pitch: 'mm', pitchEnd: 'mm', zoneEnd: 'mm', ringStep: 'mm', spacerPer: 'buc', spacerStep: 'mm', qty: 'buc' };
+const UNITS = { bendLen: 'mm', bendIn: 'mm', D: 'mm', B: 'mm', H: 'mm', Lm: 'm', cover: 'mm', n: 'buc', free: 'mm', pitch: 'mm', pitchEnd: 'mm', zoneEnd: 'mm', ringStep: 'mm', spacerPer: 'buc', spacerStep: 'mm', qty: 'buc' };
 const shared = await readShareState({ productType: 'cages' });
 let S = clampState(shared && typeof shared === 'object' ? { ...DEFAULT, ...shared } : DEFAULT);
 let viewIndex = 0;
@@ -54,20 +54,21 @@ function syncUI() {
   $('#denseSub').setAttribute('aria-disabled', String(!S.dense));
   $('#ringsSub').setAttribute('aria-disabled', String(!S.rings));
   $('#spacersSub').setAttribute('aria-disabled', String(!S.spacers));
+  $('#bendSub').setAttribute('aria-disabled', String(!S.headBend));
+  $('#r-bendLen').max = $('#n-bendLen').max = Math.min(1000, Math.max(100, S.free));
+  $('#r-bendIn').max = $('#n-bendIn').max = Math.round(Math.min(S.shape === 'circ' ? S.D : Math.min(S.B, S.H), 1400) * 0.3);
 }
 
 function render(m) {
-  const lim = LIM[S.type], limit = weightLimit(S.Lm), over = m.mass > limit;
+  const lim = LIM[S.type];
   const tag = $('#tag');
-  tag.classList.toggle('over', over);
   tag.innerHTML = `<div class="mark">${markCode(S)}</div>
     ${lim.name} · ${sectionLabel(S)} · L ${fmt(S.Lm, 2)} m<br>${S.n}Ø${S.dl} ${S.grade} · SP Ø${S.ds}/${S.pitch}${S.dense ? ` (${S.pitchEnd})` : ''}<br>
-    <b>${fmt(m.mass)} kg</b> / buc · limită ~${fmt(limit)} kg
-    <div class="gauge" aria-hidden="true"><i style="width:${Math.min(100, m.mass / limit * 100).toFixed(1)}%"></i></div>`;
+    <b>${fmt(m.mass)} kg</b> / buc · ${fmt(m.mass / S.Lm, 1)} kg/m${m.bend ? ' · cap îndoit' : ''}`;
   $('#boreHint').textContent = m.circ ? `Diametru foraj rezultat: Ø${m.boreB} mm` : `Secțiune panou rezultată: ${m.boreB}×${m.boreH} mm`;
 
   const rows = [
-    ['Bare longitudinale', `${S.n} × ${fmt(S.Lm, 2)} m Ø${S.dl}`, `${fmt(S.n * S.Lm, 1)} m`, fmt(m.mBars, 1)],
+    ['Bare longitudinale', `${S.n} × ${fmt(m.barLength / 1000, 2)} m Ø${S.dl}${m.bend ? ' (cu îndoire)' : ''}`, `${fmt(S.n * m.barLength / 1000, 1)} m`, fmt(m.mBars, 1)],
     ['Spirală', `${fmt(m.Ttot, 1)} spire Ø${S.ds}`, `${fmt(m.spiralLen / 1000, 1)} m`, fmt(m.mSpiral, 1)],
   ];
   if (S.rings) rows.push(['Inele rigidizare', `${m.ringZ.length} buc Ø${S.ringD}`, `${fmt(m.ringZ.length * m.ringPerim / 1000, 1)} m`, fmt(m.mRings, 1)]);
