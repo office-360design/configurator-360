@@ -1,5 +1,5 @@
 import { roofWindowGeometry, cutRoofWindows } from './roofWindows.js?v=windows-24';
-import { roofSurfaceGroups, validateLayout, inside } from './roofLayout.js?v=layout-21';
+import { roofSurfaceGroups, validateLayout, footprintLayout, inside } from './roofLayout.js?v=layout-21';
 
 // Dimensions transcribed from the supplied profile reference photographs.
 // End overlap is the inferred length allowance: length - modules * module pitch.
@@ -129,7 +129,30 @@ export function partitionTargets(plan, baseId, scope) {
     signature(column) === signature(selectedColumn)).map(column => column.sections[sectionIndex].baseId);
 }
 
+// Independent unfolded polygons use real surface metres, with Y along the sheets.
+export function validateSheetSurfaces(surfaces) {
+  if (!Array.isArray(surfaces) || surfaces.length > 40) throw new Error('Use up to 40 surfaces.');
+  return surfaces.map(points => {
+    if (!Array.isArray(points) || points.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Draw a closed surface with at least three points.');
+    return footprintLayout(points.map(p => ({ x: p.x, z: p.y })));
+  });
+}
+
+function planDrawnSurfaces(surfaces, profile, settings) {
+  const layouts = validateSheetSurfaces(surfaces);
+  if (!layouts.length) throw new Error('Draw at least one surface first.');
+  const plans = layouts.map((layout, index) => planRoofSheets(layout, profile, {
+    ...settings, surfaceIndex: index,
+  }));
+  const slopes = plans.flatMap(plan => plan.slopes);
+  const totals = Object.fromEntries(Object.keys(plans[0].totals).map(key =>
+    [key, plans.reduce((sum, plan) => sum + plan.totals[key], 0)]));
+  return { profile: plans[0].profile, slopes, totals, drawnSurfaces: true,
+    groups: groupSheetLengths(slopes.flatMap(slope => slope.pieces)) };
+}
+
 export function planRoofSheets(layout, profile, settings = {}) {
+  if (layout.surfaces) return planDrawnSurfaces(layout.surfaces, profile, settings);
   validateLayout(layout);
   const windows = roofWindowGeometry(layout);
   const p = validateSheetProfile(profile);
@@ -195,14 +218,14 @@ export function planRoofSheets(layout, profile, settings = {}) {
           const remaining = Math.round((end - y) / module);
           const sheetsLeft = Math.ceil(remaining / p.allowedMaxModules);
           const baseModules = Math.min(p.allowedMaxModules, remaining - (sheetsLeft - 1) * p.minModules);
-          const baseId = `${slopeLetter(index)}-${column + 1}.${++baseSegment}`;
+          const baseId = `${slopeLetter(settings.surfaceIndex ?? index)}-${column + 1}.${++baseSegment}`;
           const parts = settings.partitions?.[baseId] || [baseModules];
           validateSheetPartition(parts, baseModules, p);
           for (const modules of parts) {
             const coverageLength = modules * module;
             const cuts = clipped.map(poly => clip(clip(poly, 'y', y, 1), 'y', y + coverageLength, -1))
               .filter(poly => poly.length >= 3 && area(poly) > 1e-10);
-            pieces.push({ id: `${slopeLetter(index)}-${column + 1}.${++segment}`, column: column + 1,
+            pieces.push({ id: `${slopeLetter(settings.surfaceIndex ?? index)}-${column + 1}.${++segment}`, column: column + 1,
               baseId, baseModules, modules, length: modules * p.module + p.endOverlap, x: left, y,
               stockX: reverse ? left - (p.width - p.usefulWidth) / 1000 : left,
               coverageLength, polygons: cuts, netArea: cuts.reduce((sum, poly) => sum + area(poly), 0) });
@@ -217,9 +240,9 @@ export function planRoofSheets(layout, profile, settings = {}) {
     const stockArea = pieces.reduce((sum, piece) => sum + p.width * piece.length / 1e6, 0);
     const usefulArea = pieces.reduce((sum, piece) => sum + useful * piece.coverageLength, 0);
     const warnings = [];
-    if (pitch + 1e-6 < p.minPitch) warnings.push(`Pitch ${pitch.toFixed(1)}° is below this profile’s ${p.minPitch}° minimum.`);
-    if (gradient < 1e-8) warnings.push('Flat surface: sheet direction defaults to the plan Z axis.');
-    return { id: slopeLetter(index), pitch, width, height, pieces, polygons, columns, reverse, offset: offset * 1000,
+    if (settings.surfaceIndex == null && pitch + 1e-6 < p.minPitch) warnings.push(`Pitch ${pitch.toFixed(1)}° is below this profile’s ${p.minPitch}° minimum.`);
+    if (settings.surfaceIndex == null && gradient < 1e-8) warnings.push('Flat surface: sheet direction defaults to the plan Z axis.');
+    return { id: slopeLetter(settings.surfaceIndex ?? index), pitch, width, height, pieces, polygons, columns, reverse, offset: offset * 1000,
       outline: [...group.boundary.map(ids => ids.map(id => local(flatten(layout.vertices[id])))),
         ...openings.flatMap(window => window.corners.map((p, i) =>
           [p, window.corners[(i + 1) % 4]].map(p => local(flatten(p)))))],

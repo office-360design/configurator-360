@@ -1,9 +1,9 @@
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
-import { validateSheetProfile } from './sheetPlanner.js?v=navigation-32';
+import { validateSheetProfile, validateSheetSurfaces } from './sheetPlanner.js?v=surfaces-44';
 import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import { state, pitchRules, roofNames } from './state.js?v=layout-21';
 import { RoofScene } from './scene.js?v=navigation-32';
-import { RoofUI } from './ui.js?v=origin-43';
+import { RoofUI } from './ui.js?v=surfaces-44';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
@@ -24,6 +24,9 @@ const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 
 function applySharedRoofState(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
 
+  if (snapshot.sheetSurfaces != null) {
+    try { validateSheetSurfaces(snapshot.sheetSurfaces); } catch { return false; }
+  }
   if (snapshot.roofLayout != null) {
     try { validateLayout(snapshot.roofLayout); roofWindowGeometry(snapshot.roofLayout); } catch { return false; }
   }
@@ -44,6 +47,8 @@ function applySharedRoofState(snapshot) {
     state.customPlan = snapshot.customPlan ? structuredClone(snapshot.customPlan) : null;
   }
   if (snapshot.roofLayout !== undefined) state.roofLayout = structuredClone(snapshot.roofLayout);
+  state.sheetSurfaces = structuredClone(snapshot.sheetSurfaces || []);
+  state.sheetPlanSource = snapshot.sheetPlanSource === 'surfaces' ? 'surfaces' : 'roof';
   if (snapshot.sheetPlanOptions === null) state.sheetPlanOptions = null;
   if (snapshot.sheetPlanOptions?.profile) {
     try {
@@ -272,6 +277,8 @@ const configuratorApi = {
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
       roofLayout: state.roofLayout ? structuredClone(state.roofLayout) : null,
+      sheetPlanSource: state.sheetPlanSource || 'roof',
+      sheetSurfaces: structuredClone(state.sheetSurfaces || []),
       sheetPlanOptions: state.sheetPlanOptions ? structuredClone(state.sheetPlanOptions) : null,
       customPlan: state.customPlan ? structuredClone(state.customPlan) : null,
       excludedBomItems: [...state.excludedBomItems],

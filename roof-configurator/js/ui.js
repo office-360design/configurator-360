@@ -1,5 +1,5 @@
 import { localizeFeature, featureText } from './featureI18n.js?v=navigation-32';
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=pan-42';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=surfaces-44';
 import { RoofLayoutEditor } from './layoutEditor.js?v=origin-43';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';

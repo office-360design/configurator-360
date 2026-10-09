@@ -77,7 +77,7 @@ const assert = require('node:assert/strict');
     await printPage.close();
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  const fits = await page.locator('dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1);
+  const fits = await page.locator('dialog.sheet-planner').evaluate(el => el.scrollWidth <= el.clientWidth + 1);
   assert.ok(fits, 'Mobile dialog fits screen');
   await page.locator('[name=offset]').fill('200');
   assert.equal(await page.locator('.sheet-diagram').count(), 4);
