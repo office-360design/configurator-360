@@ -1,3 +1,6 @@
+import { connectedSlopes, slopeLetter } from './sheetPlanner.js?v=letters-46';
+import { presetRoofLayout } from './presetLayout.js?v=layout-21';
+import { defaultLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
@@ -82,6 +85,8 @@ export class RoofScene {
 
     this.modelRoot = new THREE.Group();
     this.scene.add(this.modelRoot);
+    this.surfaceLettersRoot = new THREE.Group();
+    this.scene.add(this.surfaceLettersRoot);
     this.dimensionsRoot = new THREE.Group();
     this.scene.add(this.dimensionsRoot);
     this.locale = 'en-US';
@@ -319,10 +324,43 @@ export class RoofScene {
       this.dimensionsRoot.add(createDimensions(state, metrics.ridgeElevation));
     }
 
+    this.updateSurfaceLetters(state);
     this.updateCompassPlacement(state);
     this.controls.target.set(0, Math.max(1.4, metrics.ridgeElevation * 0.36), 0);
     if (fitCamera) this.fitCamera(state, metrics.ridgeElevation);
     return metrics;
+  }
+
+  updateSurfaceLetters(state) {
+    this.disposeGroup(this.surfaceLettersRoot);
+    if (!state.showSurfaceLetters || ['custom', 'sketch'].includes(state.roofType)) return;
+    // Use exactly the same connected, coplanar groups and ordering as the planner.
+    let layout;
+    try {
+      layout = state.roofType === 'layout' ? state.roofLayout || defaultLayout() : presetRoofLayout(state);
+    } catch { return; }
+    const bounds = layoutBounds(layout);
+    const centerX = state.roofType === 'layout' ? (bounds.minX + bounds.maxX) / 2 : 0;
+    const centerZ = state.roofType === 'layout' ? (bounds.minZ + bounds.maxZ) / 2 : 0;
+    connectedSlopes(layout).forEach((surface, index) => {
+      // A triangle centroid stays inside concave surfaces.
+      const area = ids => {
+        const [a, b, c] = ids.map(id => layout.vertices[id]);
+        return Math.abs((b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x));
+      };
+      const triangle = surface.triangles.reduce((best, ids) => area(ids) > area(best) ? ids : best);
+      const points = triangle.map(id => layout.vertices[id]);
+      const element = document.createElement('span');
+      element.className = 'roof-surface-letter';
+      element.textContent = slopeLetter(index);
+      const label = new CSS2DObject(element);
+      label.position.set(
+        points.reduce((sum, p) => sum + p.x, 0) / 3 - centerX,
+        state.wallHeight + .15 + points.reduce((sum, p) => sum + p.h, 0) / 3,
+        points.reduce((sum, p) => sum + p.z, 0) / 3 - centerZ,
+      );
+      this.surfaceLettersRoot.add(label);
+    });
   }
 
   disposeGroup(group) {

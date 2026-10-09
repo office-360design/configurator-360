@@ -54,7 +54,7 @@ function clip(polygon, axis, bound, sign) {
 const clipStrip = (polygon, left, right) => clip(clip(polygon, 'x', left, 1), 'x', right, -1);
 
 // A plane may contain separate roofs. Only edge-connected triangles are one slope.
-function connectedSlopes(layout) {
+export function connectedSlopes(layout) {
   return roofSurfaceGroups(layout).flatMap(group => {
     const remaining = new Set(group.triangles.map((_, i) => i));
     const edges = new Map();
