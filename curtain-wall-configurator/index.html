@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Configurator fațade cortină GUTMANN GCW 050 | 360Configurator</title>
+  <meta name="description" content="Configurator 3D pentru fațade cortină montant-traversă GUTMANN GCW 050: grilă, profile alese din statică, vitraj după tabelul producătorului, Ucw și listă de materiale." />
+  <meta name="robots" content="noindex, follow" />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
+  <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-3" />
+  <link rel="stylesheet" href="./styles.css?v=cw-1" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+<main class="app-shell">
+  <section class="viewer-panel" aria-label="Fațadă 3D">
+    <div class="viewer-stage">
+      <div id="canvasHost"></div>
+      <div class="tag" id="tag" aria-live="polite"></div>
+      <div class="stage-hint" data-i18n="stage.hint"></div>
+    </div>
+    <section class="sheet" aria-label="Documentație">
+      <div class="sheet-tabs" role="tablist">
+        <button type="button" role="tab" data-tab="elevation" aria-selected="true" data-i18n="tab.elevation"></button>
+        <button type="button" role="tab" data-tab="node" aria-selected="false" data-i18n="tab.node"></button>
+        <button type="button" role="tab" data-tab="bom" aria-selected="false" data-i18n="tab.bom"></button>
+        <button type="button" role="tab" data-tab="checks" aria-selected="false" data-i18n="tab.checks"></button>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-panel" data-panel="elevation" id="elevation"></div>
+        <div class="sheet-panel" data-panel="node" id="node" hidden></div>
+        <div class="sheet-panel" data-panel="bom" id="bom" hidden></div>
+        <div class="sheet-panel" data-panel="checks" id="checks" hidden></div>
+      </div>
+    </section>
+  </section>
+
+  <aside class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light" aria-label="Parametri fațadă">
+    <section class="panel-section intro-section intro-compact"><h1 data-i18n="title"></h1></section>
+
+    <section class="accordion-section is-open" data-accordion="grid">
+      <button class="accordion-toggle" type="button" aria-expanded="true"><span data-i18n="section.grid"></span><small class="limit" id="gridTotal"></small>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <div class="accordion-panel">
+        <span class="select-label" data-i18n="grid.presets"></span>
+        <div class="preset-row">
+          <button type="button" class="preset-chip" data-preset="storefront" data-i18n="preset.storefront"></button>
+          <button type="button" class="preset-chip" data-preset="office" data-i18n="preset.office"></button>
+          <button type="button" class="preset-chip" data-preset="atrium" data-i18n="preset.atrium"></button>
+        </div>
+        <div class="track-head top-gap"><span class="select-label" data-i18n="grid.bays"></span>
+          <span class="track-actions"><button type="button" class="mini" data-action="equal-bays" data-i18n="grid.equal"></button><button type="button" class="mini" data-action="add-bay">+</button></span></div>
+        <div class="track-list" id="bayList"></div>
+        <div class="track-head top-gap"><span class="select-label" data-i18n="grid.rows"></span>
+          <span class="track-actions"><button type="button" class="mini" data-action="add-row">+</button></span></div>
+        <div class="track-list" id="rowList"></div>
+      </div>
+    </section>
+
+    <section class="accordion-section is-open" data-accordion="profiles">
+      <button class="accordion-toggle" type="button" aria-expanded="true"><span data-i18n="section.profiles"></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <div class="accordion-panel">
+        <div class="control-list">
+          <label class="range-control"><span class="control-label"><b data-i18n="profiles.wind"></b><output data-out="windLoad"></output></span>
+            <span class="range-row"><input id="r-wind" type="range" data-k="windLoad" min="0.3" max="3" step="0.05"><input id="n-wind" class="number-input" type="number" data-k="windLoad" min="0.3" max="3" step="0.05"></span></label>
+          <label class="range-control"><span class="control-label"><b data-i18n="profiles.anchor"></b><output data-out="anchorSpacing"></output></span>
+            <span class="range-row"><input id="r-anchor" type="range" data-k="anchorSpacing" min="1000" max="7000" step="50"><input id="n-anchor" class="number-input" type="number" data-k="anchorSpacing" min="1000" max="7000" step="50"></span></label>
+          <div class="select-pair">
+            <label><span class="select-label" data-i18n="profiles.mullion"></span><select id="sel-mullion" data-k="mullion"></select></label>
+            <label><span class="select-label" data-i18n="profiles.transom"></span><select id="sel-transom" data-k="transom"></select></label>
+          </div>
+          <div class="info-card"><strong id="autoPick"></strong><small data-i18n="profiles.hint"></small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="glazing">
+      <button class="accordion-toggle" type="button" aria-expanded="false"><span data-i18n="section.glazing"></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <div class="accordion-panel" hidden>
+        <div class="control-list">
+          <label><span class="select-label" data-i18n="glazing.build"></span><select id="sel-glazing" data-k="glazing"></select></label>
+          <div class="sub" id="customGlazing">
+            <div class="select-pair">
+              <label><span class="select-label" data-i18n="glazing.thickness"></span><select id="sel-thickness" data-k="customThickness"></select></label>
+              <label><span class="select-label" data-i18n="glazing.glass"></span><input class="number-input" type="number" data-k="customGlass" min="4" max="64" step="0.1"></label>
+            </div>
+            <label><span class="select-label" data-i18n="glazing.ug"></span><input class="number-input" type="number" data-k="customUg" min="0.3" max="3" step="0.1"></label>
+          </div>
+          <label><span class="select-label" data-i18n="glazing.strip"></span><select id="sel-strip" data-k="strip"></select></label>
+          <div class="select-pair" id="coverFields">
+            <label><span class="select-label" data-i18n="glazing.coverMullion"></span><select id="sel-coverMullion" data-k="coverMullion"></select></label>
+            <label><span class="select-label" data-i18n="glazing.coverTransom"></span><select id="sel-coverTransom" data-k="coverTransom"></select></label>
+          </div>
+          <span class="select-label" data-i18n="glazing.tint"></span>
+          <div class="chip-row" id="tintChips"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="finish">
+      <button class="accordion-toggle" type="button" aria-expanded="false"><span data-i18n="section.finish"></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <div class="accordion-panel" hidden>
+        <span class="select-label" data-i18n="finish.outside"></span>
+        <div class="swatch-row" id="outsideSwatches"></div>
+        <label class="toggle-row top-gap"><span><b data-i18n="finish.same"></b></span><input type="checkbox" data-k="sameFinish"><i></i></label>
+        <div id="insideFinish"><span class="select-label top-gap" data-i18n="finish.inside"></span><div class="swatch-row" id="insideSwatches"></div></div>
+      </div>
+    </section>
+
+    <section class="accordion-section" data-accordion="order">
+      <button class="accordion-toggle" type="button" aria-expanded="false"><span data-i18n="section.order"></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <div class="accordion-panel" hidden>
+        <label class="range-control"><span class="control-label"><b data-i18n="order.qty"></b><output data-out="qty"></output></span>
+          <span class="range-row range-row--single"><input class="number-input" type="number" data-k="qty" min="1" max="999"></span></label>
+        <p class="source-note" data-i18n="order.source"></p>
+      </div>
+    </section>
+  </aside>
+</main>
+<button id="cwSidebarToggle" type="button" data-i18n-aria="toggle.sidebar" aria-expanded="true">
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+</button>
+<script type="module" src="./js/sharedShell.js?v=cw-1"></script>
+<script type="module" src="./js/app.js?v=cw-1"></script>
+</body>
+</html>
