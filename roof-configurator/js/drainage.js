@@ -1,35 +1,24 @@
+import { layoutDrainageEdges, edgeOutward } from './drainageLayout.js?v=drainage-49';
 import * as THREE from 'three';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
-import { defaultLayout, layoutBounds, signedArea } from './roofLayout.js?v=layout-21';
+import { defaultLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 
-// Only level perimeter edges that receive runoff get gutters. Sloping verges
-// and high shed edges are excluded. Coordinates match the rendered roof model.
+// Perimeter drainage follows saved placements, or recommended eaves and valley
+// outlets. Coordinates match the rendered roof model.
 export function drainageRuns(state) {
   if (['custom', 'sketch'].includes(state.roofType)) return [];
   const layout = state.roofType === 'layout' ? state.roofLayout || defaultLayout() : presetRoofLayout(state);
   const bounds = layoutBounds(layout);
   const cx = state.roofType === 'layout' ? (bounds.minX + bounds.maxX) / 2 : 0;
   const cz = state.roofType === 'layout' ? (bounds.minZ + bounds.maxZ) / 2 : 0;
-  const orientation = Math.sign(signedArea(layout.boundary.map(id => layout.vertices[id]))) || 1;
-  const runs = [];
-  layout.boundary.forEach((id, i) => {
-    const next = layout.boundary[(i + 1) % layout.boundary.length];
-    const a = layout.vertices[id], b = layout.vertices[next];
-    if (Math.abs(a.h - b.h) > .01) return;
-    const face = layout.faces.find(ids => ids.some((v, j) =>
-      (v === id && ids[(j + 1) % ids.length] === next) ||
-      (v === next && ids[(j + 1) % ids.length] === id)));
-    if (!face || face.some(v => layout.vertices[v].h < a.h - .01)) return;
-    const length = Math.hypot(b.x-a.x, b.z-a.z);
-    if (length < .25) return;
-    const outward = {x:orientation*(b.z-a.z)/length, z:-orientation*(b.x-a.x)/length};
-    const point = p => ({x:p.x-cx, y:state.wallHeight+.05+p.h, z:p.z-cz});
-    runs.push({a:point(a), b:point(b), outward});
+  const runs = layoutDrainageEdges(layout).filter(edge => edge.gutter || edge.pipes?.length).map(edge => {
+    const point = id => { const p = layout.vertices[id]; return {x:p.x-cx,y:state.wallHeight+.05+p.h,z:p.z-cz}; };
+    return {a:point(edge.a),b:point(edge.b),outward:edgeOutward(layout,edge.a,edge.b),gutter:edge.gutter,pipes:edge.pipes};
   });
   // Merge consecutive collinear eave sections before placing downpipes.
   for (let i = 0; i < runs.length && runs.length > 1;) {
     const a = runs[i], j = (i+1)%runs.length, b = runs[j];
-    if (Math.hypot(a.b.x-b.a.x,a.b.y-b.a.y,a.b.z-b.a.z) < .001 &&
+    if (a.gutter && b.gutter && a.pipes == null && b.pipes == null && Math.hypot(a.b.x-b.a.x,a.b.y-b.a.y,a.b.z-b.a.z) < .001 &&
         Math.hypot(a.outward.x-b.outward.x,a.outward.z-b.outward.z) < .001) {
       a.b = b.b; runs.splice(j,1); i = 0;
     } else i++;
@@ -60,9 +49,11 @@ export function createDrainage(state) {
     section.absarc(0,0,gutterRadius,Math.PI,Math.PI*2,false);
     section.absarc(0,0,gutterRadius-.005,Math.PI*2,Math.PI,true);
     section.closePath();
+    if (run.gutter) {
     const gutter = add(new THREE.ExtrudeGeometry(section,{depth:length,bevelEnabled:false,curveSegments:12}), `gutter-${index}`);
     gutter.position.copy(a); gutter.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),direction);
-    const positions = state.drainagePosition === 'start' ? [.12] : state.drainagePosition === 'end' ? [length-.12] : [.12,length-.12];
+    }
+    const positions = run.pipes ? run.pipes.map(t => Math.max(.04,Math.min(length-.04,t*length))) : !run.gutter ? [] : state.drainagePosition === 'start' ? [.12] : state.drainagePosition === 'end' ? [length-.12] : [.12,length-.12];
     positions.forEach((offset, pipeIndex) => {
       const top = a.clone().addScaledVector(direction,offset);
       // Bring the pipe back towards the wall beneath the overhang.

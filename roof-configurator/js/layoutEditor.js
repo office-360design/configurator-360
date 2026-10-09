@@ -1,7 +1,8 @@
+import { EditorDrainage } from './editorDrainage.js?v=drainage-49';
 import { setupEditorTouch } from './editorTouch.js?v=pan-42';
 import { setupEditorToolbar } from './editorToolbar.js?v=axes-36';
 import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
-import { localizeFeature } from './featureI18n.js?v=sketch-1';
+import { localizeFeature } from './featureI18n.js?v=drainage-49';
 import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
@@ -185,6 +186,7 @@ export class RoofLayoutEditor {
         <button type="button" data-action="cancel">Cancel</button>
         <button type="button" data-action="apply" class="layout-primary">Apply roof</button></footer>`;
     this.windowTool = new RoofWindowTool(this);
+    this.drainageTool = new EditorDrainage(this);
     const icons = { connect: '⌁', extend: '⇥', window: '▣', dormer: '⌂', select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
       splitPlace: '⇉', joinPlace: '⋈', cycleCopy: '⇄', delete: '×', finish: '✓' };
     this.dialog.querySelectorAll('.layout-toolbar button').forEach(button => {
@@ -352,6 +354,7 @@ export class RoofLayoutEditor {
       }
     });
     this.dialog.querySelector('.layout-status').textContent = '';
+    this.drainageTool.render(project);
     this.drawIssues();
   }
 
@@ -597,6 +600,7 @@ export class RoofLayoutEditor {
         validateLayout(this.layout);
         roofWindowGeometry(this.layout);
         this.state.roofLayout = cloneLayout(this.layout);
+        if (this.layout.drainage) this.state.showDrainage = true;
         this.state.roofType = 'layout';
         this.onApply();
         this.appliedHistory = structuredClone({
@@ -1127,6 +1131,7 @@ export class RoofLayoutEditor {
       }));
       this.svg.append(svgElement('circle', { cx: ghost.x, cy: ghost.y, r: 11, class: 'layout-meet-ghost' }));
     }
+    this.drainageTool.render(project);
     this.drawIssues();
     this.updatePanCursor();
     const hints = {

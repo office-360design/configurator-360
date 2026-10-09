@@ -1,6 +1,6 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=drainage-48';
+import { localizeFeature, featureText } from './featureI18n.js?v=drainage-49';
 import { SheetPlannerUI } from './sheetPlannerUI.js?v=sketch-47';
-import { RoofLayoutEditor } from './layoutEditor.js?v=sketch-1';
+import { RoofLayoutEditor } from './layoutEditor.js?v=drainage-49';
 import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=sketch-1';
 import { defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
@@ -67,6 +67,13 @@ export class RoofUI {
         this.onChange();
       });
     }
+    document.querySelector('#editDrainagePositions').addEventListener('click', () => {
+      this.layoutEditor.open();
+      this.layoutEditor.drainageTool.panel.open = true;
+      this.layoutEditor.dialog.classList.add('mobile-properties-open');
+      this.layoutEditor.dialog.querySelector('.layout-mobile-properties').setAttribute('aria-expanded','true');
+      this.layoutEditor.render();
+    });
     localizeFeature(document.querySelector('#drainageControls'), () => state.locale);
     this.bindRoofTypes();
     // The drawing modes sit above the stage; choosing one opens its editor at once.

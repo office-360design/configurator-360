@@ -9,6 +9,21 @@ function entries(rows) {
   }
 }
 entries(`
+Use recommended eaves and valley outlets, or customize placement in the editor. Drainage is not included in the BOM.|Folosește streșinile și evacuările doliilor recomandate sau personalizează amplasarea în editor. Sistemul pluvial nu este inclus în lista de materiale.|Empfohlene Traufen und Kehlabläufe verwenden oder die Platzierung im Editor anpassen. Entwässerung ist nicht in der Stückliste enthalten.
+Edit drainage placement|Editează amplasarea sistemului pluvial|Entwässerung platzieren
+Downpipe|Burlan|Fallrohr
+Move downpipe|Mută burlanul|Fallrohr verschieben
+Remove downpipe|Elimină burlanul|Fallrohr entfernen
+Perimeter edge|Muchie de contur|Umrisskante
+Gutter on this edge|Jgheab pe această muchie|Dachrinne an dieser Kante
+Downpipe position (%)|Poziția burlanului (%)|Fallrohrposition (%)
+Add downpipe|Adaugă burlan|Fallrohr hinzufügen
+Remove edge downpipes|Elimină burlanele muchiei|Fallrohre dieser Kante entfernen
+Use recommended placement|Folosește amplasarea recomandată|Empfohlene Platzierung verwenden
+Select a perimeter edge on the plan or below. Blue lines are gutters; circles are downpipes.|Selectează o muchie de contur pe plan sau mai jos. Liniile albastre sunt jgheaburi; cercurile sunt burlane.|Eine Umrisskante im Plan oder unten auswählen. Blaue Linien sind Dachrinnen; Kreise sind Fallrohre.
+Recommendations include level eaves and low valley corners. Confirm drainage capacity and outlets with your installer.|Recomandările includ streșini orizontale și colțuri joase ale doliilor. Confirmă capacitatea și evacuările cu instalatorul.|Empfehlungen umfassen waagerechte Traufen und tiefe Kehleckpunkte. Kapazität und Abläufe mit dem Installateur abstimmen.
+Finish the current editing operation before changing drainage.|Finalizează operația curentă înainte de a modifica sistemul pluvial.|Aktuelle Bearbeitung vor Änderung der Entwässerung abschließen.
+Enter a downpipe position from 0 to 100%.|Introdu o poziție a burlanului între 0 și 100%.|Eine Fallrohrposition von 0 bis 100 % eingeben.
 Drainage|Sistem pluvial|Dachentwässerung
 Gutters and downpipes|Jgheaburi și burlane|Dachrinnen und Fallrohre
 Downpipe placement per eave|Poziția burlanelor pe fiecare streașină|Fallrohrposition je Traufe
