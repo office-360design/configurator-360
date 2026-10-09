@@ -1,4 +1,4 @@
-import { connectedSlopes, slopeLetter } from './sheetPlanner.js?v=letters-46';
+import { connectedSlopes, slopeLetter } from './sheetPlanner.js?v=sketch-47';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 import { defaultLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import * as THREE from 'three';

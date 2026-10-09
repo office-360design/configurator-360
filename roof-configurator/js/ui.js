@@ -1,5 +1,5 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=letters-46';
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=surfaces-45';
+import { localizeFeature, featureText } from './featureI18n.js?v=sketch-47';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=sketch-47';
 import { RoofLayoutEditor } from './layoutEditor.js?v=sketch-1';
 import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=sketch-1';
 import { defaultSketch } from './slopeSketch.js?v=sketch-1';

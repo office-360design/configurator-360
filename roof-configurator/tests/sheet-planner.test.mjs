@@ -138,31 +138,3 @@ test('bulk partitioning skips different column lengths and repeated sections', (
   const plan = {slopes:[{id:'A', pieces:[...pieces(1,[22,22,13]), ...pieces(2,[22,22,13]), ...pieces(3,[22,13])]}]};
   assert.deepEqual(partitionTargets(plan, 'A-1.1', 'surface'), ['A-1.1','A-2.1']);
 });
-
-test('independent 2D surfaces preserve true dimensions, distinct IDs and aggregate orders', () => {
-  const surfaces = [
-    [{x:0,y:0},{x:10,y:0},{x:8,y:5},{x:2,y:5}],
-    [{x:0,y:0},{x:6,y:0},{x:3,y:4}],
-  ];
-  const plan = planRoofSheets({ surfaces }, sheetProfiles.antic);
-  assert.equal(plan.drawnSurfaces, true);
-  assert.deepEqual(plan.slopes.map(s => s.id), ['A','B']);
-  close(plan.totals.netArea, 52);
-  assert.deepEqual(plan.slopes.map(s => s.columns), [10,6]);
-  assert.ok(plan.slopes.every(s => !s.warnings.some(w => /Pitch|Flat surface/.test(w))));
-  assert.ok(plan.slopes[1].pieces.every(p => p.id.startsWith('B-')));
-  checkCoverage(plan);
-  assert.match(sheetPlanCsv(plan), /B-1.1/);
-});
-
-test('2D surface partitions target separate surfaces and retain total area', () => {
-  const rectangle = [{x:0,y:0},{x:2,y:0},{x:2,y:7.7},{x:0,y:7.7}];
-  const plan = planRoofSheets({surfaces:[rectangle,rectangle]}, sheetProfiles.antic, {
-    partitions:{'B-1.1':[11,11]},
-  });
-  assert.deepEqual(plan.slopes[0].pieces.filter(p=>p.column===1).map(p=>p.modules),[22]);
-  assert.deepEqual(plan.slopes[1].pieces.filter(p=>p.column===1).map(p=>p.modules),[11,11]);
-  checkCoverage(plan);
-  assert.throws(() => planRoofSheets({surfaces:[]},sheetProfiles.antic), /at least one/);
-  assert.throws(() => planRoofSheets({surfaces:[[{x:0,y:0},{x:5,y:5},{x:5,y:0},{x:0,y:5}]]},sheetProfiles.antic));
-});

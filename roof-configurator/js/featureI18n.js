@@ -10,40 +10,6 @@ function entries(rows) {
 }
 entries(`
 Surface letters|Literele suprafețelor|Flächenbuchstaben
-Surface|Suprafață|Fläche
-Close|Închide|Schließen
-Current roof / slopes|Acoperișul / suprafețele curente|Aktuelles Dach / Dachflächen
-Plan source|Sursa planului|Planquelle
-3D roof|Acoperiș 3D|3D-Dach
-2D surfaces|Suprafețe 2D|2D-Flächen
-Draw / edit 2D surfaces|Desenează / editează suprafețe 2D|2D-Flächen zeichnen / bearbeiten
-Draw 2D surfaces|Desenează suprafețe 2D|2D-Flächen zeichnen
-Use actual surface dimensions in metres, not the horizontal roof projection. Sheets run upwards on this drawing. These surfaces do not change the 3D roof.|Folosește dimensiunile reale ale suprafețelor în metri, nu proiecția orizontală a acoperișului. Foile sunt orientate în sus în acest desen. Aceste suprafețe nu modifică acoperișul 3D.|Tatsächliche Flächenmaße in Metern verwenden, nicht die horizontale Dachprojektion. Die Bleche verlaufen in dieser Zeichnung nach oben. Diese Flächen verändern das 3D-Dach nicht.
-Draw new surface|Desenează o suprafață nouă|Neue Fläche zeichnen
-Rectangle|Dreptunghi|Rechteck
-Triangle|Triunghi|Dreieck
-Trapezoid|Trapez|Trapez
-Duplicate surface|Duplică suprafața|Fläche duplizieren
-Delete surface|Șterge suprafața|Fläche löschen
-Width (m)|Lățime (m)|Breite (m)
-Height (m)|Înălțime (m)|Höhe (m)
-Resize surface|Redimensionează suprafața|Flächengröße ändern
-Grid (m)|Grilă (m)|Raster (m)
-Close surface|Închide suprafața|Fläche schließen
-Remove last point|Elimină ultimul punct|Letzten Punkt entfernen
-Cancel drawing|Anulează desenul|Zeichnen abbrechen
-2D surface drawing canvas|Plan de desenare a suprafețelor 2D|Zeichenfläche für 2D-Flächen
-Point coordinates (m)|Coordonatele punctelor (m)|Punktkoordinaten (m)
-Click to draw. Drag points or edit their coordinates.|Apasă pentru a desena. Trage punctele sau editează coordonatele lor.|Zum Zeichnen klicken. Punkte ziehen oder ihre Koordinaten bearbeiten.
-Use surfaces|Folosește suprafețele|Flächen verwenden
-Close or cancel the current drawing first.|Închide sau anulează mai întâi desenul curent.|Aktuelle Zeichnung zuerst schließen oder abbrechen.
-Draw at least one surface first.|Desenează mai întâi cel puțin o suprafață.|Zuerst mindestens eine Fläche zeichnen.
-Use up to 40 surfaces.|Poți folosi până la 40 de suprafețe.|Bis zu 40 Flächen verwenden.
-Draw a closed surface with at least three points.|Desenează o suprafață închisă cu cel puțin trei puncte.|Eine geschlossene Fläche mit mindestens drei Punkten zeichnen.
-Enter width and height greater than zero and up to 40 m.|Introdu lățimea și înălțimea mai mari decât zero și de cel mult 40 m.|Breite und Höhe größer als null und bis zu 40 m eingeben.
-Click to add points, then close the surface.|Apasă pentru a adăuga puncte, apoi închide suprafața.|Klicken, um Punkte hinzuzufügen, dann die Fläche schließen.
-Sheets run upwards along Y. Grid lines are 1 m apart.|Foile sunt orientate în sus pe axa Y. Liniile grilei sunt la distanță de 1 m.|Bleche verlaufen nach oben entlang Y. Rasterlinien haben einen Abstand von 1 m.
-Independent 2D surfaces. Dimensions are actual surface lengths. Pitch is not evaluated.|Suprafețe 2D independente. Dimensiunile sunt lungimile reale ale suprafețelor. Panta nu este evaluată.|Unabhängige 2D-Flächen. Maße entsprechen den tatsächlichen Flächenlängen. Die Dachneigung wird nicht geprüft.
 Drag canvas to pan · Pinch to zoom · Drag points to edit|Trage planul pentru deplasare · Ciupește pentru zoom · Trage punctele pentru editare|Zeichenfläche ziehen zum Verschieben · Zwei Finger zum Zoomen · Punkte ziehen zum Bearbeiten
 Properties|Proprietăți|Eigenschaften
 One finger to edit · Two fingers to pan / zoom|Un deget pentru editare · Două degete pentru deplasare / zoom|Ein Finger zum Bearbeiten · Zwei Finger zum Verschieben / Zoomen
