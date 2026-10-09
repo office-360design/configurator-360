@@ -28,14 +28,37 @@ const path = require('node:path');
   assert.equal(saved.drainageDiameter, 120);
   assert.equal(saved.drainagePosition, 'start');
   const geometry = await page.evaluate(async () => {
-    const {createDrainage, drainageRuns} = await import('/roof-configurator/js/drainage.js?v=drainage-49');
+    const {createDrainage, drainageRuns} = await import('/roof-configurator/js/drainage.js?v=drainage-50');
+    const THREE = await import('three');
     const state = window.ROOF_CONFIGURATOR_API.captureState();
     const results = {};
     for (const roofType of ['gable','hip','shed','lshape','dormer']) {
       const config = {...state,roofType,drainagePosition:'both'};
       const group = createDrainage(config);
       results[roofType] = {runs:drainageRuns(config).length, pipes:group.children.filter(c=>c.name.startsWith('downpipe')).length};
+      group.updateMatrixWorld(true);
+      for (const pipe of group.children.filter(mesh=>mesh.name.startsWith('downpipe'))) {
+        const [,run,id] = pipe.name.split('-');
+        const positions = pipe.geometry.attributes.position;
+        const inlet = new THREE.Vector3();
+        for(let i=0;i<13;i++) inlet.add(new THREE.Vector3().fromBufferAttribute(positions,i));
+        inlet.divideScalar(13);
+        const collector = group.getObjectByName(`collector-${run}-${id}`);
+        if (collector) {
+          const bottom = collector.position.y-collector.geometry.parameters.height/2;
+          if (Math.abs(inlet.y-bottom)>.015) throw Error('Detached corner outlet');
+        } else {
+          const gutter = group.getObjectByName(`gutter-${run}`);
+          const local = gutter.worldToLocal(inlet.clone());
+          const radius = config.drainageDiameter/2000*1.5;
+          if (Math.abs(local.x)>.015 || Math.abs(local.y+radius)>.02) throw Error('Detached gutter outlet');
+        }
+      }
       for (const mesh of group.children) {
+        if (mesh.name.startsWith('gutter')) {
+          const up = new THREE.Vector3(0,1,0).applyQuaternion(mesh.quaternion);
+          if (up.y < .5) throw Error('Gutter opening faces down');
+        }
         if (!Array.from(mesh.geometry.attributes.position.array).every(Number.isFinite)) throw Error('Invalid drainage mesh');
       }
     }
@@ -87,6 +110,10 @@ const path = require('node:path');
   });
   assert.equal(valley.length,2);
   assert.equal(valley.flatMap(e=>e.pipes).length,1);
+  await page.evaluate(saved => window.ROOF_CONFIGURATOR_API.restoreState({...saved,roofType:'lshape',showDrainage:true,drainagePosition:'both'}),saved);
+  await page.locator('#roofSidebarToggle').click();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.screenshot({path:'/tmp/roof-drainage-corner-fixed.png'});
   assert.deepEqual(errors,[]);
   await browser.close();
   console.log('PASS drainage settings, preset/custom geometry, pipe counts, disabled state and save/restore');
