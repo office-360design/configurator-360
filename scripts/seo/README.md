@@ -4,14 +4,15 @@ This audit checks the live EN, RO and DE production sites after deployment.
 
 It covers:
 
-- all three home/about/contact pages;
-- all five rich `/configurators/{product}` marketing pages on each domain;
-- all five standalone configurator applications on each domain;
+- all three home/about/contact/pricing/demo pages;
+- all ten `/configurators/{product}` marketing pages on each domain;
+- all eight indexable standalone configurator applications on each domain (bookshelf/tiles apps remain intentionally noindex);
 - HTTP status and redirect chains;
 - rendered `<html lang>`;
 - title and meta description;
 - `index` / `noindex`;
 - self-canonical;
+- marketing self-canonical in the initial HTTP HTML head, without JavaScript hoisting;
 - reciprocal EN / RO / DE `hreflang` plus `x-default`;
 - H1 presence on the marketing pages;
 - duplicate rendered titles;
