@@ -24,7 +24,7 @@
     applyConfiguratorSeo('roof');
   </script>
   <link rel="stylesheet" href="./sheet-planner.css?v=sketch-47" />
-  <link rel="stylesheet" href="./layout-editor.css?v=pan-42" />
+  <link rel="stylesheet" href="./layout-editor.css?v=drainage-49" />
   <link rel="stylesheet" href="./slope-sketch.css?v=sketch-2" />
 </head>
 <body>
@@ -184,13 +184,14 @@
         <button class="accordion-toggle" type="button" aria-expanded="false" aria-controls="roofPanelDrainage"><span>Drainage</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
         <div class="accordion-panel" id="roofPanelDrainage" hidden>
           <label class="select-label"><input type="checkbox" id="showDrainage"> Gutters and downpipes</label>
+          <button type="button" id="editDrainagePositions">Edit drainage placement</button>
           <label class="select-label" for="drainagePosition">Downpipe placement per eave</label>
           <select id="drainagePosition"><option value="both">Both ends</option><option value="start">Start end</option><option value="end">Far end</option></select>
           <label class="select-label" for="drainageDiameter">Pipe diameter (mm)</label>
           <select id="drainageDiameter"><option>80</option><option selected>100</option><option>120</option></select>
           <label class="select-label" for="drainageColor">Drainage colour</label>
           <select id="drainageColor"><option value="graphite">Graphite</option><option value="roof">Match roof colour</option></select>
-          <p class="rule-note">Placed automatically on level eaves. Visualization only; drainage is not included in the BOM.</p>
+          <p class="rule-note">Use recommended eaves and valley outlets, or customize placement in the editor. Drainage is not included in the BOM.</p>
         </div>
       </section>
     </aside>
@@ -602,7 +603,7 @@
     })();
   </script>
   <script type="module" src="./js/sharedShell.js?v=sketch-1"></script>
-  <script type="module" src="./js/app.js?v=drainage-48"></script>
+  <script type="module" src="./js/app.js?v=drainage-49"></script>
 </body>
 </html>
 

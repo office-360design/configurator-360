@@ -334,3 +334,8 @@
     box-shadow:0 -6px 24px #172b4333;
   }
 }
+.editor-drainage { border: 1px solid #7dd3fc; border-radius: 8px; padding: 10px; margin-bottom: 12px; background: #f0f9ff; }
+.editor-drainage summary { cursor: pointer; font-weight: 700; }
+.editor-drainage label { display: block; margin: 8px 0; }
+.editor-drainage select, .editor-drainage input[type=number] { width: 100%; min-width: 0; }
+.editor-drainage button { margin: 3px 2px 3px 0; }
