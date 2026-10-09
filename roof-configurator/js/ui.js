@@ -1,11 +1,11 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=sketch-47';
+import { localizeFeature, featureText } from './featureI18n.js?v=drainage-48';
 import { SheetPlannerUI } from './sheetPlannerUI.js?v=sketch-47';
 import { RoofLayoutEditor } from './layoutEditor.js?v=sketch-1';
 import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=sketch-1';
 import { defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { pitchRules } from './state.js?v=sketch-1';
+import { pitchRules } from './state.js?v=drainage-48';
 import { bomToCsv, calculateBom } from './bom.js?v=sketch-1';
 import {
   displayLengthInputConfig,
@@ -61,6 +61,13 @@ export class RoofUI {
     localizeFeature(this.surfaceLettersButton, () => state.locale);
     this.sheetPlanner = new SheetPlannerUI(state);
     document.querySelector('#sheetPlanOpenButton').addEventListener('click', () => this.sheetPlanner.open());
+    for (const key of ['showDrainage', 'drainagePosition', 'drainageDiameter', 'drainageColor']) {
+      document.getElementById(key).addEventListener('change', event => {
+        state[key] = key === 'showDrainage' ? event.target.checked : key === 'drainageDiameter' ? Number(event.target.value) : event.target.value;
+        this.onChange();
+      });
+    }
+    localizeFeature(document.querySelector('#drainageControls'), () => state.locale);
     this.bindRoofTypes();
     // The drawing modes sit above the stage; choosing one opens its editor at once.
     document.querySelectorAll('[data-draw-mode]').forEach(button => button.addEventListener('click', () => {
@@ -253,6 +260,12 @@ export class RoofUI {
 
 
   updateCustomMode() {
+    document.querySelector('#drainageControls').hidden = ['custom', 'sketch'].includes(this.state.roofType);
+    for (const key of ['showDrainage', 'drainagePosition', 'drainageDiameter', 'drainageColor']) {
+      const input = document.getElementById(key);
+      if (key === 'showDrainage') input.checked = !!this.state[key];
+      else input.value = this.state[key] ?? ({drainagePosition:'both',drainageDiameter:100,drainageColor:'graphite'})[key];
+    }
     this.surfaceLettersButton.hidden = ['custom', 'sketch'].includes(this.state.roofType);
     this.surfaceLettersButton.setAttribute('aria-pressed', String(!!this.state.showSurfaceLetters));
     const isLayout = this.state.roofType === 'layout';

@@ -9,6 +9,16 @@ function entries(rows) {
   }
 }
 entries(`
+Drainage|Sistem pluvial|Dachentwässerung
+Gutters and downpipes|Jgheaburi și burlane|Dachrinnen und Fallrohre
+Downpipe placement per eave|Poziția burlanelor pe fiecare streașină|Fallrohrposition je Traufe
+Both ends|Ambele capete|Beide Enden
+Start end|Capătul de început|Anfang
+Far end|Capătul opus|Ende
+Pipe diameter (mm)|Diametrul burlanului (mm)|Rohrdurchmesser (mm)
+Drainage colour|Culoarea sistemului pluvial|Farbe der Dachentwässerung
+Match roof colour|Culoarea acoperișului|Dachfarbe übernehmen
+Placed automatically on level eaves. Visualization only; drainage is not included in the BOM.|Amplasare automată pe streșinile orizontale. Doar vizualizare; sistemul pluvial nu este inclus în lista de materiale.|Automatische Platzierung an waagerechten Traufen. Nur Visualisierung; Entwässerung ist nicht in der Stückliste enthalten.
 Surface letters|Literele suprafețelor|Flächenbuchstaben
 Drag canvas to pan · Pinch to zoom · Drag points to edit|Trage planul pentru deplasare · Ciupește pentru zoom · Trage punctele pentru editare|Zeichenfläche ziehen zum Verschieben · Zwei Finger zum Zoomen · Punkte ziehen zum Bearbeiten
 Properties|Proprietăți|Eigenschaften
