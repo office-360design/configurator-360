@@ -3,8 +3,8 @@ import { validateSheetProfile, validateSheetSurfaces } from './sheetPlanner.js?v
 import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import { defaultSketch, sketchArea, validateSketch } from './slopeSketch.js?v=sketch-1';
 import { state, pitchRules, roofNames } from './state.js?v=sketch-1';
-import { RoofScene } from './scene.js?v=sketch-1';
-import { RoofUI } from './ui.js?v=surfaces-45';
+import { RoofScene } from './scene.js?v=letters-46';
+import { RoofUI } from './ui.js?v=letters-46';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
@@ -20,7 +20,7 @@ await requireTenantConfiguratorAccess('roof');
 const VIEW_ORDER = ['perspective', 'front', 'top'];
 const DEFAULT_ROOF_STATE = structuredClone(state);
 const ROOF_SHARE_NUMBERS = ['length', 'depth', 'wallHeight', 'pitch', 'overhang', 'sunPosition', 'northDirection'];
-const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 'nightPreview'];
+const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 'nightPreview', 'showSurfaceLetters'];
 
 function applySharedRoofState(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
@@ -114,6 +114,7 @@ function emitToolsState() {
       dimensionsAvailable: !['custom', 'layout', 'sketch'].includes(state.roofType),
       showDimensions: state.showDimensions,
       showCompass: state.showCompass,
+      showSurfaceLetters: !!state.showSurfaceLetters,
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
@@ -262,6 +263,7 @@ const configuratorApi = {
       dimensionsAvailable: !['custom', 'layout', 'sketch'].includes(state.roofType),
       showDimensions: state.showDimensions,
       showCompass: state.showCompass,
+      showSurfaceLetters: !!state.showSurfaceLetters,
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
@@ -286,6 +288,7 @@ const configuratorApi = {
       showDimensions: state.showDimensions,
       technicalEdges: state.technicalEdges,
       showCompass: state.showCompass,
+      showSurfaceLetters: !!state.showSurfaceLetters,
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,

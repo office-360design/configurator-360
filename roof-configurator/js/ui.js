@@ -1,4 +1,4 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=surfaces-45';
+import { localizeFeature, featureText } from './featureI18n.js?v=letters-46';
 import { SheetPlannerUI } from './sheetPlannerUI.js?v=surfaces-45';
 import { RoofLayoutEditor } from './layoutEditor.js?v=sketch-1';
 import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=sketch-1';
@@ -52,6 +52,13 @@ export class RoofUI {
     document.querySelector('#editSlopeSketch').addEventListener('click', () => this.sketchEditor.open());
     this.sketchViewer = document.querySelector('#sketchViewer');
     this.sketchViewerTranslation = localizeFeature(this.sketchViewer, () => this.state.locale);
+    this.surfaceLettersButton = document.querySelector('#surfaceLettersToggle');
+    this.surfaceLettersButton.addEventListener('click', () => {
+      state.showSurfaceLetters = !state.showSurfaceLetters;
+      this.surfaceLettersButton.setAttribute('aria-pressed', String(state.showSurfaceLetters));
+      this.onChange();
+    });
+    localizeFeature(this.surfaceLettersButton, () => state.locale);
     this.sheetPlanner = new SheetPlannerUI(state);
     document.querySelector('#sheetPlanOpenButton').addEventListener('click', () => this.sheetPlanner.open());
     this.bindRoofTypes();
@@ -246,6 +253,8 @@ export class RoofUI {
 
 
   updateCustomMode() {
+    this.surfaceLettersButton.hidden = ['custom', 'sketch'].includes(this.state.roofType);
+    this.surfaceLettersButton.setAttribute('aria-pressed', String(!!this.state.showSurfaceLetters));
     const isLayout = this.state.roofType === 'layout';
     const isSketch = this.state.roofType === 'sketch';
     document.querySelector('#layoutLaunch').hidden = ['custom', 'sketch'].includes(this.state.roofType);

@@ -9,6 +9,7 @@ function entries(rows) {
   }
 }
 entries(`
+Surface letters|Literele suprafețelor|Flächenbuchstaben
 Surface|Suprafață|Fläche
 Close|Închide|Schließen
 Current roof / slopes|Acoperișul / suprafețele curente|Aktuelles Dach / Dachflächen

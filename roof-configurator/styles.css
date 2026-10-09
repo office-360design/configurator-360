@@ -1375,3 +1375,15 @@ body.shared-ui-dark-mode .roof-components-header button:hover { background: rgba
 /* One-line panel heading keeps the roof options in view. */
 .shared-panel-controls .intro-section.intro-compact { padding-top: 16px; padding-bottom: 14px; }
 .shared-panel-controls .intro-section.intro-compact h1 { margin: 0; font-size: 20px; }
+.surface-letters-toggle {
+  position: absolute; z-index: 5; left: 18px; bottom: 60px;
+  padding: 9px 13px; border: 1px solid #b7c9df; border-radius: 9px;
+  background: white; color: #173653; font: 600 12px Arial, sans-serif; cursor: pointer;
+}
+.surface-letters-toggle[aria-pressed="true"] { background: #1261a9; color: white; border-color: #1261a9; }
+.surface-letters-toggle[hidden] { display: none; }
+.roof-surface-letter {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: #1261a9; color: white; border: 2px solid white; box-shadow: 0 2px 7px #0006;
+  font: 700 16px Arial, sans-serif; pointer-events: none;
+}
