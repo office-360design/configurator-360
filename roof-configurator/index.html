@@ -180,6 +180,19 @@
           </div>
         </div>
       </section>
+      <section class="accordion-section" data-accordion="drainage" id="drainageControls">
+        <button class="accordion-toggle" type="button" aria-expanded="false" aria-controls="roofPanelDrainage"><span>Drainage</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" id="roofPanelDrainage" hidden>
+          <label class="select-label"><input type="checkbox" id="showDrainage"> Gutters and downpipes</label>
+          <label class="select-label" for="drainagePosition">Downpipe placement per eave</label>
+          <select id="drainagePosition"><option value="both">Both ends</option><option value="start">Start end</option><option value="end">Far end</option></select>
+          <label class="select-label" for="drainageDiameter">Pipe diameter (mm)</label>
+          <select id="drainageDiameter"><option>80</option><option selected>100</option><option>120</option></select>
+          <label class="select-label" for="drainageColor">Drainage colour</label>
+          <select id="drainageColor"><option value="graphite">Graphite</option><option value="roof">Match roof colour</option></select>
+          <p class="rule-note">Placed automatically on level eaves. Visualization only; drainage is not included in the BOM.</p>
+        </div>
+      </section>
     </aside>
 
     <button id="roofSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide roof settings" aria-expanded="true" title="Hide roof settings">
@@ -589,7 +602,7 @@
     })();
   </script>
   <script type="module" src="./js/sharedShell.js?v=sketch-1"></script>
-  <script type="module" src="./js/app.js?v=sketch-47"></script>
+  <script type="module" src="./js/app.js?v=drainage-48"></script>
 </body>
 </html>
 

@@ -1,3 +1,4 @@
+import { createDrainage } from './drainage.js?v=drainage-48';
 import { connectedSlopes, slopeLetter } from './sheetPlanner.js?v=sketch-47';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 import { defaultLayout, layoutBounds } from './roofLayout.js?v=layout-21';
@@ -318,6 +319,7 @@ export class RoofScene {
     this.disposeGroup(this.dimensionsRoot);
 
     const { group, metrics } = buildRoofModel(state);
+    group.add(createDrainage(state));
     this.modelRoot.add(group);
 
     if (state.showDimensions && !['custom', 'layout', 'sketch'].includes(state.roofType)) {
