@@ -263,3 +263,16 @@ flat polygon at its true size (measured on the slope, not in plan).
 Checks: `tests/slope-sketch.test.mjs` (part of `npm run check:roof`) and
 `node roof-configurator/tests/slope-sketch-browser.cjs` (same browser
 environment as the other browser tests).
+
+## Development branch and direct surface drawing
+
+Use `roof-new` for ongoing roof configurator development.
+
+The sheet planner also offers **Draw / edit 2D surfaces** for direct polygon
+sketching on a grid, exact point coordinates, resizing, duplicate surfaces and
+undo/redo. These independent surfaces are saved as `sheetSurfaces`; selecting
+**Current roof / slopes** returns to the active roof or measured slope sketch.
+Both sources use the existing column partitions and export calculations. The
+measured **Draw each slope** workflow retains its quantities and edge types.
+
+Regression check: `node roof-configurator/tests/sheet-surfaces-browser.cjs`.
