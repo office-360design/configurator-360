@@ -3,7 +3,7 @@ import { validateSheetProfile } from './sheetPlanner.js?v=sketch-47';
 import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import { defaultSketch, sketchArea, validateSketch } from './slopeSketch.js?v=sketch-1';
 import { state, pitchRules, roofNames } from './state.js?v=drainage-48';
-import { RoofScene } from './scene.js?v=drainage-49';
+import { RoofScene } from './scene.js?v=drainage-50';
 import { RoofUI } from './ui.js?v=drainage-49';
 import {
   getFallbackCurrencyRate,
