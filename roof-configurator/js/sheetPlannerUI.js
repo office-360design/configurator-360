@@ -1,6 +1,7 @@
+import { SheetSurfaceEditor } from './sheetSurfaceEditor.js?v=surfaces-45';
 import { SheetPartitionUI } from './sheetPartitionUI.js?v=history-38';
-import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=sketch-1';
-import { planRoofSheets, planSketchSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=sketch-1';
+import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=surfaces-45';
+import { planRoofSheets, planSketchSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=surfaces-45';
 import { edgeTypes, defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 import { defaultLayout } from './roofLayout.js?v=layout-21';
@@ -76,6 +77,7 @@ export class SheetPlannerUI {
     this.dialog.className = 'sheet-planner';
     this.dialog.setAttribute('aria-labelledby', 'sheetPlanTitle');
     this.dialog.innerHTML = `<header><div><small>ROOF COVERING</small><h2 id="sheetPlanTitle">Sheet cutting plan</h2></div><button type="button" data-sheet="close" aria-label="Close sheet planner">×</button></header>
+      <div class="sheet-source"><label>Plan source<select class="sheet-source-select"><option value="roof">Current roof / slopes</option><option value="surfaces">2D surfaces</option></select></label><button type="button" class="sheet-edit-surfaces">Draw / edit 2D surfaces</button></div>
       <div class="sheet-actions">
         <span class="sheet-update-note" role="status">Generate a cutting plan from the settings below.</span>
         <button type="submit" form="sheetPlanSettings" class="sheet-primary">Generate plan</button>
@@ -112,6 +114,17 @@ export class SheetPlannerUI {
       const link = document.createElement('a');
       link.href = url; link.download = `roof-slope-${slope.id}.svg`; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    this.source = this.dialog.querySelector('.sheet-source-select');
+    this.surfaceEditor = new SheetSurfaceEditor(state, () => {
+      this.source.value = 'surfaces';
+      this.state.sheetPlanSource = 'surfaces';
+      this.generate();
+    });
+    this.dialog.querySelector('.sheet-edit-surfaces').addEventListener('click', () => this.surfaceEditor.open());
+    this.source.addEventListener('change', () => {
+      this.state.sheetPlanSource = this.source.value;
+      this.invalidate();
     });
     this.form = this.dialog.querySelector('form');
     this.output = this.dialog.querySelector('.sheet-output');
@@ -172,6 +185,7 @@ export class SheetPlannerUI {
   }
 
   open() {
+    this.source.value = this.state.sheetPlanSource || 'roof';
     const saved = this.state.sheetPlanOptions;
     this.form.elements.preset.value = saved?.preset || 'antic';
     this.setFields(saved?.profile || sheetProfiles.antic);
@@ -211,11 +225,12 @@ export class SheetPlannerUI {
     const errorMessage = this.dialog.querySelector('.sheet-error');
     errorMessage.hidden = true;
     try {
-      if (this.state.roofType === 'custom') throw new Error('Draw a roof layout first. An uploaded image does not contain measurable roof surfaces.');
+      if (this.source.value !== 'surfaces' && this.state.roofType === 'custom') throw new Error('Draw a roof layout first. An uploaded image does not contain measurable roof surfaces.');
       const profile = Object.fromEntries(fields.map(([key]) => [key, Number(this.form.elements[key].value || NaN)]));
       profile.name = sheetProfiles[this.form.elements.preset.value]?.name || 'Custom profile';
       const settings = { direction: this.form.elements.direction.value, offset: Number(this.form.elements.offset.value || 0) };
-      const layout = this.state.roofType === 'sketch'
+      const layout = this.source.value === 'surfaces' ? { surfaces: this.state.sheetSurfaces || [] }
+        : this.state.roofType === 'sketch'
         ? { sketch: this.state.slopeSketch || defaultSketch() }
         : this.state.roofType === 'layout' ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state);
       const partitionContext = JSON.stringify([layout, profile, settings]);
@@ -292,12 +307,12 @@ export class SheetPlannerUI {
     this.output.innerHTML = `<section class="sheet-report-summary">${this.partitionsReset ? '<p class="sheet-warning">Custom partitions were reset because the roof or profile settings changed.</p>' : ''}<h2>${escape(profile.name)} · Cutting plan</h2>
       <p>${profile.width} mm total / ${profile.usefulWidth} mm usable width · ${profile.module} mm module · ${profile.endOverlap} mm end allowance · ${profile.minModules}–${profile.allowedMaxModules} modules/sheet</p><p>Start: ${slopes[0].reverse ? 'right to left' : 'left to right'} · Offset: ${number(slopes[0].offset)} mm</p>
       <div class="sheet-stats">${stats.map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join('')}</div>
-      ${overview(this.plan)}<p>${this.plan.edgeTotals ? 'Slopes drawn one by one at their true size, shown side by side. They are not joined into a 3D roof. Roof area counts every identical copy.' : 'Plan view: letters identify connected coplanar slopes, combining subdivisions from the editor. Roof area includes the roof edges as drawn (including overhangs); vertical closing walls are excluded.'}</p>
+      ${this.plan.drawnSurfaces ? '' : overview(this.plan)}<p>${this.plan.drawnSurfaces ? 'Independent 2D surfaces. Dimensions are actual surface lengths. Pitch is not evaluated.' : this.plan.edgeTotals ? 'Slopes drawn one by one at their true size, shown side by side. They are not joined into a 3D roof. Roof area counts every identical copy.' : 'Plan view: letters identify connected coplanar slopes, combining subdivisions from the editor. Roof area includes the roof edges as drawn (including overhangs); vertical closing walls are excluded.'}</p>
       <p>Order area includes all rectangular sheets. Cut allowance is unused effective coverage; overlap / end allowance includes side laps and extra sheet length. Neither assumes offcut reuse. Weight uses the listed kg/m² against order area.</p>
       ${profile.allowedMaxModules < profile.maxModules ? '<p class="sheet-warning">Maximum module count reduced to respect the maximum physical sheet length.</p>' : ''}
       <p class="sheet-warning">${escape(this.planProfileNote)}</p></section>
       ${this.plan.edgeTotals ? edgeSummary(this.plan.edgeTotals, number) : ''}
-      ${slopes.map((slope, index) => `<section class="sheet-slope" data-plan-slope="${index}"><h2>Slope ${slope.id}</h2>${slope.quantity > 1 ? `<p class="sheet-quantity"><strong>× ${slope.quantity} identical slopes</strong> · Sheets and areas below are for one slope; the combined list counts every copy.</p>` : ''}<button type="button" data-slope-svg="${index}">Download diagram (SVG)</button><p>${number(slope.netArea)} m² · ${slope.pitch == null ? 'Pitch not entered' : `${number(slope.pitch)}° pitch`} · ${slope.pieces.length} sheets · ${slope.columns} columns · ${number(slope.stockArea)} m² order area</p>
+      ${slopes.map((slope, index) => `<section class="sheet-slope" data-plan-slope="${index}"><h2>Slope ${slope.id}</h2>${slope.quantity > 1 ? `<p class="sheet-quantity"><strong>× ${slope.quantity} identical slopes</strong> · Sheets and areas below are for one slope; the combined list counts every copy.</p>` : ''}<button type="button" data-slope-svg="${index}">Download diagram (SVG)</button><p>${number(slope.netArea)} m² · ${this.plan.drawnSurfaces ? 'Pitch not entered' : slope.pitch == null ? 'Pitch not entered' : `${number(slope.pitch)}° pitch`} · ${slope.pieces.length} sheets · ${slope.columns} columns · ${number(slope.stockArea)} m² order area</p>
         ${slope.warnings.map(w => `<p class="sheet-warning">${escape(w)}</p>`).join('')}
         ${this.partitionUI.markup(slope, index)}${slopeDiagram(slope, profile, this.state.locale, true)}<p class="sheet-legend">Black: roof cut line · Blue: usable sheet area · Dashed: full ordered sheet · ↑ Uphill installation start</p>
         ${lengthTable(slope.groups, this.state.locale)}<p>Dimensions follow the actual slope, not its horizontal projection. Piece IDs are slope–column.segment, counted from the selected start side and from eave to ridge.</p></section>`).join('')}

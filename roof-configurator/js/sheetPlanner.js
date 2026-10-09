@@ -1,5 +1,5 @@
 import { roofWindowGeometry, cutRoofWindows } from './roofWindows.js?v=windows-24';
-import { roofSurfaceGroups, validateLayout, inside, triangulate } from './roofLayout.js?v=layout-21';
+import { roofSurfaceGroups, validateLayout, footprintLayout, inside, triangulate } from './roofLayout.js?v=layout-21';
 import { sketchSlopes, sketchEdgeTotals } from './slopeSketch.js?v=sketch-1';
 
 // Dimensions transcribed from the supplied profile reference photographs.
@@ -211,7 +211,30 @@ function planTotals(p, slopes) {
   return { profile: p, slopes, totals, groups: groupSheetLengths(pieces) };
 }
 
+// Independent unfolded polygons use real surface metres, with Y along the sheets.
+export function validateSheetSurfaces(surfaces) {
+  if (!Array.isArray(surfaces) || surfaces.length > 40) throw new Error('Use up to 40 surfaces.');
+  return surfaces.map(points => {
+    if (!Array.isArray(points) || points.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) throw new Error('Draw a closed surface with at least three points.');
+    return footprintLayout(points.map(p => ({ x: p.x, z: p.y })));
+  });
+}
+
+function planDrawnSurfaces(surfaces, profile, settings) {
+  const layouts = validateSheetSurfaces(surfaces);
+  if (!layouts.length) throw new Error('Draw at least one surface first.');
+  const plans = layouts.map((layout, index) => planRoofSheets(layout, profile, {
+    ...settings, surfaceIndex: index,
+  }));
+  const slopes = plans.flatMap(plan => plan.slopes);
+  const totals = Object.fromEntries(Object.keys(plans[0].totals).map(key =>
+    [key, plans.reduce((sum, plan) => sum + plan.totals[key], 0)]));
+  return { profile: plans[0].profile, slopes, totals, drawnSurfaces: true,
+    groups: groupSheetLengths(slopes.flatMap(slope => slope.pieces)) };
+}
+
 export function planRoofSheets(layout, profile, settings = {}) {
+  if (layout.surfaces) return planDrawnSurfaces(layout.surfaces, profile, settings);
   validateLayout(layout);
   const windows = roofWindowGeometry(layout);
   const p = validateSheetProfile(profile);
@@ -236,11 +259,11 @@ export function planRoofSheets(layout, profile, settings = {}) {
     const polygons = triangles.map(points => points.map(local));
     const width = Math.max(...all.map(p => p.x)) - minX;
     const height = Math.max(...all.map(p => p.y)) - minY;
-    const strips = stripSlope(index, polygons, width, p, settings, counter);
+    const strips = stripSlope(settings.surfaceIndex ?? index, polygons, width, p, settings, counter);
     const pitch = Math.atan(gradient) * 180 / Math.PI;
     const warnings = [];
-    if (pitch + 1e-6 < p.minPitch) warnings.push(`Pitch ${pitch.toFixed(1)}° is below this profile’s ${p.minPitch}° minimum.`);
-    if (gradient < 1e-8) warnings.push('Flat surface: sheet direction defaults to the plan Z axis.');
+    if (settings.surfaceIndex == null && pitch + 1e-6 < p.minPitch) warnings.push(`Pitch ${pitch.toFixed(1)}° is below this profile’s ${p.minPitch}° minimum.`);
+    if (settings.surfaceIndex == null && gradient < 1e-8) warnings.push('Flat surface: sheet direction defaults to the plan Z axis.');
     return { ...strips, pitch, width, height,
       outline: [...group.boundary.map(ids => ids.map(id => local(flatten(layout.vertices[id])))),
         ...openings.flatMap(window => window.corners.map((p, i) =>
