@@ -50,7 +50,9 @@
     "check:roof": "node --test roof-configurator/tests/perimeter.test.mjs roof-configurator/tests/feature-i18n.test.mjs roof-configurator/tests/roof-layout.test.mjs roof-configurator/tests/roof-features.test.mjs roof-configurator/tests/sheet-planner.test.mjs roof-configurator/tests/roof-windows.test.mjs roof-configurator/tests/slope-sketch.test.mjs && node --check roof-configurator/js/layoutEditor.js && node --check roof-configurator/js/slopeSketchEditor.js && node --check roof-configurator/js/roofFactory.js && node --check roof-configurator/js/app.js && node --check roof-configurator/js/ui.js",
     "check:roof:browser": "node roof-configurator/tests/layout-browser.cjs",
     "check:cages": "node --test cages-configurator/tests/model.test.mjs && node --check cages-configurator/js/app.js && node --check cages-configurator/js/scene.js && node --check cages-configurator/js/section.js",
-    "check:cages:browser": "node cages-configurator/tests/cages-browser.cjs"
+    "check:cages:browser": "node cages-configurator/tests/cages-browser.cjs",
+    "check:curtain-wall": "node --test curtain-wall-configurator/tests/facade.test.mjs && node --check curtain-wall-configurator/js/app.js && node --check curtain-wall-configurator/js/scene.js && node --check curtain-wall-configurator/js/drawings.js",
+    "check:curtain-wall:browser": "node curtain-wall-configurator/tests/curtain-wall-browser.cjs"
   },
   "dependencies": {
     "playwright": "^1.54.1"

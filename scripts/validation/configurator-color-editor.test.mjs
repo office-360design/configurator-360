@@ -557,9 +557,17 @@ async function releaseFixture(run) {
     await put('website/scripts/static-routes.mjs', routesSource);
     await put('website/scripts/validate-static-release.mjs', await read('website/scripts/validate-static-release.mjs'));
     const domains = { en: 'https://www.360configurator.com', ro: 'https://www.360configurator.ro', de: 'https://www.360konfigurator.de' };
+    // Pages carry the SEO head the real static export produces: self-canonical,
+    // reciprocal hreflang alternates, indexable robots and product links.
+    const productLinks = ['pergola', 'roof', 'window', 'hall', 'solar', 'fence', 'chair', 'cardbox', 'bookshelf', 'tiles']
+      .map(slug => `<a href="/configurators/${slug}">${slug}</a>`).join('');
     for (const route of pageRoutes) {
       const locale = /^\/ro(?:\/|$)/.test(route) ? 'ro' : /^\/de(?:\/|$)/.test(route) ? 'de' : 'en';
-      await put(release + routeOutputPath(route), `<html lang="${locale}"><head><link rel="canonical" href="${domains[locale]}${route}"></head><body class="site-shell detail-page"><a href="https://www.360configurator.com/roof-configurator/">Roof</a></body></html>`);
+      const publicPath = route.replace(/^\/(ro|de)(?=\/|$)/, '') || '/';
+      const alternates = [['en', domains.en], ['ro-RO', domains.ro], ['de-DE', domains.de], ['x-default', domains.en]]
+        .map(([language, origin]) => `<link rel="alternate" hreflang="${language}" href="${origin}${publicPath}">`).join('');
+      const head = `<link rel="canonical" href="${domains[locale]}${publicPath}">${alternates}<meta name="robots" content="index, follow">`;
+      await put(release + routeOutputPath(route), `<html lang="${locale}"><head>${head}</head><body class="site-shell detail-page"><a href="https://www.360configurator.com/roof-configurator/">Roof</a>${productLinks}</body></html>`);
     }
     for (const file of ['404.html', '.nojekyll', 'release-manifest.json', 'robots.txt', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'apple-touch-icon.png']) await put(release + file);
     const apps = {
