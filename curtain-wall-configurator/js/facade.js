@@ -5,7 +5,7 @@
 import {
   COVER_PLATES, GASKETS, GLASS_SUPPORTS, GLAZING_PRESETS, INSULATORS, PRESSURE_STRIPS, PROFILES, SPANDREL, SYSTEM,
   estimatedKgPerM, frameUf, getProfile, glazingComponents,
-} from './catalog.js?v=cw-1';
+} from './catalog.js?v=cw-2';
 
 export const LIMITS = Object.freeze({
   bays: [1, 20], rows: [1, 20], width: [400, 4000], height: [300, 5000],

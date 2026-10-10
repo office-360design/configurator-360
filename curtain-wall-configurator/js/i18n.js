@@ -1,5 +1,8 @@
 // UI strings for ro-RO, en-US and de-DE. Catalogue article names stay in German.
 const ro = {
+  'explode.title': 'Vedere explodată', 'explode.amount': 'Distanță între straturi', 'explode.close': 'Asamblează',
+  'layer.cover': 'Capac exterior', 'layer.strip': 'Placă de presiune', 'layer.gasketOuter': 'Garnitură exterioară', 'layer.insulator': 'Izolator',
+  'layer.glass': 'Sticlă / panou opac', 'layer.gasketInner': 'Garnitură interioară', 'layer.transom': 'Profil traversă', 'layer.mullion': 'Profil montant',
   'title': 'Configurează fațada',
   'section.grid': 'Grilă fațadă', 'section.profiles': 'Profile și statică', 'section.glazing': 'Vitraj', 'section.finish': 'Finisaj', 'section.order': 'Comandă',
   'grid.presets': 'Exemple', 'preset.storefront': 'Vitrină parter', 'preset.office': 'Birouri · 2 niveluri', 'preset.atrium': 'Atrium',
@@ -62,6 +65,9 @@ const ro = {
 };
 
 const en = {
+  'explode.title': 'Exploded view', 'explode.amount': 'Layer spacing', 'explode.close': 'Assemble',
+  'layer.cover': 'Outer cover', 'layer.strip': 'Pressure strip', 'layer.gasketOuter': 'Outer gasket', 'layer.insulator': 'Insulator',
+  'layer.glass': 'Glass / opaque panel', 'layer.gasketInner': 'Inner gasket', 'layer.transom': 'Transom profile', 'layer.mullion': 'Mullion profile',
   'title': 'Configure the facade',
   'section.grid': 'Facade grid', 'section.profiles': 'Profiles and statics', 'section.glazing': 'Glazing', 'section.finish': 'Finish', 'section.order': 'Order',
   'grid.presets': 'Examples', 'preset.storefront': 'Ground-floor shopfront', 'preset.office': 'Office · 2 storeys', 'preset.atrium': 'Atrium',
@@ -123,6 +129,9 @@ const en = {
 };
 
 const de = {
+  'explode.title': 'Explosionsansicht', 'explode.amount': 'Abstand der Schichten', 'explode.close': 'Zusammenbauen',
+  'layer.cover': 'Deckleiste außen', 'layer.strip': 'Druckleiste', 'layer.gasketOuter': 'Dichtung außen', 'layer.insulator': 'Isolator',
+  'layer.glass': 'Glas / Paneel', 'layer.gasketInner': 'Dichtung innen', 'layer.transom': 'Riegelprofil', 'layer.mullion': 'Pfostenprofil',
   'title': 'Fassade konfigurieren',
   'section.grid': 'Fassadenraster', 'section.profiles': 'Profile und Statik', 'section.glazing': 'Verglasung', 'section.finish': 'Oberfläche', 'section.order': 'Bestellung',
   'grid.presets': 'Beispiele', 'preset.storefront': 'Schaufenster EG', 'preset.office': 'Büro · 2 Geschosse', 'preset.atrium': 'Atrium',

@@ -61,6 +61,24 @@ const path = require('node:path');
     await api(l => window.CURTAIN_WALL_API.setLocale(l), locale);
     assert.equal(await page.locator('.intro-section h1').textContent(), title);
   }
+  // Exploded view from the shared Tools menu: every node layer separates.
+  await page.locator('[data-tool-id="explode"]').first().click({ force: true }).catch(async () => api(() => window.CURTAIN_WALL_API.setExploded(true)));
+  if (!(await api(() => window.CURTAIN_WALL_API.isExploded()))) await api(() => window.CURTAIN_WALL_API.setExploded(true));
+  await page.waitForTimeout(900);
+  assert.ok(await page.locator('#explodePanel').isVisible());
+  assert.ok(await page.locator('#explodeLegend li').count() >= 7);
+  const offsets = await api(() => {
+    const root = window.CURTAIN_WALL_API.getScene().root;
+    return Object.fromEntries(root.children.map(m => [m.name, m.position.z]));
+  });
+  assert.ok(offsets['mullion:profile'] < offsets['transom:profile'] && offsets['transom:profile'] < 0, 'profiles move inwards');
+  // (The integrated 159230 strip is a single cover layer.)
+  assert.ok(offsets['mullion:cover'] > offsets['mullion:gasketOuter'] && offsets['mullion:gasketOuter'] > offsets.glass, 'outer layers move outwards in order');
+  assert.ok(offsets.glass > offsets['mullion:gasketInner'], 'inner gasket sits between glass and profile');
+  await page.locator('[data-action="assemble"]').click();
+  await page.waitForTimeout(900);
+  assert.ok(await page.locator('#explodePanel').isHidden());
+  assert.equal(await api(() => window.CURTAIN_WALL_API.getScene().root.children.every(m => Math.abs(m.position.z) < 1e-9)), true);
   // Camera cycle through the Tools API.
   assert.equal(await api(() => window.CURTAIN_WALL_API.cycleCamera()), 'front');
 

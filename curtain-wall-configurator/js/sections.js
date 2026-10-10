@@ -4,7 +4,7 @@
 // through the facade with z = 0 at the glass-side face of the mullion,
 // negative into the building and positive outwards. Shapes are simplified
 // outlines suitable for rendering, not fabrication drawings.
-import { COVER_PLATES, PRESSURE_STRIPS, SYSTEM } from './catalog.js?v=cw-1';
+import { COVER_PLATES, PRESSURE_STRIPS, SYSTEM } from './catalog.js?v=cw-2';
 
 const HALF = SYSTEM.faceWidth / 2;
 export const GLASS_GAP = 10; // profile face → inner glass face (heat calculation node)
@@ -28,8 +28,8 @@ export function nodeParts({ depth, thickness, stripId, coverId }) {
   });
   // Inner glazing gaskets on the profile face, outer gaskets under the strip.
   for (const side of [-1, 1]) {
-    parts.push({ kind: 'gasket', contour: side < 0 ? rect(-23, 3, -13, GLASS_GAP) : rect(13, 3, 23, GLASS_GAP), holes: [] });
-    parts.push({ kind: 'gasket', contour: side < 0 ? rect(-23, glassOut, -13, stripBase) : rect(13, glassOut, 23, stripBase), holes: [] });
+    parts.push({ kind: 'gasketInner', contour: side < 0 ? rect(-23, 3, -13, GLASS_GAP) : rect(13, 3, 23, GLASS_GAP), holes: [] });
+    parts.push({ kind: 'gasketOuter', contour: side < 0 ? rect(-23, glassOut, -13, stripBase) : rect(13, glassOut, 23, stripBase), holes: [] });
   }
   // Insulator between the glass edges (only above the boss).
   if (glassOut - BOSS.height > 2) parts.push({ kind: 'insulator', contour: rect(-9, BOSS.height, 9, glassOut + 2), holes: [] });

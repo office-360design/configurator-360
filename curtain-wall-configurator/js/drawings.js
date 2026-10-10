@@ -1,8 +1,8 @@
 // 2D technical drawings as SVG markup: facade elevation with axis dimensions
 // and the horizontal section through a mullion node.
-import { SYSTEM } from './catalog.js?v=cw-1';
-import { fmt } from './facade.js?v=cw-1';
-import { GLASS_GAP, nodeParts } from './sections.js?v=cw-1';
+import { SYSTEM } from './catalog.js?v=cw-2';
+import { fmt } from './facade.js?v=cw-2';
+import { GLASS_GAP, nodeParts } from './sections.js?v=cw-2';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 

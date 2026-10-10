@@ -1,10 +1,10 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
-import { COVER_PLATES, GLASS_THICKNESSES, GLAZING_PRESETS, PRESSURE_STRIPS, PROFILES } from './catalog.js?v=cw-1';
-import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, checks, facadeModel, fmt, normalizeState } from './facade.js?v=cw-1';
-import { elevationSvg, nodeSvg } from './drawings.js?v=cw-1';
-import { applyTranslations, translator } from './i18n.js?v=cw-1';
-import { FacadeScene } from './scene.js?v=cw-1';
+import { COVER_PLATES, GLASS_THICKNESSES, GLAZING_PRESETS, PRESSURE_STRIPS, PROFILES } from './catalog.js?v=cw-2';
+import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, checks, facadeModel, fmt, normalizeState } from './facade.js?v=cw-2';
+import { elevationSvg, nodeSvg } from './drawings.js?v=cw-2';
+import { applyTranslations, translator } from './i18n.js?v=cw-2';
+import { FacadeScene } from './scene.js?v=cw-2';
 
 await requireTenantConfiguratorAccess('curtainwall');
 
@@ -116,6 +116,32 @@ function render(m) {
   $('#bom').innerHTML = bomTable(m);
   $('#checks').innerHTML = checksPanel(m);
   $('#copyBom').addEventListener('click', copyBom);
+  renderExplodeLegend(m);
+}
+
+// Layers from the outside in, with the catalogue article of each part.
+function renderExplodeLegend(m) {
+  const strip = PRESSURE_STRIPS[S.strip];
+  const outside = FINISHES.find(f => f.id === S.finishOutside).color, inside = FINISHES.find(f => f.id === S.finishInside).color;
+  const layers = [
+    ['layer.cover', strip.cover ? `${S.coverMullion} / ${S.coverTransom}` : S.strip, outside],
+    ...(strip.cover ? [['layer.strip', S.strip, outside]] : []),
+    ['layer.gasketOuter', '760006', '#1d1f21'],
+    ...(m.components?.insulator ? [['layer.insulator', m.components.insulator, '#d9b77c']] : []),
+    ['layer.glass', `${m.glazing.thickness} mm · ${m.glazing.label}`, '#a9c6d3'],
+    ['layer.gasketInner', '760110', '#1d1f21'],
+    ['layer.transom', `${m.transom.id} · ${m.transom.depth} mm`, inside],
+    ['layer.mullion', `${m.mullion.id} · ${m.mullion.depth} mm`, inside],
+  ];
+  $('#explodeLegend').innerHTML = layers.map(([key, code, color]) => `<li><i style="background:${color}"></i><span>${esc(t(key))}</span><b>${esc(code)}</b></li>`).join('');
+}
+
+function setExploded(on, amount = Number($('#explodeAmount').value) || 1) {
+  view.setExploded(on ? amount : 0);
+  $('#explodePanel').hidden = !on;
+  if (on) view.setView('exploded');
+  window.dispatchEvent(new CustomEvent('curtainwall-exploded', { detail: { exploded: on } }));
+  return on;
 }
 
 async function copyBom() {
@@ -164,6 +190,7 @@ document.addEventListener('change', event => {
 });
 document.addEventListener('input', event => {
   const el = event.target;
+  if (el.id === 'explodeAmount') return view.setExploded(Number(el.value));
   if (el.type === 'range' && el.dataset.k) update({ ...S, [el.dataset.k]: Number(el.value) });
 });
 document.addEventListener('click', event => {
@@ -177,6 +204,7 @@ document.addEventListener('click', event => {
     const keep = (_, i) => i !== +el.dataset.removeRow;
     return update({ ...S, heights: S.heights.filter(keep), rowTypes: S.rowTypes.filter(keep) });
   }
+  if (el.dataset.action === 'assemble') return setExploded(false);
   if (el.dataset.action === 'add-bay' && S.widths.length < LIMITS.bays[1]) return update({ ...S, widths: [...S.widths, S.widths.at(-1)] });
   if (el.dataset.action === 'add-row' && S.heights.length < LIMITS.rows[1]) return update({ ...S, heights: [...S.heights, S.heights.at(-1)], rowTypes: [...S.rowTypes, S.rowTypes.at(-1)] });
   if (el.dataset.action === 'equal-bays') {
@@ -209,8 +237,12 @@ window.CURTAIN_WALL_API = {
   restoreState(snapshot) { if (!snapshot || typeof snapshot !== 'object') return false; update({ ...DEFAULT_STATE, ...snapshot }, true); return true; },
   resetConfiguration() { update(DEFAULT_STATE, true); return true; },
   cycleCamera: () => view.cycleView(),
+  toggleExploded: () => setExploded(view.exploded === 0),
+  setExploded: (on, amount) => setExploded(Boolean(on), amount ?? 1),
+  isExploded: () => view.exploded > 0,
   setView: name => view.setView(name),
   getModel: () => M,
+  getScene: () => view,
   setLocale: applyLocale,
 };
 
