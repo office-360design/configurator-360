@@ -1,4 +1,4 @@
-import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=firebase-ar-4';
+import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=firebase-ar-5';
 import { capturePergolaARSnapshot, createPergolaFirebaseARAsset } from './exportPergola.js?v=pergola-ar-2';
 
 /** Capture the actual built assembly, not the scene, scenery or saved UI state. */

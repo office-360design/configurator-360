@@ -1,7 +1,7 @@
-import { arT } from './i18n.js?v=firebase-ar-4';
-import { AR_MODES, arPhoneUrl, requireProduct } from './links.js?v=firebase-ar-4';
-import { qrSvg } from './vendor/qr.js?v=firebase-ar-4';
-import { publishAR } from './publish.js?v=firebase-ar-4';
+import { arT } from './i18n.js?v=firebase-ar-5';
+import { AR_MODES, arPhoneUrl, requireProduct } from './links.js?v=firebase-ar-5';
+import { qrSvg } from './vendor/qr.js?v=firebase-ar-5';
+import { publishAR } from './publish.js?v=firebase-ar-5';
 
 /** Shared Firebase QR workflow. Geometry capture/export stays in each configurator. */
 export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocale = () => 'en-US', onFeedback = () => {}, exportAsset, publish = publishAR, snapshotKey = JSON.stringify } = {}) {
@@ -25,7 +25,6 @@ export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocal
     <p class="hall-ar-error" data-error role="alert" hidden></p>
     <p class="hall-ar-small" data-expires hidden></p>
     <div class="hall-ar-actions"><a class="hall-ar-primary" data-open target="_blank" rel="noopener" hidden data-copy="openLink"></a><button type="button" data-copy-link hidden data-copy="copy"></button><button type="button" data-retry hidden data-copy="retry"></button></div>
-    <p class="hall-ar-small" data-copy="snapshot"></p><p class="hall-ar-small" data-copy="scale"></p>
     <p class="hall-ar-small" data-copy="privacy"></p>`;
   document.body.append(dialog);
   const q = selector => dialog.querySelector(selector);
@@ -62,7 +61,7 @@ export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocal
       const key=AR_MODES[mode]+snapshotKey(snapshot);
       const existing=cache.get(key);
       if (existing?.expiresAtMs>Date.now()+60000) {showReady(existing);return;}
-      const asset=await loadExporter(structuredClone(snapshot),AR_MODES[mode],key=>{if(run===generation){status=key;progress=key==='exporting'?.25:.08;refresh();}});
+      const asset=await loadExporter(structuredClone(snapshot),AR_MODES[mode],key=>{if(run===generation){status=key==='exporting'?'exporting':'building';progress=key==='exporting'?.25:.08;refresh();}});
       if(run!==generation || signal.aborted)return;
       status='uploading';progress=.5;refresh();
       const session=await publish(asset,{product,signal,onProgress:value=>{if(run===generation){progress=.5+.45*value;status=value===1?'checking':'uploading';refresh();}}});

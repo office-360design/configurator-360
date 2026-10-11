@@ -1,4 +1,4 @@
-/** AR is available only for the tested Firebase-backed Hall, Window, Pergola and Fence adapters. */
+/** AR is available only for the tested Firebase-backed Hall, Window, Pergola, Fence and Pavement adapters. */
 export function isConfiguratorAREnabled(productId, capabilities = {}) {
-  return ['hall', 'window', 'pergola', 'fence'].includes(String(productId || '').toLowerCase()) && capabilities.viewAR === true;
+  return ['hall', 'window', 'pergola', 'fence', 'tiles'].includes(String(productId || '').toLowerCase()) && capabilities.viewAR === true;
 }

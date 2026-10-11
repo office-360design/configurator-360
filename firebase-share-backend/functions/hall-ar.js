@@ -14,9 +14,9 @@ const BUCKET_NAME = `${PROJECT_ID}-hall-ar`;
 const SESSIONS = 'hallARSessions';
 const RATE_LIMITS = 'hallARRateLimits';
 // Retain the deployed bucket, collection, function names and Hall URLs.
-// Window and Pergola assets share the same private, expiring infrastructure.
+// All enabled products share the same private, expiring infrastructure.
 const ROOT = 'hall-ar/v1/';
-const PRODUCTS = new Set(['hall', 'window', 'pergola', 'fence']);
+const PRODUCTS = new Set(['hall', 'window', 'pergola', 'fence', 'tiles']);
 function productPath(id, format, product) { return `${ROOT}${id}/${product}.${format}`; }
 function validStoredAsset(id, data) {
   return /^[A-Za-z0-9_-]{32}$/.test(id) && PRODUCTS.has(data.product)
