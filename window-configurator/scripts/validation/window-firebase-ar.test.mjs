@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import * as THREE from 'three';
 import {captureWindowARSnapshot,createWindowFirebaseARAsset} from '../../src/client/js/ar/exportWindow.js';
+import {createProfileController} from '../../src/client/js/profile-controller.js';
 import {AR_COPY} from '../../../shared-ui/src/ar/i18n.js';
 import {arPhoneUrl,arModelUrl,sceneViewerIntent} from '../../../shared-ui/src/ar/links.js';
 import {isConfiguratorAREnabled} from '../../../shared-ui/src/arPolicy.js';
@@ -90,4 +91,73 @@ test('Old backend product response or unavailable bytes cannot become a ready Wi
   globalThis.fetch=async()=>{headCalls++;return new Response(null,{status:404});};
   await assert.rejects(()=>publishAR({format:'glb',blob},{product:'window'}),{code:'service-unavailable'});assert.equal(headCalls,0);
   product='window';await assert.rejects(()=>publishAR({format:'glb',blob},{product:'window'}),{code:'service-unavailable'});assert.equal(headCalls,1);
+});
+
+// Exercise the actual controller, not a copied function. Its static import
+// runs before browser stubs are installed, so settings use offline defaults.
+
+test('Cached-profile material refresh uses the current builder instead of an out-of-scope variable', async t => {
+  const saved = new Map(['window','document','requestAnimationFrame'].map(key => [key,Object.getOwnPropertyDescriptor(globalThis,key)]));
+  t.after(() => { for (const [key,descriptor] of saved) { if (descriptor) Object.defineProperty(globalThis,key,descriptor); else delete globalThis[key]; } });
+  globalThis.window = { addEventListener() {} };
+  globalThis.document = { getElementById() { return null; } };
+  globalThis.requestAnimationFrame = callback => queueMicrotask(() => callback(0));
+  const makeBuilder = () => ({
+    section: [{ name:'section-profile' }], invalidations:0, builds:0,
+    getSectionSampleProfilesData() { return this.section; },
+    invalidateSectionSamples() { this.invalidations++; },
+    buildWindow() { this.builds++; },
+  });
+  let builder = makeBuilder();
+  const firstBuilder = builder, renderCalls = [];
+  const controller = createProfileController({
+    getWindowBuilder: () => builder,
+    getMaterialForProfile: profile => `new-material:${profile.name}`,
+    renderer: {
+      compile() { renderCalls.push('compile'); },
+      render() { renderCalls.push('render'); },
+      getContext() { return null; },
+    },
+    scene: {}, camera: {},
+  });
+  const mainProfile = {name:'main-profile'};
+  controller.getProfilesData().push(mainProfile);
+  await controller.refreshProfileMaterials();
+  assert.equal(mainProfile.material,'new-material:main-profile');
+  assert.equal(firstBuilder.section[0].material,'new-material:section-profile');
+  assert.equal(firstBuilder.invalidations,1);assert.equal(firstBuilder.builds,1);
+  assert.deepEqual(renderCalls,['compile','render','render']);
+  // A replacement builder must be read via the accessor on every refresh.
+  // No window/global named `windowBuilder` is supplied by this fixture.
+  builder = makeBuilder();
+  await controller.refreshProfileMaterials();
+  assert.equal(builder.invalidations,1);assert.equal(builder.builds,1);
+  assert.equal(firstBuilder.builds,1);
+  assert.equal(builder.section[0].material,'new-material:section-profile');
+});
+
+test('Real refresh failures still reject instead of pretending that the window is ready', async t => {
+  const saved = new Map(['window','document','requestAnimationFrame'].map(key => [key,Object.getOwnPropertyDescriptor(globalThis,key)]));
+  t.after(() => { for (const [key,descriptor] of saved) { if (descriptor) Object.defineProperty(globalThis,key,descriptor); else delete globalThis[key]; } });
+  globalThis.window = { addEventListener() {}, CONFIGURATOR_READY:false };
+  globalThis.document = { getElementById() { return null; } };
+  globalThis.requestAnimationFrame = callback => queueMicrotask(() => callback(0));
+  const failure = new Error('intentional rebuild failure');
+  const controller = createProfileController({
+    getWindowBuilder: () => ({ invalidateSectionSamples(){}, buildWindow(){ throw failure; } }),
+    getMaterialForProfile: () => null,
+    renderer: { compile(){ assert.fail('must not render a failed build'); } }, scene:{},camera:{},
+  });
+  await assert.rejects(() => controller.refreshProfileMaterials(), error => error === failure);
+  assert.equal(window.CONFIGURATOR_READY,false);
+});
+
+test('Window entry invalidates the cached refresh dependency without bypassing AR readiness', () => {
+  const entry=readFileSync(new URL('../../src/client/index.html',import.meta.url),'utf8');
+  const main=readFileSync(new URL('../../src/client/js/main.js',import.meta.url),'utf8');
+  const controller=readFileSync(new URL('../../src/client/js/ar-controller.js',import.meta.url),'utf8');
+  assert.match(entry,/src="\.\/js\/main\.js\?v=window-ar-2"/);
+  assert.match(main,/from '\.\/profile-controller\.js\?v=window-ar-2'/);
+  assert.match(controller,/!getProfilesReady\?\.\(\)/);
+  assert.match(controller,/window\.CONFIGURATOR_READY === false/);
 });

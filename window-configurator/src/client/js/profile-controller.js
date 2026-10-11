@@ -1543,6 +1543,11 @@ export function createProfileController({
     }
 
     async function refreshProfileMaterials() {
+        // The builder is owned by main.js and obtained through this controller's
+        // accessor. loadProfileSelection() has its own local builder variable;
+        // it is not in scope here. Reusing the loaded profiles (restore/Undo)
+        // must rebuild successfully so applyConfiguration can become ready again.
+        const windowBuilder = getWindowBuilder();
         profilesData.forEach(profile => {
             profile.material = getMaterialForProfile(profile);
         });
