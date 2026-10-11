@@ -11,7 +11,7 @@ import { createWindowBuilder } from './window-builder.js?v=platform-18';
 import { createMaterialManager } from './materials.js?v=platform-18';
 import { createARController } from './ar-controller.js?v=window-ar-1';
 import { createCadReferenceController } from './cad-reference.js?v=platform-18';
-import { createProfileController } from './profile-controller.js?v=platform-18';
+import { createProfileController } from './profile-controller.js?v=window-ar-2';
 import { createAccessoryController } from './accessory-controller.js?v=platform-18';
 import { createProfileSelectionController } from './profile-selection-controller.js?v=platform-18';
 import {
