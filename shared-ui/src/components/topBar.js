@@ -1,3 +1,4 @@
+import { isConfiguratorAREnabled } from '../arPolicy.js?v=hall-ar-1';
 import { getLanguageProfile } from '../config.js?v=tenant-domains-1';
 import { renderPlatformAttribution } from '../tenantBranding.js?v=tenant-branding-1';
 import { sharedT } from '../i18n.js?v=platform-21';
@@ -56,7 +57,7 @@ function cartButton(locale, count = 0, open = false) {
   `;
 }
 
-export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {}, tenant = null }) {
+export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilities = {}, tenant = null, productId = '' }) {
   const locale = state.locale;
   const tenantBranded = tenant?.isTenant === true && tenant.exists === true;
   const brand = tenantBranded
@@ -65,9 +66,8 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
       : `<span class="tenant-brand-name" title="${escapeHtml(tenant.companyName)}">${escapeHtml(tenant.companyName)}</span>`)
     : `<img src="${escapeHtml(brandSrc)}" alt="${escapeHtml(brandAlt)}" />`;
   const authenticated = Boolean(state.authUser?.uid);
-  // AR is platform-disabled for now. Keep the button visible but grey/inert
-  // across every configurator so users get one consistent availability signal.
-  const canViewAR = false;
+  // Only the Hall adapter can enable AR during this rollout.
+  const canViewAR = isConfiguratorAREnabled(productId, capabilities);
   const canSave = capabilities.save !== false && authenticated;
   const canNewConfiguration = capabilities.save !== false && authenticated;
   const canUndo = capabilities.undo !== false;

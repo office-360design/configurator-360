@@ -1,7 +1,7 @@
 import { HALL_TEMPLATES } from './templates.js?v=hall-production-1';
 import { createHallTemplateDialog } from './templateDialog.js?v=hall-production-1';
 import { mountTemplatesMenu } from '../../shared-ui/src/components/templatesMenu.js?v=templates-1';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=hall-ar-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -34,6 +34,29 @@ const toolItems = resolveSharedTools([
 let shell;
 let templatesMenu = null;
 let templateDialog = null;
+let arDialog = null;
+let arDialogLoading = null;
+
+async function openHallAR() {
+  templatesMenu?.close();
+  window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
+  if (!arDialogLoading) {
+    arDialogLoading = import('./ar/dialog.js?v=hall-ar-1').then(({ createHallARDialog }) => {
+      arDialog = createHallARDialog({
+        getSnapshot: () => window.HALL_CONFIGURATOR_API?.captureState?.(),
+        getLocale: () => shell?.state.locale ?? initialLocale,
+        onFeedback: (message, kind, duration) => shell?.showFeedback?.(message, kind, duration),
+      });
+      return arDialog;
+    }).catch(error => { arDialogLoading = null; throw error; });
+  }
+  try { (await arDialogLoading).open(); } catch(error) {
+    console.error('Hall AR dialog could not load:', error);
+    const locale = shell?.state.locale ?? initialLocale;
+    shell?.showFeedback?.(locale === 'ro-RO' ? 'AR nu s-a putut încărca. Încearcă din nou.' : locale === 'de-DE' ? 'AR konnte nicht geladen werden. Bitte erneut versuchen.' : 'AR could not load. Please try again.', 'error', 5000);
+  }
+}
+
 shell = mountStandaloneConfiguratorShell({
   productType: 'Hall',
   productId: 'hall',
@@ -41,7 +64,7 @@ shell = mountStandaloneConfiguratorShell({
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
-    viewAR: false,
+    viewAR: true,
     save: true,
     undo: true,
     reset: true,
@@ -66,6 +89,7 @@ shell = mountStandaloneConfiguratorShell({
     geometry: 'floating-right',
   },
   callbacks: {
+    onViewAR() { void openHallAR(); },
     onUndo() { history.undo(); },
     async resetConfiguration() {
       const api = window.HALL_CONFIGURATOR_API;
@@ -94,6 +118,7 @@ shell = mountStandaloneConfiguratorShell({
         templatesMenu?.setLabels(hallTemplateLabels(preferences.locale));
         templatesMenu?.setItems(hallTemplateItems(preferences.locale));
         templateDialog?.refresh();
+        arDialog?.refresh();
       }
       window.dispatchEvent(new CustomEvent('hall-preference-change', { detail: { name: path, value, preferences: { ...preferences } } }));
     },
