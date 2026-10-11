@@ -156,7 +156,8 @@ test('Window entry invalidates the cached refresh dependency without bypassing A
   const entry=readFileSync(new URL('../../src/client/index.html',import.meta.url),'utf8');
   const main=readFileSync(new URL('../../src/client/js/main.js',import.meta.url),'utf8');
   const controller=readFileSync(new URL('../../src/client/js/ar-controller.js',import.meta.url),'utf8');
-  assert.match(entry,/src="\.\/js\/main\.js\?v=window-ar-3"/);
+  const release=entry.match(/src="\.\/js\/main\.js\?v=window-ar-(\d+)"/);
+  assert.ok(release && Number(release[1]) >= 3, 'entry must invalidate the pre-fix AR cache');
   assert.match(main,/from '\.\/profile-controller\.js\?v=window-ar-3'/);
   assert.match(controller,/!getProfilesReady\?\.\(\)/);
   assert.match(controller,/window\.CONFIGURATOR_READY === false/);

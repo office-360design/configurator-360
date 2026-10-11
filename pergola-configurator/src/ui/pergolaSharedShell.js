@@ -1,10 +1,10 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=firebase-ar-4';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=firebase-ar-5';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=platform-18';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
 import { pergolaT } from '../i18n.js?v=platform-18';
 import { calculatePrice, formatMoney } from '../pricing.js?v=platform-18';
 
-import { createPergolaARController } from '../ar/controller.js?v=pergola-ar-2';
+import { createPergolaARController } from '../ar/controller.js?v=pergola-ar-3';
 
 function cloneState(state) {
   if (typeof structuredClone === 'function') return structuredClone(state);

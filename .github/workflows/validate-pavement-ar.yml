@@ -1,0 +1,59 @@
+name: Validate Pavement and shared AR
+
+on:
+  pull_request:
+    paths:
+      - 'tiles-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - '.github/workflows/validate-pavement-ar.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tiles-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - '.github/workflows/validate-pavement-ar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pavement-ar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Static application: no dependencies to install. Offline geometry tests
+      # use the repository's Three r160 fixture; production keeps pinned r169.
+      - name: Validate pavement layout regressions
+        run: npm run check --prefix tiles-configurator
+      - name: Validate pavement AR geometry and dialog contracts
+        run: node --no-warnings --experimental-loader ./fence-configurator/tests/ar-test-loader.mjs --test tiles-configurator/tools/tiles-ar.test.mjs
+      - name: Validate shared backend and product availability
+        run: node --test firebase-share-backend/functions/tests/hall-ar.test.cjs hall-configurator/tests/ar-policy.test.mjs
+      - name: Validate Hall, Fence, Window and Pergola regressions
+        env:
+          PERGOLA_AR_OFFLINE: '1'
+        run: |
+          node --no-warnings --experimental-loader ./fence-configurator/tests/ar-test-loader.mjs --test fence-configurator/tests/fence-ar.test.mjs shared-3d/tests/ar/completeness.mjs
+          node --no-warnings --experimental-loader ./window-configurator/scripts/validation/window-ar-loader.mjs --test window-configurator/scripts/validation/window-firebase-ar.test.mjs
+          node --no-warnings --experimental-loader ./pergola-configurator/tools/ar-test-loader.mjs --test pergola-configurator/tools/pergola-ar.test.mjs
+      - name: Validate tenant branding
+        run: node --test scripts/validation/tenant-branding.test.mjs
+      - name: Check client syntax
+        run: |
+          node --check tiles-configurator/js/app.js
+          node --check tiles-configurator/js/viewer.js
+          node --check tiles-configurator/js/surfaceLayout.js
+          for script in tiles-configurator/js/ar/*.js shared-ui/src/ar/*.js; do node --check "$script"; done

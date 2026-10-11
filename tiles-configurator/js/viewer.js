@@ -1,3 +1,4 @@
+import { pavementCutSurfaces, curbCutSurfaces } from './surfaceLayout.js?v=tiles-ar-1';
 import { stoneAppearance } from './stoneAppearance.js';
 import { houseGeometry } from './house.js';
 import * as THREE from 'three';
@@ -700,37 +701,7 @@ export function createViewer(host, callbacks = {}) {
       pavementBaseY,
       { topOnly: true },
     );
-    const cuts = [];
-    parts.forEach((p) => {
-      for (const fragment of p.fragments || []) {
-        const rotated = Math.abs((Number(p.rotation) || 0) % 180) > 1e-6;
-        let polygon;
-        if (p.profile) {
-          polygon = fragment.map((v) => ({
-            x: p.x + (v.x - p.x) * 0.985,
-            z: p.z + (v.z - p.z) * 0.985,
-          }));
-        } else if (rotated) {
-          const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length,
-            cz = fragment.reduce((sum, v) => sum + v.z, 0) / fragment.length,
-            inset = Math.min(0.02, 0.0015 / Math.max(0.001, Math.min(p.l, p.w))),
-            factor = Math.max(0.9, 1 - inset);
-          polygon = fragment.map((v) => ({
-            x: cx + (v.x - cx) * factor,
-            z: cz + (v.z - cz) * factor,
-          }));
-        } else {
-          polygon = clipRect(
-            fragment,
-            p.x - p.l / 2 + 0.0015,
-            p.z - p.w / 2 + 0.0015,
-            Math.max(0.001, p.l - 0.003),
-            Math.max(0.001, p.w - 0.003),
-          );
-        }
-        cuts.push({ polygon, color: p.accent ? s.accent : s.color, stone: p });
-      }
-    });
+    const cuts = pavementCutSurfaces(parts, s);
     drawPolygons(cuts, t.thickness, pavementBaseY, { topOnly: true });
     const curb = CURBS[s.curb],
       curbs = curbLayout(s),
@@ -745,22 +716,7 @@ export function createViewer(host, callbacks = {}) {
       GROUND_Y,
     );
     drawPolygons(
-      curbs
-        .flatMap((p) =>
-          (p.fragments || (p.polygon ? [p.polygon] : [])).map((polygon) => ({ polygon, stone: p })),
-        )
-        .map((p) => {
-          const cx = p.polygon.reduce((a, v) => a + v.x, 0) / p.polygon.length,
-            cz = p.polygon.reduce((a, v) => a + v.z, 0) / p.polygon.length;
-          return {
-            polygon: p.polygon.map((v) => ({
-              x: cx + (v.x - cx) * 0.996,
-              z: cz + (v.z - cz) * 0.996,
-            })),
-            color: s.curbColor,
-            stone: p.stone,
-          };
-        }),
+      curbCutSurfaces(curbs, s),
       visibleCurbHeight,
       GROUND_Y,
     );
