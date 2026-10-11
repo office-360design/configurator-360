@@ -87,3 +87,36 @@ test('Publication guards, budget, failed save and orphan cleanup',async()=>{
   for(let i=0;i<10;i++)assert.equal((await h.call('publishHallAR')).statusCode,201);
   assert.equal((await h.call('publishHallAR')).statusCode,429);
 });
+
+test('Window GLB and USDZ reuse the private bucket with correct product/filename',async()=>{
+  for(const format of ['glb','usdz']){
+    const h=harness(),r=await h.call('publishHallAR',{format,body:format==='glb'?glb():usdz(),query:{product:'window'}});
+    assert.equal(r.statusCode,201);assert.equal(r.jsonBody.product,'window');
+    const id=r.jsonBody.id,record=h.docs.get(`hallARSessions/${id}`);
+    assert.equal(record.objectPath,`hall-ar/v1/${id}/window.${format}`);
+    const manifest=await h.call('getHallAR',{method:'GET',query:{id}});assert.equal(manifest.jsonBody.product,'window');
+    const full=await h.call('getHallAR',{method:'GET',query:{id,asset:'1'}});assert.equal(full.statusCode,200);assert.match(full.headers['content-disposition'],new RegExp(`window.${format}`));
+    assert.equal(full.body.length,r.jsonBody.byteLength);
+    const partial=await h.call('getHallAR',{method:'GET',query:{id,asset:'1'},range:'bytes=0-63'});assert.equal(partial.statusCode,206);assert.equal(partial.body.length,64);
+    record.expiresAt=h.Timestamp.fromMillis(Date.now()-1);await h.exports.cleanupHallAR();assert.equal(h.files.size,0);
+  }
+});
+test('Tenant publication checks the requested product (including preflight)',async()=>{
+  const h=harness();h.docs.set('tenants/example',{slug:'example',status:'active',configurators:{window:true,hall:false}});
+  const origin='https://example.360configurator.com';
+  assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'},method:'OPTIONS'})).statusCode,204);
+  assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'}})).statusCode,201);
+  assert.equal((await h.call('publishHallAR',{origin,query:{product:'hall'}})).statusCode,403);
+  for(const product of ['bookshelf','pergola','../../secret','constructor',['window']])assert.equal((await h.call('publishHallAR',{origin,query:{product}})).statusCode,400);
+  h.docs.get('tenants/example').status='suspended';assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'}})).statusCode,403);
+});
+test('Mixed Hall/Window cleanup and forged stored paths cannot escape the AR prefix',async()=>{
+  const h=harness(),hall=await h.call('publishHallAR'),window=await h.call('publishHallAR',{query:{product:'window'}});
+  assert.equal(hall.jsonBody.product,'hall');assert.equal(window.jsonBody.product,'window');
+  const a=h.docs.get(`hallARSessions/${hall.jsonBody.id}`),b=h.docs.get(`hallARSessions/${window.jsonBody.id}`);
+  a.expiresAt=h.Timestamp.fromMillis(Date.now()-1);b.expiresAt=h.Timestamp.fromMillis(Date.now()-1);
+  await h.exports.cleanupHallAR();assert.equal(h.files.size,0);assert.equal(h.deletes.length,2);
+  const bad=await h.call('publishHallAR',{query:{product:'window'}}),record=h.docs.get(`hallARSessions/${bad.jsonBody.id}`);record.objectPath='private/customer-data';
+  assert.equal((await h.call('getHallAR',{method:'GET',query:{id:bad.jsonBody.id,asset:'1'}})).statusCode,404);
+  record.expiresAt=h.Timestamp.fromMillis(Date.now()-1);await h.exports.cleanupHallAR();assert.ok(!h.deletes.includes('private/customer-data'));
+});

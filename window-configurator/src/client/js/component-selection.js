@@ -159,5 +159,7 @@ export function createComponentSelection({
         closeButton?.addEventListener('click', clear);
     }
 
-    return { add, clear, destroy, reset };
+    return { add, clear, destroy, reset,
+        getMaterialForExport: mesh => mesh === selectedMesh && selectedOriginalMaterial ? selectedOriginalMaterial : mesh.material,
+    };
 }

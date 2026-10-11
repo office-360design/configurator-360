@@ -249,3 +249,18 @@ After both deployments finish, open Hall AR and confirm Android is selected, a Q
 - Firebase Functions limits: https://firebase.google.com/docs/functions/quotas
 - Firebase deploy targets: https://firebase.google.com/docs/cli/targets
 - Firebase additional-bucket registration: https://firebase.google.com/docs/reference/rest/storage/rest/v1beta/projects.buckets/addFirebase
+
+
+## Window rollout extension (`firebase-ar-2`)
+
+Hall and Window now share the Firebase QR dialog, phone-page implementation and
+publication transport in `shared-ui/src/ar/`. Hall geometry export is unchanged.
+The existing AR bucket, functions, object prefix and scheduled cleanup serve both
+allow-listed products. Hall URLs and existing records remain compatible.
+Other configurators remain disabled by the shared AR policy.
+
+After applying the Window update, deploy the website and Firebase backend from
+the new commit. A successful previous Hall administrator setup is reused; no
+additional bucket, setup script or IAM grant is required. See
+`window-configurator/AR_IMPLEMENTATION.md` for Window-specific export details
+and the phone-testing checklist.

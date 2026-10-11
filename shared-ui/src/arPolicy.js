@@ -1,4 +1,4 @@
-/** AR rollout is deliberately limited to Hall, even if another adapter opts in. */
+/** AR is available only for the tested Firebase-backed Hall and Window adapters. */
 export function isConfiguratorAREnabled(productId, capabilities = {}) {
-  return String(productId || '').toLowerCase() === 'hall' && capabilities.viewAR === true;
+  return ['hall', 'window'].includes(String(productId || '').toLowerCase()) && capabilities.viewAR === true;
 }

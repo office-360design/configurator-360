@@ -5,9 +5,9 @@ import {isConfiguratorAREnabled} from '../../shared-ui/src/arPolicy.js';
 import {AR_MODES,arPhoneUrl,arModelUrl,sceneViewerIntent} from '../js/ar/links.js';
 import {AR_COPY} from '../js/ar/i18n.js';
 import {qrMatrix,qrSvg} from '../js/ar/vendor/qr.js';
-test('AR policy: hall opt-in only, not a global capabilities override',()=>{
+test('AR policy: Hall and Window opt-in only',()=>{
   for(const product of ['window','pergola','roof','fence','bookshelf','chair','solar','hall','gas','tiles','']){
-    assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),product==='hall');
+    assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window'].includes(product));
     assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);
   }
 });
@@ -40,6 +40,6 @@ test('Quick Look launch uses a single image child and a localized external label
   const link=html.match(/<a id="arPhoneLaunch"[^>]*>([\s\S]*?)<\/a>/)?.[1];
   assert.ok(link);assert.match(link,/<img[^>]*>/);assert.doesNotMatch(link,/<span|<div|<button|<a/);
   assert.match(html,/data-label="Open AR"/);
-  const phone=readFileSync(new URL('../js/ar/phone.js',import.meta.url),'utf8');
+  const phone=readFileSync(new URL('../../shared-ui/src/ar/phone.js',import.meta.url),'utf8');
   assert.match(phone,/setAttribute\('rel','ar'\)/);assert.match(phone,/dataset.label=t\('openAR'\)/);
 });

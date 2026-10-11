@@ -13,7 +13,16 @@ const PROJECT_ID = 'configurator-360';
 const BUCKET_NAME = `${PROJECT_ID}-hall-ar`;
 const SESSIONS = 'hallARSessions';
 const RATE_LIMITS = 'hallARRateLimits';
+// Retain the deployed bucket, collection, function names and Hall URLs.
+// Window assets share the same private, expiring infrastructure.
 const ROOT = 'hall-ar/v1/';
+const PRODUCTS = new Set(['hall', 'window']);
+function productPath(id, format, product) { return `${ROOT}${id}/${product}.${format}`; }
+function validStoredAsset(id, data) {
+  return /^[A-Za-z0-9_-]{32}$/.test(id) && PRODUCTS.has(data.product)
+    && Object.hasOwn(FORMATS, data.format)
+    && data.objectPath === productPath(id, data.format, data.product);
+}
 const PUBLIC_ORIGINS = new Set([
   'https://360configurator.com', 'https://www.360configurator.com',
   'https://360configurator.ro', 'https://www.360configurator.ro',
@@ -36,13 +45,13 @@ function errorResponse(res, error) {
     error: { code: known ? error.code : 'service-unavailable', message: known ? error.message : 'AR storage is temporarily unavailable. Please try again.' },
   });
 }
-async function allowPublisher(origin) {
+async function allowPublisher(origin, product) {
   if (PUBLIC_ORIGINS.has(origin) || DEV_ORIGIN.test(origin)) return;
   const context = tenantOriginContext(origin);
   if (context) {
     const snap = await getFirestore().collection('tenants').doc(context.slug).get();
     const tenant = snap.data() || {};
-    if (snap.exists && tenant.status === 'active' && tenantRecordMatchesHost(tenant, context.hostname) && tenant.configurators?.hall === true) return;
+    if (snap.exists && tenant.status === 'active' && tenantRecordMatchesHost(tenant, context.hostname) && tenant.configurators?.[product] === true) return;
   }
   reject(403, 'origin-denied', 'AR publication is not allowed from this website.');
 }
@@ -70,7 +79,11 @@ exports.publishHallAR = onRequest({ ...OPTIONS, cors: false }, async (req, res) 
   res.set('Vary', 'Origin'); res.set('Cache-Control', 'no-store');
   try {
     const origin = String(req.get('origin') || '');
-    await allowPublisher(origin);
+    // Product is a query parameter so OPTIONS can check the same tenant entitlement.
+    // Omission means Hall for QR dialogs already deployed before this update.
+    const product = req.query.product === undefined ? 'hall' : req.query.product;
+    if (!PRODUCTS.has(product)) reject(400, 'invalid-product', 'AR is not enabled for this configurator.');
+    await allowPublisher(origin, product);
     res.set('Access-Control-Allow-Origin', origin);
     res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, X-Hall-AR-Format');
@@ -82,24 +95,24 @@ exports.publishHallAR = onRequest({ ...OPTIONS, cors: false }, async (req, res) 
     if (String(req.get('content-type') || '').split(';')[0] !== 'application/octet-stream') reject(415, 'invalid-type', 'A binary AR model is required.');
     const body = req.rawBody;
     if (!Buffer.isBuffer(body) || body.length < 128) reject(400, 'invalid-model', 'The AR model is empty.');
-    if (body.length > FORMATS[format].maxBytes) reject(413, 'model-too-large', 'This hall is too detailed for mobile AR.');
+    if (body.length > FORMATS[format].maxBytes) reject(413, 'model-too-large', 'This configuration is too detailed for mobile AR.');
     const now = Date.now();
     // Charge attempts, not just successful publications: invalid files cannot
     // bypass the byte/count budgets. No client-controlled filenames or bucket paths.
     await consumeQuota(req, body.length, now);
     const asset = validateAsset(format, body);
     const id = randomBytes(24).toString('base64url');
-    const objectPath = `${ROOT}${id}/hall.${format}`;
+    const objectPath = productPath(id, format, product);
     const file = getStorage().bucket(BUCKET_NAME).file(objectPath);
     const expiresAtMs = now + LIFETIME_MS;
     try {
       await file.save(body, { resumable: false, validation: 'crc32c', preconditionOpts: { ifGenerationMatch: 0 }, metadata: {
         contentType: FORMATS[format].type, cacheControl: 'private, max-age=300',
-        contentDisposition: `inline; filename="hall.${format}"`,
+        contentDisposition: `inline; filename="${product}.${format}"`,
         metadata: { expiresAt: String(expiresAtMs), sha256: asset.sha256 },
       } });
       await getFirestore().collection(SESSIONS).doc(id).create({
-        product: 'hall', format, byteLength: asset.size, sha256: asset.sha256, objectPath,
+        product, format, byteLength: asset.size, sha256: asset.sha256, objectPath,
         createdAt: Timestamp.fromMillis(now), expiresAt: Timestamp.fromMillis(expiresAtMs),
         purgeAt: Timestamp.fromMillis(now + 3 * LIFETIME_MS),
       });
@@ -107,7 +120,7 @@ exports.publishHallAR = onRequest({ ...OPTIONS, cors: false }, async (req, res) 
       await file.delete({ ignoreNotFound: true }).catch(() => {});
       throw error;
     }
-    res.status(201).json({ id, format, byteLength: asset.size, expiresAtMs });
+    res.status(201).json({ id, product, format, byteLength: asset.size, expiresAtMs });
   } catch (error) { errorResponse(res, error); }
 });
 
@@ -124,13 +137,13 @@ exports.getHallAR = onRequest({ ...OPTIONS, cors: false }, async (req, res) => {
     if (!['GET', 'HEAD'].includes(req.method)) reject(405, 'method-not-allowed', 'Use GET to open an AR model.');
     const id = requireId(req.query.id);
     const snap = await getFirestore().collection(SESSIONS).doc(id).get();
-    if (!snap.exists) reject(404, 'not-found', 'AR session not found. Create a new QR code in the hall configurator.');
+    if (!snap.exists) reject(404, 'not-found', 'AR session not found. Create a new QR code in the configurator.');
     const data = snap.data();
-    if (!data.expiresAt?.toMillis || data.expiresAt.toMillis() <= Date.now()) reject(410, 'expired', 'This AR link has expired. Create a new QR code in the hall configurator.');
-    if (!Object.hasOwn(FORMATS, data.format) || data.product !== 'hall' || data.objectPath !== `${ROOT}${id}/hall.${data.format}`) reject(404, 'not-found', 'AR session not found.');
+    if (!data.expiresAt?.toMillis || data.expiresAt.toMillis() <= Date.now()) reject(410, 'expired', 'This AR link has expired. Create a new QR code in the configurator.');
+    if (!validStoredAsset(id, data)) reject(404, 'not-found', 'AR session not found.');
     const expiresAtMs = data.expiresAt.toMillis();
     if (req.query.asset !== '1') {
-      res.set('Cache-Control', 'no-store').json({ id, format: data.format, byteLength: data.byteLength, expiresAtMs });
+      res.set('Cache-Control', 'no-store').json({ id, product: data.product, format: data.format, byteLength: data.byteLength, expiresAtMs });
       return;
     }
     res.set('Accept-Ranges', 'bytes');
@@ -139,7 +152,7 @@ exports.getHallAR = onRequest({ ...OPTIONS, cors: false }, async (req, res) => {
       res.set('Content-Range', `bytes */${data.byteLength}`); throw error;
     }
     res.set('Content-Type', FORMATS[data.format].type);
-    res.set('Content-Disposition', `inline; filename="hall.${data.format}"`);
+    res.set('Content-Disposition', `inline; filename="${data.product}.${data.format}"`);
     res.set('ETag', `"${data.sha256}"`);
     // No proxy/CDN may keep a model past the declared link lifetime.
     res.set('Cache-Control', `private, max-age=${Math.max(0, Math.min(300, Math.floor((expiresAtMs-Date.now())/1000)))}`);
@@ -167,7 +180,7 @@ exports.cleanupHallAR = onSchedule({
     if (docs.empty) break;
     for (const doc of docs.docs) {
       const data = doc.data();
-      if (Object.hasOwn(FORMATS, data.format) && data.objectPath === `${ROOT}${doc.id}/hall.${data.format}`) {
+      if (validStoredAsset(doc.id, data)) {
         await bucket.file(data.objectPath).delete({ ignoreNotFound: true });
       }
       await doc.ref.delete(); removed++;
