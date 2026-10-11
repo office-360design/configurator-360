@@ -1,7 +1,7 @@
-import { arT } from './i18n.js?v=firebase-ar-2';
-import { AR_MODES, arPhoneUrl, requireProduct } from './links.js?v=firebase-ar-2';
-import { qrSvg } from './vendor/qr.js?v=firebase-ar-2';
-import { publishAR } from './publish.js?v=firebase-ar-2';
+import { arT } from './i18n.js?v=firebase-ar-3';
+import { AR_MODES, arPhoneUrl, requireProduct } from './links.js?v=firebase-ar-3';
+import { qrSvg } from './vendor/qr.js?v=firebase-ar-3';
+import { publishAR } from './publish.js?v=firebase-ar-3';
 
 /** Shared Firebase QR workflow. Geometry capture/export stays in each configurator. */
 export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocale = () => 'en-US', onFeedback = () => {}, exportAsset, publish = publishAR, snapshotKey = JSON.stringify } = {}) {
