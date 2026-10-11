@@ -1,0 +1,6 @@
+name = "solar-pvgis-proxy"
+main = "src/index.js"
+compatibility_date = "2026-08-10"
+
+[vars]
+ALLOWED_ORIGIN = "*"

@@ -1,0 +1,154 @@
+/* Tenant logos stay primary. The official mark is a secondary, independent
+   link, never a replacement for the customer logo or part of a nested link. */
+.tenant-platform-brand {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #fff;
+  color: #667085;
+  text-decoration: none;
+  line-height: 1;
+}
+.tenant-platform-brand__label {
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tenant-platform-brand img {
+  display: block;
+  width: 64px;
+  height: 32px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+.tenant-platform-brand:focus-visible {
+  outline: 2px solid #0878c9;
+  outline-offset: 3px;
+}
+.tenant-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.shared-ui-host .site-header.site-header--tenant {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: 12px;
+}
+.shared-ui-host .site-header--tenant .tenant-brand-lockup {
+  flex: 0 1 auto;
+}
+.shared-ui-host .site-header--tenant .brand { min-width: 0; }
+.shared-ui-host .tenant-brand-name {
+  max-width: 154px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 750;
+}
+.shared-ui-host .tenant-platform-brand {
+  gap: 4px;
+  padding: 2px 4px;
+}
+.shared-ui-host .tenant-platform-brand__label { font-size: 9px; }
+.shared-ui-host .tenant-platform-brand img { width: 44px; height: 22px; }
+
+/* The attribution occupies a second line inside the existing 47px bar on
+   phones. Do not increase its height or displace the shared panel controls. */
+@media (max-width: 760px) {
+  .shared-ui-host .site-header.site-header--tenant {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 6px;
+  }
+  .shared-ui-host .site-header--tenant .tenant-brand-lockup {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    max-width: 86px;
+  }
+  .shared-ui-host .site-header--tenant .brand { height: 22px; }
+  .shared-ui-host .site-header--tenant .brand img {
+    height: 22px;
+    max-width: 83px;
+  }
+  .shared-ui-host .tenant-brand-name { max-width: 83px; font-size: 12px; }
+  .shared-ui-host .tenant-platform-brand { padding: 0 2px; gap: 3px; }
+  .shared-ui-host .tenant-platform-brand__label { font-size: 7px; }
+  .shared-ui-host .tenant-platform-brand img { width: 30px; height: 15px; }
+}
+@media (max-width: 480px) {
+  .shared-ui-host .site-header.site-header--tenant { grid-template-columns: minmax(0, 1fr) auto; }
+  .shared-ui-host .site-header--tenant .brand img,
+  .shared-ui-host .tenant-brand-name { max-width: 78px; }
+}
+@media (max-width: 360px) {
+  .shared-ui-host .site-header.site-header--tenant { column-gap: 2px; }
+  .shared-ui-host .site-header--tenant .brand img,
+  .shared-ui-host .tenant-brand-name { max-width: 60px; }
+  .shared-ui-host .tenant-platform-brand__label { display: none; }
+}
+
+.tenant-header__copy { min-width: 0; }
+.tenant-header__copy .tenant-platform-brand { margin-bottom: 8px; }
+.tenant-header__copy h1 { overflow-wrap: anywhere; }
+.dashboard-branding { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.dashboard-branding .dashboard-home { min-width: 0; }
+.dashboard-branding .dashboard-home > span:last-child { min-width: 0; }
+.dashboard-branding .brand-logo { flex: 0 1 auto; }
+#dashboardPlatformBrand { flex: 0 0 auto; }
+#dashboardPlatformBrand:empty { display: none; }
+@media (max-width: 900px) {
+  .dashboard-branding { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
+@media (max-width: 680px) {
+  .dashboard-branding .brand-logo { max-width: 120px; }
+  .dashboard-branding .dashboard-home { max-width: 100%; }
+}
+
+/* Keep tenant branding and the editable title inside their grid tracks. */
+.shared-ui-host .site-header--tenant .brand {
+  min-width: 0;
+  max-width: 154px;
+  overflow: hidden;
+}
+.shared-ui-host .site-header--tenant .tenant-brand-name {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 18px;
+}
+.shared-ui-host .site-header--tenant .project-name-shell,
+.shared-ui-host .site-header--tenant .project-name-input {
+  min-width: 0;
+  max-width: 100%;
+}
+.dashboard-branding .dashboard-home strong { max-width: 100%; }
+.dashboard-branding .brand-logo { min-width: 0; }
+/* Native file inputs must not impose their intrinsic width on the form grid. */
+.dashboard-workspace .field,
+.dashboard-workspace .field input,
+.dashboard-workspace .field select { min-width: 0; }
+@media (max-width: 760px) {
+  .shared-ui-host .site-header--tenant .brand { max-width: 83px; }
+}
+@media (max-width: 680px) {
+  .dashboard-branding, .dashboard-branding .dashboard-home { width: 100%; }
+  .dashboard-header .auth-panel { flex-wrap: wrap; }
+  .dashboard-header #authState { min-width: 0; overflow-wrap: anywhere; }
+  .dashboard-workspace .form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .shared-ui-host .site-header--tenant .brand { max-width: 78px; }
+  .shared-ui-host .site-header--tenant .project-name-shell,
+  .shared-ui-host .site-header--tenant .book-demo-button { display: none; }
+}
+@media (max-width: 360px) {
+  .shared-ui-host .site-header--tenant .brand { max-width: 60px; }
+}

@@ -1,0 +1,58 @@
+export const roofNames = {
+  gable: 'Two-slope roof',
+  hip: 'Four-slope roof',
+  shed: 'Single-slope roof',
+  lshape: 'L-shaped roof',
+  dormer: 'Two-slope roof with dormer',
+  custom: 'Custom roof plan',
+  layout: 'Drawn roof layout',
+  sketch: 'Slopes drawn one by one',
+};
+
+export const state = {
+  roofType: 'gable',
+  length: 10,
+  depth: 7,
+  wallHeight: 3,
+  pitch: 30,
+  overhang: 0.45,
+  covering: 'generic',
+  roofColor: '#7f1d2d',
+  showDimensions: true,
+  technicalEdges: false,
+  showCompass: false,
+  showDrainage: false,
+  drainageDiameter: 100,
+  drainagePosition: 'both',
+  drainageColor: 'graphite',
+  sunPosition: 42,
+  northDirection: 108,
+  nightPreview: false,
+  customPlan: null,
+  roofLayout: null,
+  slopeSketch: null,
+  sheetPlanOptions: null,
+  units: 'metric',
+  currency: 'RON',
+  locale: 'en-US',
+  currencyRate: 1,
+  currencyRateDate: null,
+  currencyRateSource: 'reference',
+  currencyRateIsFallback: false,
+  excludedBomItems: [],
+};
+
+export const pitchRules = {
+  generic: {
+    minimum: 5,
+    noteKey: 'covering.rule.generic',
+  },
+  roca: {
+    minimum: 14,
+    noteKey: 'covering.rule.roca',
+  },
+  teclado: {
+    minimum: 18,
+    noteKey: 'covering.rule.teclado',
+  },
+};

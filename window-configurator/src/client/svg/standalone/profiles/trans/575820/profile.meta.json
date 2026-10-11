@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 2,
+  "id": "575820",
+  "type": "base-profile",
+  "role": "trans",
+  "label": "Trans 575820",
+  "description": "",
+  "accessoryType": null,
+  "source": {
+    "path": "cad/source/trans/575820_d1.dwg",
+    "format": "dwg",
+    "sha256": "50feb99c37bac46f0d97241daa4f0bb3074e1b3db40720603da5392a97ce4941",
+    "originalPreserved": true
+  },
+  "geometry": {
+    "mode": "component-assembly",
+    "svg": "profile.svg",
+    "units": "mm",
+    "viewBox": [
+      56.6872,
+      -179.0062,
+      77,
+      75
+    ],
+    "filledPathCount": 5,
+    "openPathCount": 0,
+    "canonicalOrientation": {
+      "side": "top",
+      "exteriorDirection": "unspecified",
+      "cavityDirection": "unspecified"
+    },
+    "allowedTransforms": {
+      "rotations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "mirrorX": false,
+      "mirrorY": false
+    },
+    "sourcePolicy": {
+      "modelSpacePolicy": "inserts-only"
+    },
+    "sourceDiagnostics": {
+      "modelSpacePolicy": "inserts-only",
+      "topLevelInsertCount": 2,
+      "directModelSpaceEntityCount": 3,
+      "directModelSpacePathCount": 0,
+      "filteredPathCount": 0,
+      "usedInsertGeometry": true,
+      "usedDirectModelSpaceGeometry": false,
+      "ignoredDirectModelSpaceGeometry": false,
+      "componentCount": 5
+    },
+    "components": [
+      {
+        "id": "587320_s_gereric-0",
+        "svg": "parts/000-587320_s_gereric.svg",
+        "blockName": "587320_s_gereric",
+        "parentBlock": "575820_s",
+        "rootBlock": "575820_s",
+        "hierarchy": [
+          "575820_s",
+          "587320_s_gereric"
+        ],
+        "layer": "S03_AL_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 128.68720417544313,
+          "ty": 109.0062442460854
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 61.68720417544313,
+          "minY": 109.0062442460854,
+          "maxX": 128.68720417544313,
+          "maxY": 125.30624281620666
+        },
+        "closedContours": 2,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "587310_s-1",
+        "svg": "parts/001-587310_s.svg",
+        "blockName": "587310_s",
+        "parentBlock": "575820_s",
+        "rootBlock": "575820_s",
+        "hierarchy": [
+          "575820_s",
+          "587310_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "sourceTransform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 74.68720417544314,
+          "ty": 174.0062442460854
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 72.78720417544314,
+          "minY": 141.20625950671274,
+          "maxX": 103.68720417544314,
+          "maxY": 174.0062442460854
+        },
+        "closedContours": 2,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "30065269_s-2",
+        "svg": "parts/002-30065269_s.svg",
+        "blockName": "30065269_s",
+        "parentBlock": "662021_s",
+        "rootBlock": "575820_s",
+        "hierarchy": [
+          "575820_s",
+          "662021_s",
+          "30065269_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "sourceTransform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 98.68720417544313,
+          "ty": 132.7062442460854
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 92.2439744845853,
+          "minY": 119.7162442460854,
+          "maxX": 103.48720417544314,
+          "maxY": 145.6962442460854
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "30065272_s-3",
+        "svg": "parts/003-30065272_s.svg",
+        "blockName": "30065272_s",
+        "parentBlock": "662023_s",
+        "rootBlock": "575820_s",
+        "hierarchy": [
+          "575820_s",
+          "662023_s",
+          "30065272_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 74.68720417544313,
+          "ty": 133.2562442460854
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 74.68720417544313,
+          "minY": 121.5162442460854,
+          "maxX": 81.13043386630096,
+          "maxY": 144.99624424608538
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "244511_s-4",
+        "svg": "parts/004-244511_s.svg",
+        "blockName": "244511_s",
+        "parentBlock": null,
+        "rootBlock": "244511_s",
+        "hierarchy": [
+          "244511_s"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 66.48720417544311,
+          "ty": 119.6062442460854
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 65.23720417544311,
+          "minY": 118.3562442460854,
+          "maxX": 67.73720417544311,
+          "maxY": 120.8562442460854
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      }
+    ],
+    "excludedComponents": []
+  },
+  "componentSelection": {
+    "mode": "main-cluster",
+    "maxGapMm": 25,
+    "anchorBlockNames": [
+      "575820"
+    ],
+    "keepExcludedForReview": true,
+    "includedCount": 5,
+    "excludedCount": 0
+  },
+  "placement": {
+    "allowedSides": [
+      "left",
+      "right"
+    ]
+  },
+  "conversion": {
+    "mode": "standalone-profile-components",
+    "converter": "cad/tools/test_convert.js",
+    "modelSpacePolicy": "inserts-only",
+    "insertTransform": "ocs-to-world",
+    "generatedAt": "2026-08-20T10:19:24.576Z"
+  },
+  "catalogRegistration": {
+    "status": "registered",
+    "registeredAt": "2026-08-20",
+    "runtimeMode": "floating-trans-sash-pair",
+    "note": "Standalone trans geometry is positioned from window-sash-trans-sash-window.dwg and moves with its owner sash."
+  },
+  "notes": "Floating trans profile used only between two side-by-side opening sashes. It is attached to one sash and does not create a structural frame/mullion junction at its endpoints."
+}

@@ -1,0 +1,127 @@
+{
+  "version": "20260909-polymers-16",
+  "applyAfter": "20260909-perf-15",
+  "scope": "Shared polymer definitions, Window material adapter; no customer geometry or Pergola product edits",
+  "files": [
+    {
+      "path": "commit_message.md",
+      "bytes": 615,
+      "sha256": "c116e3c54df8d2ae57b0176447bf7ca8e3f974f81608a7790fe7ca9259e875a0"
+    },
+    {
+      "path": "package.json",
+      "bytes": 4429,
+      "sha256": "18fe6f169b877d2e4d410264892c49c6c8e4c22c8ad53d8288b3e5572a23f61f"
+    },
+    {
+      "path": "shared-3d/POLYMERS.md",
+      "bytes": 7914,
+      "sha256": "8302d4387403bcbb35c52a292dc385d520bc1849a2d35080026b3db752bc3eca"
+    },
+    {
+      "path": "shared-3d/POLYMERS_RESULTS.json",
+      "bytes": 1926,
+      "sha256": "9ad1ebd25a23c25ef7445364121c715278e32acdb2530aee39cd49a7c178fd90"
+    },
+    {
+      "path": "shared-3d/POLYMERS_VALIDATION.md",
+      "bytes": 5067,
+      "sha256": "7159e7c58ed6c8aeb36ecb4146b47abf8bd9e1fb2a0b10923e1e2cfc2064222c"
+    },
+    {
+      "path": "shared-3d/README.md",
+      "bytes": 5610,
+      "sha256": "62b9c0957a4cc443d22e3db017614144900890b023d2734b97881d939865fc99"
+    },
+    {
+      "path": "shared-3d/src/createSurfaceSystem.js",
+      "bytes": 8239,
+      "sha256": "5d8a3e7588e4f48229ac3c0321aad616be502247851507efe850c50852e690aa"
+    },
+    {
+      "path": "shared-3d/src/index.js",
+      "bytes": 1648,
+      "sha256": "a11231db6ca0739ca1aa9ea923dd1581eb899cd2a161ec3e8e5a10e16361b9bc"
+    },
+    {
+      "path": "shared-3d/src/materials/MaterialLibrary.js",
+      "bytes": 10568,
+      "sha256": "3d8646c8bf81c1d88819d9bbf1b7bc4f167a118f4a0fce1029f76362721da779"
+    },
+    {
+      "path": "shared-3d/src/materials/SurfaceTextures.js",
+      "bytes": 6299,
+      "sha256": "d920f0dd7478f18ee82a9c3b3b3a980f2cee92b2d8fa03f3ad6d6935c0a7f29a"
+    },
+    {
+      "path": "shared-3d/src/materials/polymerTextures.js",
+      "bytes": 3604,
+      "sha256": "5d8211511432ee8f54da95ec924f475a305577c246c6f41dc88dc43ad323f27d"
+    },
+    {
+      "path": "shared-3d/src/materials/presets.js",
+      "bytes": 3241,
+      "sha256": "682ddf6ed125002b16c016e2bada78f62141507ce127477f61b3e8d88efbd44f"
+    },
+    {
+      "path": "shared-3d/tests/fixtures/polymers-approved-baseline.json",
+      "bytes": 6692,
+      "sha256": "cb27d1bedeedbbb67ccb87a2e313d30932f722c56f8b2c6c86c50ea0c67c45eb"
+    },
+    {
+      "path": "shared-3d/tests/fixtures/uv-protected-v7.json",
+      "bytes": 13182,
+      "sha256": "66a36fb23a319c59a146e15f60e58ca993132d36f449e4955178c23bcdbb3dac"
+    },
+    {
+      "path": "shared-3d/tests/fixtures/window-geometry-v1.json",
+      "bytes": 240321,
+      "sha256": "f1c5e26f7040ab7371920206cb45008e33930689b11002f4eaea943e85850b96"
+    },
+    {
+      "path": "shared-3d/tests/polymer-browser.mjs",
+      "bytes": 11368,
+      "sha256": "13eff3922d6aeffcf8b42d0159a81ad90418dcd751f291889736717095652c68"
+    },
+    {
+      "path": "shared-3d/tests/polymer-materials.mjs",
+      "bytes": 11208,
+      "sha256": "ee3d26b91c7dad82560cad4fdaebd8b51dbda5362e9cd7a8fdc595b0dfc2ae85"
+    },
+    {
+      "path": "shared-3d/tests/polymer-preservation.mjs",
+      "bytes": 1964,
+      "sha256": "1bc529574bf5f6b3566efe1dbdcdea3da478df138410ff944b0cfa99fe0fa9d2"
+    },
+    {
+      "path": "shared-3d/tools/check_polymers_release.mjs",
+      "bytes": 1103,
+      "sha256": "af87988bae0ca8da3aa112496bc000feba77dc16048e4fd81be1c30eac02068c"
+    },
+    {
+      "path": "window-configurator/src/client/index.html",
+      "bytes": 37557,
+      "sha256": "c4348a3ac305ed9dc57a1ccf56c3c2acfdbd345c253908f4e7d86da16e3051ba"
+    },
+    {
+      "path": "window-configurator/src/client/js/main.js",
+      "bytes": 46461,
+      "sha256": "56c93e0908621af68d482e04b8b26eb7ac93ff6a9bff9d3f46d3aa9ee736fd44"
+    },
+    {
+      "path": "window-configurator/src/client/js/materials.js",
+      "bytes": 21508,
+      "sha256": "eaf6ebf7b06671bd63aedfaaf3db1753fa90d0091071bbe05f24565f751c5a28"
+    },
+    {
+      "path": "window-configurator/src/client/js/scene.js",
+      "bytes": 6954,
+      "sha256": "f6cf2c6b0e3650969a5e7c6f99d836e134c090daa5266b0ce4ce73d554f434dc"
+    },
+    {
+      "path": "window-configurator/src/client/js/window-polymer-materials.js",
+      "bytes": 2082,
+      "sha256": "b7c3de073536a3bfed32adad4608af30352d9e1876b300f88d14c3d0a2a27c7e"
+    }
+  ]
+}

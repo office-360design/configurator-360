@@ -1,0 +1,42 @@
+/* Pergola owns placement editors, image layouts and dimension units. */
+:where(.shared-panel-controls) .intro-section { flex: 0 0 auto; }
+.shared-panel-controls .dimension-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+:where(.shared-panel-controls) .dimension-input input.number-input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 7px;
+  border: 1px solid var(--shared-panel-border);
+  border-radius: 9px;
+  background: #fff;
+  color: #1d303a;
+}
+:where(.shared-panel-controls) .dimension-input small { padding: 0; }
+:where(.shared-panel-controls) .dimension-fields { grid-template-columns: 1fr; gap: 12px; }
+:where(.shared-panel-controls) .dimension-fields .form-field { grid-template-columns: minmax(0, 1fr) 130px; align-items: center; }
+:where(.shared-panel-controls) .dimension-fields .form-field > span { font-size: 12px; }
+:where(.shared-panel-controls) .option-card { text-align: left; }
+.app-shell.is-dark-mode :where(.shared-panel-controls) .dimension-input input.number-input {
+  color: #edf4f7;
+  background: #1d2b41;
+  border-color: #34445d;
+}
+@media (max-width:760px) {
+  :where(.shared-panel-controls) .dimension-input input.number-input { height: 42px; font-size: 16px; }
+}
+
+.shared-panel-controls .sidebar-scroll { padding: 0; }
+/* Image cards retain horizontal copy/icon composition and existing modifiers. */
+:where(.shared-panel-controls) .option-card.choice-card { display: flex; }
+:where(.shared-panel-controls) .option-card__copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:where(.shared-panel-controls) .intro-section { overflow-wrap: anywhere; }

@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 2,
+  "id": "575760",
+  "type": "base-profile",
+  "role": "outer-frame",
+  "label": "Normal outer frame 575760",
+  "description": "",
+  "accessoryType": null,
+  "source": {
+    "path": "cad/source/frame/575760_d1.dwg",
+    "format": "dwg",
+    "sha256": "3af16d08e0a173669e36204b0f00acc4a28403e38a87affbfa73eb006a569084",
+    "originalPreserved": true
+  },
+  "geometry": {
+    "mode": "component-assembly",
+    "svg": "profile.svg",
+    "units": "mm",
+    "viewBox": [
+      57.9189,
+      -186.9612,
+      67,
+      75
+    ],
+    "filledPathCount": 4,
+    "openPathCount": 0,
+    "canonicalOrientation": {
+      "side": "top",
+      "exteriorDirection": "unspecified",
+      "cavityDirection": "unspecified"
+    },
+    "allowedTransforms": {
+      "rotations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "mirrorX": false,
+      "mirrorY": false
+    },
+    "sourcePolicy": {
+      "modelSpacePolicy": "prefer-inserts"
+    },
+    "sourceDiagnostics": {
+      "modelSpacePolicy": "prefer-inserts",
+      "topLevelInsertCount": 1,
+      "directModelSpaceEntityCount": 5,
+      "directModelSpacePathCount": 0,
+      "filteredPathCount": 0,
+      "usedInsertGeometry": true,
+      "usedDirectModelSpaceGeometry": false,
+      "ignoredDirectModelSpaceGeometry": false,
+      "componentCount": 4
+    },
+    "components": [
+      {
+        "id": "581910_s-0",
+        "svg": "parts/000-581910_s.svg",
+        "blockName": "581910_s",
+        "parentBlock": "575760_s",
+        "rootBlock": "575760_s",
+        "hierarchy": [
+          "575760_s",
+          "581910_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 62.91888708951177,
+          "ty": 116.9612488330106
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 62.91888708951177,
+          "minY": 116.9612488330106,
+          "maxX": 119.91888708951177,
+          "maxY": 133.26123567286294
+        },
+        "closedContours": 2,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "587270_s-1",
+        "svg": "parts/001-587270_s.svg",
+        "blockName": "587270_s",
+        "parentBlock": "575760_s",
+        "rootBlock": "575760_s",
+        "hierarchy": [
+          "575760_s",
+          "587270_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "sourceTransform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 94.91888708951174,
+          "ty": 181.96124883301061
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 62.91888708951174,
+          "minY": 160.1612619931583,
+          "maxX": 94.91888708951174,
+          "maxY": 181.96124883301061
+        },
+        "closedContours": 2,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "30065150_s-2",
+        "svg": "parts/002-30065150_s.svg",
+        "blockName": "30065150_s",
+        "parentBlock": "662009_s",
+        "rootBlock": "575760_s",
+        "hierarchy": [
+          "575760_s",
+          "662009_s",
+          "30065150_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "sourceTransform": {
+          "a": 1.000000000000007,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 63.118887089511794,
+          "ty": 146.71124883301061
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 63.118887089511794,
+          "minY": 129.4712488330106,
+          "maxX": 69.56211678036962,
+          "maxY": 163.9512488330106
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      },
+      {
+        "id": "30065126_s-3",
+        "svg": "parts/003-30065126_s.svg",
+        "blockName": "30065126_s",
+        "parentBlock": "662017_s",
+        "rootBlock": "575760_s",
+        "hierarchy": [
+          "575760_s",
+          "662017_s",
+          "30065126_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "sourceTransform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 89.91888708951177,
+          "ty": 163.96124883301061
+        },
+        "geometryIslandIndex": 0,
+        "geometryIslandCount": 1,
+        "bbox": {
+          "minX": 83.47543808212879,
+          "minY": 129.4712488330106,
+          "maxX": 94.71888708951178,
+          "maxY": 163.9512488330106
+        },
+        "closedContours": 1,
+        "openContours": 0,
+        "selectable": true,
+        "defaultEnabled": true
+      }
+    ],
+    "excludedComponents": []
+  },
+  "componentSelection": {
+    "mode": "all",
+    "maxGapMm": 25,
+    "anchorBlockNames": [],
+    "keepExcludedForReview": true,
+    "includedCount": 4,
+    "excludedCount": 0
+  },
+  "placement": {
+    "allowedSides": [
+      "top",
+      "right",
+      "bottom",
+      "left"
+    ]
+  },
+  "conversion": {
+    "mode": "standalone-profile-components",
+    "converter": "cad/tools/test_convert.js",
+    "modelSpacePolicy": "prefer-inserts",
+    "insertTransform": "ocs-to-world",
+    "generatedAt": "2026-08-07T08:38:49.361Z"
+  },
+  "catalogRegistration": {
+    "status": "registered",
+    "registeredAt": "2026-08-06",
+    "runtimeMode": "standalone-base-with-legacy-accessories",
+    "referenceProfileSetId": "2_4_Oeffnungselemnt_Vertikal",
+    "note": "Reviewed standalone base-profile geometry is used at runtime. Legacy complete assemblies remain the accessory and alignment reference."
+  },
+  "notes": null
+}

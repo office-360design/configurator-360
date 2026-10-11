@@ -1,0 +1,381 @@
+{
+  "styles": [
+    {
+      "id": "standard",
+      "code": "0201",
+      "family": "02",
+      "dims": [
+        600,
+        400,
+        300
+      ],
+      "top": "simple-flaps",
+      "bottom": "simple-flaps",
+      "topOptions": [
+        "open",
+        "flat",
+        "simple-flaps",
+        "folded-flaps",
+        "full-overlap",
+        "interlocking",
+        "tuck"
+      ],
+      "bottomOptions": [
+        "open",
+        "flat",
+        "simple-flaps",
+        "folded-flaps",
+        "full-overlap",
+        "interlocking",
+        "snap-lock",
+        "auto-lock"
+      ],
+      "labels": {
+        "en": "Standard shipping box",
+        "ro": "Cutie standard de transport",
+        "de": "Standard-Versandkarton"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M10 16 32 7l22 9v22l-22 8-22-8Z\"/><path d=\"m10 16 22 8 22-8M32 24v22\"/></svg>"
+    },
+    {
+      "id": "full-overlap",
+      "code": "0203",
+      "family": "02",
+      "dims": [
+        600,
+        400,
+        300
+      ],
+      "top": "full-overlap",
+      "bottom": "full-overlap",
+      "topOptions": [
+        "open",
+        "flat",
+        "simple-flaps",
+        "folded-flaps",
+        "full-overlap",
+        "interlocking"
+      ],
+      "bottomOptions": [
+        "open",
+        "flat",
+        "simple-flaps",
+        "folded-flaps",
+        "full-overlap",
+        "interlocking"
+      ],
+      "labels": {
+        "en": "Full-overlap box",
+        "ro": "Cutie cu clapete suprapuse",
+        "de": "Vollüberlappende Box"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M9 17 32 8l23 9v21l-23 8-23-8Z\"/><path d=\"m9 17 23 8 23-8M32 25v21M15 13l34 8\"/></svg>"
+    },
+    {
+      "id": "telescope",
+      "code": "03xx",
+      "family": "03",
+      "dims": [
+        520,
+        360,
+        240
+      ],
+      "top": "telescope",
+      "bottom": "flat",
+      "topOptions": [
+        "telescope",
+        "open"
+      ],
+      "bottomOptions": [
+        "flat",
+        "open"
+      ],
+      "labels": {
+        "en": "Telescope lid box",
+        "ro": "Cutie telescopică",
+        "de": "Teleskopbox"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M12 19h40v23H12z\"/><path d=\"M8 12h48v10H8zM15 9h34\"/></svg>"
+    },
+    {
+      "id": "archive",
+      "code": "04xx",
+      "family": "04",
+      "dims": [
+        400,
+        320,
+        260
+      ],
+      "top": "archive-lid",
+      "bottom": "flat",
+      "topOptions": [
+        "archive-lid",
+        "hinged",
+        "tuck",
+        "open"
+      ],
+      "bottomOptions": [
+        "flat",
+        "open"
+      ],
+      "defaultHandle": "die-cut",
+      "labels": {
+        "en": "Archive box",
+        "ro": "Cutie pentru arhivare",
+        "de": "Archivbox"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M10 16h44v27H10z\"/><path d=\"M7 12h50v8H7zM25 26h14v5H25z\"/></svg>"
+    },
+    {
+      "id": "pizza",
+      "code": "0426",
+      "family": "04",
+      "dims": [
+        330,
+        330,
+        50
+      ],
+      "top": "pizza-lid",
+      "bottom": "flat",
+      "topOptions": [
+        "pizza-lid",
+        "hinged",
+        "self-locking",
+        "open"
+      ],
+      "bottomOptions": [
+        "flat"
+      ],
+      "defaultHoles": "vents",
+      "labels": {
+        "en": "Pizza box",
+        "ro": "Cutie pentru pizza",
+        "de": "Pizzakarton"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M8 20 32 9l24 11-5 20H13Z\"/><path d=\"m8 20 24 9 24-9M32 29v11\"/></svg>"
+    },
+    {
+      "id": "mailer",
+      "code": "0427",
+      "family": "04",
+      "dims": [
+        360,
+        260,
+        100
+      ],
+      "top": "mailer-lid",
+      "bottom": "flat",
+      "topOptions": [
+        "mailer-lid",
+        "hinged",
+        "tuck",
+        "self-locking",
+        "open"
+      ],
+      "bottomOptions": [
+        "flat"
+      ],
+      "labels": {
+        "en": "Postal mailer",
+        "ro": "Cutie poștală",
+        "de": "Versandbox"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M9 18h46v25H9z\"/><path d=\"m9 18 9-9h28l9 9M18 9v9m28-9v9\"/></svg>"
+    },
+    {
+      "id": "auto-bottom",
+      "code": "07xx",
+      "family": "07",
+      "dims": [
+        420,
+        300,
+        250
+      ],
+      "top": "tuck",
+      "bottom": "auto-lock",
+      "topOptions": [
+        "open",
+        "simple-flaps",
+        "tuck"
+      ],
+      "bottomOptions": [
+        "auto-lock",
+        "snap-lock"
+      ],
+      "labels": {
+        "en": "Self-erecting box",
+        "ro": "Cutie cu autoformare",
+        "de": "Automatikbodenbox"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M11 11h42v31H11z\"/><path d=\"m11 34 12-8 9 8 9-8 12 8M32 11v15\"/></svg>"
+    },
+    {
+      "id": "two-point-glued",
+      "code": "07xx · 2P",
+      "family": "07",
+      "dims": [
+        420,
+        300,
+        180
+      ],
+      "top": "tuck",
+      "bottom": "two-point-glued",
+      "topOptions": [
+        "open",
+        "simple-flaps",
+        "tuck"
+      ],
+      "bottomOptions": [
+        "two-point-glued",
+        "flat"
+      ],
+      "labels": {
+        "en": "Two-point glued box",
+        "ro": "Cutie lipită în două puncte",
+        "de": "Zweipunkt-Klebebox"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M10 13h44v29H10z\"/><path d=\"M10 34h44M19 34l5 8m21-8-5 8\"/><circle cx=\"19\" cy=\"36\" r=\"2\"/><circle cx=\"45\" cy=\"36\" r=\"2\"/></svg>"
+    },
+    {
+      "id": "sleeve-drawer",
+      "code": "05xx",
+      "family": "05",
+      "dims": [
+        400,
+        260,
+        110
+      ],
+      "top": "sleeve",
+      "bottom": "drawer",
+      "topOptions": [
+        "sleeve",
+        "open"
+      ],
+      "bottomOptions": [
+        "drawer"
+      ],
+      "labels": {
+        "en": "Sleeve & drawer box",
+        "ro": "Cutie tip manșon și sertar",
+        "de": "Schuber- & Schubladenbox"
+      },
+      "icon": "<svg viewBox=\"0 0 64 48\" aria-hidden=\"true\"><path d=\"M8 13h43v29H8z\"/><path d=\"M15 18h41v25H15zM48 30h8\"/></svg>"
+    }
+  ],
+  "copy": {
+    "en": {
+      "closure.top": "Top closure",
+      "closure.bottom": "Bottom closure",
+      "closure.note": "Only closures compatible with the selected structural family are shown.",
+      "closure.open": "Open",
+      "closure.flat": "Flat panel",
+      "closure.simple-flaps": "Simple flaps",
+      "closure.folded-flaps": "Folded flaps",
+      "closure.full-overlap": "Full-overlap flaps",
+      "closure.interlocking": "Interlocking flaps",
+      "closure.tuck": "Tuck flap",
+      "closure.hinged": "Hinged lid",
+      "closure.self-locking": "Self-locking lid",
+      "closure.telescope": "Telescope cap",
+      "closure.archive-lid": "Archive lid",
+      "closure.pizza-lid": "Pizza self-locking lid",
+      "closure.mailer-lid": "Mailer locking lid",
+      "closure.snap-lock": "Snap-lock bottom",
+      "closure.auto-lock": "Automatic / crash-lock bottom",
+      "closure.two-point-glued": "Two-point glued bottom",
+      "closure.sleeve": "Outer sleeve",
+      "closure.drawer": "Inner drawer",
+      "board.construction": "Construction",
+      "board.flute": "Flute profile",
+      "board.fluteHelp": "The available profiles depend on the selected single- or double-wall construction.",
+      "board.paperPreset": "Paper preset",
+      "board.paperPresetHelp": "T / A / F describe the outer liner, fluting medium and inner liner sequence used by the supplier.",
+      "board.tft": "Natural outside / natural inside",
+      "board.aft": "White outside / natural inside",
+      "board.afa": "White outside / white inside",
+      "board.stack": "Layer stack",
+      "board.estimatedGsm": "Estimated board weight",
+      "board.outside": "Outside",
+      "board.inside": "Inside",
+      "board.advanced": "Advanced paper composition",
+      "board.advancedHelp": "Edit the paper grade and grammage of every liner and fluting layer. Changing a row creates a custom paper recipe.",
+      "board.custom": "Custom recipe"
+    },
+    "ro": {
+      "closure.top": "Închidere superioară",
+      "closure.bottom": "Închidere inferioară",
+      "closure.note": "Sunt afișate doar închiderile compatibile cu familia structurală selectată.",
+      "closure.open": "Deschis",
+      "closure.flat": "Panou plat",
+      "closure.simple-flaps": "Clapete simple",
+      "closure.folded-flaps": "Clapete îndoite",
+      "closure.full-overlap": "Clapete suprapuse",
+      "closure.interlocking": "Clapete interblocabile",
+      "closure.tuck": "Clapetă de introducere",
+      "closure.hinged": "Capac rabatabil",
+      "closure.self-locking": "Capac autoblocant",
+      "closure.telescope": "Capac telescopic",
+      "closure.archive-lid": "Capac de arhivare",
+      "closure.pizza-lid": "Capac autoblocant pizza",
+      "closure.mailer-lid": "Capac cu blocare poștală",
+      "closure.snap-lock": "Bază cu blocare rapidă",
+      "closure.auto-lock": "Bază automată / crash-lock",
+      "closure.two-point-glued": "Bază lipită în două puncte",
+      "closure.sleeve": "Manșon exterior",
+      "closure.drawer": "Sertar interior",
+      "board.construction": "Construcție",
+      "board.flute": "Tip ondulă",
+      "board.fluteHelp": "Profilele disponibile depind de construcția CO3 sau CO5 selectată.",
+      "board.paperPreset": "Preset hârtii",
+      "board.paperPresetHelp": "T / A / F descriu succesiunea feței exterioare, a hârtiei de ondulă și a feței interioare folosită de furnizor.",
+      "board.tft": "Natur exterior / natur interior",
+      "board.aft": "Alb exterior / natur interior",
+      "board.afa": "Alb exterior / alb interior",
+      "board.stack": "Structură straturi",
+      "board.estimatedGsm": "Greutate estimată carton",
+      "board.outside": "Exterior",
+      "board.inside": "Interior",
+      "board.advanced": "Compoziție avansată a hârtiilor",
+      "board.advancedHelp": "Editează tipul și gramajul fiecărui strat. Modificarea unui rând creează o rețetă personalizată.",
+      "board.custom": "Rețetă personalizată"
+    },
+    "de": {
+      "closure.top": "Oberer Verschluss",
+      "closure.bottom": "Unterer Verschluss",
+      "closure.note": "Es werden nur Verschlüsse angezeigt, die zur gewählten Struktur passen.",
+      "closure.open": "Offen",
+      "closure.flat": "Flache Platte",
+      "closure.simple-flaps": "Einfache Klappen",
+      "closure.folded-flaps": "Gefaltete Klappen",
+      "closure.full-overlap": "Vollüberlappende Klappen",
+      "closure.interlocking": "Ineinandergreifende Klappen",
+      "closure.tuck": "Stecklasche",
+      "closure.hinged": "Klappdeckel",
+      "closure.self-locking": "Selbstverriegelnder Deckel",
+      "closure.telescope": "Teleskopdeckel",
+      "closure.archive-lid": "Archivdeckel",
+      "closure.pizza-lid": "Selbstverriegelnder Pizzadeckel",
+      "closure.mailer-lid": "Verriegelnder Versanddeckel",
+      "closure.snap-lock": "Steckboden",
+      "closure.auto-lock": "Automatik- / Crash-Lock-Boden",
+      "closure.two-point-glued": "Zweipunkt-Klebeboden",
+      "closure.sleeve": "Außenschuber",
+      "closure.drawer": "Innenschublade",
+      "board.construction": "Aufbau",
+      "board.flute": "Wellenprofil",
+      "board.fluteHelp": "Die verfügbaren Profile hängen vom gewählten ein- oder zweiwelligen Aufbau ab.",
+      "board.paperPreset": "Papier-Voreinstellung",
+      "board.paperPresetHelp": "T / A / F beschreiben die Reihenfolge aus Außenliner, Wellenpapier und Innenliner.",
+      "board.tft": "Natur außen / Natur innen",
+      "board.aft": "Weiß außen / Natur innen",
+      "board.afa": "Weiß außen / Weiß innen",
+      "board.stack": "Schichtaufbau",
+      "board.estimatedGsm": "Geschätztes Flächengewicht",
+      "board.outside": "Außen",
+      "board.inside": "Innen",
+      "board.advanced": "Erweiterter Papieraufbau",
+      "board.advancedHelp": "Papiersorte und Grammatur jeder Lage bearbeiten. Eine Änderung erzeugt ein benutzerdefiniertes Rezept.",
+      "board.custom": "Benutzerdefiniertes Rezept"
+    }
+  }
+}

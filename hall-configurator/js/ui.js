@@ -1,0 +1,714 @@
+import { PRODUCTION_DEFAULTS, normalizeProduction, productionLayout } from './production.js?v=hall-production-1';
+import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout } from './logistics.js?v=hall-production-1';
+import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from './commercial.js?v=hall-production-1';
+import { bindPanelAccordions, bindPanelRange } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
+import { buildBom, bomToCsv } from './bom.js?v=hall-production-1';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=hall-production-1';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, openingLabel } from './openings.js?v=hall-production-1';
+import { getHeaProfile } from './heaProfiles.js?v=hall-production-1';
+import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-production-1';
+
+const formatters = {
+  length: (v) => `${v.toFixed(1)} m`,
+  width: (v) => `${v.toFixed(1)} m`,
+  eaveHeight: (v) => `${v.toFixed(2).replace(/\.00$/, '.0')} m`,
+  pitch: (v) => `${Math.round(v)}°`,
+  targetBaySpacing: (v) => `${v.toFixed(2).replace(/0$/, '')} m`,
+  loadingApronDepth: (v) => `${v.toFixed(1)} m`,
+  productionCellCount: (v) => String(Math.round(v)),
+  sectionCutPosition: (v) => `${Math.round(v)}%`,
+};
+
+
+
+const modelSelects = new Set(['structurePreset', 'claddingProfile', 'climateSystem', 'rackDensity', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'warehouseLayout', 'productionFlow']);
+
+export class HallUI {
+  constructor(state, callbacks, locale = resolveHallLocale()) {
+    this.state = state;
+    this.callbacks = callbacks;
+    this.locale = locale;
+    this.currentBuild = null;
+    this.selectedOpeningId = null;
+    this.placementType = null;
+    this.bindAccordions();
+    this.bindRanges();
+    this.bindSelects();
+    this.bindToggles();
+    this.bindSwatches();
+    this.bindExplode();
+    this.bindEnvironmentPanel();
+    this.bindBom();
+    this.bindOpeningControls();
+    this.bindCommercialControls();
+    this.applyStateToControls();
+  }
+
+  t(key, variables = {}) { return hallT(this.locale, key, variables); }
+
+  setLocale(locale = resolveHallLocale()) {
+    this.locale = locale;
+    applyHallTranslations(locale);
+    this.updateClimateNote();
+    this.setExplodeValue(this.state.explode, { notify: false });
+    this.setPlacementMode(this.placementType);
+    this.setSelectedOpening(this.selectedOpeningId);
+    this.updateLoadingNotice();
+    this.updateProductionNotice();
+    if (this.currentBuild) this.update(this.currentBuild);
+  }
+
+  bindAccordions() {
+    bindPanelAccordions(document.querySelector('.shared-panel-controls'));
+  }
+
+  bindRanges() {
+    document.querySelectorAll('[data-control]').forEach((control) => {
+      const key = control.dataset.control;
+      bindPanelRange(control, {
+        format: formatters[key],
+        immediateOnInput: key === 'sectionCutPosition',
+        onChange: (value, { immediate }) => {
+          this.state[key] = value;
+          this.ensureOpeningLimits();
+
+          if (key === 'sectionCutPosition') {
+            this.callbacks.onDisplayChange?.();
+          } else {
+            this.callbacks.onModelChange?.({ fitCamera: false, immediate });
+          }
+        },
+      });
+    });
+  }
+
+  ensureOpeningLimits() {
+    normalizeOpenings(this.state);
+    normalizeCommercialFeatures(this.state);
+    normalizeLogistics(this.state);
+    normalizeProduction(this.state);
+    this.updateCommercialNotice();
+    this.updateLoadingNotice();
+    this.updateProductionNotice();
+  }
+
+  bindSelects() {
+    const bindings = {
+      structurePreset: 'structurePreset',
+      claddingProfile: 'claddingProfile',
+      climateSystem: 'climateSystem',
+      lightingStyle: 'lightingStyle',
+      wallBracingLayout: 'wallBracingLayout',
+      climateUnitLocation: 'climateUnitLocation',
+      inspectionMode: 'inspectionMode',
+      rackDensity: 'rackDensity',
+      warehouseLayout: 'warehouseLayout',
+      productionFlow: 'productionFlow',
+      serviceVisibility: 'serviceVisibility',
+    };
+    Object.entries(bindings).forEach(([id, key]) => {
+      document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
+        this.state[key] = event.target.value;
+        this.updateClimateNote();
+        if (key === 'inspectionMode') this.callbacks.onInspectionChange?.();
+        else if (key === 'serviceVisibility') this.callbacks.onDisplayChange?.();
+        else if (modelSelects.has(key)) this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
+      });
+    });
+  }
+
+  bindToggles() {
+    const modelToggles = {
+      secondaryStructureToggle: 'secondaryStructure',
+      slabToggle: 'slab',
+      roofSkylightsToggle: 'roofSkylights',
+      guttersToggle: 'gutters',
+      highBayLightingToggle: 'highBayLighting',
+      fireSprinklersToggle: 'fireSprinklers',
+      entranceCanopyToggle: 'entranceCanopy',
+      facadeSignToggle: 'facadeSign',
+      customerApronToggle: 'customerApron',
+      retailDisplaysToggle: 'retailDisplays',
+      loadingApronToggle: 'loadingApron',
+      loadingBayMarkingsToggle: 'loadingBayMarkings',
+      loadingBayProtectionToggle: 'loadingBayProtection',
+      loadingBayNumbersToggle: 'loadingBayNumbers',
+      productionLayoutToggle: 'productionLayout',
+      productionEquipmentToggle: 'productionEquipment',
+      productionStagingToggle: 'productionStaging',
+      productionMarkingsToggle: 'productionMarkings',
+      productionUtilitiesToggle: 'productionUtilities',
+    };
+    Object.entries(modelToggles).forEach(([id, key]) => {
+      document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
+        this.state[key] = event.target.checked;
+        this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
+      });
+    });
+
+    const displayToggles = {
+      claddingToggle: 'showCladding',
+      sceneryToggle: 'showScenery',
+      sectionCutToggle: 'sectionCutEnabled',
+      warehouseRackingToggle: 'warehouseRacking',
+      forkliftClearanceToggle: 'forkliftClearance',
+      serviceCoverageToggle: 'serviceCoverage',
+    };
+    Object.entries(displayToggles).forEach(([id, key]) => {
+      document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
+        this.state[key] = event.target.checked;
+        if (key === 'sectionCutEnabled') this.updateSectionCutControl();
+        if (key === 'showScenery') this.callbacks.onSceneryChange?.();
+        else this.callbacks.onDisplayChange?.();
+      });
+    });
+
+    document.querySelector('#connectionDetailsToggle')?.addEventListener('change', (event) => {
+      this.state.connectionDetails = event.target.checked;
+      this.callbacks.onConnectionDetailsChange?.();
+    });
+  }
+
+  bindSwatches() {
+    const bind = (selector, key) => {
+      document.querySelectorAll(`${selector} .swatch`).forEach((button) => {
+        button.addEventListener('click', () => {
+          this.state[key] = button.dataset.color;
+          document.querySelectorAll(`${selector} .swatch`).forEach((item) => item.classList.toggle('selected', item === button));
+          this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
+        });
+      });
+    };
+    bind('#wallSwatches', 'wallColor');
+    bind('#roofSwatches', 'roofColor');
+  }
+
+  setExplodeValue(value, { notify = true } = {}) {
+    this.state.explode = Math.max(0, Math.min(100, Number(value) || 0));
+    const range = document.querySelector('#explodeRange');
+    const output = document.querySelector('#explodeValue');
+    const button = document.querySelector('#explodeToggleButton');
+    if (range) range.value = String(this.state.explode);
+    if (output) output.textContent = `${Math.round(this.state.explode)}%`;
+    if (button) button.textContent = this.t(this.state.explode > 0 ? 'display.assemble' : 'display.explode');
+    if (notify) this.callbacks.onExplode?.(this.state.explode);
+  }
+
+  bindExplode() {
+    const range = document.querySelector('#explodeRange');
+    const button = document.querySelector('#explodeToggleButton');
+    range?.addEventListener('input', () => this.setExplodeValue(range.value));
+    button?.addEventListener('click', () => this.setExplodeValue(this.state.explode > 0 ? 0 : 100));
+  }
+
+  bindEnvironmentPanel() {
+    document.querySelector('#environmentCloseButton')?.addEventListener('click', () => this.callbacks.onEnvironmentPanelToggle?.(false));
+    const signText = document.querySelector('#hallSignText'); if (signText) signText.value = this.state.signText ?? COMMERCIAL_DEFAULTS.signText;
+    const accent = document.querySelector('#hallCommercialAccent'); if (accent) accent.value = this.state.commercialAccent ?? COMMERCIAL_DEFAULTS.commercialAccent;
+    const sun = document.querySelector('#sunPositionRange');
+    const north = document.querySelector('#northDirectionRange');
+    sun?.addEventListener('input', () => {
+      this.state.sunPosition = Number(sun.value);
+      const output = document.querySelector('#sunPositionOutput'); if (output) output.textContent = `${Math.round(this.state.sunPosition * 100)}%`;
+      this.callbacks.onEnvironmentChange?.();
+    });
+    north?.addEventListener('input', () => {
+      this.state.northDirection = Number(north.value);
+      const output = document.querySelector('#northDirectionOutput'); if (output) output.textContent = `${Math.round(this.state.northDirection)}°`;
+      this.callbacks.onEnvironmentChange?.();
+    });
+    document.querySelector('#nightPreviewToggle')?.addEventListener('change', (event) => {
+      this.state.nightPreview = event.target.checked;
+      this.callbacks.onEnvironmentChange?.();
+    });
+    document.querySelectorAll('[data-scene]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.state.season = button.dataset.scene;
+        document.querySelectorAll('[data-scene]').forEach((item) => item.classList.toggle('is-selected', item === button));
+        this.callbacks.onEnvironmentChange?.();
+      });
+    });
+  }
+
+  setEnvironmentPanelOpen(open) {
+    const panel = document.querySelector('#hallEnvironmentPanel');
+    if (!panel) return;
+    panel.classList.toggle('is-open', Boolean(open));
+    panel.setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('hall-environment-open', Boolean(open));
+  }
+
+  bindBom() {
+    const dialog = document.querySelector('#bomPanel');
+    const close = () => {
+      if (dialog?.open && dialog.close) dialog.close();
+      else dialog?.removeAttribute('open');
+    };
+    document.querySelector('#bomOpenButton')?.addEventListener('click', () => {
+      if (!validateOpenings(this.state, this.locale).valid) { this.updateSummaryValidation(); return; }
+      if (!dialog) return;
+      if (dialog.showModal) dialog.showModal();
+      else dialog.setAttribute('open', '');
+    });
+    document.querySelector('#bomCloseButton')?.addEventListener('click', close);
+    document.querySelector('#bomDoneButton')?.addEventListener('click', close);
+    document.querySelector('#bomExportButton')?.addEventListener('click', () => this.exportBom());
+    document.querySelector('#bomExportInlineButton')?.addEventListener('click', () => this.exportBom());
+  }
+
+  exportBom() {
+    if (!this.currentBuild) return;
+    if (!validateOpenings(this.state, this.locale).valid) { this.updateSummaryValidation(); return; }
+    const lines = buildBom(this.state, this.currentBuild, this.locale);
+    const blob = new Blob([`\ufeff${bomToCsv(lines, this.locale)}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hall-bom-${this.state.width.toFixed(1)}x${this.state.length.toFixed(1)}m.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  bindCommercialControls() {
+    for (const [id, key] of [['hallSignText', 'signText'], ['hallCommercialAccent', 'commercialAccent']]) {
+      document.querySelector(`#${id}`)?.addEventListener('change', (event) => {
+        this.state[key] = event.target.value;
+        normalizeCommercialFeatures(this.state);
+        event.target.value = this.state[key];
+        this.callbacks.onModelChange?.({ fitCamera: false, immediate: true });
+      });
+    }
+  }
+
+  updateCommercialNotice() {
+    const warning = document.querySelector('#commercialClearanceNote');
+    const layout = commercialLayout(this.state);
+    if (warning) {
+      warning.hidden = !(this.state.entranceCanopy && !layout.canopyAvailable || this.state.facadeSign && !layout.signAvailable);
+      warning.textContent = this.t('commercial.clearanceNote');
+    }
+  }
+
+  updateLoadingNotice() {
+    const warning = document.querySelector('#loadingClearanceNote');
+    if (warning) { warning.hidden = !loadingLayout(this.state).unavailable; warning.textContent = this.t('loading.clearanceNote'); }
+  }
+
+  updateProductionNotice() {
+    const active = Boolean(this.state.productionLayout);
+    const layout = productionLayout(this.state);
+    const options = document.querySelector('#productionOptions');
+    if (options) options.hidden = !active;
+    // Prevent mutually exclusive furniture/aisle previews from overlapping the production plan.
+    for (const id of ['warehouseRackingToggle', 'forkliftClearanceToggle', 'retailDisplaysToggle']) {
+      const node = document.querySelector(`#${id}`);
+      if (node) { node.disabled = active; if (active) node.checked = false; node.title = active ? this.t('production.exclusive') : ''; }
+    }
+    const summary = document.querySelector('#productionLayoutStatus');
+    if (summary) { summary.hidden = !active; summary.textContent = this.t('production.status', {
+      machines: layout.machines.length, benches: layout.benches.length, staging: layout.staging.length,
+    }); }
+    const warning = document.querySelector('#productionClearanceNote');
+    if (warning) {
+      const issues = [];
+      if (active && !layout.available) issues.push(this.t('production.tooSmall'));
+      if (active && layout.missingGates) issues.push(this.t('production.missingGates'));
+      if (active && layout.available && (layout.capacity < layout.requestedCells || layout.suppressed)) issues.push(this.t('production.clearanceNote'));
+      warning.hidden = !issues.length; warning.textContent = issues.join(' ');
+    }
+  }
+
+  bindOpeningControls() {
+    document.querySelectorAll('[data-add-opening]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const type = button.dataset.addOpening;
+        if (button.classList.contains('is-placement-active')) this.callbacks.onOpeningPlacementCancel?.();
+        else this.callbacks.onOpeningAdd?.(type);
+      });
+    });
+
+    const widthInput = document.querySelector('#openingWidthInput');
+    const heightInput = document.querySelector('#openingHeightInput');
+    const colorInput = document.querySelector('#openingColorInput');
+    const sideSelect = document.querySelector('#openingSideSelect');
+    const applyDimension = (key, input) => {
+      const opening = this.getSelectedOpening();
+      if (!opening) return;
+      const value = Number(input.value);
+      if (!Number.isFinite(value)) return;
+      opening[key] = value;
+      normalizeOpening(opening, this.state);
+      input.value = opening[key].toFixed(2);
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    };
+    document.querySelector('#openingGarageSubtype')?.addEventListener('change', (event) => {
+      const opening = this.getSelectedOpening();
+      if (opening?.type !== 'garage') return;
+      opening.subtype = event.target.value;
+      normalizeOpening(opening, this.state);
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
+    document.querySelector('#openingEntranceSubtype')?.addEventListener('change', (event) => {
+      const opening = this.getSelectedOpening();
+      if (opening?.type !== 'entrance') return;
+      opening.subtype = event.target.value;
+      normalizeOpening(opening, this.state);
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
+    document.querySelector('#openingEntranceOpen')?.addEventListener('change', (event) => {
+      const opening = this.getSelectedOpening();
+      if (!opening || !(opening.type === 'entrance' || opening.type === 'garage' && opening.subtype === 'sectional')) return;
+      opening.isOpen = event.target.checked;
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
+    const sillInput = document.querySelector('#openingBottomInput');
+    sillInput?.addEventListener('change', () => applyDimension('bottom', sillInput));
+    document.querySelector('#openingWindowSubtype')?.addEventListener('change', (event) => {
+      const opening = this.getSelectedOpening();
+      if (!opening || opening.type !== 'window') return;
+      opening.subtype = event.target.value;
+      normalizeOpening(opening, this.state);
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
+    widthInput?.addEventListener('change', () => applyDimension('width', widthInput));
+    heightInput?.addEventListener('change', () => applyDimension('height', heightInput));
+    colorInput?.addEventListener('input', () => {
+      const opening = this.getSelectedOpening();
+      if (!opening) return;
+      opening.color = colorInput.value;
+      this.callbacks.onOpeningEdit?.(opening.id, { immediate: true });
+    });
+    sideSelect?.addEventListener('change', () => {
+      const opening = this.getSelectedOpening();
+      if (!opening) return;
+      this.callbacks.onOpeningMoveToSide?.(opening.id, sideSelect.value);
+    });
+    document.querySelector('#openingDeleteButton')?.addEventListener('click', () => {
+      if (this.selectedOpeningId) this.callbacks.onOpeningDelete?.(this.selectedOpeningId);
+    });
+    document.querySelector('#openingPlacementCancelButton')?.addEventListener('click', () => {
+      this.callbacks.onOpeningPlacementCancel?.();
+    });
+    document.querySelector('#openingEditor')?.addEventListener('pointerdown', (event) => event.stopPropagation());
+  }
+
+  getSelectedOpening() {
+    return normalizeOpenings(this.state).find((opening) => opening.id === this.selectedOpeningId) ?? null;
+  }
+
+  setPlacementMode(type = null) {
+    this.placementType = type;
+    document.body.classList.toggle('hall-opening-placement-active', Boolean(type));
+    const mobileCancel = document.querySelector('#openingPlacementCancelButton');
+    if (mobileCancel) mobileCancel.hidden = !type;
+    document.querySelectorAll('[data-add-opening]').forEach((button) => {
+      const active = Boolean(type) && button.dataset.addOpening === type;
+      button.classList.toggle('is-placement-active', active);
+      button.disabled = Boolean(type) && !active;
+      const label = button.querySelector('b');
+      const icon = button.querySelector('span');
+      if (label) label.textContent = active ? this.t('openings.cancelPlacement') : this.t(`openings.add.${button.dataset.addOpening}`);
+      if (icon) icon.textContent = active ? '×' : '＋';
+    });
+    const status = document.querySelector('#openingStatusText');
+    if (status && type) {
+      status.textContent = this.t('openings.placing', { type: hallOpeningLabel(type, this.locale).toLocaleLowerCase(this.locale) });
+      status.classList.remove('is-error');
+    } else if (status && !this.selectedOpeningId) {
+      status.textContent = this.t('openings.selectPrompt');
+    }
+  }
+
+  setSelectedOpening(id) {
+    this.selectedOpeningId = id ?? null;
+    const editor = document.querySelector('#openingEditor');
+    const opening = this.getSelectedOpening();
+    if (!editor || !opening) {
+      if (editor) editor.hidden = true;
+      const status = document.querySelector('#openingStatusText');
+      if (status && !this.placementType) status.textContent = this.t('openings.selectPrompt');
+      return;
+    }
+    editor.hidden = false;
+    document.querySelector('#openingEditorTitle').textContent = openingLabel(opening, this.locale);
+    document.querySelector('#openingEditorSide').textContent = hallWallLabel(opening.side, { locale: this.locale });
+    const sideSelect = document.querySelector('#openingSideSelect');
+    if (sideSelect) sideSelect.value = opening.side;
+    const subtypeRow = document.querySelector('#openingWindowSubtypeRow');
+    if (subtypeRow) subtypeRow.hidden = opening.type !== 'window';
+    const subtype = document.querySelector('#openingWindowSubtype');
+    if (subtype) subtype.value = opening.subtype || 'standard';
+    const garageRow = document.querySelector('#openingGarageSubtypeRow');
+    if (garageRow) garageRow.hidden = opening.type !== 'garage';
+    const garageType = document.querySelector('#openingGarageSubtype');
+    if (garageType) garageType.value = opening.subtype === 'sectional' ? 'sectional' : 'roller';
+    const entranceRow = document.querySelector('#openingEntranceSubtypeRow');
+    if (entranceRow) entranceRow.hidden = opening.type !== 'entrance';
+    const entranceType = document.querySelector('#openingEntranceSubtype');
+    if (entranceType) entranceType.value = opening.subtype || 'sliding-glass';
+    const entranceOpenRow = document.querySelector('#openingEntranceOpenRow');
+    if (entranceOpenRow) entranceOpenRow.hidden = !(opening.type === 'entrance' || opening.type === 'garage' && opening.subtype === 'sectional');
+    const entranceOpen = document.querySelector('#openingEntranceOpen');
+    if (entranceOpen) entranceOpen.checked = Boolean(opening.isOpen);
+    const bottomInput = document.querySelector('#openingBottomInput');
+    if (bottomInput) {
+      bottomInput.max = String(Math.max(0, this.state.eaveHeight - opening.height - (openingType(opening.type, opening.subtype).headroom ?? .06)));
+      bottomInput.value = opening.bottom.toFixed(2);
+    }
+    const spec = openingType(opening.type, opening.subtype);
+    const widthInput = document.querySelector('#openingWidthInput');
+    const heightInput = document.querySelector('#openingHeightInput');
+    if (widthInput) {
+      widthInput.min = String(spec.minWidth);
+      widthInput.max = String(Math.min(spec.maxWidth, Math.max(spec.minWidth, (opening.side === 'front' || opening.side === 'back' ? this.state.width : this.state.length) - .24)));
+      widthInput.value = opening.width.toFixed(2);
+    }
+    if (heightInput) {
+      heightInput.min = String(spec.minHeight);
+      heightInput.max = String(Math.min(spec.maxHeight, Math.max(spec.minHeight, this.state.eaveHeight - (spec.headroom ?? .12))));
+      heightInput.value = opening.height.toFixed(2);
+    }
+    const colorInput = document.querySelector('#openingColorInput');
+    if (colorInput) colorInput.value = opening.color;
+    this.updateOpeningValidation();
+    const status = document.querySelector('#openingStatusText');
+    if (status && !this.placementType) status.textContent = this.t('openings.selected', { type: hallOpeningLabel(opening.type, this.locale) });
+  }
+
+  positionOpeningEditor(x, y, visible = true) {
+    const editor = document.querySelector('#openingEditor');
+    if (!editor || editor.hidden) return;
+    editor.style.visibility = visible ? 'visible' : 'hidden';
+    if (!visible) return;
+    // Daylight bands can sit near the eaves. Keep the expanded editor below
+    // the top bar rather than using a fixed minimum that clips taller forms.
+    const margin = 12;
+    const panelWidth = editor.offsetWidth || 238;
+    const panelHeight = editor.offsetHeight;
+    const topBarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--shared-topbar-height')) || 47;
+    const safeX = Math.max(panelWidth / 2 + margin, Math.min(window.innerWidth - panelWidth / 2 - margin, x));
+    const safeY = Math.max(topBarHeight + panelHeight + 16 + margin, Math.min(window.innerHeight - margin, y));
+    editor.style.left = `${safeX}px`;
+    editor.style.top = `${safeY}px`;
+  }
+
+  updateOpeningValidation() {
+    const validation = validateOpenings(this.state, this.locale);
+    const selected = this.getSelectedOpening();
+    const warning = document.querySelector('#openingEditorWarning');
+    if (warning) {
+      const related = selected ? validation.overlaps.filter(({ a, b }) => a.id === selected.id || b.id === selected.id) : [];
+      warning.hidden = related.length === 0;
+      warning.textContent = related.length ? this.t('openings.overlapWarning') : '';
+    }
+    const status = document.querySelector('#openingStatusText');
+    if (status && !validation.valid && !this.placementType) {
+      status.classList.add('is-error');
+      status.textContent = this.t('openings.collisionCount', { count: validation.errors.length, suffix: this.locale === 'en-US' && validation.errors.length !== 1 ? 's' : '' });
+    } else if (status) {
+      status.classList.remove('is-error');
+      if (!this.placementType && !selected) status.textContent = this.t('openings.selectPrompt');
+    }
+    return validation;
+  }
+
+  updateSectionCutControl() {
+    document.querySelector('#sectionCutControl')?.classList.toggle('is-disabled', !this.state.sectionCutEnabled);
+  }
+
+  updateClimateNote() {
+    const note = document.querySelector('#climateNote');
+    if (note) note.textContent = this.t(`climate.note.${this.state.climateSystem}`);
+  }
+
+  applyStateToControls() {
+    document.querySelectorAll('[data-control]').forEach((control) => {
+      const key = control.dataset.control;
+      const value = Number(this.state[key]);
+      if (!Number.isFinite(value)) return;
+      control.querySelectorAll('input').forEach((input) => { input.value = String(value); });
+      const output = control.querySelector('output');
+      if (output) output.value = formatters[key]?.(value) ?? String(value);
+    });
+
+    ['structurePreset', 'claddingProfile', 'climateSystem', 'lightingStyle', 'wallBracingLayout', 'climateUnitLocation', 'inspectionMode', 'rackDensity', 'warehouseLayout', 'productionFlow', 'serviceVisibility'].forEach((id) => {
+      const element = document.querySelector(`#${id}`);
+      if (element) element.value = this.state[id];
+    });
+    const checkboxMap = {
+      secondaryStructureToggle: this.state.secondaryStructure,
+      slabToggle: this.state.slab,
+      roofSkylightsToggle: this.state.roofSkylights,
+      guttersToggle: this.state.gutters,
+      highBayLightingToggle: this.state.highBayLighting,
+      fireSprinklersToggle: this.state.fireSprinklers,
+      entranceCanopyToggle: this.state.entranceCanopy,
+      facadeSignToggle: this.state.facadeSign,
+      customerApronToggle: this.state.customerApron,
+      retailDisplaysToggle: this.state.retailDisplays,
+      loadingApronToggle: this.state.loadingApron,
+      loadingBayMarkingsToggle: this.state.loadingBayMarkings,
+      loadingBayProtectionToggle: this.state.loadingBayProtection,
+      loadingBayNumbersToggle: this.state.loadingBayNumbers,
+      productionLayoutToggle: this.state.productionLayout,
+      productionEquipmentToggle: this.state.productionEquipment,
+      productionStagingToggle: this.state.productionStaging,
+      productionMarkingsToggle: this.state.productionMarkings,
+      productionUtilitiesToggle: this.state.productionUtilities,
+      claddingToggle: this.state.showCladding,
+      sceneryToggle: this.state.showScenery,
+      connectionDetailsToggle: this.state.connectionDetails,
+      sectionCutToggle: this.state.sectionCutEnabled,
+      warehouseRackingToggle: this.state.warehouseRacking,
+      forkliftClearanceToggle: this.state.forkliftClearance,
+      serviceCoverageToggle: this.state.serviceCoverage,
+      nightPreviewToggle: this.state.nightPreview,
+    };
+    Object.entries(checkboxMap).forEach(([id, checked]) => { const element = document.querySelector(`#${id}`); if (element) element.checked = Boolean(checked); });
+    document.querySelectorAll('#wallSwatches .swatch').forEach((button) => button.classList.toggle('selected', button.dataset.color === this.state.wallColor));
+    document.querySelectorAll('#roofSwatches .swatch').forEach((button) => button.classList.toggle('selected', button.dataset.color === this.state.roofColor));
+    const signText = document.querySelector('#hallSignText'); if (signText) signText.value = this.state.signText ?? COMMERCIAL_DEFAULTS.signText;
+    const accent = document.querySelector('#hallCommercialAccent'); if (accent) accent.value = this.state.commercialAccent ?? COMMERCIAL_DEFAULTS.commercialAccent;
+    const sun = document.querySelector('#sunPositionRange'); if (sun) sun.value = String(this.state.sunPosition);
+    const sunOut = document.querySelector('#sunPositionOutput'); if (sunOut) sunOut.textContent = `${Math.round(this.state.sunPosition * 100)}%`;
+    const north = document.querySelector('#northDirectionRange'); if (north) north.value = String(this.state.northDirection);
+    const northOut = document.querySelector('#northDirectionOutput'); if (northOut) northOut.textContent = `${Math.round(this.state.northDirection)}°`;
+    document.querySelectorAll('[data-scene]').forEach((button) => button.classList.toggle('is-selected', button.dataset.scene === this.state.season));
+    this.setExplodeValue(this.state.explode, { notify: false });
+    this.ensureOpeningLimits();
+    this.updateSectionCutControl();
+    this.updateClimateNote();
+  }
+
+  updateHeaReference() {
+    const profileName = this.state.selectedHeaProfile || 'HEA 220';
+    const profile = getHeaProfile(profileName);
+    const nameCell = document.querySelector('#selectedHeaName');
+    if (nameCell) nameCell.textContent = profileName;
+    const cells = {
+      selectedHeaTheoreticalWeight: profile.theoreticalWeight,
+      selectedHeaCommercialWeight: profile.commercialWeight,
+      selectedHeaH1: profile.h1,
+      selectedHeaB: profile.b,
+      selectedHeaS: profile.s,
+      selectedHeaT: profile.t,
+      selectedHeaH2: profile.h2,
+      selectedHeaH3: profile.h3,
+      selectedHeaF: profile.F,
+      selectedHeaWx: profile.Wx,
+      selectedHeaWy: profile.Wy,
+    };
+    Object.entries(cells).forEach(([id, value]) => {
+      const cell = document.querySelector(`#${id}`);
+      if (cell) cell.textContent = value;
+    });
+  }
+
+  update(build) {
+    this.currentBuild = build;
+    this.updateLoadingNotice();
+    this.updateProductionNotice();
+    this.updateCommercialNotice();
+    const { metrics } = build;
+    document.querySelector('#frameCountInfo').textContent = String(metrics.frameCount);
+    document.querySelector('#actualSpacingInfo').textContent = this.t('structure.spacingInfo', { bays: metrics.bayCount, spacing: metrics.actualBaySpacing.toFixed(2) });
+    const profileInfo = document.querySelector('#profileInfo');
+    if (profileInfo && build.profileSchedule) profileInfo.textContent = this.t('structure.profileInfo', build.profileSchedule);
+
+    this.updateHeaReference();
+
+    const openingValidation = validateOpenings(this.state, this.locale);
+    const lines = openingValidation.valid ? buildBom(this.state, build, this.locale) : [];
+    document.querySelector('#headerBomSummary').textContent = openingValidation.valid ? this.t('summary.lines', { count: lines.length }) : this.t('summary.unavailableShort');
+    const tbody = document.querySelector('#bomTableBody');
+    tbody.replaceChildren(...lines.map((line, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${index + 1}</td><td><strong>${line.name}</strong></td><td>${line.unit}</td><td>${line.quantity}</td><td>${line.notes ?? ''}</td>`;
+      return tr;
+    }));
+
+    const assumptions = [
+      [this.t('summary.metric.footprint'), `${metrics.footprint.toFixed(1)} m²`],
+      [this.t('summary.metric.roofArea'), `${metrics.roofArea.toFixed(1)} m²`],
+      [this.t('summary.metric.netWallArea'), `${metrics.netWallArea.toFixed(1)} m²`],
+      [this.t('summary.metric.frames'), `${metrics.frameCount}`],
+      [this.t('summary.metric.bays'), `${metrics.bayCount}`],
+      [this.t('summary.metric.spacing'), `${metrics.actualBaySpacing.toFixed(2)} m`],
+    ];
+    const grid = document.querySelector('#bomAssumptions');
+    grid.replaceChildren(...assumptions.map(([label, value]) => {
+      const item = document.createElement('div');
+      item.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+      return item;
+    }));
+
+    this.updateSummary(lines, metrics);
+  }
+
+  updateSummary(lines, metrics) {
+    if (!this.updateSummaryValidation()) return;
+    const estimate = estimateHallPrice(this.state, this.currentBuild, this.locale);
+    document.querySelector('#summaryTotal').textContent = formatPrice(estimate.total, estimate.currency, this.locale);
+    const breakdown = document.querySelector('#summaryPriceBreakdown');
+    breakdown.replaceChildren(...[
+      ...estimate.items.map((item) => [item.label, formatPrice(item.amount, estimate.currency, this.locale)]),
+      [this.t('pricing.engineering'), formatPrice(estimate.engineeringAndInstall, estimate.currency, this.locale)],
+    ].map(([label, value]) => {
+      const row = document.createElement('div');
+      row.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+      return row;
+    }));
+
+    const metricsBox = document.querySelector('#summaryMetrics');
+    metricsBox.innerHTML = `<div><span>${this.t('summary.metric.footprint')}</span><strong>${metrics.footprint.toFixed(1)} m²</strong></div><div><span>${this.t('summary.metric.frames')}</span><strong>${metrics.frameCount}</strong></div><div><span>${this.t('summary.metric.openings')}</span><strong>${this.state.openings.length}</strong></div><div><span>${this.t('summary.metric.climate')}</span><strong>${hallValueLabel('climateSystem', this.state.climateSystem, this.locale)}</strong></div>`;
+
+    const preview = document.querySelector('#summaryBomList');
+    preview.replaceChildren(...lines.slice(0, 8).map((line) => {
+      const row = document.createElement('div');
+      row.innerHTML = `<span>${line.name}</span><strong>${line.quantity} ${line.unit}</strong>`;
+      return row;
+    }));
+    if (lines.length > 8) {
+      const more = document.createElement('div');
+      more.className = 'summary-bom-more';
+      more.textContent = this.t('summary.moreBom', { count: lines.length - 8 });
+      preview.append(more);
+    }
+  }
+
+  updateSummaryValidation() {
+    const validation = validateOpenings(this.state, this.locale);
+    const error = document.querySelector('#summaryValidationError');
+    const content = document.querySelector('#summaryContent');
+    const exportInline = document.querySelector('#bomExportInlineButton');
+    const bomOpen = document.querySelector('#bomOpenButton');
+    if (error) {
+      error.hidden = validation.valid;
+      error.innerHTML = validation.valid ? '' : `<strong>${this.t('summary.unavailable')}</strong>${validation.errors.join('<br>')} ${this.t('summary.resolveOverlaps')}`;
+    }
+    content?.classList.toggle('is-blocked', !validation.valid);
+    if (exportInline) exportInline.disabled = !validation.valid;
+    if (bomOpen) bomOpen.disabled = !validation.valid;
+    this.updateOpeningValidation();
+    return validation.valid;
+  }
+
+  captureState() { return structuredClone(this.state); }
+
+  restoreState(snapshot) {
+    if (!Array.isArray(snapshot?.openings)) this.state.openings = undefined;
+    Object.assign(this.state, COMMERCIAL_DEFAULTS, LOGISTICS_DEFAULTS, PRODUCTION_DEFAULTS, structuredClone(snapshot));
+    normalizeLogistics(this.state);
+    normalizeProduction(this.state);
+    normalizeCommercialFeatures(this.state);
+    delete this.state.buildingUse;
+    normalizeOpenings(this.state);
+    this.selectedOpeningId = null;
+    this.setPlacementMode(null);
+    this.applyStateToControls();
+    this.callbacks.onModelChange?.({ fitCamera: true, immediate: true });
+  }
+}
+

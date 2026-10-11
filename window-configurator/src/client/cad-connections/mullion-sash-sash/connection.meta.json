@@ -1,0 +1,2474 @@
+{
+  "schemaVersion": 2,
+  "id": "mullion-sash-sash",
+  "kind": "cad-connection-template",
+  "boundary": "mullion-transom",
+  "leftCell": "opening-sash",
+  "rightCell": "opening-sash",
+  "mirrorAllowed": false,
+  "orientation": "left-right-section",
+  "source": {
+    "path": "cad/source/join/window-sash-mullion-sash-window.dwg",
+    "sha256": "d7dbd42143676fddef099403c30643e535462e9a127b5b14cde370ab07ae21fe"
+  },
+  "extraction": {
+    "method": "exact-insert-transform-matching",
+    "converter": "cad/tools/test_convert.js",
+    "modelSpacePolicy": "prefer-inserts",
+    "geometrySource": {
+      "modelSpacePolicy": "prefer-inserts",
+      "topLevelInsertCount": 20,
+      "directModelSpaceEntityCount": 84,
+      "directModelSpacePathCount": 47,
+      "filteredPathCount": 20,
+      "usedInsertGeometry": true,
+      "usedDirectModelSpaceGeometry": false,
+      "ignoredDirectModelSpaceGeometry": true,
+      "componentCount": 38
+    },
+    "namedInsertInventory": [
+      {
+        "index": 0,
+        "blockName": "200988_s",
+        "parentBlock": null,
+        "rootBlock": "200988_s",
+        "hierarchy": [
+          "200988_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 111.3123206767145,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 111.31275926166508,
+          "minY": 112.616123489704,
+          "maxX": 128.0280339258381,
+          "maxY": 129.216123489704
+        }
+      },
+      {
+        "index": 1,
+        "blockName": "245472_s_5",
+        "parentBlock": null,
+        "rootBlock": "245472_s_5",
+        "hierarchy": [
+          "245472_s_5"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 55.6123206767129,
+          "ty": 97.25725298722318
+        },
+        "bbox": {
+          "minX": 53.372341246089476,
+          "minY": 95.45725298722301,
+          "maxX": 60.61211630610728,
+          "maxY": 103.25611461761844
+        }
+      },
+      {
+        "index": 2,
+        "blockName": "245472_s",
+        "parentBlock": null,
+        "rootBlock": "245472_s",
+        "hierarchy": [
+          "245472_s"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.81232067670815,
+          "ty": 164.7572606183985
+        },
+        "bbox": {
+          "minX": 75.8125250473135,
+          "minY": 158.46319497366767,
+          "maxX": 83.05230010733129,
+          "maxY": 166.55726061839852
+        }
+      },
+      {
+        "index": 3,
+        "blockName": "224068_s_1",
+        "parentBlock": null,
+        "rootBlock": "224068_s_1",
+        "hierarchy": [
+          "224068_s_1"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.01232467670661,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 60.149242265437636,
+          "minY": 104.41752342989395,
+          "maxX": 83.03220709151226,
+          "maxY": 118.50728731164628
+        }
+      },
+      {
+        "index": 4,
+        "blockName": "245472_s_5",
+        "parentBlock": null,
+        "rootBlock": "245472_s_5",
+        "hierarchy": [
+          "245472_s_5"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 139.0123206767162,
+          "ty": 97.25725298722318
+        },
+        "bbox": {
+          "minX": 134.01252504732182,
+          "minY": 95.45725298722301,
+          "maxX": 141.25230010733964,
+          "maxY": 103.25611461761844
+        }
+      },
+      {
+        "index": 5,
+        "blockName": "245472_s",
+        "parentBlock": null,
+        "rootBlock": "245472_s",
+        "hierarchy": [
+          "245472_s"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 113.8123206767209,
+          "ty": 164.7572606183985
+        },
+        "bbox": {
+          "minX": 111.57234124609775,
+          "minY": 158.46319497366767,
+          "maxX": 118.81211630611556,
+          "maxY": 166.55726061839852
+        }
+      },
+      {
+        "index": 6,
+        "blockName": "224068_s_1",
+        "parentBlock": null,
+        "rootBlock": "224068_s_1",
+        "hierarchy": [
+          "224068_s_1"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 114.6123166767224,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 111.59243426191675,
+          "minY": 104.41752342989395,
+          "maxX": 134.47539908799138,
+          "maxY": 118.50728731164628
+        }
+      },
+      {
+        "index": 7,
+        "blockName": "224063_s",
+        "parentBlock": null,
+        "rootBlock": "224063_s",
+        "hierarchy": [
+          "224063_s"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 16.6116121367163,
+          "ty": 97.25726061734713
+        },
+        "bbox": {
+          "minX": 10.094596315900471,
+          "minY": 95.25712961734713,
+          "maxX": 23.559061136716302,
+          "maxY": 102.05708740720829
+        }
+      },
+      {
+        "index": 8,
+        "blockName": "224378_s_8",
+        "parentBlock": null,
+        "rootBlock": "224378_s_8",
+        "hierarchy": [
+          "224378_s_8"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 12.31232178946493,
+          "ty": 138.2574072785387
+        },
+        "bbox": {
+          "minX": 9.767001579795853,
+          "minY": 128.56674108397405,
+          "maxX": 23.748742610374137,
+          "maxY": 137.92710549123814
+        }
+      },
+      {
+        "index": 9,
+        "blockName": "224063_s",
+        "parentBlock": null,
+        "rootBlock": "224063_s",
+        "hierarchy": [
+          "224063_s"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 178.0130292167127,
+          "ty": 97.25726061734667
+        },
+        "bbox": {
+          "minX": 171.0655802167127,
+          "minY": 95.25712961734668,
+          "maxX": 184.53004503752854,
+          "maxY": 102.05708740720783
+        }
+      },
+      {
+        "index": 10,
+        "blockName": "224378_s_8",
+        "parentBlock": null,
+        "rootBlock": "224378_s_8",
+        "hierarchy": [
+          "224378_s_8"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 182.3123195639641,
+          "ty": 138.2574072785387
+        },
+        "bbox": {
+          "minX": 170.8758987430549,
+          "minY": 128.56674108397405,
+          "maxX": 184.8576397736332,
+          "maxY": 137.92710549123814
+        }
+      },
+      {
+        "index": 11,
+        "blockName": "581950_s",
+        "parentBlock": "575810_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "581950_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 141.31232067671453,
+          "ty": 93.25740727739276
+        },
+        "bbox": {
+          "minX": 53.31232067671454,
+          "minY": 93.25740727739276,
+          "maxX": 141.31232067671453,
+          "maxY": 109.55739411724508
+        }
+      },
+      {
+        "index": 12,
+        "blockName": "587300_s",
+        "parentBlock": "575810_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "587300_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 116.31232067671453,
+          "ty": 158.25740727739276
+        },
+        "bbox": {
+          "minX": 78.31232067671453,
+          "minY": 136.4574204375404,
+          "maxX": 116.31232067671453,
+          "maxY": 158.25740727739276
+        }
+      },
+      {
+        "index": 13,
+        "blockName": "30065126_s",
+        "parentBlock": "662017_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "662017_s",
+          "30065126_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 83.31232067671453,
+          "ty": 140.25740727739276
+        },
+        "bbox": {
+          "minX": 78.51232067671454,
+          "minY": 105.76740727739275,
+          "maxX": 89.75576968409752,
+          "maxY": 140.24740727739277
+        }
+      },
+      {
+        "index": 14,
+        "blockName": "30065191_s",
+        "parentBlock": "662019_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "662019_s",
+          "30065191_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 111.31232067671455,
+          "ty": 140.26612348970403
+        },
+        "bbox": {
+          "minX": 102.01232067671455,
+          "minY": 105.77612348970402,
+          "maxX": 116.11232067671455,
+          "maxY": 140.25612348970404
+        }
+      },
+      {
+        "index": 15,
+        "blockName": "30065183_s",
+        "parentBlock": "662019_s",
+        "rootBlock": "575810_s",
+        "hierarchy": [
+          "575810_s",
+          "662019_s",
+          "30065183_s"
+        ],
+        "layer": "S35_Dämmung_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 111.31232067671453,
+          "ty": 123.01612348970403
+        },
+        "bbox": {
+          "minX": 87.11232067671455,
+          "minY": 116.51612348970403,
+          "maxX": 109.31232067671455,
+          "maxY": 131.51612348970403
+        }
+      },
+      {
+        "index": 16,
+        "blockName": "245472_s",
+        "parentBlock": null,
+        "rootBlock": "245472_s",
+        "hierarchy": [
+          "245472_s"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 113.8126671192754,
+          "ty": 164.757324287345
+        },
+        "bbox": {
+          "minX": 111.57268768865225,
+          "minY": 158.46325864261416,
+          "maxX": 118.81246274867006,
+          "maxY": 166.557324287345
+        }
+      },
+      {
+        "index": 17,
+        "blockName": "587290_s",
+        "parentBlock": "575790_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "587290_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 180.3123206767163,
+          "ty": 93.2574072773923
+        },
+        "bbox": {
+          "minX": 137.81232067671613,
+          "minY": 93.2574072773923,
+          "maxX": 180.3123206767163,
+          "maxY": 108.75739411724425
+        }
+      },
+      {
+        "index": 18,
+        "blockName": "511130_s",
+        "parentBlock": "575790_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "511130_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 160.3123206767163,
+          "ty": 168.2574072773923
+        },
+        "bbox": {
+          "minX": 111.3123206767163,
+          "minY": 147.15742043753997,
+          "maxX": 160.3123206767163,
+          "maxY": 168.2574072773923
+        }
+      },
+      {
+        "index": 19,
+        "blockName": "30065155_s",
+        "parentBlock": "662011_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "662011_s",
+          "30065155_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 140.31232067671613,
+          "ty": 104.9574072773917
+        },
+        "bbox": {
+          "minX": 128.3123206767161,
+          "minY": 104.9674072773917,
+          "maxX": 146.75555036757396,
+          "maxY": 151.94740727739168
+        }
+      },
+      {
+        "index": 20,
+        "blockName": "30065273_s",
+        "parentBlock": "662015_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "662015_s",
+          "30065273_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 160.11232067671614,
+          "ty": 127.95740727739198
+        },
+        "bbox": {
+          "minX": 150.81232067671613,
+          "minY": 104.967407277392,
+          "maxX": 161.61232067671614,
+          "maxY": 150.947407277392
+        }
+      },
+      {
+        "index": 21,
+        "blockName": "30065182_s",
+        "parentBlock": "662015_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "662015_s",
+          "30065182_s"
+        ],
+        "layer": "S35_Dämmung_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 160.1123206767161,
+          "ty": 127.95740727739198
+        },
+        "bbox": {
+          "minX": 143.21232067671613,
+          "minY": 120.45740727739198,
+          "maxX": 158.11232067671614,
+          "maxY": 135.45740727739198
+        }
+      },
+      {
+        "index": 22,
+        "blockName": "587290_s",
+        "parentBlock": "575790_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "587290_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 14.312320676714542,
+          "ty": 93.2574072773923
+        },
+        "bbox": {
+          "minX": 14.312320676714542,
+          "minY": 93.2574072773923,
+          "maxX": 56.81232067671471,
+          "maxY": 108.75739411724425
+        }
+      },
+      {
+        "index": 23,
+        "blockName": "511130_s",
+        "parentBlock": "575790_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "511130_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 34.31232067671454,
+          "ty": 168.2574072773923
+        },
+        "bbox": {
+          "minX": 34.31232067671454,
+          "minY": 147.15742043753997,
+          "maxX": 83.31232067671453,
+          "maxY": 168.2574072773923
+        }
+      },
+      {
+        "index": 24,
+        "blockName": "30065155_s",
+        "parentBlock": "662011_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "662011_s",
+          "30065155_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 54.31232067671471,
+          "ty": 104.9574072773917
+        },
+        "bbox": {
+          "minX": 47.86909098585688,
+          "minY": 104.9674072773917,
+          "maxX": 66.31232067671473,
+          "maxY": 151.94740727739168
+        }
+      },
+      {
+        "index": 25,
+        "blockName": "30065273_s",
+        "parentBlock": "662015_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "662015_s",
+          "30065273_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 34.512320676714715,
+          "ty": 127.95740727739198
+        },
+        "bbox": {
+          "minX": 33.01232067671471,
+          "minY": 104.967407277392,
+          "maxX": 43.81232067671471,
+          "maxY": 150.947407277392
+        }
+      },
+      {
+        "index": 26,
+        "blockName": "30065182_s",
+        "parentBlock": "662015_s",
+        "rootBlock": "575790_s",
+        "hierarchy": [
+          "575790_s",
+          "662015_s",
+          "30065182_s"
+        ],
+        "layer": "S35_Dämmung_Kontur",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 34.51232067671474,
+          "ty": 127.95740727739198
+        },
+        "bbox": {
+          "minX": 36.512320676714694,
+          "minY": 120.45740727739198,
+          "maxX": 51.412320676714714,
+          "maxY": 135.45740727739198
+        }
+      },
+      {
+        "index": 27,
+        "blockName": "573940_s",
+        "parentBlock": null,
+        "rootBlock": "573940_s",
+        "hierarchy": [
+          "573940_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": -1,
+          "d": 0,
+          "tx": 160.3123206767163,
+          "ty": 168.257324287345
+        },
+        "bbox": {
+          "minX": 155.61255248462223,
+          "minY": 136.257324287345,
+          "maxX": 182.3123206767163,
+          "maxY": 168.257324287345
+        }
+      },
+      {
+        "index": 28,
+        "blockName": "244511_s_2",
+        "parentBlock": "573940_s",
+        "rootBlock": "573940_s",
+        "hierarchy": [
+          "573940_s",
+          "244511_s_2"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": 0,
+          "b": -1,
+          "c": 1,
+          "d": 0,
+          "tx": 159.2123206767163,
+          "ty": 156.557324287345
+        },
+        "bbox": {
+          "minX": 157.96232463141075,
+          "minY": 155.757324287345,
+          "maxX": 160.46231672202185,
+          "maxY": 157.807324287345
+        }
+      },
+      {
+        "index": 29,
+        "blockName": "573940_s",
+        "parentBlock": null,
+        "rootBlock": "573940_s",
+        "hierarchy": [
+          "573940_s"
+        ],
+        "layer": "S03_AL_Kontur",
+        "transform": {
+          "a": 9.094947017729282e-13,
+          "b": -1,
+          "c": -1,
+          "d": -9.094947017729282e-13,
+          "tx": 34.31232067670362,
+          "ty": 168.2573242872877
+        },
+        "bbox": {
+          "minX": 12.312320676704076,
+          "minY": 136.25732428726997,
+          "maxX": 39.01208886880835,
+          "maxY": 168.25732428728725
+        }
+      },
+      {
+        "index": 30,
+        "blockName": "244511_s_2",
+        "parentBlock": "573940_s",
+        "rootBlock": "573940_s",
+        "hierarchy": [
+          "573940_s",
+          "244511_s_2"
+        ],
+        "layer": "S05_EPDM_Kontur",
+        "transform": {
+          "a": -9.094947017729282e-13,
+          "b": 1,
+          "c": 1,
+          "d": 9.094947017729282e-13,
+          "tx": 35.412320676714266,
+          "ty": 156.5573242872887
+        },
+        "bbox": {
+          "minX": 34.16232463140871,
+          "minY": 155.75732428728782,
+          "maxX": 36.66231672201982,
+          "maxY": 157.8073242872887
+        }
+      },
+      {
+        "index": 31,
+        "blockName": "200988_s",
+        "parentBlock": null,
+        "rootBlock": "200988_s",
+        "hierarchy": [
+          "200988_s"
+        ],
+        "layer": "S07_Isolation_Kontur",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 83.31232067671633,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 66.59660742759273,
+          "minY": 112.616123489704,
+          "maxX": 83.31188209176575,
+          "maxY": 129.216123489704
+        }
+      },
+      {
+        "index": 32,
+        "blockName": "CustomObjectsInViewport4_0",
+        "parentBlock": null,
+        "rootBlock": "CustomObjectsInViewport4_0",
+        "hierarchy": [
+          "CustomObjectsInViewport4_0"
+        ],
+        "layer": "S24_Konstruktion_050",
+        "transform": {
+          "a": 0,
+          "b": -1,
+          "c": 1,
+          "d": 0,
+          "tx": -9879.129928343013,
+          "ty": 10161.20128923959
+        },
+        "bbox": {
+          "minX": 127.37007184771755,
+          "minY": 147.59773561058137,
+          "maxX": 135.2200279844128,
+          "maxY": 154.70128900117197
+        }
+      },
+      {
+        "index": 33,
+        "blockName": "CustomObjectsInViewport4_0",
+        "parentBlock": null,
+        "rootBlock": "CustomObjectsInViewport4_0",
+        "hierarchy": [
+          "CustomObjectsInViewport4_0"
+        ],
+        "layer": "S24_Konstruktion_050",
+        "transform": {
+          "a": 0,
+          "b": -1,
+          "c": 1,
+          "d": 0,
+          "tx": -9879.129928343013,
+          "ty": 10161.20128923959
+        },
+        "bbox": {
+          "minX": 127.37007184771755,
+          "minY": 135.70128900117015,
+          "maxX": 135.2200279844128,
+          "maxY": 142.80484239176985
+        }
+      },
+      {
+        "index": 34,
+        "blockName": "CustomObjectsInViewport4_0",
+        "parentBlock": null,
+        "rootBlock": "CustomObjectsInViewport4_0",
+        "hierarchy": [
+          "CustomObjectsInViewport4_0"
+        ],
+        "layer": "S24_Konstruktion_050",
+        "transform": {
+          "a": 0,
+          "b": -1,
+          "c": 1,
+          "d": 0,
+          "tx": -9879.129928343013,
+          "ty": 10161.20128923959
+        },
+        "bbox": {
+          "minX": 130.12007184771755,
+          "minY": 140.64271035740967,
+          "maxX": 132.62007184771755,
+          "maxY": 149.75986764493973
+        }
+      },
+      {
+        "index": 35,
+        "blockName": "CustomObjectsInViewport4_0",
+        "parentBlock": null,
+        "rootBlock": "CustomObjectsInViewport4_0",
+        "hierarchy": [
+          "CustomObjectsInViewport4_0"
+        ],
+        "layer": "S24_Konstruktion_050",
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": 10073.75456969644,
+          "ty": 10161.20128923959
+        },
+        "bbox": {
+          "minX": 59.40461336901353,
+          "minY": 147.5977356105832,
+          "maxX": 67.25456950570879,
+          "maxY": 154.7012890011738
+        }
+      },
+      {
+        "index": 36,
+        "blockName": "CustomObjectsInViewport4_0",
+        "parentBlock": null,
+        "rootBlock": "CustomObjectsInViewport4_0",
+        "hierarchy": [
+          "CustomObjectsInViewport4_0"
+        ],
+        "layer": "S24_Konstruktion_050",
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": 10073.75456969644,
+          "ty": 10161.20128923959
+        },
+        "bbox": {
+          "minX": 59.40461336901353,
+          "minY": 135.70128900117197,
+          "maxX": 67.25456950570879,
+          "maxY": 142.80484239177167
+        }
+      },
+      {
+        "index": 37,
+        "blockName": "CustomObjectsInViewport4_0",
+        "parentBlock": null,
+        "rootBlock": "CustomObjectsInViewport4_0",
+        "hierarchy": [
+          "CustomObjectsInViewport4_0"
+        ],
+        "layer": "S24_Konstruktion_050",
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": 10073.75456969644,
+          "ty": 10161.20128923959
+        },
+        "bbox": {
+          "minX": 62.00456950570879,
+          "minY": 140.6427103574115,
+          "maxX": 64.50456950570879,
+          "maxY": 149.75986764494155
+        }
+      }
+    ],
+    "note": "Rotation/mirroring is derived from CAD INSERT transforms. Bounding boxes are used only to validate a transform match, never to choose the rotation."
+  },
+  "bounds": {
+    "minX": 9.767001579795853,
+    "minY": 93.2574072773923,
+    "maxX": 184.8576397736332,
+    "maxY": 168.2574072773923
+  },
+  "profileOccurrences": {
+    "200988": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "200988",
+        "role": "accessory",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 111.3123206767145,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 111.31275926166508,
+          "minY": 112.616123489704,
+          "maxX": 128.0280339258381,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 119.67039659375158,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "200988",
+        "role": "accessory",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 83.31232067671633,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 66.59660742759273,
+          "minY": 112.616123489704,
+          "maxX": 83.31188209176575,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 74.95424475967924,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "224063": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224063",
+        "role": "gasket",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 16.6116121367163,
+          "ty": 97.25726061734713
+        },
+        "bbox": {
+          "minX": 10.094596315900471,
+          "minY": 95.25712961734713,
+          "maxX": 23.559061136716302,
+          "maxY": 102.05708740720829
+        },
+        "center": {
+          "x": 16.826828726308385,
+          "y": 98.65710851227772
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "224063",
+        "role": "gasket",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 178.0130292167127,
+          "ty": 97.25726061734667
+        },
+        "bbox": {
+          "minX": 171.0655802167127,
+          "minY": 95.25712961734668,
+          "maxX": 184.53004503752854,
+          "maxY": 102.05708740720783
+        },
+        "center": {
+          "x": 177.7978126271206,
+          "y": 98.65710851227726
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "224068": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224068",
+        "role": "accessory",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.01232467670661,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 60.149242265437636,
+          "minY": 104.41752342989395,
+          "maxX": 83.03220709151226,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 71.59072467847494,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "224068",
+        "role": "accessory",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 114.6123166767224,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 111.59243426191675,
+          "minY": 104.41752342989395,
+          "maxX": 134.47539908799138,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 123.03391667495407,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "224378": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "224378",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 280.8540542892375,
+          "ty": 18.87725750576189
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 170.8758987430549,
+          "minY": 128.56674108397405,
+          "maxX": 184.8576397736332,
+          "maxY": 137.92710549123814
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 0,
+        "matches": [
+          {
+            "sourceComponentId": "224378_s_8-0",
+            "targetComponentId": "224378_s_8-inst1-10",
+            "bboxErrorMm": 0
+          }
+        ]
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "224378",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -86.22941293580848,
+          "ty": 18.87725750576189
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 9.767001579795853,
+          "minY": 128.56674108397405,
+          "maxX": 23.748742610374137,
+          "maxY": 137.92710549123814
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 3.552713678800501e-15,
+        "matches": [
+          {
+            "sourceComponentId": "224378_s_8-0",
+            "targetComponentId": "224378_s_8-8",
+            "bboxErrorMm": 3.552713678800501e-15
+          }
+        ]
+      }
+    ],
+    "245472": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "245472",
+        "role": "gasket",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 55.6123206767129,
+          "ty": 97.25725298722318
+        },
+        "bbox": {
+          "minX": 53.372341246089476,
+          "minY": 95.45725298722301,
+          "maxX": 60.61211630610728,
+          "maxY": 103.25611461761844
+        },
+        "center": {
+          "x": 56.99222877609838,
+          "y": 99.35668380242072
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s_5"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "245472",
+        "role": "gasket",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.81232067670815,
+          "ty": 164.7572606183985
+        },
+        "bbox": {
+          "minX": 75.8125250473135,
+          "minY": 158.46319497366767,
+          "maxX": 83.05230010733129,
+          "maxY": 166.55726061839852
+        },
+        "center": {
+          "x": 79.4324125773224,
+          "y": 162.5102277960331
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": true
+      },
+      {
+        "occurrenceIndex": 2,
+        "profileId": "245472",
+        "role": "gasket",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 139.0123206767162,
+          "ty": 97.25725298722318
+        },
+        "bbox": {
+          "minX": 134.01252504732182,
+          "minY": 95.45725298722301,
+          "maxX": 141.25230010733964,
+          "maxY": 103.25611461761844
+        },
+        "center": {
+          "x": 137.63241257733074,
+          "y": 99.35668380242072
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s_5"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      },
+      {
+        "occurrenceIndex": 3,
+        "profileId": "245472",
+        "role": "gasket",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 113.8123206767209,
+          "ty": 164.7572606183985
+        },
+        "bbox": {
+          "minX": 111.57234124609775,
+          "minY": 158.46319497366767,
+          "maxX": 118.81211630611556,
+          "maxY": 166.55726061839852
+        },
+        "center": {
+          "x": 115.19222877610665,
+          "y": 162.5102277960331
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      },
+      {
+        "occurrenceIndex": 4,
+        "profileId": "245472",
+        "role": "gasket",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 113.8126671192754,
+          "ty": 164.757324287345
+        },
+        "bbox": {
+          "minX": 111.57268768865225,
+          "minY": 158.46325864261416,
+          "maxX": 118.81246274867006,
+          "maxY": 166.557324287345
+        },
+        "center": {
+          "x": 115.19257521866115,
+          "y": 162.5102914649796
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s"
+        ],
+        "maxBboxErrorMm": 0,
+        "mirrored": false
+      }
+    ],
+    "573940": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "573940",
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": 57.61427776137539,
+          "ty": 33.0313155993756
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 155.61255248462223,
+          "minY": 136.257324287345,
+          "maxX": 182.3123206767163,
+          "maxY": 168.257324287345
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 0,
+        "matches": [
+          {
+            "sourceComponentId": "573940_s-0",
+            "targetComponentId": "573940_s-27",
+            "bboxErrorMm": 0
+          },
+          {
+            "sourceComponentId": "244511_s_2-1",
+            "targetComponentId": "244511_s_2-28",
+            "bboxErrorMm": 0
+          }
+        ]
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "573940",
+        "transform": {
+          "a": -9.094947017729282e-13,
+          "b": -1,
+          "c": 1,
+          "d": -9.094947017729282e-13,
+          "tx": 137.0103635921675,
+          "ty": 33.0313155994117
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 12.312320676704076,
+          "minY": 136.25732428726997,
+          "maxX": 39.01208886880835,
+          "maxY": 168.25732428728725
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 9.583609612443469e-12,
+        "matches": [
+          {
+            "sourceComponentId": "573940_s-0",
+            "targetComponentId": "573940_s-inst1-29",
+            "bboxErrorMm": 9.583609612443469e-12
+          },
+          {
+            "sourceComponentId": "244511_s_2-1",
+            "targetComponentId": "244511_s_2-inst1-30",
+            "bboxErrorMm": 8.905413837234233e-13
+          }
+        ]
+      }
+    ],
+    "575770": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575770",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 37.58620879844129,
+          "ty": 2.9514583141683204
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 87.11232067671455,
+          "minY": 105.77612348970402,
+          "maxX": 116.11232067671455,
+          "maxY": 140.25612348970404
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 7.105427357601002e-15,
+        "matches": [
+          {
+            "sourceComponentId": "30065191_s-3",
+            "targetComponentId": "30065191_s-14",
+            "bboxErrorMm": 7.105427357601002e-15
+          },
+          {
+            "sourceComponentId": "30065183_s-4",
+            "targetComponentId": "30065183_s-15",
+            "bboxErrorMm": 0
+          }
+        ]
+      }
+    ],
+    "575780": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575780",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 58.54785026118759,
+          "ty": -11.099015918794095
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 111.3123206767163,
+          "minY": 93.2574072773923,
+          "maxX": 180.3123206767163,
+          "maxY": 168.2574072773923
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.5888218580782548e-14,
+        "matches": [
+          {
+            "sourceComponentId": "587290_s-0",
+            "targetComponentId": "587290_s-17",
+            "bboxErrorMm": 0
+          },
+          {
+            "sourceComponentId": "511130_s-1",
+            "targetComponentId": "511130_s-18",
+            "bboxErrorMm": 0
+          },
+          {
+            "sourceComponentId": "30065155_s-2",
+            "targetComponentId": "30065155_s-19",
+            "bboxErrorMm": 1.5888218580782548e-14
+          }
+        ]
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "575780",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 136.07679109224324,
+          "ty": -11.099015918794095
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 14.312320676714542,
+          "minY": 93.2574072773923,
+          "maxX": 83.31232067671453,
+          "maxY": 168.2574072773923
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.0658141036401503e-14,
+        "matches": [
+          {
+            "sourceComponentId": "587290_s-0",
+            "targetComponentId": "587290_s-inst1-22",
+            "bboxErrorMm": 5.0242958677880805e-15
+          },
+          {
+            "sourceComponentId": "511130_s-1",
+            "targetComponentId": "511130_s-inst1-23",
+            "bboxErrorMm": 3.552713678800501e-15
+          },
+          {
+            "sourceComponentId": "30065155_s-2",
+            "targetComponentId": "30065155_s-inst1-24",
+            "bboxErrorMm": 1.0658141036401503e-14
+          }
+        ]
+      }
+    ],
+    "575790": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575790",
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 134.5812100605315,
+          "ty": -11.830774295409796
+        },
+        "determinant": -1,
+        "mirrored": true,
+        "bbox": {
+          "minX": 14.312320676714542,
+          "minY": 93.2574072773923,
+          "maxX": 83.31232067671453,
+          "maxY": 168.2574072773923
+        },
+        "matchedComponentCount": 5,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.7763568394002505e-14,
+        "matches": [
+          {
+            "sourceComponentId": "587290_s-0",
+            "targetComponentId": "587290_s-inst1-22",
+            "bboxErrorMm": 5.0242958677880805e-15
+          },
+          {
+            "sourceComponentId": "511130_s-1",
+            "targetComponentId": "511130_s-inst1-23",
+            "bboxErrorMm": 1.6280579355608324e-14
+          },
+          {
+            "sourceComponentId": "30065155_s-2",
+            "targetComponentId": "30065155_s-inst1-24",
+            "bboxErrorMm": 3.552713678800501e-15
+          },
+          {
+            "sourceComponentId": "30065273_s-3",
+            "targetComponentId": "30065273_s-inst1-25",
+            "bboxErrorMm": 1.7763568394002505e-14
+          },
+          {
+            "sourceComponentId": "30065182_s-4",
+            "targetComponentId": "30065182_s-inst1-26",
+            "bboxErrorMm": 1.0048591735576161e-14
+          }
+        ]
+      },
+      {
+        "occurrenceIndex": 1,
+        "profileId": "575790",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 60.04343129289934,
+          "ty": -11.830774295409796
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 111.3123206767163,
+          "minY": 93.2574072773923,
+          "maxX": 180.3123206767163,
+          "maxY": 168.2574072773923
+        },
+        "matchedComponentCount": 5,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.5888218580782548e-14,
+        "matches": [
+          {
+            "sourceComponentId": "587290_s-0",
+            "targetComponentId": "587290_s-17",
+            "bboxErrorMm": 0
+          },
+          {
+            "sourceComponentId": "511130_s-1",
+            "targetComponentId": "511130_s-18",
+            "bboxErrorMm": 1.4210854715202004e-14
+          },
+          {
+            "sourceComponentId": "30065155_s-2",
+            "targetComponentId": "30065155_s-19",
+            "bboxErrorMm": 1.4210854715202004e-14
+          },
+          {
+            "sourceComponentId": "30065273_s-3",
+            "targetComponentId": "30065273_s-20",
+            "bboxErrorMm": 1.5888218580782548e-14
+          },
+          {
+            "sourceComponentId": "30065182_s-4",
+            "targetComponentId": "30065182_s-21",
+            "bboxErrorMm": 1.4210854715202004e-14
+          }
+        ]
+      }
+    ],
+    "575800": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575800",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -3.0653033418682867,
+          "ty": -41.221016287621836
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 53.31232067671454,
+          "minY": 93.25740727739276,
+          "maxX": 141.31232067671453,
+          "maxY": 158.25740727739276
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.4210854715202004e-14,
+        "matches": [
+          {
+            "sourceComponentId": "581950_s-0",
+            "targetComponentId": "581950_s-11",
+            "bboxErrorMm": 3.552713678800501e-15
+          },
+          {
+            "sourceComponentId": "587300_s-1",
+            "targetComponentId": "587300_s-12",
+            "bboxErrorMm": 1.4210854715202004e-14
+          },
+          {
+            "sourceComponentId": "30065126_s-inst1-3",
+            "targetComponentId": "30065126_s-13",
+            "bboxErrorMm": 7.105427357601002e-15
+          }
+        ]
+      }
+    ],
+    "575810": [
+      {
+        "occurrenceIndex": 0,
+        "profileId": "575810",
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 28.653877486508293,
+          "ty": -64.36669510221773
+        },
+        "determinant": 1,
+        "mirrored": false,
+        "bbox": {
+          "minX": 53.31232067671454,
+          "minY": 93.25740727739276,
+          "maxX": 141.31232067671453,
+          "maxY": 158.25740727739276
+        },
+        "matchedComponentCount": 5,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.4210854715202004e-14,
+        "matches": [
+          {
+            "sourceComponentId": "581950_s-0",
+            "targetComponentId": "581950_s-11",
+            "bboxErrorMm": 3.552713678800501e-15
+          },
+          {
+            "sourceComponentId": "587300_s-1",
+            "targetComponentId": "587300_s-12",
+            "bboxErrorMm": 1.4210854715202004e-14
+          },
+          {
+            "sourceComponentId": "30065126_s-2",
+            "targetComponentId": "30065126_s-13",
+            "bboxErrorMm": 7.105427357601002e-15
+          },
+          {
+            "sourceComponentId": "30065191_s-3",
+            "targetComponentId": "30065191_s-14",
+            "bboxErrorMm": 7.105427357601002e-15
+          },
+          {
+            "sourceComponentId": "30065183_s-4",
+            "targetComponentId": "30065183_s-15",
+            "bboxErrorMm": 1.0048591735576161e-14
+          }
+        ]
+      }
+    ]
+  },
+  "roleOccurrences": {
+    "accessory": [
+      {
+        "profileId": "200988",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 111.3123206767145,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 111.31275926166508,
+          "minY": 112.616123489704,
+          "maxX": 128.0280339258381,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 119.67039659375158,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ]
+      },
+      {
+        "profileId": "200988",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 83.31232067671633,
+          "ty": 123.866123489704
+        },
+        "bbox": {
+          "minX": 66.59660742759273,
+          "minY": 112.616123489704,
+          "maxX": 83.31188209176575,
+          "maxY": 129.216123489704
+        },
+        "center": {
+          "x": 74.95424475967924,
+          "y": 120.91612348970399
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "200988_s"
+        ]
+      },
+      {
+        "profileId": "224068",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.01232467670661,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 60.149242265437636,
+          "minY": 104.41752342989395,
+          "maxX": 83.03220709151226,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 71.59072467847494,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ]
+      },
+      {
+        "profileId": "224068",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 114.6123166767224,
+          "ty": 116.0072559871796
+        },
+        "bbox": {
+          "minX": 111.59243426191675,
+          "minY": 104.41752342989395,
+          "maxX": 134.47539908799138,
+          "maxY": 118.50728731164628
+        },
+        "center": {
+          "x": 123.03391667495407,
+          "y": 111.46240537077011
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224068_s_1"
+        ]
+      }
+    ],
+    "gasket": [
+      {
+        "profileId": "224063",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 16.6116121367163,
+          "ty": 97.25726061734713
+        },
+        "bbox": {
+          "minX": 10.094596315900471,
+          "minY": 95.25712961734713,
+          "maxX": 23.559061136716302,
+          "maxY": 102.05708740720829
+        },
+        "center": {
+          "x": 16.826828726308385,
+          "y": 98.65710851227772
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ]
+      },
+      {
+        "profileId": "224063",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 178.0130292167127,
+          "ty": 97.25726061734667
+        },
+        "bbox": {
+          "minX": 171.0655802167127,
+          "minY": 95.25712961734668,
+          "maxX": 184.53004503752854,
+          "maxY": 102.05708740720783
+        },
+        "center": {
+          "x": 177.7978126271206,
+          "y": 98.65710851227726
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "224063_s"
+        ]
+      },
+      {
+        "profileId": "224378",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 280.8540542892375,
+          "ty": 18.87725750576189
+        },
+        "bbox": {
+          "minX": 170.8758987430549,
+          "minY": 128.56674108397405,
+          "maxX": 184.8576397736332,
+          "maxY": 137.92710549123814
+        },
+        "center": {
+          "x": 177.86676925834405,
+          "y": 133.24692328760608
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "224378",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -86.22941293580848,
+          "ty": 18.87725750576189
+        },
+        "bbox": {
+          "minX": 9.767001579795853,
+          "minY": 128.56674108397405,
+          "maxX": 23.748742610374137,
+          "maxY": 137.92710549123814
+        },
+        "center": {
+          "x": 16.757872095084995,
+          "y": 133.24692328760608
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 3.552713678800501e-15,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "245472",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 55.6123206767129,
+          "ty": 97.25725298722318
+        },
+        "bbox": {
+          "minX": 53.372341246089476,
+          "minY": 95.45725298722301,
+          "maxX": 60.61211630610728,
+          "maxY": 103.25611461761844
+        },
+        "center": {
+          "x": 56.99222877609838,
+          "y": 99.35668380242072
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s_5"
+        ]
+      },
+      {
+        "profileId": "245472",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 80.81232067670815,
+          "ty": 164.7572606183985
+        },
+        "bbox": {
+          "minX": 75.8125250473135,
+          "minY": 158.46319497366767,
+          "maxX": 83.05230010733129,
+          "maxY": 166.55726061839852
+        },
+        "center": {
+          "x": 79.4324125773224,
+          "y": 162.5102277960331
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s"
+        ]
+      },
+      {
+        "profileId": "245472",
+        "occurrenceIndex": 2,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": -1,
+          "tx": 139.0123206767162,
+          "ty": 97.25725298722318
+        },
+        "bbox": {
+          "minX": 134.01252504732182,
+          "minY": 95.45725298722301,
+          "maxX": 141.25230010733964,
+          "maxY": 103.25611461761844
+        },
+        "center": {
+          "x": 137.63241257733074,
+          "y": 99.35668380242072
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s_5"
+        ]
+      },
+      {
+        "profileId": "245472",
+        "occurrenceIndex": 3,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 113.8123206767209,
+          "ty": 164.7572606183985
+        },
+        "bbox": {
+          "minX": 111.57234124609775,
+          "minY": 158.46319497366767,
+          "maxX": 118.81211630611556,
+          "maxY": 166.55726061839852
+        },
+        "center": {
+          "x": 115.19222877610665,
+          "y": 162.5102277960331
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s"
+        ]
+      },
+      {
+        "profileId": "245472",
+        "occurrenceIndex": 4,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 113.8126671192754,
+          "ty": 164.757324287345
+        },
+        "bbox": {
+          "minX": 111.57268768865225,
+          "minY": 158.46325864261416,
+          "maxX": 118.81246274867006,
+          "maxY": 166.557324287345
+        },
+        "center": {
+          "x": 115.19257521866115,
+          "y": 162.5102914649796
+        },
+        "matchedComponentCount": 1,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "direct-named-join-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": false,
+        "coordinateSpace": "block-local-to-join",
+        "directBlockNames": [
+          "245472_s"
+        ]
+      }
+    ],
+    "glazing-bead": [
+      {
+        "profileId": "573940",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 0,
+          "b": 1,
+          "c": 1,
+          "d": 0,
+          "tx": 57.61427776137539,
+          "ty": 33.0313155993756
+        },
+        "bbox": {
+          "minX": 155.61255248462223,
+          "minY": 136.257324287345,
+          "maxX": 182.3123206767163,
+          "maxY": 168.257324287345
+        },
+        "center": {
+          "x": 168.96243658066925,
+          "y": 152.257324287345
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 0,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "573940",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": -9.094947017729282e-13,
+          "b": -1,
+          "c": 1,
+          "d": -9.094947017729282e-13,
+          "tx": 137.0103635921675,
+          "ty": 33.0313155994117
+        },
+        "bbox": {
+          "minX": 12.312320676704076,
+          "minY": 136.25732428726997,
+          "maxX": 39.01208886880835,
+          "maxY": 168.25732428728725
+        },
+        "center": {
+          "x": 25.662204772756212,
+          "y": 152.2573242872786
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 1,
+        "matchStrategy": "explicit-profile-component",
+        "maxBboxErrorMm": 9.583609612443469e-12,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ],
+    "outer-frame": [
+      {
+        "profileId": "575770",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 37.58620879844129,
+          "ty": 2.9514583141683204
+        },
+        "bbox": {
+          "minX": 87.11232067671455,
+          "minY": 105.77612348970402,
+          "maxX": 116.11232067671455,
+          "maxY": 140.25612348970404
+        },
+        "center": {
+          "x": 101.61232067671455,
+          "y": 123.01612348970403
+        },
+        "matchedComponentCount": 2,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 7.105427357601002e-15,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ],
+    "opening-sash": [
+      {
+        "profileId": "575780",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 58.54785026118759,
+          "ty": -11.099015918794095
+        },
+        "bbox": {
+          "minX": 111.3123206767163,
+          "minY": 93.2574072773923,
+          "maxX": 180.3123206767163,
+          "maxY": 168.2574072773923
+        },
+        "center": {
+          "x": 145.8123206767163,
+          "y": 130.7574072773923
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.5888218580782548e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "575780",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 136.07679109224324,
+          "ty": -11.099015918794095
+        },
+        "bbox": {
+          "minX": 14.312320676714542,
+          "minY": 93.2574072773923,
+          "maxX": 83.31232067671453,
+          "maxY": 168.2574072773923
+        },
+        "center": {
+          "x": 48.812320676714535,
+          "y": 130.7574072773923
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.0658141036401503e-14,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "575790",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": -1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 134.5812100605315,
+          "ty": -11.830774295409796
+        },
+        "bbox": {
+          "minX": 14.312320676714542,
+          "minY": 93.2574072773923,
+          "maxX": 83.31232067671453,
+          "maxY": 168.2574072773923
+        },
+        "center": {
+          "x": 48.812320676714535,
+          "y": 130.7574072773923
+        },
+        "matchedComponentCount": 5,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.7763568394002505e-14,
+        "mirrored": true,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "575790",
+        "occurrenceIndex": 1,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 60.04343129289934,
+          "ty": -11.830774295409796
+        },
+        "bbox": {
+          "minX": 111.3123206767163,
+          "minY": 93.2574072773923,
+          "maxX": 180.3123206767163,
+          "maxY": 168.2574072773923
+        },
+        "center": {
+          "x": 145.8123206767163,
+          "y": 130.7574072773923
+        },
+        "matchedComponentCount": 5,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.5888218580782548e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ],
+    "mullion-transom": [
+      {
+        "profileId": "575800",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": -3.0653033418682867,
+          "ty": -41.221016287621836
+        },
+        "bbox": {
+          "minX": 53.31232067671454,
+          "minY": 93.25740727739276,
+          "maxX": 141.31232067671453,
+          "maxY": 158.25740727739276
+        },
+        "center": {
+          "x": 97.31232067671453,
+          "y": 125.75740727739276
+        },
+        "matchedComponentCount": 3,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.4210854715202004e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      },
+      {
+        "profileId": "575810",
+        "occurrenceIndex": 0,
+        "transform": {
+          "a": 1,
+          "b": 0,
+          "c": 0,
+          "d": 1,
+          "tx": 28.653877486508293,
+          "ty": -64.36669510221773
+        },
+        "bbox": {
+          "minX": 53.31232067671454,
+          "minY": 93.25740727739276,
+          "maxX": 141.31232067671453,
+          "maxY": 158.25740727739276
+        },
+        "center": {
+          "x": 97.31232067671453,
+          "y": 125.75740727739276
+        },
+        "matchedComponentCount": 5,
+        "explicitProfileMatchCount": 0,
+        "matchStrategy": "shared-component-fallback",
+        "maxBboxErrorMm": 1.4210854715202004e-14,
+        "mirrored": false,
+        "coordinateSpace": null,
+        "directBlockNames": null
+      }
+    ]
+  },
+  "generatedAt": "2026-08-10T10:13:31.506Z"
+}
