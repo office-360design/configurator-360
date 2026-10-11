@@ -19,8 +19,8 @@ function fixture({mirror=false,open=false}={}) {
   if(open)pane.rotation.y=.7;
   return {root,pane};
 }
-test('Only Hall, Window and Pergola opt-in; native/localized/tenant URLs use Window, not Hall',()=>{
-  for(const product of ['hall','window','bookshelf','pergola','roof','chair','fence','solar',''])assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola'].includes(product));
+test('Only Hall, Window, Pergola and Fence opt-in; native/localized/tenant URLs use Window, not Hall',()=>{
+  for(const product of ['hall','window','bookshelf','pergola','roof','chair','fence','solar',''])assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola','fence'].includes(product));
   const id='ABCDEFGH01234567abcdefgh01234567';
   for(const [host,path] of [['www.360configurator.com','window-configurator'],['www.360configurator.ro','configurator-ferestre'],['www.360konfigurator.de','fenster-konfigurator'],['tenant.360configurator.ro','window-configurator']]){
     const url=new URL(arPhoneUrl(id,'ios','ro-RO',`https://${host}`,'window'));assert.equal(url.pathname,`/${path}/ar.html`);assert.equal(url.searchParams.get('id'),id);assert.equal(url.searchParams.get('mode'),'ios');
@@ -156,8 +156,8 @@ test('Window entry invalidates the cached refresh dependency without bypassing A
   const entry=readFileSync(new URL('../../src/client/index.html',import.meta.url),'utf8');
   const main=readFileSync(new URL('../../src/client/js/main.js',import.meta.url),'utf8');
   const controller=readFileSync(new URL('../../src/client/js/ar-controller.js',import.meta.url),'utf8');
-  assert.match(entry,/src="\.\/js\/main\.js\?v=window-ar-2"/);
-  assert.match(main,/from '\.\/profile-controller\.js\?v=window-ar-2'/);
+  assert.match(entry,/src="\.\/js\/main\.js\?v=window-ar-3"/);
+  assert.match(main,/from '\.\/profile-controller\.js\?v=window-ar-3'/);
   assert.match(controller,/!getProfilesReady\?\.\(\)/);
   assert.match(controller,/window\.CONFIGURATOR_READY === false/);
 });

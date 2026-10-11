@@ -1,7 +1,7 @@
 import { HALL_TEMPLATES } from './templates.js?v=hall-production-1';
 import { createHallTemplateDialog } from './templateDialog.js?v=hall-production-1';
 import { mountTemplatesMenu } from '../../shared-ui/src/components/templatesMenu.js?v=templates-1';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-2';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-4';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -41,7 +41,7 @@ async function openHallAR() {
   templatesMenu?.close();
   window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
   if (!arDialogLoading) {
-    arDialogLoading = import('./ar/dialog.js?v=firebase-ar-2').then(({ createHallARDialog }) => {
+    arDialogLoading = import('./ar/dialog.js?v=firebase-ar-4').then(({ createHallARDialog }) => {
       arDialog = createHallARDialog({
         getSnapshot: () => window.HALL_CONFIGURATOR_API?.captureState?.(),
         getLocale: () => shell?.state.locale ?? initialLocale,

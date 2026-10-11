@@ -6,7 +6,7 @@ const HALL_COPY = {
     "android": "Android",
     "ios": "iOS / iPadOS",
     "description": "Scan the QR code with the selected phone, then tap “Open AR” on the page that opens.",
-    "snapshot": "Exports the assembled hall, including configured openings and fittings. Scenery, measurements and inspection overlays are not included.",
+    "snapshot": "Exports the assembled hall, including configured openings, fittings and foundations. Scenery, measurements and inspection overlays are not included.",
     "scale": "The model uses real-world metres. A hall needs a large clear space; resize it in the phone viewer for a tabletop preview. AR is a visualization, not a survey or positioning tool.",
     "privacy": "The QR is valid for 24 hours. Anyone with this link can view this exported model; no account is needed on the phone.",
     "building": "Preparing hall geometry…",
@@ -56,7 +56,7 @@ const HALL_COPY = {
     "android": "Android",
     "ios": "iOS / iPadOS",
     "description": "Scanează codul QR cu telefonul selectat, apoi apasă „Deschide AR” pe pagina deschisă.",
-    "snapshot": "Se exportă hala asamblată, inclusiv golurile și dotările configurate. Decorul, cotele și suprapunerile de inspecție nu sunt incluse.",
+    "snapshot": "Se exportă hala asamblată, inclusiv golurile, dotările și fundațiile configurate. Decorul, cotele și suprapunerile de inspecție nu sunt incluse.",
     "scale": "Modelul folosește metri reali. O hală necesită un spațiu liber mare; redimensioneaz-o pe telefon pentru o machetă pe masă. AR este o vizualizare, nu un instrument de măsurare sau trasare.",
     "privacy": "Codul QR este valabil 24 de ore. Oricine are linkul poate vedea acest model exportat; nu este necesar un cont pe telefon.",
     "building": "Se pregătește geometria halei…",
@@ -106,7 +106,7 @@ const HALL_COPY = {
     "android": "Android",
     "ios": "iOS / iPadOS",
     "description": "Scannen Sie den QR-Code mit dem ausgewählten Telefon und tippen Sie auf der geöffneten Seite auf „AR öffnen“.",
-    "snapshot": "Exportiert die montierte Halle mit den konfigurierten Öffnungen und Ausstattungen. Umgebung, Maße und Inspektionshilfen werden nicht exportiert.",
+    "snapshot": "Exportiert die montierte Halle mit den konfigurierten Öffnungen, Ausstattungen und Fundamenten. Umgebung, Maße und Inspektionshilfen werden nicht exportiert.",
     "scale": "Das Modell verwendet reale Meter. Eine Halle benötigt viel freie Fläche; verkleinern Sie es im Telefon-Viewer für eine Tischvorschau. AR ist eine Visualisierung, kein Vermessungs- oder Absteckwerkzeug.",
     "privacy": "Der QR-Code ist 24 Stunden gültig. Jeder mit diesem Link kann das exportierte Modell ansehen; auf dem Telefon ist kein Konto erforderlich.",
     "building": "Hallengeometrie wird vorbereitet…",
@@ -256,8 +256,62 @@ const PERGOLA_OVERRIDES = {
     "back": "Pergola-Konfigurator"
   }
 };
+const FENCE_OVERRIDES = {
+  "en-US": {
+    "title": "View this fence in AR",
+    "snapshot": "Exports the complete configured perimeter: all runs, panels and infill spacing, pedestrian and driveway gates, handles, posts, caps, selected finishes and foundations. Scenery, dimension labels, technical edges and compass are not included.",
+    "scale": "The model uses real-world metres, with finished ground at the placement plane. Concrete footings are retained below that plane. Resize in the phone viewer if needed. AR is a visualization, not a surveying or installation tool.",
+    "building": "Preparing fence geometry…",
+    "regenerate": "Regenerate from current fence",
+    "invalid-configuration": "The fence configuration is invalid. Correct it before exporting.",
+    "invalid-openings": "Check the gate positions before opening AR.",
+    "invalid-geometry": "The fence could not be converted to a valid model. Check the configuration and retry.",
+    "model-too-large": "This fence is too detailed for mobile AR. Reduce its size or density and try again. No configured parts have been silently removed.",
+    "not-ready": "The fence or its finish textures are still loading. Please try again shortly.",
+    "expired": "This QR code has expired. Open the fence configurator and create a new one.",
+    "not-found": "This AR link was not found. Create a new QR code in the fence configurator.",
+    "phoneTitle": "Your configured fence",
+    "phoneNote": "Allow camera access when prompted, move the phone to detect the ground and place the fence. Pinch to resize if needed. This is a static snapshot of the configured product.",
+    "back": "Fence configurator"
+  },
+  "ro-RO": {
+    "title": "Vezi gardul în AR",
+    "snapshot": "Se exportă întregul perimetru configurat: toate laturile, panourile și distanța dintre lamele, porțile pietonale și auto, mânerele, stâlpii, capacele, finisajele și fundațiile selectate. Decorul, cotele, muchiile tehnice și busola nu sunt incluse.",
+    "scale": "Modelul folosește metri reali, cu solul finit pe planul de amplasare. Fundațiile din beton sunt păstrate sub acest plan. Redimensionează pe telefon dacă este necesar. AR este o vizualizare, nu un instrument de măsurare sau montaj.",
+    "building": "Se pregătește geometria gardului…",
+    "regenerate": "Regenerează din gardul curent",
+    "invalid-configuration": "Configurația gardului este invalidă. Corecteaz-o înainte de export.",
+    "invalid-openings": "Verifică pozițiile porților înainte de a deschide AR.",
+    "invalid-geometry": "Gardul nu a putut fi convertit într-un model valid. Verifică configurația și încearcă din nou.",
+    "model-too-large": "Acest gard este prea detaliat pentru AR pe telefon. Redu dimensiunile sau densitatea și încearcă din nou. Nu au fost eliminate componente în mod automat.",
+    "not-ready": "Gardul sau texturile finisajului încă se încarcă. Încearcă din nou în câteva momente.",
+    "expired": "Acest cod QR a expirat. Deschide configuratorul de garduri și creează unul nou.",
+    "not-found": "Linkul AR nu a fost găsit. Creează un cod QR nou în configuratorul de garduri.",
+    "phoneTitle": "Gardul configurat",
+    "phoneNote": "Permite accesul la cameră când este solicitat, mișcă telefonul pentru a detecta solul și plasează gardul. Redimensionează cu două degete dacă este necesar. Modelul este o reprezentare statică a produsului configurat.",
+    "back": "Configurator de garduri"
+  },
+  "de-DE": {
+    "title": "Diesen Zaun in AR ansehen",
+    "snapshot": "Exportiert den gesamten konfigurierten Zaun: alle Seiten, Füllungen und Lamellenabstände, Personen- und Einfahrtstore, Griffe, Pfosten, Kappen, gewählte Oberflächen und Fundamente. Umgebung, Maßangaben, technische Kanten und Kompass werden nicht exportiert.",
+    "scale": "Das Modell verwendet reale Meter; das fertige Bodenniveau liegt auf der Platzierungsebene. Betonfundamente bleiben darunter erhalten. Bei Bedarf im Smartphone-Viewer skalieren. AR dient der Visualisierung, nicht der Vermessung oder Montage.",
+    "building": "Zaungeometrie wird vorbereitet…",
+    "regenerate": "Aus aktuellem Zaun neu erstellen",
+    "invalid-configuration": "Die Zaunkonfiguration ist ungültig. Bitte vor dem Export korrigieren.",
+    "invalid-openings": "Prüfen Sie vor dem AR-Export die Torpositionen.",
+    "invalid-geometry": "Der Zaun konnte nicht in ein gültiges Modell umgewandelt werden. Konfiguration prüfen und erneut versuchen.",
+    "model-too-large": "Dieser Zaun ist für mobiles AR zu detailliert. Größe oder Dichte reduzieren und erneut versuchen. Es wurden keine konfigurierten Teile stillschweigend entfernt.",
+    "not-ready": "Der Zaun oder seine Oberflächentexturen werden noch geladen. Bitte in Kürze erneut versuchen.",
+    "expired": "Dieser QR-Code ist abgelaufen. Erstellen Sie im Zaun-Konfigurator einen neuen.",
+    "not-found": "Dieser AR-Link wurde nicht gefunden. Erstellen Sie im Zaun-Konfigurator einen neuen QR-Code.",
+    "phoneTitle": "Ihr konfigurierter Zaun",
+    "phoneNote": "Erlauben Sie den Kamerazugriff, bewegen Sie das Telefon zur Bodenerkennung und platzieren Sie den Zaun. Bei Bedarf mit zwei Fingern skalieren. Dies ist eine statische Momentaufnahme des konfigurierten Produkts.",
+    "back": "Zaun-Konfigurator"
+  }
+};
 export const AR_COPY = Object.freeze({
   hall: HALL_COPY,
+  fence: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...FENCE_OVERRIDES[locale] }])),
   pergola: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...PERGOLA_OVERRIDES[locale] }])),
   window: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...WINDOW_OVERRIDES[locale] }])),
 });

@@ -19,7 +19,7 @@ const FIREBASE_CONFIG = Object.freeze({
   appId: "1:719238533149:web:9e0b8a97375731b8eaf6f4",
 });
 
-const CONFIGURATORS = ["window", "pergola", "roof", "hall", "solar", "fence", "cardbox"] as const;
+const CONFIGURATORS = ["window", "hall", "fence", "pergola", "roof", "solar", "cardbox"] as const;
 type ConfiguratorId = (typeof CONFIGURATORS)[number];
 type SubmissionState = "idle" | "submitting" | "success" | "error" | "rate-limited" | "validation";
 type RequiredFieldName = "name" | "email" | "company" | "phone";

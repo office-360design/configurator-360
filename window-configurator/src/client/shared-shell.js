@@ -1,5 +1,5 @@
-import { arT as firebaseART } from './shared-ui/src/ar/i18n.js?v=firebase-ar-2';
-import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=firebase-ar-2';
+import { arT as firebaseART } from './shared-ui/src/ar/i18n.js?v=firebase-ar-4';
+import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=firebase-ar-4';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';

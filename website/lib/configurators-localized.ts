@@ -232,6 +232,7 @@ export function getLocalizedConfigurators(locale: Locale): Configurator[] {
   return configurators.map((item) => ({
     ...item,
     ...(isLiteSlug(item.slug) ? newConfigurator(item.slug, locale) : translations ? translations[item.slug] : {}),
+    index: item.index, // Localized lite metadata must retain the shared numbering.
     launchUrl: configuratorUrl(locale, item.slug),
   }));
 }

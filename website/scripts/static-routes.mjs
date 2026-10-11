@@ -1,5 +1,5 @@
 export const locales = ["en", "ro", "de"];
-export const configurators = ["pergola", "roof", "window", "hall", "solar", "fence", "chair", "cardbox", "bookshelf", "tiles"];
+export const configurators = ["window", "hall", "fence", "tiles", "pergola", "roof", "solar", "chair", "cardbox", "bookshelf"];
 
 export const pageRoutes = locales.flatMap((locale) => {
   const prefix = locale === "en" ? "" : `/${locale}`;
