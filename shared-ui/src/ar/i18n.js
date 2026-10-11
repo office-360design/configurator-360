@@ -203,8 +203,62 @@ const WINDOW_OVERRIDES = {
     "back": "Fensterkonfigurator"
   }
 };
+const PERGOLA_OVERRIDES = {
+  "en-US": {
+    "title": "View this pergola in AR",
+    "snapshot": "Exports the configured pergola, including the structure, roof with its current louver angle, side panels and fitted accessories. The house, deck, ground, trees, dimensions and compass are not included.",
+    "scale": "The model uses real-world metres. Place it on a detected horizontal surface and resize it in the phone viewer if needed. A wall-mounted pergola is exported without the house. AR is a visualization, not a measuring or installation tool.",
+    "building": "Preparing pergola geometry…",
+    "regenerate": "Regenerate from current pergola",
+    "invalid-configuration": "The pergola configuration is invalid. Correct it before exporting.",
+    "invalid-openings": "Check the side panels and fittings before opening AR.",
+    "invalid-geometry": "The pergola could not be converted to a valid model. Check the configuration and retry.",
+    "model-too-large": "This pergola is too detailed for mobile AR. Reduce the size or optional accessories and try again.",
+    "not-ready": "The pergola is still loading or updating. Please try again shortly.",
+    "expired": "This QR code has expired. Open the pergola configurator and create a new one.",
+    "not-found": "This AR link was not found. Create a new QR code in the pergola configurator.",
+    "phoneTitle": "Your configured pergola",
+    "phoneNote": "Allow camera access when prompted, move the phone to detect a surface and place the pergola. Pinch to resize if needed. Roof and side-panel positions are a snapshot, not interactive controls in AR.",
+    "back": "Pergola configurator"
+  },
+  "ro-RO": {
+    "title": "Vezi pergola în AR",
+    "snapshot": "Se exportă pergola configurată, inclusiv structura, acoperișul cu unghiul curent al lamelelor, închiderile laterale și accesoriile montate. Casa, terasa, terenul, copacii, cotele și busola nu sunt incluse.",
+    "scale": "Modelul folosește metri reali. Plasează-l pe o suprafață orizontală detectată și redimensionează-l pe telefon dacă este necesar. Pergola montată pe perete se exportă fără casă. AR este o vizualizare, nu un instrument de măsurare sau montaj.",
+    "building": "Se pregătește geometria pergolei…",
+    "regenerate": "Regenerează din pergola curentă",
+    "invalid-configuration": "Configurația pergolei este invalidă. Corecteaz-o înainte de export.",
+    "invalid-openings": "Verifică închiderile laterale și accesoriile înainte de a deschide AR.",
+    "invalid-geometry": "Pergola nu a putut fi convertită într-un model valid. Verifică configurația și încearcă din nou.",
+    "model-too-large": "Această pergolă este prea detaliată pentru AR pe mobil. Redu dimensiunile sau accesoriile opționale și încearcă din nou.",
+    "not-ready": "Pergola încă se încarcă sau se actualizează. Încearcă din nou în câteva momente.",
+    "expired": "Acest cod QR a expirat. Deschide configuratorul de pergole și creează unul nou.",
+    "not-found": "Acest link AR nu a fost găsit. Creează un cod QR nou în configuratorul de pergole.",
+    "phoneTitle": "Pergola configurată",
+    "phoneNote": "Permite accesul la cameră când ți se solicită, mișcă telefonul pentru a detecta o suprafață și plasează pergola. Redimensionează prin apropierea sau depărtarea degetelor. Pozițiile acoperișului și închiderilor laterale sunt fixe în AR.",
+    "back": "Configurator de pergole"
+  },
+  "de-DE": {
+    "title": "Diese Pergola in AR ansehen",
+    "snapshot": "Exportiert die konfigurierte Pergola mit Tragwerk, Dach in der aktuellen Lamellenstellung, Seitenverkleidungen und montiertem Zubehör. Haus, Terrasse, Boden, Bäume, Maße und Kompass werden nicht exportiert.",
+    "scale": "Das Modell verwendet reale Meter. Platzieren Sie es auf einer erkannten horizontalen Fläche und ändern Sie bei Bedarf die Größe im Smartphone-Viewer. Wandmontierte Pergolen werden ohne Haus exportiert. AR dient der Visualisierung, nicht dem Messen oder der Montage.",
+    "building": "Pergolageometrie wird vorbereitet…",
+    "regenerate": "Aus aktueller Pergola neu erstellen",
+    "invalid-configuration": "Die Pergolakonfiguration ist ungültig. Korrigieren Sie sie vor dem Export.",
+    "invalid-openings": "Prüfen Sie Seitenverkleidungen und Zubehör, bevor Sie AR öffnen.",
+    "invalid-geometry": "Die Pergola konnte nicht in ein gültiges Modell umgewandelt werden. Prüfen Sie die Konfiguration und versuchen Sie es erneut.",
+    "model-too-large": "Diese Pergola ist für mobiles AR zu detailliert. Reduzieren Sie die Größe oder optionales Zubehör.",
+    "not-ready": "Die Pergola wird noch geladen oder aktualisiert. Versuchen Sie es in Kürze erneut.",
+    "expired": "Dieser QR-Code ist abgelaufen. Erstellen Sie im Pergola-Konfigurator einen neuen.",
+    "not-found": "Dieser AR-Link wurde nicht gefunden. Erstellen Sie im Pergola-Konfigurator einen neuen QR-Code.",
+    "phoneTitle": "Ihre konfigurierte Pergola",
+    "phoneNote": "Erlauben Sie den Kamerazugriff, bewegen Sie das Smartphone zur Flächenerkennung und platzieren Sie die Pergola. Passen Sie bei Bedarf die Größe mit zwei Fingern an. Dach- und Seitenstellungen sind eine Momentaufnahme, keine interaktiven AR-Steuerelemente.",
+    "back": "Pergola-Konfigurator"
+  }
+};
 export const AR_COPY = Object.freeze({
   hall: HALL_COPY,
+  pergola: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...PERGOLA_OVERRIDES[locale] }])),
   window: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...WINDOW_OVERRIDES[locale] }])),
 });
 export function arLocale(value) { return ['en-US', 'ro-RO', 'de-DE'].includes(value) ? value : 'en-US'; }

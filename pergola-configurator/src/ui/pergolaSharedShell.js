@@ -1,8 +1,10 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=firebase-ar-3';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=platform-18';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
 import { pergolaT } from '../i18n.js?v=platform-18';
 import { calculatePrice, formatMoney } from '../pricing.js?v=platform-18';
+
+import { createPergolaARController } from '../ar/controller.js?v=pergola-ar-1';
 
 function cloneState(state) {
   if (typeof structuredClone === 'function') return structuredClone(state);
@@ -13,13 +15,20 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
   const initial = store.get();
   const t = (key, variables = {}, locale = null) => pergolaT(locale ?? store.get().locale, key, variables);
 
-  const shell = mountStandaloneConfiguratorShell({
+  let shell;
+  const ar = createPergolaARController({
+    getScene: () => ui.scene,
+    getState: () => store.get(),
+    onFeedback: (message, tone, duration) => shell?.showFeedback?.(message, tone, duration),
+  });
+
+  shell = mountStandaloneConfiguratorShell({
     productType: 'Pergola',
     productId: 'pergola',
     storagePrefix: 'pergola-configurator',
     brandSrc: tenantContext?.logoUrl || './assets/360CONFIGURATOR.png',
     brandAlt: tenantContext?.companyName || '360 Configurator',
-    capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
+    capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
     tools: {
       items: resolveSharedTools([
         'environment',
@@ -55,9 +64,7 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
         return true;
       },
       onViewAR() {
-        const state = store.get();
-        const platform = state.defaultArPlatform === 'ios' ? 'iOS' : 'Android';
-        ui.showModal(t('modal.arTitle'), `<p>${escapeHtml(t('modal.arPlatform', { platform }))}</p><p>${escapeHtml(t('modal.arUnavailable'))}</p>`);
+        ar.open();
       },
       captureState() {
         return cloneState(store.get());
@@ -103,5 +110,11 @@ export function mountPergolaSharedShell({ store, ui, tenantContext = null }) {
   }, { path: 'shared-shell-preferences', skipHistory: true });
 
   ui.attachSharedShell(shell);
+  let arLocale = store.get().locale;
+  const unsubscribeAR = store.subscribe(state => {
+    if (state.locale !== arLocale) { arLocale = state.locale; ar.refresh(); }
+  });
+  const destroyShell = shell.destroy?.bind(shell);
+  shell.destroy = () => { unsubscribeAR?.(); ar.destroy(); destroyShell?.(); };
   return shell;
 }

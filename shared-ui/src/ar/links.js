@@ -1,4 +1,4 @@
-export const AR_PRODUCTS = Object.freeze(['hall', 'window']);
+export const AR_PRODUCTS = Object.freeze(['hall', 'window', 'pergola']);
 export function requireProduct(value = 'hall') { if (!AR_PRODUCTS.includes(value)) throw new Error('Invalid AR product.'); return value; }
 export const AR_FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 export const AR_SESSION_ID = /^[A-Za-z0-9_-]{32}$/;
@@ -21,6 +21,7 @@ export function arPhoneUrl(id, mode, locale, origin = window.location.origin, pr
   const paths = {
     hall: { en: '/hall-configurator/', ro: '/configurator-hala/', de: '/hallen-konfigurator/' },
     window: { en: '/window-configurator/', ro: '/configurator-ferestre/', de: '/fenster-konfigurator/' },
+    pergola: { en: '/pergola-configurator/', ro: '/configurator-pergola/', de: '/pergola-konfigurator/' },
   };
   const url = new URL(`${paths[product][country]}ar.html`, origin);
   url.searchParams.set('id', id); url.searchParams.set('mode', normalizeMode(mode));
