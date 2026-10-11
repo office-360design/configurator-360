@@ -44,22 +44,132 @@ Publication is restricted by Origin to the existing public country sites, localh
 
 No existing default storage bucket, bookshelf recipient, email workflow or template definition is changed.
 
-## Deployment
+## Deployment (administrator setup separated from CI)
 
-Apply the update at the repository root and push using the normal deployment process. **Both the website deployment and `Deploy Firebase share backend` must succeed** before testing QR sharing.
+The original `hall-ar-1` workflow ran API enablement, bucket creation, bucket IAM
+updates and Firebase registration on every deployment. An authenticated
+`github-deployer` without `serviceusage.services.enable` therefore failed before
+any AR function was deployed. A successful Cloud Run website deployment does not
+mean the Firebase backend has been deployed.
 
-The updated Firebase workflow:
+The revised workflow does **not** attempt administrative provisioning. It invokes:
 
-1. Uses the existing Workload Identity Federation authentication; no interactive login or new client-side secret.
-2. Runs source, policy and backend tests; validates all three new function exports.
-3. Runs `firebase-share-backend/scripts/provision-hall-ar-storage.sh` to create/configure the dedicated bucket, register it with Firebase and enable the Storage/Scheduler APIs.
-4. Deploys Storage rules only to the `hall-ar` target.
-5. Deploys the three AR functions along with the existing explicit function allow-list.
-6. Deploys existing Firestore rules/indexes with the two new TTL overrides.
+```bash
+bash firebase-share-backend/scripts/provision-hall-ar-storage.sh --check
+```
 
-The first deployment principal (`GCP_SERVICE_ACCOUNT` in the workflow) must be authorized for these additional operations. If provisioning fails, the workflow stops with a diagnostic; do not treat a successful website build alone as AR being ready. Relevant permissions include project lookup and service API enablement, bucket list/create/get/update and bucket IAM policy access, Firebase Storage `firebasestorage.buckets.addFirebase`, and the normal Firebase rules/Functions/Scheduler deploy permissions. The existing runtime account needs its existing Firestore access plus the dedicated-bucket object role provisioned by the script. Grant permissions at the narrowest useful scope through project administration; do not expose service-account keys to the browser.
+No argument also means `--check`. The check makes read-only API calls and fails
+with a specific diagnostic if setup is missing or access is denied. It never
+silently skips an error or interprets a 403 as a nonexistent bucket.
 
-The script is scoped to `configurator-360`, is rerunnable, and does not make any bucket public. It intentionally does not change broad project IAM bindings or the existing default bucket's lifecycle/rules. Rules and the new target are in `.firebaserc`, `firebase.json` and `hall-ar.storage.rules`.
+### 1. Run one-time setup as a project administrator
+
+Use Google Cloud Shell signed in as the project owner or an administrator with the
+required delegated permissions, **not** the GitHub deployment service account.
+The shell script is self-contained: it can be uploaded to your Cloud Shell home
+directory without cloning the repository or installing Firebase CLI. It requires
+`gcloud`, `curl` and `python3`.
+
+For a standalone upload of the **updated** script:
+
+```bash
+gcloud config set project configurator-360
+gcloud auth list --filter=status:ACTIVE --format='value(account)'
+# Confirm the active identity is your administrator account.
+bash ~/provision-hall-ar-storage.sh --setup
+```
+
+Or, from an updated repository checkout in Cloud Shell:
+
+```bash
+bash firebase-share-backend/scripts/provision-hall-ar-storage.sh --setup
+```
+
+`--setup` is explicitly blocked inside GitHub Actions. Do not add it to the
+workflow or upload a service-account key. The project is fixed to
+`configurator-360` / `719238533149`; the only bucket it changes is
+`configurator-360-hall-ar` in `europe-west1`.
+
+Setup enables only missing APIs: `storage.googleapis.com`,
+`firebasestorage.googleapis.com`, and `cloudscheduler.googleapis.com`. It creates
+or configures the dedicated private bucket, adds its two-day `hall-ar/` lifecycle,
+disables soft deletion for those temporary assets, grants runtime object access,
+and registers the bucket with Firebase. It does not delete existing objects or
+modify the default application bucket. Unexpected project ownership, location,
+retention, versioning, or public IAM bindings stop the script for manual review.
+
+The administrator needs service enablement; project lookup; bucket creation,
+get/update and get/set IAM; Firebase bucket get/addFirebase; project custom-role
+list/get/create; project IAM binding changes; and get/set IAM on the named service
+accounts. Owner or equivalent delegated permissions can perform these operations,
+subject to organization policies. The script cannot elevate its caller's own
+permissions. Do not grant Owner/Editor to `github-deployer` to work around an error.
+
+### Deployment/runtime access added by setup
+
+| Identity | Access added | Scope |
+| --- | --- | --- |
+| `github-deployer@configurator-360.iam.gserviceaccount.com` | Custom `hallArBucketInspector`: `storage.buckets.get`, `storage.buckets.getIamPolicy` only | Dedicated AR bucket only; no model-object access or bucket writes |
+| Same deployer | Custom `hallArDeploymentPrerequisites`: project lookup, Service Usage read/use, Firebase Storage read, Scheduler job create/get/list/update/delete/fullView and location reads | Project scope; job creation cannot be granted only on a job that does not exist yet. These job-management permissions can affect other project jobs; no job run/pause or API enable permissions are added. |
+| Same deployer | `roles/iam.serviceAccountUser` | On the existing `configurator-runtime` and default Compute service accounts individually, not project-wide |
+| `configurator-runtime@configurator-360.iam.gserviceaccount.com` | `roles/storage.objectAdmin` | Dedicated AR bucket only, as required by the original publication/download/cleanup code |
+
+The default Compute identity is
+`719238533149-compute@developer.gserviceaccount.com`. Firebase's scheduled-function
+handoff uses that identity for the Scheduler invocation; the function's execution
+identity remains `configurator-runtime`. Allowing act-as permits deployment under
+those identities; it is not a service-account key or a global act-as grant.
+
+The two custom roles deliberately exclude `serviceusage.services.enable`, bucket
+creation, bucket update, bucket IAM changes and model-object access. Existing
+Firebase Functions, Firestore index/rules and Cloud Run deployment roles are
+retained and still required. Pre-existing broad grants are not automatically
+revoked by this fix. An existing custom role with the same name but unexpected
+permissions/status is not overwritten.
+
+Setup is rerunnable: existing resources and roles are checked before creation.
+The same bucket settings/IAM bindings can safely be applied again after a partial
+setup failure. API enablement, custom-role creation and Firebase registration
+are not repeated when already present.
+
+### 2. Deploy the updated revision, not the old failed run
+
+Apply the update ZIP at the repository root and push with the normal update
+script. It includes `commit_message.md` and no enclosing folder. Let the new
+**Deploy Firebase share backend** run finish, or start **Run workflow** on the
+updated `main` branch. Re-running the previous failed job uses its old commit and
+old setup script.
+
+After the tests, the new workflow:
+
+1. Verifies API enablement, project ownership, Firebase registration, private
+   bucket settings, orphan lifecycle and the explicit runtime bucket binding.
+2. Deploys the deny-client-access Storage rules to `storage:hall-ar` only.
+3. Deploys `publishHallAR`, `getHallAR`, `cleanupHallAR` alongside the preserved
+   existing function allow-list.
+4. Deploys the existing Firestore rules/indexes and AR TTL overrides.
+
+IAM changes may need several minutes to propagate. A just-granted permission can
+still produce a temporary 403; wait and retry the **new revision**. If it persists,
+review the specific permission/operation in the log. A successful check validates
+infrastructure metadata and the expected explicit bucket binding; it is not a
+live end-to-end AR test or a guarantee against organization-level deny policies.
+
+### Useful diagnostics
+
+```bash
+# Read-only infrastructure verification from an updated checkout:
+bash firebase-share-backend/scripts/provision-hall-ar-storage.sh --check
+
+# After a successful backend deploy, inspect the scheduled cleanup job:
+gcloud scheduler jobs describe firebase-schedule-cleanupHallAR-europe-west1 \
+  --project=configurator-360 --location=europe-west1
+```
+
+Do not manually recreate the scheduled job or expose its private function to
+`allUsers`. Firebase deploys the schedule with the function. A scheduler permission
+error after preflight is different from the original Service Usage denial and
+should be reviewed from that new log.
 
 Phone routes preserve IDs on public country domains:
 
@@ -67,7 +177,32 @@ Phone routes preserve IDs on public country domains:
 - RO public hosts: `/configurator-hala/ar.html`
 - DE public hosts: `/hallen-konfigurator/ar.html`
 
-These use the existing Nginx localized-route mappings and avoid redirects to a configuration index that would lose AR parameters. To test with a real phone, use a deployed HTTPS origin; a localhost QR points to the phone's localhost, not the development computer.
+These use the existing localized-route mappings. Use a deployed HTTPS origin for
+phone tests; a localhost QR points to the phone, not the development computer.
+
+### Infrastructure regression tests
+
+```bash
+bash -n firebase-share-backend/scripts/provision-hall-ar-storage.sh
+python3 firebase-share-backend/scripts/tests/test_hall_ar_provisioning.py
+```
+
+The tests execute the actual Bash script with mocked `gcloud`/`curl` commands.
+They cover read-only defaults, missing APIs/resources, 403 handling, private
+bucket constraints, project/identity guards, explicit setup, limited grants,
+reruns, role-conflict handling and preserved deployment targets. They do not
+contact Google Cloud or modify live IAM.
+
+Official references for the deployment changes:
+
+- [Service Usage enable/disable permissions](https://docs.cloud.google.com/service-usage/docs/enable-disable)
+- [Firebase bucket registration](https://firebase.google.com/docs/reference/rest/storage/rest/v1beta/projects.buckets/addFirebase)
+- [Storage IAM roles and scope](https://docs.cloud.google.com/storage/docs/access-control/iam-roles)
+- [Custom IAM roles](https://docs.cloud.google.com/iam/docs/creating-custom-roles)
+- [Firebase scheduled functions](https://firebase.google.com/docs/functions/schedule-functions)
+- [Scheduler HTTP service-account authentication](https://docs.cloud.google.com/scheduler/docs/http-target-auth)
+- [IAM propagation](https://docs.cloud.google.com/iam/docs/access-change-propagation)
+- [GitHub workflow rerun revision](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)
 
 ## Validation performed before delivery
 

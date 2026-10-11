@@ -56,6 +56,11 @@ jobs:
       - name: Test Hall AR validation, storage and platform policy
         run: node --test firebase-share-backend/functions/tests/hall-ar.test.cjs hall-configurator/tests/ar-policy.test.mjs
 
+      - name: Test Hall AR infrastructure setup and read-only checks
+        run: |
+          bash -n firebase-share-backend/scripts/provision-hall-ar-storage.sh
+          python3 firebase-share-backend/scripts/tests/test_hall_ar_provisioning.py
+
       - name: Validate shared tenant-domain policy
         run: npm run check:tenant-domains
 
@@ -100,8 +105,10 @@ jobs:
         run: >-
           node -e "const f=require('./entry.js'); const expected=['enforceSharedConfigurationQuota','createSharedConfiguration','getShareProtectionStatus','saveUserConfiguration','listUserConfigurations','getUserConfiguration','deleteUserConfiguration','getUserCart','mutateUserCart','submitContact','createDomainAuthHandoff','redeemDomainAuthHandoff','provisionTenant','listTenants','getTenant','updateTenant','getTenantPlans','getPublicTenantPlans','resolveTenantPlanChange','setTenantSubscriptionState','recordConfiguratorAnalyticsEvent','getPlatformAnalytics','getTenantDashboard','updateTenantDashboard','cancelTenantPlanChange','requestCartQuotation','requestBookshelfQuotation','requestConfigurationQuotation','getUserProfile','updateUserProfile','exportUserProfileData','deleteUserAccount','getSalesDashboardUsers','getSalesDashboardUserDetails','getSalesDashboardDemoRequests','createSalesDashboardConfigurationLink','attachDemoRequestUser','getConfiguratorColorEditor','saveConfiguratorColors','getConfiguratorColors','publishHallAR','getHallAR','cleanupHallAR']; const missing=expected.filter((name)=>typeof f[name]!=='function'); if(missing.length){console.error('Missing Firebase exports:', missing.join(', ')); process.exit(1);} console.log('Firebase exports OK:', expected.join(', '));"
 
-      - name: Provision private Firebase Hall AR storage
-        run: bash firebase-share-backend/scripts/provision-hall-ar-storage.sh
+      # Bucket/API/IAM creation is a one-time administrator task, never a CI task.
+      # Run provision-hall-ar-storage.sh --setup in Cloud Shell before first AR deploy.
+      - name: Verify private Firebase Hall AR infrastructure (read only)
+        run: bash firebase-share-backend/scripts/provision-hall-ar-storage.sh --check
 
       - name: Deploy Hall AR private Storage rules
         working-directory: firebase-share-backend
