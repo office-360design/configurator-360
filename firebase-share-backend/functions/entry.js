@@ -5,6 +5,7 @@
 // override one callable without replacing unrelated backend functionality.
 module.exports = {
   ...require('./index.js'),
+  ...require('./hall-ar.js'),
   ...require('./quotation.js'),
   ...require('./bookshelf-quotation.js'),
   ...require('./profile.js'),
