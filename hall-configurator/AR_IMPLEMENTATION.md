@@ -1,8 +1,8 @@
-# Hall AR — Android/iOS QR sharing (`hall-ar-1`)
+# Hall AR — Android/iOS QR sharing (`hall-ar-2` / `firebase-ar-4`)
 
 ## User workflow
 
-The top-bar AR cube is enabled only for `productId: hall` with `capabilities.viewAR: true`. A shared policy checks both rendering and click handling; other configurators remain unavailable, including the legacy Supabase window-AR path. Existing hidden buttons remain hidden. No Supabase API or credential is used by Hall AR.
+The shared AR policy now allows Hall, Window, Pergola and Fence, each with an explicit `capabilities.viewAR: true` adapter. The remaining configurators stay unavailable. Existing hidden buttons remain hidden. All four enabled products use the Firebase workflow, not the legacy Window Supabase path.
 
 Opening Hall AR captures the current configuration and defaults to **Android**. The dialog exports and publishes that snapshot, then shows a QR only after the publish endpoint and asset HEAD request succeed. Switching to **iOS / iPadOS** publishes a USDZ for that same snapshot. The last four successful snapshot/format combinations are reused in memory while valid; closing and reopening captures any changes to the hall. A change of platform, close, or rapid reopen cannot overwrite the current QR with a stale asynchronous result.
 
@@ -15,7 +15,7 @@ The browser does not request a user's camera or upload camera footage. Camera ac
 
 ## Model preparation
 
-`js/ar/exportHall.js` builds an independent model from the captured state and leaves the live configuration unchanged. It exports configured openings, current door poses, structural geometry, and configured physical fittings/equipment. It restores the assembled cladding, rather than exporting exploded/section-cut inspection states. Scenery, dimensions, selection handles, underground pad/pedestal foundations and planning overlays are excluded. Visible geometry is flattened and batched by PBR material; mirrored transforms and thin double-sided surfaces are handled explicitly. UV transforms are baked into geometry, texture dimensions are capped at 1024, and the model's bottom is anchored at ground level.
+`js/ar/exportHall.js` builds an independent model from the captured state and leaves the live configuration unchanged. It exports configured openings, current door poses, structural geometry, and configured physical fittings/equipment. It restores the assembled cladding, rather than exporting exploded/section-cut inspection states. Scenery, dimensions, selection handles and planning overlays are excluded. Configured foundations, including underground pads/pedestals, are retained. Finished grade remains Y=0 instead of lifting the structure by its foundation depth. Visible geometry is flattened and batched by the shared portable-PBR capture helper; mirrored transforms, material groups, instance colours and thin double-sided surfaces are handled explicitly. Supported image maps and their UV channels/transforms are copied with owned pixels; texture dimensions are capped at 1024.
 
 Production exporters are lazy imports from the project's existing Three.js **r169** import map. No exporter network request occurs before using AR. QR generation is local code (`vendor/qr.js` and its license); it does not send configuration URLs to an external QR service.
 
@@ -40,7 +40,7 @@ Asset responses support GET, HEAD and single byte ranges, with appropriate `mode
 
 The URL lifetime is **24 hours**. Hourly cleanup removes expired objects; a dedicated two-day bucket lifecycle is an orphan-cleanup backstop. Soft deletion is disabled only for this temporary bucket. Firestore `purgeAt` TTLs are set to three days to allow file cleanup before manifests disappear. Expiry cannot revoke a file already downloaded to someone's phone.
 
-Publication is restricted by Origin to the existing public country sites, localhost development, or active Hall-enabled tenant hosts. Origin is not authentication. Server-side budgets additionally limit attempts to 12 and 160 MiB per network/hour, and 300 and 1 GiB globally/day. Failed/invalid attempts count. Network identifiers are daily hashed; shared proxies can share a budget. Native model reads must remain usable without cookies or login. **These limits are not a hard bandwidth/cost ceiling:** configure project budgets/alerts and review metrics before opening AR to heavy public traffic. Functions use bounded concurrency/instance counts, but repeated reads still cost resources.
+Publication is restricted by Origin to the existing public country sites, localhost development, or active tenant hosts entitled to the product being published. Origin is not authentication. Server-side budgets additionally limit attempts to 12 and 160 MiB per network/hour, and 300 and 1 GiB globally/day. Failed/invalid attempts count. Network identifiers are daily hashed; shared proxies can share a budget. Native model reads must remain usable without cookies or login. **These limits are not a hard bandwidth/cost ceiling:** configure project budgets/alerts and review metrics before opening AR to heavy public traffic. Functions use bounded concurrency/instance counts, but repeated reads still cost resources.
 
 No existing default storage bucket, bookshelf recipient, email workflow or template definition is changed.
 
@@ -264,3 +264,9 @@ the new commit. A successful previous Hall administrator setup is reused; no
 additional bucket, setup script or IAM grant is required. See
 `window-configurator/AR_IMPLEMENTATION.md` for Window-specific export details
 and the phone-testing checklist.
+
+## Fence rollout and physical-part coverage
+
+The `firebase-ar-4` rollout adds Fence to the same functions/bucket. No new setup or IAM changes are needed on an already-working AR installation. Hall's shared snapshot path now preserves foundation geometry and all supported finish maps instead of omitting below-grade parts. The captured state still restores an assembled model rather than an inspection view.
+
+The shared completeness regression compares all configured physical meshes against every Hall template and validates four real GLB exports. Browser-based checks additionally cover the actual canvas textures on commercial and production signage. Native phone rendering is not a claim of exact editor lighting or engineering accuracy. See `fence-configurator/AR_IMPLEMENTATION.md` for this rollout's complete checks and remaining acceptance tests. Older validation sections below/above describe the releases in which they were recorded.

@@ -1,10 +1,10 @@
 # Pergola Firebase AR
 
-Release markers: `pergola-ar-1` / shared `firebase-ar-3`.
+Release markers: `pergola-ar-2` / shared `firebase-ar-4`.
 
 ## User workflow
 
-The existing shared AR dialog now supports Pergola in addition to Hall and Window. Other configurators remain disabled by the explicit shared policy. The Android radio option is selected every time the dialog opens. Android exports GLB; iOS/iPadOS exports USDZ. A QR is displayed only after publication and the asset availability check succeed. The phone landing page asks the user to tap Open AR; it does not assume a scanner can automatically open a native camera session.
+The existing shared AR dialog supports Pergola, Hall, Window and Fence. Other configurators remain disabled by the explicit shared policy. The Android radio option is selected every time the dialog opens. Android exports GLB; iOS/iPadOS exports USDZ. A QR is displayed only after publication and the asset availability check succeed. The phone landing page asks the user to tap Open AR; it does not assume a scanner can automatically open a native camera session.
 
 Platform switching, upload progress, retry, Copy link, Open on this device and the 24-hour expiry are inherited from the same shared dialog used by Hall and Window. Text is localized in English, Romanian and German. Native placement and feature support depend on the actual phone and browser.
 
@@ -31,7 +31,7 @@ Localized phone routes are `/pergola-configurator/ar.html` (English and tenant h
 
 `src/ar/controller.js` checks the live PergolaScene and its structural signature against the current store, then captures `scene.pergola`, never the entire scene. It does not use Window's readiness globals. A model which is genuinely rebuilding or has unloaded image data can be retried without a persistent extra ready flag.
 
-`src/ar/exportPergola.js` copies physical meshes from the assembly, bakes their current transforms and batches them by portable material. Roof/louver positions, configured glazing/screens, privacy panels and fitted accessories are included when present in the assembly. Lights, line helpers, hidden/excluded subtrees, house, ground, deck, trees, dimensions and compass are excluded. Native AR contains a static snapshot, not live configurator controls.
+`src/ar/exportPergola.js` uses `shared-3d/src/ar/productSnapshot.js` to copy physical meshes from the assembly, bake their current transforms and batch them by portable material. This same capture path is used by Hall, Window and Fence. Roof/louver positions, configured glazing/screens, privacy panels and fitted accessories are included when present in the assembly. Lights, line helpers, hidden/excluded subtrees, house, ground, deck, trees, dimensions and compass are excluded. Native AR contains a static snapshot, not live configurator controls.
 
 Geometry is already in metres. Its exported copy is centered horizontally and grounded at its lowest vertex without rescaling. Source geometry, materials, textures, roof transforms and editor camera are not modified or disposed. Reflected transforms, instanced meshes, double-sided surfaces and accessory meshes lacking normals are handled in the owned copy. Temporary export resources are disposed after serialization/export.
 
@@ -79,6 +79,12 @@ Phone acceptance after deployment:
 2. Change louver angle, frame finish and side closures; reopen AR and check the exported snapshot reflects the changes while the editor remains unchanged.
 3. Repeat with wall-mounted and accessory-rich configurations. Inspect screen transparency and glazing in both native viewers.
 4. Test all public language routes and a permitted tenant. Check retry after a network failure and expiry feedback.
-5. Verify Hall and Window still publish/open; confirm AR remains disabled for the other configurators.
+5. Verify Hall, Window and Fence still publish/open; confirm AR remains disabled for the remaining configurators.
 
 AR is a visualization tool, not a site survey, structural design, measuring or installation tool.
+
+## Fence rollout regression
+
+No new Pergola infrastructure is provisioned. All 13 Pergola AR regressions passed after moving the existing capture logic into the shared physical-part helper. Additional browser capture covered the configured roof, screen and motorized-screen sides, glazing/privacy, perimeter LEDs, spotlights and an outlet: 92 physical parts and eight embedded image maps. DataTexture/alpha-map conversion and the existing fabric-material adapter remain intact.
+
+These are static snapshot/export checks using the bundled r160 offline fixture. No claim is made here that every accessory combination was physically tested on phones or that native lighting is pixel-identical. Earlier validation sizes above describe the original Pergola rollout.

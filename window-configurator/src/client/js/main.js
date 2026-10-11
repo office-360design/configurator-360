@@ -4,14 +4,14 @@ import {
     WINDOW_HEIGHT_MIN_M,
     WINDOW_HEIGHT_MAX_M,
 } from './config.js?v=platform-18';
-import { createComponentSelection } from './component-selection.js?v=window-ar-1';
+import { createComponentSelection } from './component-selection.js?v=window-ar-3';
 import { createSceneContext } from './scene.js?v=platform-18';
-import { initializeUIControls } from './ui-controls.js?v=window-ar-1';
+import { initializeUIControls } from './ui-controls.js?v=window-ar-3';
 import { createWindowBuilder } from './window-builder.js?v=platform-18';
 import { createMaterialManager } from './materials.js?v=platform-18';
-import { createARController } from './ar-controller.js?v=window-ar-1';
+import { createARController } from './ar-controller.js?v=window-ar-3';
 import { createCadReferenceController } from './cad-reference.js?v=platform-18';
-import { createProfileController } from './profile-controller.js?v=window-ar-2';
+import { createProfileController } from './profile-controller.js?v=window-ar-3';
 import { createAccessoryController } from './accessory-controller.js?v=platform-18';
 import { createProfileSelectionController } from './profile-selection-controller.js?v=platform-18';
 import {

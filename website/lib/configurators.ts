@@ -21,7 +21,7 @@ export type Configurator = {
   seoDescription: string;
 };
 
-export const configurators: Configurator[] = [
+const configuratorCatalog: Configurator[] = [
   {
     slug: "pergola",
     index: "01",
@@ -171,6 +171,14 @@ export const configurators: Configurator[] = [
   },
   ...liteSlugs.map(slug => newConfigurator(slug)),
 ];
+
+// One order feeds the header, homepage, footer, pricing and related lists.
+export const CONFIGURATOR_ORDER: ConfiguratorSlug[] = ["window", "hall", "fence", "tiles", "pergola", "roof", "solar", "chair", "cardbox", "bookshelf"];
+export const configurators: Configurator[] = CONFIGURATOR_ORDER.map((slug, index) => {
+  const entry = configuratorCatalog.find(item => item.slug === slug);
+  if (!entry) throw new Error(`Missing configurator metadata: ${slug}`);
+  return { ...entry, index: String(index + 1).padStart(2, "0") };
+});
 
 export function getConfigurator(slug: string) {
   return configurators.find((item) => item.slug === slug);

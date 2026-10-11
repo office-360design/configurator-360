@@ -5,7 +5,7 @@
 Apply this update at the repository root. Deploy both the website and **Deploy
 Firebase share backend** from the updated commit. The existing `publishHallAR`,
 `getHallAR`, and `cleanupHallAR` functions are intentionally retained; their
-handler now accepts the allow-listed `window` product in addition to `hall`.
+handler accepts `hall`, `window`, `pergola` and `fence`.
 
 **Do not rerun administrator setup, create another bucket, or grant more IAM
 permissions.** This update uses the already-provisioned private
@@ -21,7 +21,7 @@ Hall.
 
 ## Interaction
 
-- AR is enabled only for Hall and Window, and only when their adapter opts in.
+- AR is enabled only for Hall, Window, Pergola and Fence, and only when their adapter opts in.
 - Clicking Window AR captures the current assembled window snapshot and opens
   the same shared dialog used by Hall. Android is selected by default.
 - Android exports GLB; iOS/iPadOS exports USDZ. Both export the same captured
@@ -49,8 +49,11 @@ Window units are already metres. The model is centred horizontally with its
 lowest point on the placement plane. Scaling remains available in the native
 viewer. AR is a visualization, not an installation/alignment measuring tool.
 
-The exporter bakes transforms and UV transforms, handles mirrored parts and
-material groups, and maps editor materials to portable standard PBR materials.
+The exporter bakes mesh transforms, handles mirrored parts and material groups,
+and maps editor materials to portable standard PBR materials. The shared capture
+helper preserves supported finish maps, texture UV channels/transforms, normal
+scale, instance colours and vertex colours, rather than retaining only base
+colour textures. Source image pixels are copied before asynchronous export.
 Transmission-only glazing receives an explicit transparent approximation for
 native viewers. Renderer-specific reflection/clipping/shader effects are not
 transferred. Complex/textured configurations are subject to the existing size
@@ -67,10 +70,10 @@ upgraded.
 POST `publishHallAR?product=window`, with the existing binary body and
 `X-Hall-AR-Format` header, stores `hall-ar/v1/<random-id>/window.glb` or
 `window.usdz`. Metadata identifies the product. The existing network/global
-quotas are shared with Hall; switching platform publishes another model.
+quotas are shared by all four enabled products; switching platform publishes another model.
 
 Links expire after 24 hours. Anyone holding a valid link can view that snapshot
-without logging in. The scheduled cleanup handles both products. For tenant
+without logging in. The scheduled cleanup handles all four products. For tenant
 sites, publication is checked against that tenant's **Window** entitlement;
 Hall entitlement alone does not authorize Window publication.
 
@@ -109,9 +112,15 @@ export and are not an iPhone acceptance test.
 
 After deployment, test one normal and one opened-sash window on Android and on
 Safari/iOS. Check scale, glazing and hardware; verify that Hall still works and
-that the other configurators' AR buttons remain unavailable.
+that Pergola/Fence work while the remaining configurators' AR buttons stay unavailable.
 
 Primary viewer references:
 - https://developers.google.com/ar/develop/scene-viewer
 - https://developer.apple.com/quick-look-gallery/
 - https://github.com/mrdoob/three.js/blob/r160/examples/jsm/exporters/USDZExporter.js
+
+## Current completeness release
+
+Cache markers: `window-ar-3` / shared `firebase-ar-4`. The previous loading-state fix is retained. The current shared export helper preserves supported normal/roughness/metalness/emissive/AO maps in the captured copy in addition to the base texture. Native formats/viewers may approximate advanced shader effects. Open sash transforms remain intact; only the cloned inspection/exploded translations are restored.
+
+All 13 Window AR test groups, the full Window validation suite, and the static build were rerun successfully. A browser fixture verifies base/normal/roughness image retention and live-object ownership alongside the actual CAD geometry regressions. This does not constitute a fresh complete USDZ export or a physical phone test. See `fence-configurator/AR_IMPLEMENTATION.md` for the current combined release checks. Earlier export sizes above describe the earlier release.
