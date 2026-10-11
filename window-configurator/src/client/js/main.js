@@ -4,12 +4,12 @@ import {
     WINDOW_HEIGHT_MIN_M,
     WINDOW_HEIGHT_MAX_M,
 } from './config.js?v=platform-18';
-import { createComponentSelection } from './component-selection.js?v=platform-18';
+import { createComponentSelection } from './component-selection.js?v=window-ar-1';
 import { createSceneContext } from './scene.js?v=platform-18';
-import { initializeUIControls } from './ui-controls.js?v=platform-18';
+import { initializeUIControls } from './ui-controls.js?v=window-ar-1';
 import { createWindowBuilder } from './window-builder.js?v=platform-18';
 import { createMaterialManager } from './materials.js?v=platform-18';
-import { createARController } from './ar-controller.js?v=platform-18';
+import { createARController } from './ar-controller.js?v=window-ar-1';
 import { createCadReferenceController } from './cad-reference.js?v=platform-18';
 import { createProfileController } from './profile-controller.js?v=platform-18';
 import { createAccessoryController } from './accessory-controller.js?v=platform-18';
@@ -54,7 +54,8 @@ import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
-const isARMode = pageParams.get('ar') === '1';
+// QR links now use the Firebase phone page; legacy ?ar=1 loads the editor.
+const isARMode = false;
 const captureMode = pageParams.get('capture') === '1';
 
 const requestedCadAssemblyId = pageParams.get('cad_assembly')
@@ -894,7 +895,7 @@ arController = measureCadLoadingSync(
     camera,
     placementRoot,
     mainGroup,
-    applyCurrentPoseInstantly,
+    getExportMaterial: componentSelection.getMaterialForExport,
     materialManager,
     getProfilesReady: profileController.getProfilesReady,
     getProfilesData: profileController.getProfilesData,
@@ -1169,12 +1170,8 @@ measureCadLoadingSync(
     updateComponentPictures,
     openCadReferenceModal: cadReferenceController.openModal,
     closeCadReferenceModal: cadReferenceController.closeModal,
-    setSelectedARPlatform: arController.setSelectedARPlatform,
     openQRModal: arController.openQRModal,
     closeQRModal: arController.closeQRModal,
-    downloadLatestARAsset: arController.downloadLatestARAsset,
-    checkLatestStaticModel: arController.checkLatestStaticModel,
-    startAR: arController.startAR,
     })
 );
 
