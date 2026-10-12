@@ -1,10 +1,9 @@
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
-import { validateSheetProfile } from './sheetPlanner.js?v=sketch-47';
+import { validateSheetProfile } from './sheetPlanner.js?v=windows-24';
 import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=layout-21';
-import { defaultSketch, sketchArea, validateSketch } from './slopeSketch.js?v=sketch-1';
-import { state, pitchRules, roofNames } from './state.js?v=drainage-48';
-import { RoofScene } from './scene.js?v=drainage-50';
-import { RoofUI } from './ui.js?v=drainage-49';
+import { state, pitchRules, roofNames } from './state.js?v=layout-21';
+import { RoofScene } from './scene.js?v=roof-ar-1';
+import { RoofUI } from './ui.js?v=roof-ar-1';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
@@ -12,7 +11,7 @@ import {
   resolveCurrencyRate,
 } from './preferences.js?v=platform-18';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=sketch-1';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=roof-ar-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 await requireTenantConfiguratorAccess('roof');
@@ -20,7 +19,7 @@ await requireTenantConfiguratorAccess('roof');
 const VIEW_ORDER = ['perspective', 'front', 'top'];
 const DEFAULT_ROOF_STATE = structuredClone(state);
 const ROOF_SHARE_NUMBERS = ['length', 'depth', 'wallHeight', 'pitch', 'overhang', 'sunPosition', 'northDirection'];
-const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 'nightPreview', 'showSurfaceLetters', 'showDrainage'];
+const ROOF_SHARE_BOOLEANS = ['showDimensions', 'technicalEdges', 'showCompass', 'nightPreview'];
 
 function applySharedRoofState(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
@@ -29,13 +28,6 @@ function applySharedRoofState(snapshot) {
     try { validateLayout(snapshot.roofLayout); roofWindowGeometry(snapshot.roofLayout); } catch { return false; }
   }
   if (snapshot.roofType === 'layout' && !snapshot.roofLayout) return false;
-  if (snapshot.slopeSketch != null) {
-    try { validateSketch(snapshot.slopeSketch); } catch { return false; }
-  }
-  if (snapshot.roofType === 'sketch' && !snapshot.slopeSketch) return false;
-  state.drainageDiameter = [80,100,120].includes(snapshot.drainageDiameter) ? snapshot.drainageDiameter : 100;
-  state.drainagePosition = ['both','start','end'].includes(snapshot.drainagePosition) ? snapshot.drainagePosition : 'both';
-  state.drainageColor = snapshot.drainageColor === 'roof' ? 'roof' : 'graphite';
   if (Object.prototype.hasOwnProperty.call(roofNames, snapshot.roofType)) state.roofType = snapshot.roofType;
   if (Object.prototype.hasOwnProperty.call(pitchRules, snapshot.covering)) state.covering = snapshot.covering;
   if (typeof snapshot.roofColor === 'string' && /^#[0-9a-f]{6}$/i.test(snapshot.roofColor)) state.roofColor = snapshot.roofColor;
@@ -52,7 +44,6 @@ function applySharedRoofState(snapshot) {
     state.customPlan = snapshot.customPlan ? structuredClone(snapshot.customPlan) : null;
   }
   if (snapshot.roofLayout !== undefined) state.roofLayout = structuredClone(snapshot.roofLayout);
-  if (snapshot.slopeSketch !== undefined) state.slopeSketch = structuredClone(snapshot.slopeSketch);
   if (snapshot.sheetPlanOptions === null) state.sheetPlanOptions = null;
   if (snapshot.sheetPlanOptions?.profile) {
     try {
@@ -109,10 +100,9 @@ function emitToolsState() {
   window.dispatchEvent(new CustomEvent('roof-tools-state-change', {
     detail: {
       roofType: state.roofType,
-      dimensionsAvailable: !['custom', 'layout', 'sketch'].includes(state.roofType),
+      dimensionsAvailable: !['custom', 'layout'].includes(state.roofType),
       showDimensions: state.showDimensions,
       showCompass: state.showCompass,
-      showSurfaceLetters: !!state.showSurfaceLetters,
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
@@ -178,16 +168,9 @@ function syncLayoutDimensions() {
   }
 }
 
-// Slopes drawn one by one have no 3D model; the area comes from the drawings.
-function sketchMetrics(metrics) {
-  if (state.roofType !== 'sketch') return metrics;
-  state.slopeSketch ||= defaultSketch();
-  return { ...metrics, footprint: null, roofArea: sketchArea(state.slopeSketch), approximate: false };
-}
-
 function rebuild({ fitCamera = false } = {}) {
   syncLayoutDimensions();
-  lastMetrics = sketchMetrics(scene.rebuild(state, fitCamera));
+  lastMetrics = scene.rebuild(state, fitCamera);
   scene.setEnvironment(state);
   scene.setCompassVisible(state.showCompass);
   if (fitCamera) {
@@ -211,7 +194,7 @@ function applyView(view) {
 syncLayoutDimensions();
 ui = new RoofUI(state, rebuild);
 ui.applyStateToControls();
-lastMetrics = sketchMetrics(scene.rebuild(state, true));
+lastMetrics = scene.rebuild(state, true);
 scene.setEnvironment(state);
 scene.setCompassVisible(state.showCompass);
 ui.updateMetrics(lastMetrics);
@@ -254,14 +237,27 @@ function resetConfiguration() {
   return true;
 }
 
+function assertARConfigurationReady() {
+  const code = ui?.layoutEditor?.dialog?.open ? 'editing-in-progress'
+    : !lastMetrics || !scene.modelRoot.children.length ? 'not-ready'
+      : state.roofType === 'custom' || !(lastMetrics.roofArea > 0) ? 'roof-incomplete' : null;
+  if (code) { const error = new Error(code); error.code = code; throw error; }
+}
+
 const configuratorApi = {
+  async captureARSnapshot(options = {}) {
+    assertARConfigurationReady();
+    const snapshot = await scene.captureARSnapshot(options);
+    // A layout editor may have opened while finish images were loading.
+    assertARConfigurationReady();
+    return snapshot;
+  },
   getState() {
     return {
       roofType: state.roofType,
-      dimensionsAvailable: !['custom', 'layout', 'sketch'].includes(state.roofType),
+      dimensionsAvailable: !['custom', 'layout'].includes(state.roofType),
       showDimensions: state.showDimensions,
       showCompass: state.showCompass,
-      showSurfaceLetters: !!state.showSurfaceLetters,
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
@@ -286,16 +282,10 @@ const configuratorApi = {
       showDimensions: state.showDimensions,
       technicalEdges: state.technicalEdges,
       showCompass: state.showCompass,
-      showSurfaceLetters: !!state.showSurfaceLetters,
       sunPosition: state.sunPosition,
       northDirection: state.northDirection,
       nightPreview: state.nightPreview,
-      showDrainage: !!state.showDrainage,
-      drainageDiameter: state.drainageDiameter,
-      drainagePosition: state.drainagePosition,
-      drainageColor: state.drainageColor,
       roofLayout: state.roofLayout ? structuredClone(state.roofLayout) : null,
-      slopeSketch: state.slopeSketch ? structuredClone(state.slopeSketch) : null,
       sheetPlanOptions: state.sheetPlanOptions ? structuredClone(state.sheetPlanOptions) : null,
       customPlan: state.customPlan ? structuredClone(state.customPlan) : null,
       excludedBomItems: [...state.excludedBomItems],
@@ -318,7 +308,7 @@ const configuratorApi = {
   resetConfiguration,
 
   setDimensionsVisible(visible) {
-    if (['custom', 'layout', 'sketch'].includes(state.roofType)) return state.showDimensions;
+    if (['custom', 'layout'].includes(state.roofType)) return state.showDimensions;
     state.showDimensions = Boolean(visible);
     rebuild({ fitCamera: false });
     return state.showDimensions;
