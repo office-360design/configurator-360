@@ -1,4 +1,5 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { createBookshelfARController } from './ar/controller.js?v=bookshelf-ar-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-8';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -18,13 +19,22 @@ const toolItems = resolveSharedTools([
 ]);
 
 let shell;
+const ar = createBookshelfARController({
+  getSnapshot: async (options) => {
+    const api = window.BOOKSHELF_CONFIGURATOR_API;
+    if (!api?.captureARSnapshot) { const error = new Error('not-ready'); error.code = 'not-ready'; throw error; }
+    return api.captureARSnapshot(options);
+  },
+  getLocale: () => shell?.state.locale || 'en-US',
+  onFeedback: (...args) => shell?.showFeedback(...args),
+});
 shell = mountStandaloneConfiguratorShell({
   productType: 'Bookshelf',
   productId: 'bookshelf',
   storagePrefix: '360-configurator:bookshelf',
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
-  capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
+  capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
   tools: { items: toolItems, placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 } },
   settingsPanel: {
     panelSelector: '.sidebar',
@@ -38,6 +48,7 @@ shell = mountStandaloneConfiguratorShell({
     geometry: 'floating-right',
   },
   callbacks: {
+    onViewAR() { ar.open(); },
     onUndo() { history.undo(); },
     async resetConfiguration() { return (await window.BOOKSHELF_CONFIGURATOR_API?.resetConfiguration?.()) !== false; },
     captureState() { return window.BOOKSHELF_CONFIGURATOR_API?.captureState?.(); },
@@ -49,6 +60,7 @@ shell = mountStandaloneConfiguratorShell({
     onPreferenceChange(path, value, preferences) {
       if (path === 'darkMode') window.BOOKSHELF_CONFIGURATOR_API?.setDarkMode?.(Boolean(value));
       if (path === 'locale') {
+        ar.refresh();
         window.BOOKSHELF_CONFIGURATOR_API?.setLocale?.(preferences.locale);
         queueMicrotask(syncBookshelfLocalShell);
       }

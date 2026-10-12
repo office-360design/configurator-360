@@ -21,8 +21,8 @@ function sample(w=600,h=300,d=400){
 const parsed=s=>new THREE.ObjectLoader().parse(s.model);
 const near=(a,b)=>assert.ok(Math.abs(a-b)<2e-6,`${a} != ${b}`);
 function json(o){return JSON.stringify(o.toJSON());}
-test('Cardbox is the seventh explicit opt-in, preserving the previous six products',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox']);
+test('Cardbox remains enabled alongside subsequent explicit product opt-ins',()=>{
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf']);
  for(const p of [...AR_PRODUCTS,'roof','solar','bookshelf','gas','']){
   assert.equal(isConfiguratorAREnabled(p,{viewAR:true}),AR_PRODUCTS.includes(p));
   assert.equal(isConfiguratorAREnabled(p,{viewAR:false}),false);assert.equal(isConfiguratorAREnabled(p),false);
