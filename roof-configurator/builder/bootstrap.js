@@ -11,7 +11,8 @@ title.textContent = "Desenare 2D Pante";
 subtitle.textContent = "Construiește acoperișul pas cu pas";
 button.append(title, subtitle);
 const intro = document.querySelector(".sidebar .intro-section");
-intro?.append(button);
+// Preserve the compact upstream intro; the new launcher is its own control.
+intro?.after(button);
 let dialog = null,
   frame = null,
   opener = null;

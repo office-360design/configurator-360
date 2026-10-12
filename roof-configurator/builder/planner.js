@@ -3,7 +3,7 @@ import {
   validateSheetPartition,
   groupSheetLengths,
   partitionTargets,
-} from "../js/sheetPlanner.js?v=navigation-32";
+} from "../js/sheetPlanner.js?v=sketch-47";
 import {
   getProduct,
   ACCESSORIES,

@@ -1,4 +1,4 @@
-import { sheetProfiles } from "../js/sheetPlanner.js?v=navigation-32";
+import { sheetProfiles } from "../js/sheetPlanner.js?v=sketch-47";
 import { CATALOG_EVIDENCE } from "./evidence.js?v=builder-game-3";
 
 export const CATALOG_VERSION = "rodach-2026-10-07";

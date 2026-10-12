@@ -1,6 +1,6 @@
 import { clone, newPart } from "./project.js?v=builder-game-3";
 import { presetRoofLayout } from "../js/presetLayout.js?v=layout-21";
-import { slopeLetter } from "../js/sheetPlanner.js?v=navigation-32";
+import { slopeLetter } from "../js/sheetPlanner.js?v=sketch-47";
 import { resolveProject } from "./geometry.js?v=builder-game-3";
 import { faceFingerprint } from "./planner.js?v=builder-game-3";
 import { getProduct } from "./catalog.js?v=builder-game-3";
@@ -8,6 +8,9 @@ import { getProduct } from "./catalog.js?v=builder-game-3";
 // The parent supplies a cloned captureState result; this adapter only adds a
 // builder-owned copy. It never calls restoreState or any original editor API.
 export function copySnapshot(project, snapshot) {
+  // The upstream 2D sketch has no assembled layout. Never turn it into a
+  // default preset and present that guessed roof as a copy of the survey.
+  if (snapshot?.roofType === "sketch") throw new Error("copySketchUnsupported");
   if (!snapshot || snapshot.roofType === "custom")
     throw new Error("copyUnsupported");
   const layout =

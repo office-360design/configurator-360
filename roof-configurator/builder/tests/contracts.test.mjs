@@ -836,3 +836,17 @@ test("a missing connected source pitch affects assembly without erasing the targ
   assert.ok(!planFace(face).warnings.includes("pitchMissing"));
   near(planFace(face).netArea, 24);
 });
+
+test("copying the upstream slope sketch never invents a preset roof or mutates the project", () => {
+  const project = createProject(),
+    before = structuredClone(project);
+  assert.throws(
+    () =>
+      copySnapshot(project, {
+        roofType: "sketch",
+        slopeSketch: { version: 1, slopes: [] },
+      }),
+    /copySketchUnsupported/,
+  );
+  assert.deepEqual(project, before);
+});

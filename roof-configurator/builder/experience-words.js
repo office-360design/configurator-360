@@ -1,4 +1,9 @@
 export const experienceWords = {
+  copySketchUnsupported: [
+    "Desenul separat de pante nu poate fi copiat încă în constructor. Desenul original rămâne neschimbat.",
+    "This separate slope sketch cannot be copied into the builder yet. Your original drawing is unchanged.",
+    "Die separate Dachflächenskizze kann noch nicht in den Baukasten kopiert werden. Die ursprüngliche Zeichnung bleibt unverändert.",
+  ],
   readyToBuild: ["Gata de construit", "Ready to build", "Bereit zum Bauen"],
   toolProject: ["Proiect", "Project", "Projekt"],
   toolFit: ["Tot acoperișul", "Whole roof", "Ganzes Dach"],

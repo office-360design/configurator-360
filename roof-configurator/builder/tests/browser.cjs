@@ -249,7 +249,19 @@ const partCount = (frame) =>
       viewport: { width: 1440, height: 1000 },
     });
     await routeThree(construction);
+    const pendingRequests = new Set();
+    construction.on("request", (req) => pendingRequests.add(req.url()));
+    construction.on("requestfinished", (req) =>
+      pendingRequests.delete(req.url()),
+    );
+    construction.on("requestfailed", (req) => {
+      pendingRequests.delete(req.url());
+      console.error("Request failed", req.url(), req.failure());
+    });
     construction.on("pageerror", (e) => errors.push(e.message));
+    construction.on("console", (message) => {
+      if (message.type() === "warning") console.error(message.text());
+    });
     await construction.goto(base + "/roof-configurator/builder/?locale=en-US");
     await click(construction, "add");
     await construction.locator("[data-choice=gable]").click();
@@ -321,7 +333,31 @@ const partCount = (frame) =>
     assert.equal(await construction.locator(".planCard").count(), 9);
     await click(construction, "closePlan");
     await click(construction, "3d");
-    await construction.locator("#viewer canvas").waitFor();
+    try {
+      // SwiftShader can take longer to compile the detailed multi-wing model.
+      await construction
+        .locator("#viewer canvas")
+        .waitFor({ timeout: 120_000 });
+    } catch (error) {
+      console.error(
+        "Construction preview failure",
+        await construction.locator("#status").textContent(),
+      );
+      console.error(
+        "Preview DOM",
+        await construction.evaluate(() => ({
+          url: location.href,
+          shell: document.querySelector(".shell").className,
+          viewer: document.querySelector("#viewer").outerHTML.slice(0, 400),
+          viewButton: document.querySelector('[data-action="3d"]').outerHTML,
+        })),
+      );
+      console.error("Pending requests", [...pendingRequests]);
+      await construction.screenshot({
+        path: "/tmp/roof-v2-preview-failure.png",
+      });
+      throw error;
+    }
     await construction.evaluate(async () => {
       const { productGeometry } = await import("./viewer.js?v=builder-game-3"),
         { resolveProject } = await import("./geometry.js?v=builder-game-3");
