@@ -25,8 +25,8 @@ function expectedParts(s) {
 }
 function counts(root) {const out={};root.traverse(o=>{if(o.isMesh)out[o.name]=(out[o.name]||0)+1;});return out;}
 const nonzero=o=>Object.fromEntries(Object.entries(o).filter(([,n])=>n));
-test('Only five opted-in products; Pavement phone links stay on canonical/localized/tenant origins',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles']);
+test('Only six opted-in products; Pavement phone links stay on canonical/localized/tenant origins',()=>{
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair']);
  for(const product of [...AR_PRODUCTS,'roof','solar','bookshelf','chair','gas','cardbox']){
   assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),AR_PRODUCTS.includes(product));
   assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);
