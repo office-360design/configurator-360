@@ -633,6 +633,12 @@ export class RoofScene {
     return solar;
   }
 
+  async captureARSnapshot(options = {}) {
+    const { captureSolarARSnapshot, waitForSolarTextures } = await import('./ar/exportSolar.js?v=solar-ar-1');
+    await waitForSolarTextures(() => [this.modelRoot, this.solarRoot], options);
+    return captureSolarARSnapshot(this.modelRoot, this.solarRoot);
+  }
+
   rebuildSolarArray(state) {
     this.disposeGroup(this.solarRoot);
     const { group: solarGroup, metrics: solarMetrics } = buildSolarArray(state);

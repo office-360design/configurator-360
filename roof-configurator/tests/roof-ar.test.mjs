@@ -32,8 +32,8 @@ function withoutMaps(root) {
   if(!mats.has(m)){const n=m.clone();for(const key of Object.keys(n))if(n[key]?.isTexture)n[key]=null;mats.set(m,n);}return mats.get(m);
  };o.material=Array.isArray(o.material)?o.material.map(replace):replace(o.material);});
 }
-test('Roof explicitly enabled alongside the eight existing products; Solar remains disabled',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof']);
+test('Roof and Solar explicitly enabled alongside the eight earlier products',()=>{
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar']);
  for(const p of [...AR_PRODUCTS,'solar','gas','']){
   assert.equal(isConfiguratorAREnabled(p,{viewAR:true}),AR_PRODUCTS.includes(p));
   assert.equal(isConfiguratorAREnabled(p,{viewAR:false}),false);assert.equal(isConfiguratorAREnabled(p),false);

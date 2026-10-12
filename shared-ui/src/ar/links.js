@@ -1,4 +1,4 @@
-export const AR_PRODUCTS = Object.freeze(['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof']);
+export const AR_PRODUCTS = Object.freeze(['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar']);
 export function requireProduct(value = 'hall') { if (!AR_PRODUCTS.includes(value)) throw new Error('Invalid AR product.'); return value; }
 export const AR_FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 export const AR_SESSION_ID = /^[A-Za-z0-9_-]{32}$/;
@@ -19,6 +19,7 @@ export function arPhoneUrl(id, mode, locale, origin = window.location.origin, pr
   const country = ['360configurator.ro', 'www.360configurator.ro'].includes(host) ? 'ro'
     : ['360konfigurator.de', 'www.360konfigurator.de'].includes(host) ? 'de' : 'en';
   const paths = {
+    solar: { en: '/solar-configurator/', ro: '/configurator-solar/', de: '/solar-konfigurator/' },
     roof: { en: '/roof-configurator/', ro: '/configurator-acoperis/', de: '/dach-konfigurator/' },
     bookshelf: { en: '/bookshelf-configurator/', ro: '/bookshelf-configurator/', de: '/bookshelf-configurator/' },
     cardbox: { en: '/cardbox-configurator/', ro: '/configurator-cutii-carton/', de: '/karton-konfigurator/' },
