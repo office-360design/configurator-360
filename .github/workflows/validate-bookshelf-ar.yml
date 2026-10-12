@@ -40,6 +40,7 @@ jobs:
       # fixture; do not install a different root Three runtime or change r169.
       - name: Check Bookshelf exports, policy, branding and Firebase serving
         run: |
+          node --test bookshelf-configurator/tests/camera-guard.test.mjs
           node --no-warnings --experimental-loader ./bookshelf-configurator/tests/ar-test-loader.mjs --test bookshelf-configurator/tests/bookshelf-ar.test.mjs
           node --test hall-configurator/tests/ar-policy.test.mjs scripts/validation/tenant-branding.test.mjs firebase-share-backend/functions/tests/hall-ar.test.cjs
           node --check bookshelf-configurator/js/app.js
@@ -59,3 +60,14 @@ jobs:
         run: |
           CHROMIUM="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
           python bookshelf-configurator/tests/ar-browser.py --chromium "$CHROMIUM" --artifacts /tmp/bookshelf-ar-tests
+      - name: Upload Bookshelf AR diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bookshelf-ar-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            /tmp/bookshelf-ar-tests/*.json
+            /tmp/bookshelf-ar-tests/*.txt
+            /tmp/bookshelf-ar-tests/*.png
