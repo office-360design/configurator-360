@@ -1,4 +1,4 @@
-import { AR_FUNCTION_BASE, AR_SESSION_ID, arModelUrl, requireProduct } from './links.js?v=firebase-ar-9';
+import { AR_FUNCTION_BASE, AR_SESSION_ID, arModelUrl, requireProduct } from './links.js?v=firebase-ar-10';
 function coded(code) { const error = new Error(code); error.code = code; return error; }
 export async function publishAR(asset, { product = 'hall', signal, onProgress = () => {} } = {}) {
   requireProduct(product);

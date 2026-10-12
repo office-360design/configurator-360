@@ -107,7 +107,7 @@ test('Tenant publication checks the requested product (including preflight)',asy
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'},method:'OPTIONS'})).statusCode,204);
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'}})).statusCode,201);
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'hall'}})).statusCode,403);
-  for(const product of ['solar','../../secret','constructor',['window']])assert.equal((await h.call('publishHallAR',{origin,query:{product}})).statusCode,400);
+  for(const product of ['gas','../../secret','constructor',['window']])assert.equal((await h.call('publishHallAR',{origin,query:{product}})).statusCode,400);
   h.docs.get('tenants/example').status='suspended';assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'}})).statusCode,403);
 });
 test('Mixed Hall/Window cleanup and forged stored paths cannot escape the AR prefix',async()=>{
@@ -148,14 +148,14 @@ test('Pergola entitlement must be enabled for tenant publication and preflight',
   assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'pergola' } })).statusCode, 204);
   assert.equal((await h.call('publishHallAR', { origin, query: { product: 'pergola' } })).statusCode, 201);
 });
-test('Cleanup handles all nine products without touching non-AR application objects', async () => {
+test('Cleanup handles all ten products without touching non-AR application objects', async () => {
   const h = harness();
-  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof']) {
+  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar']) {
     const r = await h.call('publishHallAR', { query: { product } }); assert.equal(r.statusCode, 201);
     h.docs.get(`hallARSessions/${r.jsonBody.id}`).expiresAt = h.Timestamp.fromMillis(Date.now() - 1);
   }
   h.files.set('private/application-data', { b: Buffer.from('untouched') });
-  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 9);
+  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 10);
   assert.ok(h.files.has('private/application-data'));
 });
 test('Fence GLB/USDZ: private product paths, manifests, HEAD, byte ranges and expiry', async () => {
@@ -319,4 +319,27 @@ test('Roof publication respects tenant product permission including preflight', 
   h.docs.get('tenants/example').configurators.roof=true;
   assert.equal((await h.call('publishHallAR',{origin,method:'OPTIONS',query:{product:'roof'}})).statusCode,204);
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'roof'}})).statusCode,201);
+});
+
+test('Solar with house: both formats keep private product paths, correct metadata, byte serving and cleanup', async () => {
+  for (const format of ['glb', 'usdz']) {
+    const h = harness(), r = await h.call('publishHallAR', { format, body: format === 'glb' ? glb() : usdz(), query: { product: 'solar' } });
+    assert.equal(r.statusCode, 201); assert.equal(r.jsonBody.product, 'solar');
+    const id = r.jsonBody.id, record = h.docs.get(`hallARSessions/${id}`);
+    assert.equal(record.objectPath, `hall-ar/v1/${id}/solar.${format}`);
+    assert.equal((await h.call('getHallAR', {method:'GET',query:{id}})).jsonBody.product, 'solar');
+    const head = await h.call('getHallAR', {method:'HEAD',query:{id,asset:'1'}});
+    assert.equal(head.statusCode,200); assert.match(head.headers['content-disposition'],new RegExp(`solar\\.${format}`));
+    const part = await h.call('getHallAR', {method:'GET',query:{id,asset:'1'},range:'bytes=0-63'});
+    assert.equal(part.statusCode,206); assert.equal(part.body.length,64);
+    record.expiresAt=h.Timestamp.fromMillis(Date.now()-1); await h.exports.cleanupHallAR(); assert.equal(h.files.size,0);
+  }
+});
+test('Solar publication respects tenant product permission including preflight', async () => {
+  const h=harness(),origin='https://example.360configurator.com';
+  h.docs.set('tenants/example',{slug:'example',status:'active',configurators:{hall:true,solar:false}});
+  for(const method of ['OPTIONS','POST'])assert.equal((await h.call('publishHallAR',{origin,method,query:{product:'solar'}})).statusCode,403);
+  h.docs.get('tenants/example').configurators.solar=true;
+  assert.equal((await h.call('publishHallAR',{origin,method:'OPTIONS',query:{product:'solar'}})).statusCode,204);
+  assert.equal((await h.call('publishHallAR',{origin,query:{product:'solar'}})).statusCode,201);
 });

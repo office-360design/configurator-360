@@ -523,7 +523,61 @@ const ROOF_OVERRIDES = {
     "back": "Dach-Konfigurator"
   }
 };
+const SOLAR_OVERRIDES = {
+  "en-US": {
+    "title": "View this solar installation in AR",
+    "regenerate": "Regenerate from current solar installation",
+    "invalid-configuration": "The solar configuration is invalid. Check the dimensions and try again.",
+    "invalid-openings": "Check the building configuration before opening AR.",
+    "invalid-geometry": "The solar installation and house could not be prepared. Check your configuration and try again.",
+    "model-too-large": "This solar installation is too detailed for mobile AR. Try a smaller configuration.",
+    "not-ready": "The solar installation or its finishes are still loading. Please try again shortly.",
+    "textures-unavailable": "Some finishes could not be loaded. Reload the configurator and try again.",
+    "roof-incomplete": "Choose a complete supported roof before opening AR.",
+    "no-panels": "No solar panels fit the current layout. Adjust the roof size, panel count or spacing and try again.",
+    "expired": "This QR code has expired. Create a new one in the solar configurator.",
+    "not-found": "This AR link was not found. Create a new QR code in the solar configurator.",
+    "phoneTitle": "Your configured solar installation and house",
+    "phoneNote": "Allow camera access when prompted, move the phone to detect the ground and place the house with its solar panels. Pinch to resize if needed.",
+    "back": "Solar configurator"
+  },
+  "ro-RO": {
+    "title": "Vezi instalația solară în AR",
+    "regenerate": "Regenerează din instalația solară curentă",
+    "invalid-configuration": "Configurația solară este invalidă. Verifică dimensiunile și încearcă din nou.",
+    "invalid-openings": "Verifică configurația clădirii înainte de a deschide AR.",
+    "invalid-geometry": "Instalația solară și casa nu au putut fi pregătite. Verifică configurația și încearcă din nou.",
+    "model-too-large": "Această instalație solară este prea detaliată pentru AR pe telefon. Încearcă o configurație mai mică.",
+    "not-ready": "Instalația solară sau finisajele încă se încarcă. Încearcă din nou în câteva momente.",
+    "textures-unavailable": "Unele finisaje nu au putut fi încărcate. Reîncarcă configuratorul și încearcă din nou.",
+    "roof-incomplete": "Alege un acoperiș complet acceptat înainte de a deschide AR.",
+    "no-panels": "Niciun panou solar nu încape în configurația curentă. Ajustează acoperișul, numărul panourilor sau distanțele și încearcă din nou.",
+    "expired": "Acest cod QR a expirat. Creează unul nou în configuratorul solar.",
+    "not-found": "Linkul AR nu a fost găsit. Creează un cod QR nou în configuratorul solar.",
+    "phoneTitle": "Instalația solară și casa configurate",
+    "phoneNote": "Permite accesul la cameră când este solicitat, mișcă telefonul pentru a detecta solul și plasează casa cu panourile solare. Redimensionează cu două degete dacă este necesar.",
+    "back": "Configurator solar"
+  },
+  "de-DE": {
+    "title": "Diese Solaranlage in AR ansehen",
+    "regenerate": "Aus aktueller Solaranlage neu erstellen",
+    "invalid-configuration": "Die Solarkonfiguration ist ungültig. Abmessungen prüfen und erneut versuchen.",
+    "invalid-openings": "Prüfen Sie die Gebäudekonfiguration vor dem AR-Start.",
+    "invalid-geometry": "Solaranlage und Haus konnten nicht vorbereitet werden. Konfiguration prüfen und erneut versuchen.",
+    "model-too-large": "Diese Solaranlage ist für mobiles AR zu detailliert. Bitte eine kleinere Konfiguration versuchen.",
+    "not-ready": "Die Solaranlage oder ihre Oberflächen werden noch geladen. Bitte in Kürze erneut versuchen.",
+    "textures-unavailable": "Einige Oberflächen konnten nicht geladen werden. Konfigurator neu laden und erneut versuchen.",
+    "roof-incomplete": "Wählen Sie vor dem AR-Start ein vollständiges unterstütztes Dach.",
+    "no-panels": "In die aktuelle Anordnung passen keine Solarmodule. Dachgröße, Modulanzahl oder Abstände anpassen und erneut versuchen.",
+    "expired": "Dieser QR-Code ist abgelaufen. Erstellen Sie im Solar-Konfigurator einen neuen.",
+    "not-found": "Dieser AR-Link wurde nicht gefunden. Erstellen Sie im Solar-Konfigurator einen neuen QR-Code.",
+    "phoneTitle": "Ihre konfigurierte Solaranlage mit Haus",
+    "phoneNote": "Erlauben Sie den Kamerazugriff, bewegen Sie das Telefon zur Erkennung des Bodens und platzieren Sie das Haus mit Solarmodulen. Bei Bedarf mit zwei Fingern skalieren.",
+    "back": "Solar-Konfigurator"
+  }
+};
 export const AR_COPY = Object.freeze({
+  solar: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...SOLAR_OVERRIDES[locale] }])),
   roof: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...ROOF_OVERRIDES[locale] }])),
   bookshelf: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...BOOKSHELF_OVERRIDES[locale] }])),
   cardbox: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CARDBOX_OVERRIDES[locale] }])),

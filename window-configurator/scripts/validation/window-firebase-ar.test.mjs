@@ -20,7 +20,7 @@ function fixture({mirror=false,open=false}={}) {
   return {root,pane};
 }
 test('Only Hall, Window, Pergola, Fence, Pavement and Chair opt-in; native/localized/tenant URLs use Window, not Hall',()=>{
-  for(const product of ['hall','window','bookshelf','pergola','roof','chair','fence','solar',''])assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof'].includes(product));
+  for(const product of ['hall','window','bookshelf','pergola','roof','chair','fence','solar',''])assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar'].includes(product));
   const id='ABCDEFGH01234567abcdefgh01234567';
   for(const [host,path] of [['www.360configurator.com','window-configurator'],['www.360configurator.ro','configurator-ferestre'],['www.360konfigurator.de','fenster-konfigurator'],['tenant.360configurator.ro','window-configurator']]){
     const url=new URL(arPhoneUrl(id,'ios','ro-RO',`https://${host}`,'window'));assert.equal(url.pathname,`/${path}/ar.html`);assert.equal(url.searchParams.get('id'),id);assert.equal(url.searchParams.get('mode'),'ios');
