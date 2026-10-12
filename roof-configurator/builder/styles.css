@@ -1,0 +1,1782 @@
+:root {
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-size: 16px;
+  line-height: 1.45;
+  --green: var(--accent);
+  --line: #dce1e5;
+  --muted: #697480;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  min-height: 48px;
+  min-width: 48px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: inherit;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-weight: 650;
+}
+button:hover {
+  background: var(--accent-soft);
+  border-color: #0878c9;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid #1264c2;
+  outline-offset: 3px;
+}
+button.primary {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+}
+button.selected {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+  background: var(--accent-soft);
+}
+button.danger {
+  color: #a0392b;
+}
+input,
+select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #b5c4cf;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  color: var(--ink);
+}
+input[type="checkbox"] {
+  width: 24px;
+  min-height: 24px;
+  height: 24px;
+  accent-color: var(--green);
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+label.check {
+  flex-direction: row;
+  align-items: center;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0 0 14px;
+}
+h1 {
+  font-size: 22px;
+}
+h2 {
+  font-size: 21px;
+}
+h3 {
+  font-size: 18px;
+}
+small {
+  font-size: 16px;
+}
+.muted {
+  color: var(--muted);
+}
+.badge {
+  display: inline-block;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 16px;
+  background: #fff9e5;
+  color: #725313;
+}
+.badge.ok {
+  color: var(--accent);
+  background: #e5f4ea;
+}
+.shell {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.header {
+  padding: 12px 18px;
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.header h1 {
+  margin: 0;
+  flex: 1;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 18px;
+  flex-wrap: wrap;
+  background: white;
+  border-bottom: 1px solid var(--line);
+}
+.instruction {
+  padding: 10px 18px;
+  background: #e0ede4;
+  min-height: 45px;
+}
+.work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  flex: 1;
+  min-height: 0;
+}
+.canvasWrap {
+  position: relative;
+  min-height: 280px;
+  overflow: hidden;
+}
+.board {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+  background: #f5f7f9;
+}
+.zoom {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  gap: 6px;
+}
+.viewToggle {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: flex;
+  gap: 6px;
+}
+.canvasNotice {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 78px;
+  padding: 10px;
+  background: #ffffffee;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.sidebar {
+  background: white;
+  border-left: 1px solid var(--line);
+  overflow: auto;
+  padding: 18px;
+}
+.partButton {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  margin: 8px 0;
+}
+.partButton .label {
+  font-size: 21px;
+  width: 38px;
+}
+.partButton .desc {
+  flex: 1;
+  font-weight: 500;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.actions > button {
+  flex: 1;
+}
+.divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 18px 0;
+}
+.status {
+  padding: 8px 18px;
+  background: white;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  min-height: 40px;
+}
+.status.error {
+  background: #fff0eb;
+  color: #972f22;
+  font-weight: 600;
+}
+.panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(430px, calc(100% - 24px));
+  z-index: 4;
+  background: white;
+  border: 1px solid #b5c4cf;
+  border-radius: 14px;
+  box-shadow: 0 12px 50px #17202a20;
+  display: flex;
+  flex-direction: column;
+}
+.panelHeader {
+  padding: 18px 18px 0;
+}
+.panelBody {
+  padding: 0 18px 18px;
+  overflow: auto;
+  flex: 1;
+}
+.panelFooter {
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  background: white;
+  border-radius: 0 0 14px 14px;
+}
+.panelFooter button {
+  flex: 1;
+}
+.choiceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  min-height: 145px;
+  text-align: center;
+}
+.choice svg {
+  width: 110px;
+  height: 64px;
+}
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inputRow input {
+  min-width: 0;
+}
+.inputRow span {
+  min-width: 32px;
+}
+.productChoice {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  margin: 12px 0;
+  text-align: left;
+}
+.productChoice svg {
+  width: 95px;
+  height: 64px;
+  flex: none;
+}
+.swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.swatch {
+  border: 3px solid white;
+  box-shadow: 0 0 0 1px #8a9f90;
+  width: 48px;
+  height: 48px;
+}
+.swatch.selected {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+.notice {
+  padding: 12px;
+  border: 1px solid #c3a95f;
+  background: #fff9e8;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.face {
+  fill: #e0eaf2;
+  stroke: #536c7e;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+.face.active {
+  fill: #cee9fc;
+  stroke: #0878c9;
+  stroke-width: 3;
+}
+.face.preview {
+  fill: #68b7ef66;
+  stroke: var(--accent);
+  stroke-dasharray: 7 4;
+}
+.edgeHit {
+  stroke: transparent;
+  stroke-width: 48;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+.dimensionHit {
+  fill: transparent;
+  cursor: pointer;
+}
+.dimensionHit:focus-visible {
+  stroke: #1264c2;
+  stroke-width: 3;
+  outline: none;
+}
+.edgeHighlight {
+  stroke: #dd8a25;
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+.handle {
+  fill: white;
+  stroke: var(--accent);
+  stroke-width: 3;
+  cursor: grab;
+}
+.handleHit {
+  fill: transparent;
+  cursor: grab;
+}
+.dimension {
+  font-size: 16px;
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: #f5f7f9;
+  stroke-width: 5;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+.faceLabel {
+  font-size: 21px;
+  font-weight: 700;
+  fill: var(--ink);
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: #f5f7f9;
+  stroke-width: 4;
+}
+.flow {
+  stroke: #397da6;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+.sheet {
+  fill: #e9f1f7;
+  stroke: #718696;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+.sheet.active {
+  fill: #f3c468;
+  stroke: #a46807;
+  stroke-width: 3;
+}
+.sheetLabel {
+  font-size: 14px;
+  fill: var(--ink);
+  pointer-events: none;
+}
+.planWorkspace {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #f5f7f9;
+  display: flex;
+  flex-direction: column;
+}
+.planHeader {
+  background: white;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.planHeader h2 {
+  flex: 1;
+  margin: 0;
+}
+.planContent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  flex: 1;
+  min-height: 0;
+}
+.planDrawings {
+  padding: 18px;
+  overflow: auto;
+}
+.planCard {
+  padding: 16px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+.planCard svg {
+  display: block;
+  width: 100%;
+  height: 320px;
+}
+.planCard.active {
+  border: 3px solid var(--accent);
+}
+.planCard .actions button {
+  flex: none;
+}
+.planOptions {
+  padding: 18px;
+  background: white;
+  border-left: 1px solid var(--line);
+  overflow: auto;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 16px;
+}
+td,
+th {
+  padding: 9px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.tableWrap {
+  overflow: auto;
+}
+.viewer {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.viewer canvas {
+  display: block;
+}
+.hidden {
+  display: none !important;
+}
+#print {
+  display: none;
+}
+.faceError {
+  stroke: #bd4d29 !important;
+  stroke-width: 4 !important;
+}
+.miniHelp {
+  margin-top: 14px;
+  color: var(--muted);
+}
+a {
+  color: var(--accent);
+}
+button.linkButton {
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+  font-weight: 500;
+}
+.responsiveOnly {
+  display: none;
+}
+@media (max-width: 800px) {
+  .header {
+    padding: 8px 12px;
+  }
+  .header h1 {
+    font-size: 18px;
+  }
+  .toolbar {
+    padding: 8px 10px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .toolbar button {
+    white-space: nowrap;
+    font-size: 16px;
+    padding: 10px;
+  }
+  .work {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(220px, 1fr) minmax(120px, 32%);
+  }
+  .sidebar {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding: 12px;
+  }
+  .sidebar .partList {
+    display: flex;
+    gap: 8px;
+    overflow: auto;
+  }
+  .partButton {
+    min-width: 180px;
+    max-width: 260px;
+  }
+  .sidebar h2 {
+    font-size: 18px;
+  }
+  .panel {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: min(430px, calc(100% - 16px));
+  }
+  .planContent {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(240px, 1fr) minmax(180px, 40%);
+  }
+  .planOptions {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .status {
+    font-size: 16px;
+  }
+  .viewToggle {
+    top: 10px;
+    left: 10px;
+  }
+  .zoom {
+    left: 10px;
+    bottom: 10px;
+  }
+  .canvasNotice {
+    left: 10px;
+    bottom: 68px;
+  }
+  .planCard svg {
+    height: 260px;
+  }
+  .planHeader {
+    padding: 10px;
+  }
+  .choiceGrid {
+    gap: 8px;
+  }
+  .choice {
+    padding: 10px;
+  }
+  .responsiveOnly {
+    display: block;
+  }
+}
+@media (max-width: 800px) {
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: visible;
+  }
+  .toolbar > button:first-child {
+    grid-column: 1/-1;
+  }
+  .toolbar button {
+    white-space: normal;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+  .toolbar > button {
+    padding: 8px 10px;
+  }
+  .panel {
+    position: fixed;
+    top: 180px;
+    bottom: 10px;
+    right: 8px;
+    z-index: 8;
+  }
+  .panel.placement {
+    top: auto;
+    height: auto;
+    bottom: 42px;
+  }
+  .panel.placement .panelBody {
+    max-height: 80px;
+  }
+  .panel.placement .panelHeader {
+    display: none;
+  }
+  .planWorkspace {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 10;
+  }
+  .planHeader {
+    flex: none;
+  }
+  .planHeader button {
+    flex: 1;
+  }
+  .planContent {
+    grid-template-rows: minmax(210px, 1fr) minmax(180px, 42%);
+  }
+  .status {
+    position: relative;
+    z-index: 9;
+  }
+  .viewToggle button {
+    padding: 8px;
+    font-size: 16px;
+  }
+  .sidebar .actions {
+    margin-bottom: 8px;
+  }
+}
+.sheetLabel {
+  font-size: 16px;
+}
+@media (max-width: 800px) {
+  .planCard svg {
+    height: 210px;
+  }
+  .planHeader h2 {
+    flex-basis: 100%;
+  }
+  .planHeader {
+    gap: 8px;
+  }
+}
+@media print {
+  body {
+    background: white;
+    color: black;
+    font-size: 16px;
+  }
+  #app {
+    display: none !important;
+  }
+  #print {
+    display: block;
+  }
+  #print svg {
+    width: 100%;
+    max-height: 450px;
+  }
+  #print section {
+    break-inside: avoid;
+    margin: 20px 0;
+  }
+  #print h1 {
+    font-size: 26px;
+  }
+  #print .notice {
+    background: white;
+    border: 1px solid black;
+  }
+  button {
+    display: none;
+  }
+  .planCard {
+    break-inside: avoid;
+  }
+  a {
+    color: black;
+    text-decoration: none;
+  }
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}
+
+/* Builder controls use the roof shell tokens and the shared panel components.
+   Larger labels and targets are deliberate for inspection teams. */
+.shell {
+  color: var(--ink);
+  background: var(--bg);
+}
+.sidebar {
+  border-radius: 0;
+  box-shadow: none;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  padding: 0;
+}
+.header h1 {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.toolbar {
+  align-items: center;
+}
+.toolbar [data-action="plan"] {
+  margin-left: auto;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.instruction {
+  background: var(--accent-soft);
+  color: #075f96;
+  border-bottom: 1px solid #d5e9f7;
+  font-weight: 600;
+}
+.welcome {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(650px, calc(100% - 64px));
+  padding: 26px;
+  background: #fffffff2;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.welcomeTitle h2 {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+.welcomeTitle p {
+  color: var(--muted);
+}
+.startChoices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.startCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 14px;
+  gap: 8px;
+  text-align: center;
+  border-color: #b9d5e8;
+}
+.startCard svg {
+  width: 100%;
+  height: 110px;
+}
+.startCard strong {
+  font-size: 19px;
+}
+.startCard span {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 16px;
+}
+.exampleLink {
+  margin-top: 18px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+}
+.roofSnapshot {
+  background: #f5f7f9;
+  padding: 16px 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.snapshotHeading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+}
+.snapshotHeading h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.snapshotHeading button {
+  padding: 8px;
+  font-size: 16px;
+}
+#roofPicture svg {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+.simpleInspector,
+.roofList {
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.selectedHeading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.selectedHeading h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.partLetter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 19px;
+}
+.sidebar .section-copy {
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 0;
+  margin-bottom: 16px;
+  color: var(--muted);
+}
+.shapeSwitcher {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 18px 0;
+}
+.shapeSwitcher button {
+  padding: 8px 3px;
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 500;
+  overflow: hidden;
+}
+.shapeSwitcher svg {
+  display: block;
+  width: 100%;
+  height: 55px;
+}
+.sidebar .range-control {
+  margin: 20px 0;
+  gap: 8px;
+}
+.sidebar .control-label,
+.sidebar .control-label b {
+  font-size: 16px;
+}
+.sidebar input[type="range"] {
+  padding: 0;
+  min-height: 48px;
+  width: 100%;
+  border: none;
+}
+.slopeChoices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.slopeChoices button {
+  padding: 6px;
+  font-size: 16px;
+  min-width: 0;
+}
+.slopeChoices svg {
+  width: 100%;
+  height: 24px;
+  display: block;
+}
+.buildActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.buildActions button {
+  font-size: 16px;
+  padding: 10px 7px;
+  line-height: 1.25;
+}
+.buildActions button:first-child {
+  grid-column: 1/-1;
+}
+.sidebar .sizeHint {
+  margin-top: 14px;
+  margin-bottom: 0;
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.shared-panel-controls .accordion-toggle {
+  font-size: 16px;
+  min-height: 56px;
+  padding: 14px 18px;
+}
+.shared-panel-controls .accordion-panel {
+  padding: 16px;
+}
+.shared-panel-controls .accordion-panel[hidden] {
+  display: none;
+}
+.roofList .partButton {
+  font-size: 16px;
+  gap: 12px;
+}
+.growHandle {
+  cursor: pointer;
+}
+.growHandle circle {
+  fill: var(--accent);
+  stroke: #fff;
+  stroke-width: 3;
+  filter: drop-shadow(0 2px 4px #17202a30);
+}
+.growHandle text {
+  fill: white;
+  stroke: none;
+  font: 700 28px system-ui;
+  pointer-events: none;
+}
+.growHandle:focus-visible circle {
+  stroke: #17202a;
+  stroke-width: 4;
+}
+.drawChoice {
+  margin-top: 14px;
+  width: 100%;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.drawnLine {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: 8 5;
+  pointer-events: none;
+}
+.drawnFill {
+  fill: #0878c91a;
+  stroke: none;
+  pointer-events: none;
+}
+.drawnCorner {
+  fill: #fff;
+  stroke: var(--accent);
+  stroke-width: 3;
+  pointer-events: none;
+}
+.panel.quickPlacement,
+.panel.drawingPanel {
+  top: auto;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  width: auto;
+  max-height: 210px;
+}
+.panel.quickPlacement .panelHeader {
+  display: none;
+}
+.panel.quickPlacement .panelBody {
+  flex: none;
+  padding: 14px 18px 0;
+}
+.panel.quickPlacement .panelBody p {
+  margin: 0;
+}
+.panel.drawingPanel .panelHeader {
+  display: none;
+}
+.panel.drawingPanel .panelBody {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 8px 18px 0;
+}
+.panel.drawingPanel .panelBody p {
+  margin: 0;
+  white-space: nowrap;
+}
+.panel.drawingPanel .check {
+  margin: 0;
+}
+.panelFooter button {
+  font-size: 16px;
+}
+.canvasNotice {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+}
+.canvasNotice span {
+  flex: 1;
+}
+@media (max-width: 800px) {
+  .header h1 {
+    font-size: 18px;
+  }
+  .header [data-action="files"] {
+    font-size: 16px;
+    padding: 8px;
+  }
+  .toolbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+  }
+  .toolbar button {
+    font-size: 16px;
+    white-space: normal;
+    line-height: 1.2;
+    min-height: 48px;
+  }
+  .toolbar [data-action="plan"] {
+    margin: 0;
+  }
+  .instruction {
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+  .work {
+    grid-template-rows: minmax(240px, 1fr) minmax(110px, 26%);
+  }
+  .sidebar {
+    padding: 0;
+  }
+  .roofSnapshot {
+    display: none;
+  }
+  .simpleInspector {
+    padding: 12px;
+  }
+  .welcome {
+    padding: 14px;
+    width: calc(100% - 24px);
+    border-radius: 16px;
+  }
+  .welcomeTitle h2 {
+    font-size: 21px;
+  }
+  .welcomeTitle p {
+    display: none;
+  }
+  .startChoices {
+    gap: 8px;
+  }
+  .startCard {
+    padding: 8px;
+    gap: 4px;
+  }
+  .startCard svg {
+    height: 68px;
+  }
+  .startCard strong {
+    font-size: 16px;
+  }
+  .startCard span {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .exampleLink {
+    margin-top: 5px;
+    padding: 5px;
+  }
+  .panel.quickPlacement .panelBody {
+    display: none;
+  }
+  .panel.quickPlacement .panelFooter {
+    padding: 8px;
+    gap: 5px;
+  }
+  .panel.quickPlacement .panelFooter button {
+    padding: 8px 5px;
+    min-width: 0;
+  }
+  .panel.drawingPanel .panelBody {
+    padding: 8px;
+    font-size: 16px;
+    align-items: start;
+  }
+  .panel.drawingPanel .check {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .panel.drawingPanel .panelFooter {
+    padding: 8px;
+    gap: 5px;
+  }
+  .panel.drawingPanel .panelFooter button {
+    min-width: 0;
+    padding: 8px 4px;
+    line-height: 1.2;
+  }
+  .canvasNotice {
+    flex-wrap: wrap;
+    left: 8px;
+    right: 8px;
+    bottom: 68px;
+    max-height: 170px;
+    overflow: auto;
+  }
+  .canvasNotice span {
+    flex-basis: 100%;
+  }
+  .viewToggle {
+    top: 8px;
+    left: 8px;
+    gap: 4px;
+  }
+  .viewToggle button {
+    font-size: 16px;
+    padding: 8px;
+  }
+}
+
+.sidebar .control-label {
+  flex-direction: row;
+  margin: 0;
+}
+.sidebar > .section-copy {
+  padding: 18px;
+}
+
+.sidebar.shared-panel-controls {
+  --shared-panel-accent: var(--accent);
+  --shared-panel-accent-dark: var(--accent);
+  --shared-panel-ink: var(--ink);
+  --shared-panel-muted: var(--muted);
+  --shared-panel-border: var(--line);
+}
+
+.pieceTools {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 2;
+}
+@media (max-width: 800px) {
+  .pieceTools {
+    top: auto;
+    bottom: 16px;
+    right: 10px;
+    max-width: 43%;
+  }
+  .pieceTools button {
+    padding: 8px 10px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .zoom {
+    left: 10px;
+    gap: 4px;
+    max-width: 54%;
+  }
+  .zoom button {
+    padding: 8px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 800px) {
+  .toolbar button:first-child {
+    grid-column: auto;
+  }
+}
+
+label.check {
+  min-height: 48px;
+}
+
+@media (max-width: 800px) {
+  .panel {
+    bottom: calc(var(--builder-status-height, 40px) + 8px);
+  }
+  .panel.quickPlacement,
+  .panel.drawingPanel {
+    bottom: calc(var(--builder-status-height, 40px) + 8px);
+  }
+}
+
+/* Construction HUD: the drawing is the workspace, tools belong to its edges. */
+.gameShell {
+  --dock-height: 96px;
+}
+.gameShell .header {
+  padding: 8px 16px;
+  border: 0;
+  background: var(--bg);
+}
+.gameShell .header h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.gameShell .header button {
+  background: #ffffffcc;
+  padding: 8px 12px;
+}
+.gameShell .work {
+  display: block;
+  position: relative;
+}
+.gameShell .canvasWrap {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.gameShell .board {
+  background: #edf2f6;
+}
+.gameShell .toolbar {
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: #ffffffee;
+  flex-wrap: nowrap;
+  z-index: 2;
+}
+.gameShell .toolbar button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gameShell .instruction {
+  position: absolute;
+  top: 78px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  min-height: 0;
+  width: max-content;
+  background: #ffffffeb;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 10px 18px;
+  box-shadow: 0 4px 20px #24344809;
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+.gameShell .viewToggle {
+  top: 12px;
+  left: 16px;
+  z-index: 2;
+  padding: 3px;
+  background: #ffffffee;
+  border-radius: 14px;
+}
+.gameShell .viewToggle button {
+  border: 0;
+}
+.gameShell .zoom {
+  left: 16px;
+  bottom: calc(var(--dock-height) + 24px);
+  z-index: 2;
+  background: #ffffffee;
+  padding: 3px;
+  border-radius: 14px;
+  max-width: none;
+}
+.gameShell .zoom button {
+  border: 0;
+  padding: 8px 12px;
+}
+.gameShell .planLaunch {
+  position: absolute;
+  right: 16px;
+  bottom: calc(var(--dock-height) + 24px);
+  z-index: 2;
+  box-shadow: 0 4px 16px #24344810;
+}
+.constructionDock {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  padding: 8px;
+  border: 1px solid #d1dbe3;
+  background: #fffffff5;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px #2434481a;
+  z-index: 3;
+}
+.gameShell .buildControls,
+.gameShell .pieceTools {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: none;
+}
+.gameShell .pieceTools {
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+}
+.gameShell .constructionDock button {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  min-width: 82px;
+  min-height: 70px;
+  font-size: 16px;
+  line-height: 1.2;
+  border: 0;
+  background: transparent;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.gameShell .constructionDock button.primary {
+  background: var(--accent);
+  color: white;
+}
+.gameShell .constructionDock button.selected {
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+}
+.toolIcon {
+  font: 500 25px/1 system-ui;
+}
+.gameShell .toolbar .toolIcon {
+  font-size: 24px;
+}
+.dockIdentity {
+  padding: 0 6px;
+}
+.gameShell .sidebar {
+  position: absolute;
+  right: 16px;
+  top: 78px;
+  bottom: calc(var(--dock-height) + 24px);
+  width: 340px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 10px 40px #24344820;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  background: #fffffff8;
+}
+.inspectorHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.inspectorHeader h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.inspectorBody {
+  overflow: auto;
+  padding: 16px;
+}
+.heightPicture svg {
+  display: block;
+  width: 100%;
+  height: 135px;
+}
+.pieceOptions {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.gameShell .sidebar .shapeSwitcher {
+  grid-template-columns: 1fr;
+}
+.gameShell .sidebar .shapeSwitcher button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  text-align: left;
+}
+.gameShell .sidebar .shapeSwitcher svg {
+  width: 95px;
+  flex: none;
+  height: 60px;
+}
+.gameShell .panel {
+  top: 78px;
+  bottom: calc(var(--dock-height) + 24px);
+  right: 16px;
+  left: auto;
+  width: min(400px, calc(100% - 32px));
+  border-radius: 18px;
+  box-shadow: 0 10px 40px #24344820;
+}
+.gameShell .panelHeader {
+  padding: 16px 16px 0;
+}
+.gameShell .panelHeader h2 {
+  font-size: 18px;
+}
+.gameShell .panelBody {
+  padding: 0 16px 16px;
+}
+.gameShell .panelFooter {
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+.gameShell .panel.buildTray {
+  top: auto;
+  bottom: calc(var(--dock-height) + 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(740px, calc(100% - 32px));
+  max-height: calc(100% - 205px);
+  right: auto;
+}
+.gameShell .buildTray .choiceGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.gameShell .buildTray .choice {
+  min-height: 126px;
+  padding: 12px 6px;
+  border: 1px solid var(--line);
+}
+.gameShell .buildTray .choice svg {
+  width: 100%;
+  max-width: 140px;
+  height: 64px;
+}
+.gameShell .buildTray .drawChoice {
+  margin-top: 8px;
+}
+.gameShell .buildTray .panelFooter {
+  justify-content: end;
+}
+.gameShell .buildTray .panelFooter button {
+  flex: none;
+}
+.gameShell .panel.quickPlacement,
+.gameShell .panel.drawingPanel {
+  top: auto;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  right: auto;
+  width: min(740px, calc(100% - 32px));
+  max-height: 190px;
+}
+.gameShell .panel.quickPlacement .panelFooter button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 52px;
+}
+.gameShell.isPending .constructionDock,
+.gameShell.isPlanning .constructionDock,
+.gameShell.isPlanning .zoom,
+.gameShell.isPlanning .planLaunch,
+.gameShell.isPlanning .toolbar,
+.gameShell.isPlanning .instruction,
+.gameShell.isPlanning .viewToggle {
+  display: none;
+}
+.gameShell.is3d .constructionDock {
+  display: none;
+}
+.gameShell .canvasNotice {
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  max-width: 800px;
+  margin: auto;
+  z-index: 3;
+}
+.gameShell .status {
+  padding: 5px 16px;
+  font-size: 16px;
+  min-height: 30px;
+  border: 0;
+  background: var(--bg);
+}
+.gameShell .welcome {
+  width: min(640px, calc(100% - 32px));
+  max-height: calc(100% - 250px);
+  overflow: auto;
+}
+.gameShell .hidden {
+  display: none !important;
+}
+@media (max-width: 800px) {
+  .gameShell {
+    --dock-height: 122px;
+  }
+  .gameShell .header {
+    padding: 5px 8px;
+    gap: 5px;
+  }
+  .gameShell .header h1 {
+    font-size: 16px;
+  }
+  .gameShell .header button {
+    padding: 5px 8px;
+    font-size: 16px;
+  }
+  .gameShell .toolbar {
+    display: flex;
+    top: 8px;
+    right: 8px;
+    gap: 0;
+  }
+  .gameShell .toolbar button {
+    padding: 8px;
+    font-size: 16px;
+  }
+  .gameShell .toolbar .toolIcon {
+    display: none;
+  }
+  .gameShell .viewToggle {
+    top: 8px;
+    left: 8px;
+    gap: 0;
+    padding: 0;
+  }
+  .gameShell .viewToggle button {
+    padding: 8px;
+    min-width: 48px;
+    font-size: 16px;
+  }
+  .gameShell .instruction {
+    top: 70px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    width: calc(100% - 16px);
+    max-width: none;
+    font-size: 16px;
+  }
+  .gameShell .constructionDock {
+    width: calc(100% - 16px);
+    max-width: none;
+    bottom: 8px;
+    padding: 6px;
+    gap: 5px;
+    flex-direction: column;
+    border-radius: 16px;
+  }
+  .gameShell .buildControls {
+    width: 100%;
+  }
+  .gameShell .constructionDock button {
+    min-height: 48px;
+    min-width: 0;
+    padding: 6px;
+    font-size: 16px;
+    white-space: normal;
+    flex: 1;
+  }
+  .gameShell .buildControls button {
+    flex-direction: row;
+    gap: 8px;
+  }
+  .gameShell .pieceTools {
+    width: 100%;
+    border-left: 0;
+    padding: 4px 0 0;
+    border-top: 1px solid var(--line);
+    gap: 2px;
+  }
+  .gameShell .pieceTools .dockIdentity {
+    display: none;
+  }
+  .gameShell .pieceTools .toolIcon {
+    font-size: 20px;
+  }
+  .gameShell .zoom {
+    bottom: calc(var(--dock-height) + 32px);
+    left: 8px;
+    padding: 0;
+    gap: 0;
+  }
+  .gameShell .zoom button {
+    padding: 8px;
+    font-size: 16px;
+  }
+  .gameShell .zoom [data-action="fit"] .toolIcon {
+    display: none;
+  }
+  .gameShell .planLaunch {
+    right: 8px;
+    bottom: calc(var(--dock-height) + 32px);
+    max-width: 37%;
+    padding: 8px;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .gameShell .sidebar,
+  .gameShell .panel {
+    top: auto;
+    bottom: calc(var(--dock-height) + 20px);
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: calc(100% - 275px);
+    border-radius: 16px;
+  }
+  .gameShell .panel.buildTray {
+    bottom: calc(var(--dock-height) + 20px);
+    width: calc(100% - 16px);
+    left: 50%;
+    right: auto;
+    max-height: calc(100% - 275px);
+  }
+  .gameShell .buildTray .choiceGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gameShell .buildTray .choice {
+    min-height: 100px;
+    padding: 6px;
+    gap: 4px;
+  }
+  .gameShell .buildTray .choice svg {
+    height: 50px;
+  }
+  .gameShell .panel.quickPlacement,
+  .gameShell .panel.drawingPanel {
+    bottom: 8px;
+    width: calc(100% - 16px);
+    max-height: 190px;
+    left: 50%;
+    right: auto;
+  }
+  .gameShell .panel.quickPlacement .panelFooter {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 8px;
+    gap: 4px;
+  }
+  .gameShell .panel.quickPlacement .panelFooter button {
+    flex-direction: column;
+    padding: 6px 2px;
+    font-size: 16px;
+    line-height: 1.2;
+    min-width: 0;
+  }
+  .gameShell .panel.quickPlacement .panelFooter .toolIcon {
+    font-size: 22px;
+  }
+  .gameShell .canvasNotice {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+  }
+  .gameShell .welcome {
+    max-height: calc(100% - 255px);
+    padding: 12px;
+  }
+  .gameShell .welcome .startCard span {
+    display: none;
+  }
+  .gameShell .sidebar .heightPicture {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .gameShell .panel,
+  .gameShell .sidebar {
+    animation: tool-arrive 0.16s ease-out;
+  }
+  @keyframes tool-arrive {
+    from {
+      opacity: 0;
+      margin-bottom: -6px;
+    }
+    to {
+      opacity: 1;
+      margin-bottom: 0;
+    }
+  }
+}
+.gameShell .panel {
+  position: absolute;
+}
+.gameShell .quickPlacement .ghostMeasurements {
+  flex-basis: 100%;
+}
+@media (max-width: 800px) {
+  .gameShell .quickPlacement .ghostMeasurements {
+    grid-column: 1/-1;
+  }
+  .gameShell .zoom [data-action="zoomIn"],
+  .gameShell .zoom [data-action="zoomOut"] {
+    font-size: 24px;
+  }
+}
+@media (max-width: 800px) {
+  .gameShell .zoom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 148px;
+  }
+  .gameShell .zoom [data-action="fit"] {
+    grid-column: 1/-1;
+  }
+  .gameShell .header h1 {
+    min-width: 0;
+  }
+}
+@media (max-width: 360px) {
+  .gameShell .toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .gameShell .instruction {
+    top: 118px;
+  }
+}

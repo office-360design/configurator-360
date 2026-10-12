@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Roof builder</title>
+    <link rel="stylesheet" href="../styles.css?v=builder-game-3" />
+    <link rel="stylesheet" href="../../shared-ui/styles/panelControls.css" />
+    <link rel="stylesheet" href="./styles.css?v=builder-game-3" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"><p>Loading / Se încarcă…</p></div>
+    <div id="print"></div>
+    <input
+      id="projectFile"
+      type="file"
+      accept=".json,application/json"
+      hidden
+    />
+    <script type="module" src="./app.js?v=builder-game-3"></script>
+  </body>
+</html>
