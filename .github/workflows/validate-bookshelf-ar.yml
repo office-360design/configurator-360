@@ -1,0 +1,61 @@
+name: Validate Bookshelf AR
+
+on:
+  pull_request:
+    paths:
+      - 'bookshelf-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - '.github/workflows/validate-bookshelf-ar.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'bookshelf-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - '.github/workflows/validate-bookshelf-ar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bookshelf-ar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # This is a static import-map app. Use the existing offline r160 test
+      # fixture; do not install a different root Three runtime or change r169.
+      - name: Check Bookshelf exports, policy, branding and Firebase serving
+        run: |
+          node --no-warnings --experimental-loader ./bookshelf-configurator/tests/ar-test-loader.mjs --test bookshelf-configurator/tests/bookshelf-ar.test.mjs
+          node --test hall-configurator/tests/ar-policy.test.mjs scripts/validation/tenant-branding.test.mjs firebase-share-backend/functions/tests/hall-ar.test.cjs
+          node --check bookshelf-configurator/js/app.js
+          node --check bookshelf-configurator/js/sharedShell.js
+          node --check bookshelf-configurator/js/ar/controller.js
+          node --check bookshelf-configurator/js/ar/exportBookshelf.js
+          node --check bookshelf-configurator/js/ar/phone.js
+          node --check shared-ui/src/ar/dialog.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned offline browser test runner
+        run: |
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Test actual bookshelf configurations and shared AR dialog
+        run: |
+          CHROMIUM="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          python bookshelf-configurator/tests/ar-browser.py --chromium "$CHROMIUM" --artifacts /tmp/bookshelf-ar-tests

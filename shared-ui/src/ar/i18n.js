@@ -423,7 +423,55 @@ const CARDBOX_OVERRIDES = {
     "artwork-unavailable": "Einige Grafiken konnten nicht geladen werden. Bilder und Texte prüfen und erneut versuchen."
   }
 };
+const BOOKSHELF_OVERRIDES = {
+  "en-US": {
+    "title": "View this bookshelf in AR",
+    "regenerate": "Regenerate from current bookshelf",
+    "invalid-configuration": "The bookshelf configuration is invalid. Check the modules and try again.",
+    "invalid-openings": "The bookshelf could not be prepared. Check your configuration and try again.",
+    "invalid-geometry": "The bookshelf could not be prepared. Refresh the configurator and try again.",
+    "model-too-large": "This bookshelf is too detailed for mobile AR. Try a configuration with fewer modules.",
+    "not-ready": "The bookshelf or its finishes are still loading. Please try again shortly.",
+    "textures-unavailable": "Some bookshelf finishes could not be loaded. Reload the configurator and try again.",
+    "expired": "This QR code has expired. Create a new one in the bookshelf configurator.",
+    "not-found": "This AR link was not found. Create a new QR code in the bookshelf configurator.",
+    "phoneTitle": "Your configured bookshelf",
+    "phoneNote": "Allow camera access when prompted, move the phone to detect the floor and place the bookshelf. Pinch to resize if needed.",
+    "back": "Bookshelf configurator"
+  },
+  "ro-RO": {
+    "title": "Vezi biblioteca în AR",
+    "regenerate": "Regenerează din biblioteca curentă",
+    "invalid-configuration": "Configurația bibliotecii este invalidă. Verifică modulele și încearcă din nou.",
+    "invalid-openings": "Biblioteca nu a putut fi pregătită. Verifică configurația și încearcă din nou.",
+    "invalid-geometry": "Biblioteca nu a putut fi pregătită. Reîncarcă configuratorul și încearcă din nou.",
+    "model-too-large": "Această bibliotecă este prea detaliată pentru AR pe telefon. Încearcă o configurație cu mai puține module.",
+    "not-ready": "Biblioteca sau finisajele încă se încarcă. Încearcă din nou în câteva momente.",
+    "textures-unavailable": "Unele finisaje ale bibliotecii nu au putut fi încărcate. Reîncarcă configuratorul și încearcă din nou.",
+    "expired": "Acest cod QR a expirat. Creează unul nou în configuratorul de biblioteci.",
+    "not-found": "Linkul AR nu a fost găsit. Creează un cod QR nou în configuratorul de biblioteci.",
+    "phoneTitle": "Biblioteca configurată",
+    "phoneNote": "Permite accesul la cameră când este solicitat, mișcă telefonul pentru a detecta podeaua și plasează biblioteca. Redimensionează cu două degete dacă este necesar.",
+    "back": "Configurator de biblioteci"
+  },
+  "de-DE": {
+    "title": "Dieses Bücherregal in AR ansehen",
+    "regenerate": "Aus aktuellem Bücherregal neu erstellen",
+    "invalid-configuration": "Die Bücherregalkonfiguration ist ungültig. Module prüfen und erneut versuchen.",
+    "invalid-openings": "Das Bücherregal konnte nicht vorbereitet werden. Konfiguration prüfen und erneut versuchen.",
+    "invalid-geometry": "Das Bücherregal konnte nicht vorbereitet werden. Konfigurator neu laden und erneut versuchen.",
+    "model-too-large": "Dieses Bücherregal ist für mobiles AR zu detailliert. Bitte eine Konfiguration mit weniger Modulen versuchen.",
+    "not-ready": "Das Bücherregal oder seine Oberflächen werden noch geladen. Bitte in Kürze erneut versuchen.",
+    "textures-unavailable": "Einige Bücherregaloberflächen konnten nicht geladen werden. Konfigurator neu laden und erneut versuchen.",
+    "expired": "Dieser QR-Code ist abgelaufen. Erstellen Sie im Bücherregal-Konfigurator einen neuen.",
+    "not-found": "Dieser AR-Link wurde nicht gefunden. Erstellen Sie im Bücherregal-Konfigurator einen neuen QR-Code.",
+    "phoneTitle": "Ihr konfiguriertes Bücherregal",
+    "phoneNote": "Erlauben Sie den Kamerazugriff, bewegen Sie das Telefon zur Erkennung des Bodens und platzieren Sie das Bücherregal. Bei Bedarf mit zwei Fingern skalieren.",
+    "back": "Bücherregal-Konfigurator"
+  }
+};
 export const AR_COPY = Object.freeze({
+  bookshelf: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...BOOKSHELF_OVERRIDES[locale] }])),
   cardbox: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CARDBOX_OVERRIDES[locale] }])),
   chair: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CHAIR_OVERRIDES[locale] }])),
   tiles: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...TILES_OVERRIDES[locale] }])),

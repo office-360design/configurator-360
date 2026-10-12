@@ -107,7 +107,7 @@ test('Tenant publication checks the requested product (including preflight)',asy
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'},method:'OPTIONS'})).statusCode,204);
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'}})).statusCode,201);
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'hall'}})).statusCode,403);
-  for(const product of ['bookshelf','roof','../../secret','constructor',['window']])assert.equal((await h.call('publishHallAR',{origin,query:{product}})).statusCode,400);
+  for(const product of ['roof','solar','../../secret','constructor',['window']])assert.equal((await h.call('publishHallAR',{origin,query:{product}})).statusCode,400);
   h.docs.get('tenants/example').status='suspended';assert.equal((await h.call('publishHallAR',{origin,query:{product:'window'}})).statusCode,403);
 });
 test('Mixed Hall/Window cleanup and forged stored paths cannot escape the AR prefix',async()=>{
@@ -148,14 +148,14 @@ test('Pergola entitlement must be enabled for tenant publication and preflight',
   assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'pergola' } })).statusCode, 204);
   assert.equal((await h.call('publishHallAR', { origin, query: { product: 'pergola' } })).statusCode, 201);
 });
-test('Cleanup handles all seven products without touching non-AR application objects', async () => {
+test('Cleanup handles all eight products without touching non-AR application objects', async () => {
   const h = harness();
-  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox']) {
+  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf']) {
     const r = await h.call('publishHallAR', { query: { product } }); assert.equal(r.statusCode, 201);
     h.docs.get(`hallARSessions/${r.jsonBody.id}`).expiresAt = h.Timestamp.fromMillis(Date.now() - 1);
   }
   h.files.set('private/application-data', { b: Buffer.from('untouched') });
-  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 7);
+  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 8);
   assert.ok(h.files.has('private/application-data'));
 });
 test('Fence GLB/USDZ: private product paths, manifests, HEAD, byte ranges and expiry', async () => {
@@ -268,4 +268,32 @@ test('Cardbox entitlement must be enabled for tenant publication and preflight',
   h.docs.get('tenants/example').configurators.cardbox = true;
   assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'cardbox' } })).statusCode, 204);
   assert.equal((await h.call('publishHallAR', { origin, query: { product: 'cardbox' } })).statusCode, 201);
+});
+
+test('Bookshelf GLB/USDZ: private product paths, manifests, HEAD, byte ranges and expiry', async () => {
+  for (const format of ['glb', 'usdz']) {
+    const h = harness();
+    const r = await h.call('publishHallAR', { format, body: format === 'glb' ? glb() : usdz(), query: { product: 'bookshelf' } });
+    assert.equal(r.statusCode, 201); assert.equal(r.jsonBody.product, 'bookshelf');
+    const id = r.jsonBody.id, record = h.docs.get(`hallARSessions/${id}`);
+    assert.equal(record.objectPath, `hall-ar/v1/${id}/bookshelf.${format}`);
+    assert.equal((await h.call('getHallAR', { method: 'GET', query: { id } })).jsonBody.product, 'bookshelf');
+    const head = await h.call('getHallAR', { method: 'HEAD', query: { id, asset: '1' } });
+    assert.equal(head.statusCode, 200); assert.equal(+head.headers['content-length'], r.jsonBody.byteLength);
+    assert.match(head.headers['content-disposition'], new RegExp(`bookshelf\\.${format}`));
+    const partial = await h.call('getHallAR', { method: 'GET', query: { id, asset: '1' }, range: 'bytes=0-63' });
+    assert.equal(partial.statusCode, 206); assert.equal(partial.body.length, 64);
+    record.expiresAt = h.Timestamp.fromMillis(Date.now() - 1);
+    assert.equal((await h.call('getHallAR', { method: 'GET', query: { id } })).statusCode, 410);
+    await h.exports.cleanupHallAR(); assert.equal(h.files.size, 0);
+  }
+});
+test('Bookshelf entitlement must be enabled for tenant publication and preflight', async () => {
+  const h = harness(), origin = 'https://example.360configurator.com';
+  h.docs.set('tenants/example', { slug: 'example', status: 'active', configurators: { hall: true, window: true, bookshelf: false } });
+  assert.equal((await h.call('publishHallAR', { origin, query: { product: 'bookshelf' } })).statusCode, 403);
+  assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'bookshelf' } })).statusCode, 403);
+  h.docs.get('tenants/example').configurators.bookshelf = true;
+  assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'bookshelf' } })).statusCode, 204);
+  assert.equal((await h.call('publishHallAR', { origin, query: { product: 'bookshelf' } })).statusCode, 201);
 });

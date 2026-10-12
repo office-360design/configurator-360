@@ -2636,7 +2636,7 @@ function bindControls() {
   addShelfButton?.addEventListener('click', addShelfToSelectedModule);
 
   window.addEventListener('keydown', (event) => {
-    if (!selectedShelf || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (!selectedShelf || event.altKey || event.ctrlKey || event.metaKey || document.querySelector('dialog[open]')) return;
     const target = event.target;
     if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
 
@@ -2835,7 +2835,19 @@ function cycleCamera() {
 function syncToolButtons() {}
 function closeToolPanels() { closeAddPanel(); }
 
+async function captureARSnapshot({ signal } = {}) {
+  const { captureBookshelfARSnapshot, waitForBookshelfTextures } = await import('./ar/exportBookshelf.js?v=bookshelf-ar-1');
+  if (signal?.aborted) throw new DOMException('AR preparation cancelled.', 'AbortError');
+  // Door clicks apply on the next animation frame. Flush it before capture.
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  const getParts = () => ({ bookshelfGroup, connectorGroup });
+  await waitForBookshelfTextures(getParts, { signal });
+  if (signal?.aborted) throw new DOMException('AR preparation cancelled.', 'AbortError');
+  return captureBookshelfARSnapshot(getParts());
+}
+
 window.BOOKSHELF_CONFIGURATOR_API = {
+  captureARSnapshot,
   captureState,
   restoreState,
   resetConfiguration,
