@@ -1,0 +1,61 @@
+name: Validate Cardbox AR
+
+on:
+  pull_request:
+    paths:
+      - 'cardbox-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - '.github/workflows/validate-cardbox-ar.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cardbox-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - '.github/workflows/validate-cardbox-ar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cardbox-ar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Cardbox is a static import-map app. Offline geometry tests deliberately
+      # use the existing r160 fixture, never install an unpinned root runtime.
+      - name: Validate Cardbox capture and shared AR contracts
+        run: |
+          node --no-warnings --experimental-loader ./cardbox-configurator/tests/ar-test-loader.mjs --test cardbox-configurator/tests/cardbox-ar.test.mjs shared-3d/tests/ar/completeness.mjs
+          node --test hall-configurator/tests/ar-policy.test.mjs scripts/validation/tenant-branding.test.mjs firebase-share-backend/functions/tests/hall-ar.test.cjs
+          node --check cardbox-configurator/js/app.js
+          node --check cardbox-configurator/js/sharedShell.js
+          node --check cardbox-configurator/js/ar/controller.js
+          node --check cardbox-configurator/js/ar/exportCardbox.js
+          node --check cardbox-configurator/js/ar/phone.js
+          node --check shared-ui/src/ar/dialog.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned offline browser test runner
+        run: |
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Test actual editor geometry, artwork readiness and AR dialog
+        run: |
+          CHROMIUM="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          python cardbox-configurator/tests/ar-browser.py --chromium "$CHROMIUM" --artifacts /tmp/cardbox-ar-tests

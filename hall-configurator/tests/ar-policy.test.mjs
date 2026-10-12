@@ -5,9 +5,9 @@ import {isConfiguratorAREnabled} from '../../shared-ui/src/arPolicy.js';
 import {AR_MODES,arPhoneUrl,arModelUrl,sceneViewerIntent} from '../js/ar/links.js';
 import {AR_COPY} from '../js/ar/i18n.js';
 import {qrMatrix,qrSvg} from '../js/ar/vendor/qr.js';
-test('AR policy: Hall, Window, Pergola, Fence, Pavement and Chair opt-in only',()=>{
-  for(const product of ['window','pergola','roof','fence','bookshelf','chair','solar','hall','gas','tiles','']){
-    assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola','fence','tiles','chair'].includes(product));
+test('AR policy: Hall, Window, Pergola, Fence, Pavement, Chair and Cardbox opt-in only',()=>{
+  for(const product of ['window','pergola','roof','fence','bookshelf','chair','solar','hall','gas','tiles','cardbox','']){
+    assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola','fence','tiles','chair','cardbox'].includes(product));
     assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);
   }
 });

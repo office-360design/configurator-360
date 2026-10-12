@@ -1,5 +1,5 @@
-import { arT, arLocale } from './i18n.js?v=firebase-ar-6';
-import { AR_SESSION_ID, AR_MODES, normalizeMode, requireProduct, arManifestUrl, arModelUrl, sceneViewerIntent } from './links.js?v=firebase-ar-6';
+import { arT, arLocale } from './i18n.js?v=firebase-ar-7';
+import { AR_SESSION_ID, AR_MODES, normalizeMode, requireProduct, arManifestUrl, arModelUrl, sceneViewerIntent } from './links.js?v=firebase-ar-7';
 export function mountARPhone(product = 'hall') {
 requireProduct(product);
 const params = new URLSearchParams(location.search), locale = arLocale(params.get('lang'));

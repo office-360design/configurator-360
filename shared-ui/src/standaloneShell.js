@@ -1,10 +1,10 @@
-import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-6';
+import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-7';
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=tenant-routes-1';
 import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
 import { sharedT } from './i18n.js?v=platform-21';
 import { renderActionFeedback } from './components/feedback.js?v=platform-21';
-import { renderTopBar } from './components/topBar.js?v=firebase-ar-6';
+import { renderTopBar } from './components/topBar.js?v=firebase-ar-7';
 import { syncAccountIdentity } from './components/accountMenu.js?v=platform-21';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
 import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';

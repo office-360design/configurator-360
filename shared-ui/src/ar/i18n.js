@@ -370,7 +370,61 @@ const CHAIR_OVERRIDES = {
     "back": "Stuhl-Konfigurator"
   }
 };
+const CARDBOX_OVERRIDES = {
+  "en-US": {
+    "title": "View this cardboard box in AR",
+    "regenerate": "Regenerate from current box",
+    "invalid-configuration": "The box configuration is invalid. Check its dimensions and try again.",
+    "invalid-openings": "Check the box cutouts and closures before opening AR.",
+    "invalid-geometry": "The box could not be prepared. Check your configuration and try again.",
+    "model-too-large": "This box or its artwork is too detailed for mobile AR. Reduce the artwork size or complexity and try again.",
+    "not-ready": "The box or its artwork is still loading. Please try again shortly.",
+    "expired": "This QR code has expired. Create a new one in the cardboard box configurator.",
+    "not-found": "This AR link was not found. Create a new QR code in the cardboard box configurator.",
+    "phoneTitle": "Your configured cardboard box",
+    "phoneNote": "Allow camera access when prompted, move the phone to detect a flat surface and place the box. Pinch to resize if needed.",
+    "back": "Cardboard box configurator",
+    "editing-in-progress": "Finish or cancel the current artwork edit or placement before opening AR.",
+    "animation-in-progress": "Wait for the fold animation to finish before opening AR.",
+    "artwork-unavailable": "Some of the box artwork could not be loaded. Check the images and text, then try again."
+  },
+  "ro-RO": {
+    "title": "Vezi cutia din carton în AR",
+    "regenerate": "Regenerează din cutia curentă",
+    "invalid-configuration": "Configurația cutiei este invalidă. Verifică dimensiunile și încearcă din nou.",
+    "invalid-openings": "Verifică decupajele și închiderile cutiei înainte de a deschide AR.",
+    "invalid-geometry": "Cutia nu a putut fi pregătită. Verifică configurația și încearcă din nou.",
+    "model-too-large": "Cutia sau grafica este prea detaliată pentru AR pe telefon. Redu dimensiunea sau complexitatea graficii și încearcă din nou.",
+    "not-ready": "Cutia sau grafica încă se încarcă. Încearcă din nou în câteva momente.",
+    "expired": "Acest cod QR a expirat. Creează unul nou în configuratorul de cutii din carton.",
+    "not-found": "Linkul AR nu a fost găsit. Creează un cod QR nou în configuratorul de cutii din carton.",
+    "phoneTitle": "Cutia din carton configurată",
+    "phoneNote": "Permite accesul la cameră când este solicitat, mișcă telefonul pentru a detecta o suprafață plană și plasează cutia. Redimensionează cu două degete dacă este necesar.",
+    "back": "Configurator de cutii din carton",
+    "editing-in-progress": "Finalizează sau anulează editarea ori plasarea graficii înainte de a deschide AR.",
+    "animation-in-progress": "Așteaptă finalizarea animației de pliere înainte de a deschide AR.",
+    "artwork-unavailable": "O parte din grafica cutiei nu a putut fi încărcată. Verifică imaginile și textele, apoi încearcă din nou."
+  },
+  "de-DE": {
+    "title": "Diesen Karton in AR ansehen",
+    "regenerate": "Aus aktuellem Karton neu erstellen",
+    "invalid-configuration": "Die Kartonkonfiguration ist ungültig. Abmessungen prüfen und erneut versuchen.",
+    "invalid-openings": "Prüfen Sie die Ausschnitte und Verschlüsse vor dem AR-Start.",
+    "invalid-geometry": "Der Karton konnte nicht vorbereitet werden. Konfiguration prüfen und erneut versuchen.",
+    "model-too-large": "Der Karton oder seine Grafiken sind für mobiles AR zu detailliert. Grafikgröße oder Komplexität reduzieren und erneut versuchen.",
+    "not-ready": "Der Karton oder seine Grafiken werden noch geladen. Bitte in Kürze erneut versuchen.",
+    "expired": "Dieser QR-Code ist abgelaufen. Erstellen Sie im Karton-Konfigurator einen neuen.",
+    "not-found": "Dieser AR-Link wurde nicht gefunden. Erstellen Sie im Karton-Konfigurator einen neuen QR-Code.",
+    "phoneTitle": "Ihr konfigurierter Karton",
+    "phoneNote": "Erlauben Sie den Kamerazugriff, bewegen Sie das Telefon zur Erkennung einer ebenen Fläche und platzieren Sie den Karton. Bei Bedarf mit zwei Fingern skalieren.",
+    "back": "Karton-Konfigurator",
+    "editing-in-progress": "Beenden oder verwerfen Sie die aktuelle Grafikbearbeitung oder Platzierung vor dem AR-Start.",
+    "animation-in-progress": "Warten Sie, bis die Faltanimation beendet ist, bevor Sie AR öffnen.",
+    "artwork-unavailable": "Einige Grafiken konnten nicht geladen werden. Bilder und Texte prüfen und erneut versuchen."
+  }
+};
 export const AR_COPY = Object.freeze({
+  cardbox: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CARDBOX_OVERRIDES[locale] }])),
   chair: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CHAIR_OVERRIDES[locale] }])),
   tiles: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...TILES_OVERRIDES[locale] }])),
   hall: HALL_COPY,

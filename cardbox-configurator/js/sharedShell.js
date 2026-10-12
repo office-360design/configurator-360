@@ -1,4 +1,5 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { createCardboxARController } from './ar/controller.js?v=cardbox-ar-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-7';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -71,6 +72,16 @@ const toolItems = [
 const CARD_BOX_TOOL_IDS = Object.freeze(toolItems.map((item) => item.id));
 
 let shell;
+const ar = createCardboxARController({
+  getSnapshot: (options) => {
+    const api = window.CARDBOX_CONFIGURATOR_API;
+    if (!api?.captureARSnapshot) { const error = new Error('not-ready'); error.code = 'not-ready'; throw error; }
+    return api.captureARSnapshot(options);
+  },
+  getLocale: () => shell?.state?.locale || initialToolLocale(),
+  onFeedback: (...args) => shell?.showFeedback?.(...args),
+});
+window.addEventListener('beforeunload', () => ar.destroy(), { once: true });
 
 function updateToolLabels(locale) {
   if (!shell) return;
@@ -99,7 +110,7 @@ shell = mountStandaloneConfiguratorShell({
   storagePrefix: '360-configurator:cardbox',
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
-  capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
+  capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
   tools: { items: toolItems, placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 } },
   settingsPanel: {
     panelSelector: '.sidebar', toggleSelector: '#cardboxSidebarToggle', collapsedClass: 'is-collapsed',
@@ -107,6 +118,7 @@ shell = mountStandaloneConfiguratorShell({
   },
   configuratorPanel: { panelSelector: '.sidebar', priceSelector: '#summaryTotal', geometry: 'floating-right' },
   callbacks: {
+    onViewAR() { ar.open(); },
     onUndo() { history.undo(); },
     async resetConfiguration() { return (await window.CARDBOX_CONFIGURATOR_API?.resetConfiguration?.()) !== false; },
     captureState() { return window.CARDBOX_CONFIGURATOR_API?.captureState?.(); },
@@ -120,6 +132,7 @@ shell = mountStandaloneConfiguratorShell({
       if (path === 'locale') {
         window.CARDBOX_CONFIGURATOR_API?.setLocale?.(preferences.locale);
         updateToolLabels(preferences.locale);
+        ar.refresh();
       }
       if (path === 'units') window.CARDBOX_CONFIGURATOR_API?.setUnits?.(preferences.units);
       if (path === 'currency') window.CARDBOX_CONFIGURATOR_API?.setCurrency?.(preferences.currency);

@@ -25,8 +25,8 @@ function make(wood=0x967744,fabric=0x345678){
 function count(root){const out={};root.traverse(o=>{if(o.isMesh)out[o.name]=(out[o.name]||0)+1;});return out;}
 function snap(root){return captureChairARSnapshot(root);}
 function parse(snapshot){return new THREE.ObjectLoader().parse(snapshot.model);}
-test('Six explicit opt-in products; everything else remains unavailable',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair']);
+test('Seven explicit opt-in products; everything else remains unavailable',()=>{
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox']);
  for(const p of [...AR_PRODUCTS,'roof','solar','bookshelf','cardbox','gas','']){
   assert.equal(isConfiguratorAREnabled(p,{viewAR:true}),AR_PRODUCTS.includes(p));
   assert.equal(isConfiguratorAREnabled(p,{viewAR:false}),false);

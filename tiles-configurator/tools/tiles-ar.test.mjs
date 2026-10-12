@@ -25,8 +25,8 @@ function expectedParts(s) {
 }
 function counts(root) {const out={};root.traverse(o=>{if(o.isMesh)out[o.name]=(out[o.name]||0)+1;});return out;}
 const nonzero=o=>Object.fromEntries(Object.entries(o).filter(([,n])=>n));
-test('Only six opted-in products; Pavement phone links stay on canonical/localized/tenant origins',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair']);
+test('Seven opted-in products; Pavement phone links stay on canonical/localized/tenant origins',()=>{
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox']);
  for(const product of [...AR_PRODUCTS,'roof','solar','bookshelf','chair','gas','cardbox']){
   assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),AR_PRODUCTS.includes(product));
   assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);
@@ -41,7 +41,10 @@ test('Only six opted-in products; Pavement phone links stay on canonical/localiz
 test('Shared AR messages are complete in EN/RO/DE and contain no removed paragraphs or infrastructure prose',()=>{
  for(const product of AR_PRODUCTS)for(const locale of ['en-US','ro-RO','de-DE']){
   const copy=AR_COPY[product][locale];
-  assert.deepEqual(Object.keys(copy).sort(),Object.keys(AR_COPY.hall['en-US']).sort());
+  // All products require the shared dialog vocabulary, but adapters may add
+  // localized product-specific errors (e.g. uncommitted Cardbox artwork).
+  for(const key of Object.keys(AR_COPY.hall['en-US'])) assert.ok(copy[key],`${product}/${locale}/${key}`);
+  assert.deepEqual(Object.keys(copy).sort(),Object.keys(AR_COPY[product]['en-US']).sort());
   assert.equal(copy.snapshot,undefined);assert.equal(copy.scale,undefined);
   for(const key of ['building','exporting','uploading','checking','service-unavailable','phonePrivacy']){
    assert.ok(copy[key]);assert.doesNotMatch(copy[key],/Firebase|Supabase|GLB|USDZ|backend|geometry|geometrie|upload to/i);
