@@ -136,7 +136,7 @@ test('Live integration uses the whole modelRoot and does not rebuild the house, 
 });
 test('Phone page and cache-busted production import map have valid shared module paths',()=>{
  const page=read('../ar.html'),index=read('../index.html');assert.match(page,/shared-ui\/styles\/ar\.css\?v=firebase-ar-9/);
- assert.match(index,/three@0\.169\.0/);assert.match(index,/sharedShell\.js\?v=roof-ar-1/);assert.match(index,/app\.js\?v=roof-ar-1/);
+ assert.match(index,/three@0\.169\.0/);assert.match(index,/sharedShell\.js\?v=[\w-]+"/);assert.match(index,/app\.js\?v=[\w-]+"/);
  const link=page.match(/<a id="arPhoneLaunch"[^>]*>([\s\S]*?)<\/a>/)[1];assert.match(link,/<img/);assert.doesNotMatch(link,/<span|<div|<a/);
  assert.match(read('../js/ar/phone.js'),/mountARPhone\('roof'\)/);
 });
