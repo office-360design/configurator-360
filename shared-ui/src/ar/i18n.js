@@ -470,7 +470,61 @@ const BOOKSHELF_OVERRIDES = {
     "back": "Bücherregal-Konfigurator"
   }
 };
+const ROOF_OVERRIDES = {
+  "en-US": {
+    "title": "View this roof in AR",
+    "regenerate": "Regenerate from current roof",
+    "invalid-configuration": "The roof configuration is invalid. Check the dimensions and try again.",
+    "invalid-openings": "Check the roof windows before opening AR.",
+    "invalid-geometry": "The roof and house could not be prepared. Check your configuration and try again.",
+    "model-too-large": "This roof is too detailed for mobile AR. Try a smaller or simpler configuration.",
+    "not-ready": "The roof or its finishes are still loading. Please try again shortly.",
+    "textures-unavailable": "Some roof finishes could not be loaded. Reload the configurator and try again.",
+    "roof-incomplete": "Create or apply a complete roof layout before opening AR.",
+    "editing-in-progress": "Apply or cancel your roof layout changes before opening AR.",
+    "expired": "This QR code has expired. Create a new one in the roof configurator.",
+    "not-found": "This AR link was not found. Create a new QR code in the roof configurator.",
+    "phoneTitle": "Your configured roof and house",
+    "phoneNote": "Allow camera access when prompted, move the phone to detect the ground and place the house with its roof. Pinch to resize if needed.",
+    "back": "Roof configurator"
+  },
+  "ro-RO": {
+    "title": "Vezi acoperișul în AR",
+    "regenerate": "Regenerează din acoperișul curent",
+    "invalid-configuration": "Configurația acoperișului este invalidă. Verifică dimensiunile și încearcă din nou.",
+    "invalid-openings": "Verifică ferestrele de acoperiș înainte de a deschide AR.",
+    "invalid-geometry": "Acoperișul și casa nu au putut fi pregătite. Verifică configurația și încearcă din nou.",
+    "model-too-large": "Acest acoperiș este prea detaliat pentru AR pe telefon. Încearcă o configurație mai mică sau mai simplă.",
+    "not-ready": "Acoperișul sau finisajele încă se încarcă. Încearcă din nou în câteva momente.",
+    "textures-unavailable": "Unele finisaje ale acoperișului nu au putut fi încărcate. Reîncarcă configuratorul și încearcă din nou.",
+    "roof-incomplete": "Creează sau aplică un plan complet al acoperișului înainte de a deschide AR.",
+    "editing-in-progress": "Aplică sau anulează modificările planului acoperișului înainte de a deschide AR.",
+    "expired": "Acest cod QR a expirat. Creează unul nou în configuratorul de acoperișuri.",
+    "not-found": "Linkul AR nu a fost găsit. Creează un cod QR nou în configuratorul de acoperișuri.",
+    "phoneTitle": "Acoperișul și casa configurate",
+    "phoneNote": "Permite accesul la cameră când este solicitat, mișcă telefonul pentru a detecta solul și plasează casa cu acoperișul. Redimensionează cu două degete dacă este necesar.",
+    "back": "Configurator de acoperișuri"
+  },
+  "de-DE": {
+    "title": "Dieses Dach in AR ansehen",
+    "regenerate": "Aus aktuellem Dach neu erstellen",
+    "invalid-configuration": "Die Dachkonfiguration ist ungültig. Abmessungen prüfen und erneut versuchen.",
+    "invalid-openings": "Prüfen Sie die Dachfenster vor dem AR-Start.",
+    "invalid-geometry": "Dach und Haus konnten nicht vorbereitet werden. Konfiguration prüfen und erneut versuchen.",
+    "model-too-large": "Dieses Dach ist für mobiles AR zu detailliert. Bitte eine kleinere oder einfachere Konfiguration versuchen.",
+    "not-ready": "Das Dach oder seine Oberflächen werden noch geladen. Bitte in Kürze erneut versuchen.",
+    "textures-unavailable": "Einige Dachoberflächen konnten nicht geladen werden. Konfigurator neu laden und erneut versuchen.",
+    "roof-incomplete": "Erstellen oder übernehmen Sie einen vollständigen Dachplan, bevor Sie AR öffnen.",
+    "editing-in-progress": "Übernehmen oder verwerfen Sie die Änderungen am Dachplan vor dem AR-Start.",
+    "expired": "Dieser QR-Code ist abgelaufen. Erstellen Sie im Dach-Konfigurator einen neuen.",
+    "not-found": "Dieser AR-Link wurde nicht gefunden. Erstellen Sie im Dach-Konfigurator einen neuen QR-Code.",
+    "phoneTitle": "Ihr konfiguriertes Dach mit Haus",
+    "phoneNote": "Erlauben Sie den Kamerazugriff, bewegen Sie das Telefon zur Erkennung des Bodens und platzieren Sie das Haus mit Dach. Bei Bedarf mit zwei Fingern skalieren.",
+    "back": "Dach-Konfigurator"
+  }
+};
 export const AR_COPY = Object.freeze({
+  roof: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...ROOF_OVERRIDES[locale] }])),
   bookshelf: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...BOOKSHELF_OVERRIDES[locale] }])),
   cardbox: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CARDBOX_OVERRIDES[locale] }])),
   chair: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CHAIR_OVERRIDES[locale] }])),
