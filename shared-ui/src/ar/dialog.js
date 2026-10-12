@@ -1,7 +1,7 @@
-import { arT } from './i18n.js?v=firebase-ar-6';
-import { AR_MODES, arPhoneUrl, requireProduct } from './links.js?v=firebase-ar-6';
-import { qrSvg } from './vendor/qr.js?v=firebase-ar-6';
-import { publishAR } from './publish.js?v=firebase-ar-6';
+import { arT } from './i18n.js?v=firebase-ar-7';
+import { AR_MODES, arPhoneUrl, requireProduct } from './links.js?v=firebase-ar-7';
+import { qrSvg } from './vendor/qr.js?v=firebase-ar-7';
+import { publishAR } from './publish.js?v=firebase-ar-7';
 
 /** Shared Firebase QR workflow. Geometry capture/export stays in each configurator. */
 export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocale = () => 'en-US', onFeedback = () => {}, exportAsset, publish = publishAR, snapshotKey = JSON.stringify } = {}) {
@@ -29,6 +29,7 @@ export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocal
   document.body.append(dialog);
   const q = selector => dialog.querySelector(selector);
   const t = (key, vars) => arT(product, getLocale(), key, vars);
+  let capturing = false;
   let mode = 'android', snapshot, status = '', errorCode = '', current = null, generation = 0, abort = null, progress = 0, expiryTimer = 0;
   const loadExporter = exportAsset;
   const cache = new Map();
@@ -48,7 +49,7 @@ export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocal
       q('[data-expires]').textContent=t('expires',{time:new Date(current.expiresAtMs).toLocaleString(getLocale())});
     } else { q('[data-qr]').replaceChildren();q('[data-open]').removeAttribute('href'); }
   }
-  function invalidate() { generation++;abort?.abort();abort=null;clearTimeout(expiryTimer); }
+  function invalidate() { generation++;abort?.abort();abort=null;capturing=false;clearTimeout(expiryTimer); }
   function showReady(session) {
     current=session;status='ready';errorCode='';progress=1;refresh();
     expiryTimer=setTimeout(()=>{ current=null;status='';errorCode='expired';refresh(); },Math.max(1,session.expiresAtMs-Date.now()));
@@ -79,10 +80,18 @@ export function createFirebaseARDialog({ product = 'hall', getSnapshot, getLocal
   dialog.addEventListener('cancel',()=>invalidate());
   // A queued close event from an earlier opening must not cancel a new export.
   dialog.addEventListener('close',()=>{if(!dialog.open)invalidate();});
-  dialog.querySelectorAll('input[type="radio"]').forEach(input=>input.addEventListener('change',()=>{mode=input.value;if(snapshot)void prepare();else captureAndPrepare();}));
-  function captureAndPrepare() {
-    try { snapshot=getSnapshot(); void prepare(); }
-    catch(error) { invalidate();snapshot=null;current=null;status='';errorCode=error.code||'generic';refresh();onFeedback(t(errorCode),'error',5000); }
+  dialog.querySelectorAll('input[type="radio"]').forEach(input=>input.addEventListener('change',()=>{mode=input.value;if(snapshot)void prepare();else if(!capturing)void captureAndPrepare();}));
+  async function captureAndPrepare() {
+    invalidate(); const run=generation; abort=new AbortController(); const signal=abort.signal;
+    capturing=true; snapshot=null; current=null; errorCode=''; status='building'; progress=.02; refresh();
+    try {
+      const captured=await getSnapshot({ signal });
+      if(run!==generation || signal.aborted || !dialog.open)return;
+      snapshot=captured; capturing=false; void prepare();
+    } catch(error) {
+      if(run!==generation || signal.aborted || error.name==='AbortError' || !dialog.open)return;
+      capturing=false; snapshot=null; current=null; status=''; errorCode=error.code||'generic';refresh();onFeedback(t(errorCode),'error',5000);
+    }
   }
   q('[data-retry]').addEventListener('click',captureAndPrepare);
   q('[data-copy-link]').addEventListener('click',async()=>{

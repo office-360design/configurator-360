@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { captureCardboxARSnapshot, waitForCardboxArtwork } from './ar/exportCardbox.js?v=cardbox-ar-1';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
@@ -752,6 +753,7 @@ function addSelectionMarkers(mesh, face) {
     const marker = new THREE.Mesh(markerGeometry, ringMaterial.clone());
     marker.position.set(x, y, z);
     marker.renderOrder = 5;
+    marker.userData.arExclude = true;
     mesh.add(marker);
   }
 }
@@ -4483,10 +4485,14 @@ renderPlacedTexts = function renderPlacedTextsWithInspectionTools() {
   applyToolVisualState();
 };
 
+let cardboxARImageTask = Promise.resolve();
 const cardboxToolsLegacyRenderPlacedImages = renderPlacedImages;
-renderPlacedImages = async function renderPlacedImagesWithInspectionTools() {
-  await cardboxToolsLegacyRenderPlacedImages();
-  applyToolVisualState();
+renderPlacedImages = function renderPlacedImagesWithInspectionTools() {
+  cardboxARImageTask = (async () => {
+    await cardboxToolsLegacyRenderPlacedImages();
+    applyToolVisualState();
+  })();
+  return cardboxARImageTask;
 };
 
 const cardboxToolsLegacyRenderTranslations = renderTranslations;
@@ -4512,7 +4518,32 @@ resetConfiguration = function resetConfigurationAndInspectionTools() {
 applyToolVisualState();
 
 
+async function captureCurrentCardboxAR({ signal } = {}) {
+  const checkEditing = () => {
+    let code = '';
+    if (interactionLocked || foldAnimationActive) code = 'animation-in-progress';
+    else if (addMode || placementMode || imagePlacementMode || editingTextId || !textEditorPanel.hidden || !imageResizePanel.hidden) code = 'editing-in-progress';
+    if (code) { const error = new Error(code); error.code = code; throw error; }
+  };
+  checkEditing();
+  await waitForCardboxArtwork(() => cardboxARImageTask, { signal, fontsReady: document.fonts?.ready });
+  checkEditing();
+  // Never publish a box with silently missing text/logos after a decode failure.
+  for (const [placements, group, key] of [[state.imagePlacements || [], imageGroup, 'imagePlacementId'], [state.textPlacements || [], textGroup, 'textPlacementId']]) {
+    const rendered = new Set(); group.traverse(object => { if (object.isMesh && object.userData[key]) rendered.add(object.userData[key]); });
+    if (placements.some(placement => !rendered.has(placement.id))) {
+      const error = new Error('artwork-unavailable'); error.code = 'artwork-unavailable'; throw error;
+    }
+  }
+  return captureCardboxARSnapshot({
+    boxGroup, textGroup, imageGroup, closureGroup: packagingClosureGroup, featureGroup: packagingFeatureGroup,
+    lidLiftMm: isLidLiftActive() ? LID_LIFT_MM : 0,
+    closures: { ...state.closures },
+  });
+}
+
 window.CARDBOX_CONFIGURATOR_API = {
+  captureARSnapshot: captureCurrentCardboxAR,
   captureState,
   restoreState,
   resetConfiguration,

@@ -1,4 +1,4 @@
-import { isConfiguratorAREnabled } from '../arPolicy.js?v=firebase-ar-6';
+import { isConfiguratorAREnabled } from '../arPolicy.js?v=firebase-ar-7';
 import { getLanguageProfile } from '../config.js?v=tenant-domains-1';
 import { renderPlatformAttribution } from '../tenantBranding.js?v=tenant-branding-1';
 import { sharedT } from '../i18n.js?v=platform-21';
