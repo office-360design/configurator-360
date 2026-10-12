@@ -126,3 +126,39 @@ grid or selection outline. Check behind the assembly for the configured back
 planks and connector fittings. Reopen AR after changing family or layout and
 verify that the newly scanned QR shows the changes. Check that quotation sending
 is still available and that the cart/demo controls have not reappeared.
+
+## Camera-preservation validation correction
+
+The original browser test compared `camera.toJSON()` immediately after restoring
+a configuration. Its first snapshot could precede a pending canvas resize. The
+next animation frame inside `captureARSnapshot()` let the existing
+`ResizeObserver` update `camera.aspect`; the test then reported `Camera changed`
+even though camera position, orientation and orbit target had not moved.
+This was reproduced without an AR capture by waiting for an ordinary frame.
+
+`tests/camera-guard.mjs` now waits **before the baseline** for four consecutive
+stable frames with measured viewport size and camera aspect in agreement. It
+does not pause controls, change the camera, suppress resize events, retry failed
+exports, or rebaseline after a capture. Non-settling views fail with diagnostics.
+The comparator checks position, quaternion, up/scale, orbit target, lens settings,
+projection and viewport, with an absolute `1e-9` numerical-roundoff tolerance.
+Aspect changes are still errors once the measured operation has started.
+
+The existing 14-case mixed-layout browser suite checks editor geometry, material
+and saved-state preservation both after snapshot capture **and after real GLB
+export**. It also resizes the real browser canvas deliberately, checks that the
+guard detects it, waits for the resize to settle, and verifies another capture.
+`tests/camera-guard.test.mjs` adds negative tests for translation, rotation, target,
+zoom, field of view, aspect, projection and viewport changes, invalid values, and
+stale/non-settling views. No camera-preservation assertion has been removed.
+
+The Bookshelf workflow runs the new guard tests and uploads available JSON,
+console and screenshot diagnostics on failure. Run the guard locally with:
+
+```bash
+node --test bookshelf-configurator/tests/camera-guard.test.mjs
+```
+
+This correction changes only tests, their workflow and these notes. Runtime AR
+code, Firebase functions/IAM, product geometry, the quotation recipient and the
+`bookshelf-ar-1` / `firebase-ar-8` runtime versions remain unchanged.

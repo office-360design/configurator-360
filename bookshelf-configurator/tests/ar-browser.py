@@ -60,6 +60,7 @@ def add(name):
  };window.__THREE=THREE;'''
  sources[name]=s
 add(LIB+'three.module.js')
+add('bookshelf-configurator/tests/camera-guard.mjs')
 for name in ['bookshelf-configurator/js/app.js','bookshelf-configurator/js/sharedShell.js','bookshelf-configurator/js/ar/exportBookshelf.js','shared-ui/src/ar/dialog.js','shared-ui/src/components/topBar.js']:add(name)
 html=(R/'bookshelf-configurator/index.html').read_text();html=re.sub(r'<script\b[\s\S]*?</script>','',html);html=re.sub(r'<link\b[^>]*>','',html)
 with sync_playwright() as p:
@@ -70,17 +71,32 @@ with sync_playwright() as p:
  page.add_style_tag(content=(R/'shared-ui/styles/standalone.css').read_text()+(R/'bookshelf-configurator/styles.css').read_text()+(R/'shared-ui/styles/ar.css').read_text())
  page.evaluate('''modules=>{window.__feedback=[];const imports={};for(const[name,code]of Object.entries(modules))imports['@source/'+name]=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));const map=document.createElement('script');map.type='importmap';map.textContent=JSON.stringify({imports});document.head.append(map);}''',sources)
  try:
-  page.evaluate("async()=>{await import('@source/bookshelf-configurator/js/app.js');await import('@source/bookshelf-configurator/js/sharedShell.js');}")
+  page.evaluate("async()=>{await import('@source/bookshelf-configurator/js/app.js');await import('@source/bookshelf-configurator/js/sharedShell.js');window.__cameraGuard=await import('@source/bookshelf-configurator/tests/camera-guard.mjs');await document.fonts.ready;}")
   results=[]
   for family in ['compact','tall']:
    for door,hardware in [('open','diamond'),('lower','diamond'),('lower','rectangle'),('lower','knob'),('glazed','diamond'),('glazed','rectangle'),('glazed','knob')]:
     output=page.evaluate('''async([family,door,keyplate])=>{
-     const t=__test;t.configure(family,door,keyplate,true);await t.capture();t.controls.enableDamping=false;t.controls.update();const before=t.rootsJSON();const camera=JSON.stringify(t.camera.toJSON());const state=JSON.stringify(BOOKSHELF_CONFIGURATOR_API.captureState());const s=await t.capture();
-     if(t.rootsJSON()!==before)throw Error('Product geometry/materials changed');if(JSON.stringify(t.camera.toJSON())!==camera)throw Error('Camera changed');if(JSON.stringify(BOOKSHELF_CONFIGURATOR_API.captureState())!==state)throw Error('State changed');
+     const t=__test,host=document.getElementById('canvasHost');
+     const {readCameraState,assertCameraUnchanged,waitForStableView}=__cameraGuard;
+     const {waitForBookshelfTextures,createBookshelfFirebaseARAsset}=await import('@source/bookshelf-configurator/js/ar/exportBookshelf.js');
+     t.configure(family,door,keyplate,true);
+     await waitForBookshelfTextures(()=>t);
+     // Settle normal layout/ResizeObserver work BEFORE recording the baseline.
+     // Never reset the camera, stop controls, or wait away mutations after AR.
+     await waitForStableView(t.camera,t.controls,host);
+     const before=t.rootsJSON(),camera=readCameraState(t.camera,t.controls,host);
+     const state=JSON.stringify(BOOKSHELF_CONFIGURATOR_API.captureState());
+     const assertPreserved=phase=>{
+      window.__cameraDiagnostics={family,door,keyplate,phase,before:camera,after:readCameraState(t.camera,t.controls,host)};
+      if(t.rootsJSON()!==before)throw Error('Product geometry/materials changed during '+phase);
+      assertCameraUnchanged(camera,__cameraDiagnostics.after);
+      if(JSON.stringify(BOOKSHELF_CONFIGURATOR_API.captureState())!==state)throw Error('State changed during '+phase);
+     };
+     const s=await t.capture();assertPreserved('capture');
      let meshes=0;for(const root of [t.bookshelfGroup,t.connectorGroup])root.traverseVisible(o=>{if(o.isMesh)meshes++;});if(s.stats.sourceMeshes!==meshes)throw Error('Missing component: '+s.stats.sourceMeshes+'/'+meshes);
      if(Math.abs(s.stats.size.y-(family==='compact'?2.15:2.3))>1e-5)throw Error('Wrong metre scale');
      if(!s.model.images?.length)throw Error('Textures missing');
-     const {createBookshelfFirebaseARAsset}=await import('@source/bookshelf-configurator/js/ar/exportBookshelf.js');const a=await createBookshelfFirebaseARAsset(s,'glb');const bytes=new Uint8Array(await a.blob.arrayBuffer());let data='';for(let i=0;i<bytes.length;i+=8192)data+=String.fromCharCode(...bytes.subarray(i,i+8192));return {family,door,keyplate,stats:s.stats,bytes:bytes.length,textures:s.model.images.length,base64:btoa(data)};
+     const a=await createBookshelfFirebaseARAsset(s,'glb');const bytes=new Uint8Array(await a.blob.arrayBuffer());assertPreserved('GLB export');let data='';for(let i=0;i<bytes.length;i+=8192)data+=String.fromCharCode(...bytes.subarray(i,i+8192));return {family,door,keyplate,stats:s.stats,bytes:bytes.length,textures:s.model.images.length,base64:btoa(data)};
     }''',[family,door,hardware])
     (W/f'{family}-{door}-{hardware}.glb').write_bytes(base64.b64decode(output.pop('base64')));results.append(output)
   print('14 real mixed-layout GLBs:',[(r['family'],r['door'],r['keyplate'],r['bytes'],r['stats']['sourceMeshes'])for r in results])
@@ -95,6 +111,27 @@ with sync_playwright() as p:
    if(t.state().modules[0].shelfSlots.length!==3||restored.stats.sourceMeshes<=minimal.stats.sourceMeshes)throw Error('Boundary shelf missing');
    const immutable=JSON.stringify(restored);t.edit({colour:'#b98555'});await t.capture();if(JSON.stringify(restored)!==immutable)throw Error('Snapshot changed');return {deletion:fewer.stats.sourceMeshes,addition:more.stats.sourceMeshes,boundaryShelves:t.state().modules[0].shelfSlots.length};}''')
   print('Editor configuration checks:',behavior)
+  resize=page.evaluate('''async()=>{
+   const t=__test,host=document.getElementById('canvasHost');
+   const {readCameraState,assertCameraUnchanged,waitForStableView}=__cameraGuard;
+   await waitForStableView(t.camera,t.controls,host);
+   const previous=readCameraState(t.camera,t.controls,host),oldHeight=host.style.height;
+   let detected=false;
+   try{
+    host.style.height=(host.clientHeight-40)+'px';
+    await waitForStableView(t.camera,t.controls,host);
+    const resized=readCameraState(t.camera,t.controls,host);
+    try{assertCameraUnchanged(previous,resized);}catch(error){detected=/Camera changed/.test(error.message);}
+    if(!detected)throw Error('Camera guard missed the deliberate viewport resize');
+    await t.capture();assertCameraUnchanged(resized,readCameraState(t.camera,t.controls,host));
+    return {from:previous.viewport,to:resized.viewport,resizeDetected:detected};
+   }finally{
+    host.style.height=oldHeight;
+    await waitForStableView(t.camera,t.controls,host);
+   }
+  }''')
+  print('Resize synchronization and camera guard:',resize)
+
   # Network publication is simulated only; the GLB exporter still runs for the dialog.
   page.evaluate('''()=>{window.__uploads=[];window.__rejectUpload=false;
    window.XMLHttpRequest=class {constructor(){this.upload={};this.headers={};}open(method,url){this.url=url;}setRequestHeader(k,v){this.headers[k]=v;}abort(){this.onabort?.();}async send(blob){const product=new URL(this.url).searchParams.get('product'),format=this.headers['X-Hall-AR-Format'];__uploads.push({product,format,size:blob.size});await new Promise(r=>setTimeout(r,25));if(__rejectUpload){this.onerror?.();return;}this.status=201;window.__lastSession={id:String(__uploads.length).padStart(32,'A'),product,format,byteLength:blob.size,expiresAtMs:Date.now()+86400000};this.responseText=JSON.stringify(__lastSession);this.upload.onprogress?.({lengthComputable:true,loaded:blob.size,total:blob.size});this.onload?.();}};
@@ -135,9 +172,13 @@ with sync_playwright() as p:
   page.wait_for_function("!!document.querySelector('#bookshelfARDialog [data-open]')?.href",timeout=45000)
   dialog.locator('[data-close]').click()
   if errors:raise AssertionError(errors)
-  (W/'report.json').write_text(json.dumps({'exports':results,'behavior':behavior,'uploads':page.evaluate('__uploads'),'pageErrors':errors,'browser':'offline; renderer/account/cloud/USDZ stubbed'},indent=2))
+  (W/'report.json').write_text(json.dumps({'exports':results,'behavior':behavior,'resizeRegression':resize,'uploads':page.evaluate('__uploads'),'pageErrors':errors,'browser':'offline; renderer/account/cloud/USDZ stubbed'},indent=2))
   print('AR dialog, keyboard guard, hidden cart/demo, quotation label, retries, platform cache and mobile checks passed.')
  finally:
+  try:
+   (W/'camera-diagnostics.json').write_text(json.dumps(page.evaluate('window.__cameraDiagnostics || {}'),indent=2))
+  except Exception as diagnostic_error:
+   logs.append('Camera diagnostics unavailable: '+str(diagnostic_error))
   (W/'browser-console.txt').write_text('\n'.join(logs+errors));browser.close()
 
 # Validate every real browser-generated GLB using the deployed asset validator.
