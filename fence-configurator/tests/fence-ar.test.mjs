@@ -19,8 +19,8 @@ const near=(a,b)=>assert.ok(Math.abs(a-b)<2e-5, `${a} != ${b}`);
 function physicalCounts(root) {
   const counts={};root.traverseVisible(o=>{if(o.isMesh)counts[o.name || 'unnamed-mesh']=(counts[o.name || 'unnamed-mesh']||0)+(o.isInstancedMesh?o.count:1);});return counts;
 }
-test('Fence opt-in, five-product policy and locale-complete copy',()=>{
-  assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles']);
+test('Fence opt-in, six-product policy and locale-complete copy',()=>{
+  assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair']);
   for(const product of [...AR_PRODUCTS,'tiles','roof','solar','chair','bookshelf','cardbox','gas']){
     assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),AR_PRODUCTS.includes(product));
     assert.equal(isConfiguratorAREnabled(product,{}),false);

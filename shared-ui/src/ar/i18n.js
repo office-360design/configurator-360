@@ -326,7 +326,52 @@ const TILES_OVERRIDES = {
     "back": "Pflaster-Konfigurator"
   }
 };
+const CHAIR_OVERRIDES = {
+  "en-US": {
+    "title": "View this chair in AR",
+    "regenerate": "Regenerate from current chair",
+    "invalid-configuration": "The chair configuration could not be prepared. Check your choices and try again.",
+    "invalid-openings": "The chair could not be prepared. Please try again.",
+    "invalid-geometry": "The chair could not be prepared. Refresh the configurator and try again.",
+    "model-too-large": "This chair is too detailed for mobile AR. Please try again with a lower display quality.",
+    "not-ready": "The chair or its finishes are still loading. Please try again shortly.",
+    "expired": "This QR code has expired. Create a new one in the chair configurator.",
+    "not-found": "This AR link was not found. Create a new QR code in the chair configurator.",
+    "phoneTitle": "Your configured chair",
+    "phoneNote": "Allow camera access when prompted, move the phone to detect a flat surface and place the chair. Pinch to resize if needed.",
+    "back": "Chair configurator"
+  },
+  "ro-RO": {
+    "title": "Vezi scaunul în AR",
+    "regenerate": "Regenerează din scaunul curent",
+    "invalid-configuration": "Configurația scaunului nu a putut fi pregătită. Verifică opțiunile și încearcă din nou.",
+    "invalid-openings": "Scaunul nu a putut fi pregătit. Încearcă din nou.",
+    "invalid-geometry": "Scaunul nu a putut fi pregătit. Reîncarcă configuratorul și încearcă din nou.",
+    "model-too-large": "Acest scaun este prea detaliat pentru AR pe telefon. Încearcă o calitate de afișare mai redusă.",
+    "not-ready": "Scaunul sau finisajele încă se încarcă. Încearcă din nou în câteva momente.",
+    "expired": "Acest cod QR a expirat. Creează unul nou în configuratorul de scaune.",
+    "not-found": "Linkul AR nu a fost găsit. Creează un cod QR nou în configuratorul de scaune.",
+    "phoneTitle": "Scaunul configurat",
+    "phoneNote": "Permite accesul la cameră când este solicitat, mișcă telefonul pentru a detecta o suprafață plană și plasează scaunul. Redimensionează cu două degete dacă este necesar.",
+    "back": "Configurator de scaune"
+  },
+  "de-DE": {
+    "title": "Diesen Stuhl in AR ansehen",
+    "regenerate": "Aus aktuellem Stuhl neu erstellen",
+    "invalid-configuration": "Die Stuhlkonfiguration konnte nicht vorbereitet werden. Auswahl prüfen und erneut versuchen.",
+    "invalid-openings": "Der Stuhl konnte nicht vorbereitet werden. Bitte erneut versuchen.",
+    "invalid-geometry": "Der Stuhl konnte nicht vorbereitet werden. Konfigurator neu laden und erneut versuchen.",
+    "model-too-large": "Dieser Stuhl ist für mobiles AR zu detailliert. Bitte mit einer niedrigeren Anzeigequalität erneut versuchen.",
+    "not-ready": "Der Stuhl oder seine Oberflächen werden noch geladen. Bitte in Kürze erneut versuchen.",
+    "expired": "Dieser QR-Code ist abgelaufen. Erstellen Sie im Stuhl-Konfigurator einen neuen.",
+    "not-found": "Dieser AR-Link wurde nicht gefunden. Erstellen Sie im Stuhl-Konfigurator einen neuen QR-Code.",
+    "phoneTitle": "Ihr konfigurierter Stuhl",
+    "phoneNote": "Erlauben Sie den Kamerazugriff, bewegen Sie das Telefon zur Erkennung einer ebenen Fläche und platzieren Sie den Stuhl. Bei Bedarf mit zwei Fingern skalieren.",
+    "back": "Stuhl-Konfigurator"
+  }
+};
 export const AR_COPY = Object.freeze({
+  chair: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...CHAIR_OVERRIDES[locale] }])),
   tiles: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...TILES_OVERRIDES[locale] }])),
   hall: HALL_COPY,
   fence: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...FENCE_OVERRIDES[locale] }])),
