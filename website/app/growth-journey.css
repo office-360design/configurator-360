@@ -21,4 +21,19 @@
 .project-brief .outputs-grid>*{min-width:0}
 .project-brief p,.project-questions summary{overflow-wrap:anywhere}
 .project-brief .launch-link{white-space:normal;min-height:48px;font-size:11px}
+.roof-example-recipe{max-width:75ch;margin-block:48px 32px}
+.roof-technical-example h3{font-size:23px;line-height:1.3;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+.roof-example-workflow{margin:0 0 40px;padding:0;list-style-position:inside;counter-reset:roof-step}
+.roof-example-workflow li{display:grid;grid-template-columns:28px minmax(0,.7fr) minmax(0,1fr);gap:24px;padding-block:24px;border-top:1px solid var(--line-strong);counter-increment:roof-step}
+.roof-example-workflow li::before{content:counter(roof-step);font-size:16px;line-height:1.65;color:var(--brand);font-variant-numeric:tabular-nums}
+.roof-example-workflow li p{margin:0}
+.roof-example-table{width:100%;max-width:75ch;border-collapse:collapse;font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums}
+.roof-example-table caption{text-align:left;font-size:23px;line-height:1.3;font-weight:600;padding-bottom:20px}
+.roof-example-table th,.roof-example-table td{text-align:left;padding:14px 16px 14px 0;border-bottom:1px solid var(--line-strong)}
+.roof-example-table tbody th{font-weight:400}
+.roof-example-table td{white-space:nowrap}
+.roof-example-limits{margin:24px 0 40px}
+.roof-example-actions{display:grid;gap:16px;min-width:0}
+.roof-example-actions .text-link{width:auto;max-width:100%;font-size:11px;min-height:44px;white-space:normal}
+@media(max-width:720px){.roof-example-workflow li{grid-template-columns:24px minmax(0,1fr);gap:12px}.roof-example-workflow li p{grid-column:2}.roof-example-table{font-size:15px}.roof-example-table th,.roof-example-table td{padding-right:8px}.roof-example-recipe{margin-top:32px}.roof-technical-example h3{font-size:21px}.roof-example-table caption{font-size:21px}}
 @media(max-width:720px){.implementation-evidence{padding-block:64px}.evidence-heading,.evidence-next,.evidence-examples{grid-template-columns:1fr;gap:24px}.evidence-examples{margin-block:32px}.evidence-examples article+article{border-top:1px solid var(--line-strong)}.hero-copy .hero-project-link{width:100%;font-size:10px}.evidence-next .launch-link{width:100%;font-size:10px}}

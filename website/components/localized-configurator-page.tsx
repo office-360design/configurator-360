@@ -1,6 +1,7 @@
 import { LitePreview } from "./lite-preview";
 import { NewProductSeo } from "./new-product-seo";
 import { ConfiguratorProjectBrief } from "./configurator-project-brief";
+import { RoofTechnicalExample } from "./roof-technical-example";
 import { isLiteSlug } from "../lib/lite-products";
 import { newProductCopy } from "../lib/new-configurators";
 import { SiteHeader } from "./site-header";
@@ -76,9 +77,10 @@ export function LocalizedConfiguratorPage({ locale, slug }: { locale: Locale; sl
       <div className="detail-action"><p>{item.description}</p><a className="launch-link" href={item.launchUrl} target="_blank" rel="noreferrer">{ui.launch} <span>↗</span></a></div>
     </div></section>
     <CapabilityCube detail locale={locale} />
-    <section className="detail-intro solid-section"><div className="page-frame detail-intro-grid" data-reveal><span className="mono-label">{copy.overview}</span><h2>{item.statement}</h2><p>{item.description}</p></div></section>
-    <section className="detail-features solid-section"><div className="page-frame"><div className="detail-section-heading"><span className="mono-label">{copy.capabilities}</span><h2>{copy.resolves}</h2></div><div className="detail-feature-grid">{item.features.map((feature,index)=><article key={feature.title} data-reveal><span>0{index+1}</span><h3>{feature.title}</h3><p>{feature.body}</p></article>)}</div></div></section>
-    <section className="detail-outputs solid-section"><div className="page-frame outputs-grid" data-reveal><div><span className="mono-label">{copy.state}</span><h2>{copy.outputA}<br/>{copy.outputB}</h2></div><ol>{item.outputs.map((output,index)=><li key={output}><span>0{index+1}</span>{output}</li>)}</ol></div></section>
+    <section className="detail-intro solid-section" data-machine-section="overview"><div className="page-frame detail-intro-grid" data-reveal><span className="mono-label">{copy.overview}</span><h2>{item.statement}</h2><p>{item.description}</p></div></section>
+    {item.slug==='roof' && <RoofTechnicalExample locale={locale} launchUrl={item.launchUrl} />}
+    <section className="detail-features solid-section" data-machine-section="features"><div className="page-frame"><div className="detail-section-heading"><span className="mono-label">{copy.capabilities}</span><h2>{copy.resolves}</h2></div><div className="detail-feature-grid">{item.features.map((feature,index)=><article key={feature.title} data-reveal><span>0{index+1}</span><h3>{feature.title}</h3><p>{feature.body}</p></article>)}</div></div></section>
+    <section className="detail-outputs solid-section" data-machine-section="outputs"><div className="page-frame outputs-grid" data-reveal><div><span className="mono-label">{copy.state}</span><h2>{copy.outputA}<br/>{copy.outputB}</h2></div><ol>{item.outputs.map((output,index)=><li key={output}><span>0{index+1}</span>{output}</li>)}</ol></div></section>
     {isLiteSlug(item.slug) ? <NewProductSeo locale={locale} slug={item.slug} /> : <ConfiguratorSeoSections locale={locale} slug={item.slug} launchUrl={item.launchUrl} />}
     <section className="detail-proof solid-section"><div className="page-frame proof-frame" data-reveal><span className="mono-label">{copy.deployment}</span><h2>{copy.exploreA}<br/>{copy.exploreB}</h2><a className="project-link" href={item.launchUrl} target="_blank" rel="noreferrer"><span>{copy.open}</span><b>↗</b></a></div></section>
     <nav className="next-configurator solid-section" aria-label={copy.continue}><div className="page-frame"><span className="mono-label">{copy.continue}</span>{all.filter(other=>other.slug!==item.slug).map(other=><a href={localizedPath(locale, `/configurators/${other.slug}`)} key={other.slug}><span>{other.index}</span>{other.title}<b>↗</b></a>)}</div></nav>
