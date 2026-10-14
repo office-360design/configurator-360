@@ -11,6 +11,13 @@ Stare inițială: branch `codex/website-ai-content-20261014`, bază main
 `fb845005a743fafc338cca6f0f2a19f98531dd0e`. Publicarea necesită teste și aprobarea
 lotului curent; o aprobare anterioară nu autorizează automat release-uri viitoare.
 
+Implementarea este salvată în commit `57eaffd` și
+[PR #565](https://github.com/office-360design/configurator-360/pull/565).
+Main a fost reverificat după fetch și PR-ul este MERGEABLE/CLEAN. Nu este live.
+Workflow-ul de deployment rulează la push pe main, nu pe acest PR; lista goală
+de checks nu înseamnă CI trecut. Verificările locale de mai jos au trecut, iar
+deployment-ul și verificarea publică rămân pași după aprobarea publicării.
+
 ## 1. Aceleași informații pentru oameni și agenți
 
 - `localized-machine-context.mjs` generează rezumatul și varianta completă pentru
@@ -88,6 +95,13 @@ calificate din sursele private. GSC beta AI nu măsoară toate citările ChatGPT
 conținutul accesibil și util rămâne prioritar; fișierele speciale nu garantează
 ranking, citări sau recomandări. Verificarea Frase este diagnostic de acces,
 nu benchmark de venit; nu schimbăm politica robots pentru a obține un scor.
+
+Frase, înainte de lot: 84/100, 5/8 checks, EN homepage. Confirmă acces HTML,
+sitemap, schema și fișierele llms; semnalează lipsa variantelor Markdown per-pagină.
+Live robots.txt permite generic `User-agent: *` / `Allow: /`; scorul pentru lipsa
+unei politici AI explicite nu dovedește blocarea crawlerelor. Nu adăugăm protocoale
+suplimentare, markup redundant sau permisiuni noi doar pentru scor. Nu există
+rezultat „după” până când lotul nu este publicat.
 
 ## Verificări și revenire
 
