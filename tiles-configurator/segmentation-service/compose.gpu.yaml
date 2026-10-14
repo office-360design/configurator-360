@@ -1,0 +1,14 @@
+# Requires a host NVIDIA driver and NVIDIA Container Toolkit. Check host support
+# for the chosen CUDA wheel before building; this does not install host drivers.
+services:
+  paving-analysis:
+    build:
+      args:
+        TORCH_INDEX: https://download.pytorch.org/whl/cu126
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

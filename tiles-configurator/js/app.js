@@ -1,3 +1,14 @@
+import { createProjectSession } from './projectSession.js';
+import { mountProjectPanel } from './projectPanel.js';
+import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
+import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-cloud-api-1';
+import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-cloud-api-1';
+import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-menu-2';
+import { prepareModelImport } from './segmentationAdapter.js';
+import { failImport } from './modelCamera.js';
+import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';
+import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
+import { PavingHistory } from './pavingHistory.js';
 import { createTilesARController } from './ar/controller.js?v=tiles-ar-1';
 import { mountLocationPicker } from './locationPicker.js';
 import { patternPreview } from './patternPreview.js';
@@ -14,7 +25,7 @@ import {
   areaGeometry,
 } from './model.js';
 import { translator } from './i18n.js';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-5';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
@@ -32,8 +43,23 @@ let state = normalize(),
   top = false,
   drawingArea = false,
   draftAreaPoints = [],
+  drawingOperation = 'replace',
+  activeBoundaryKey = '',
+  activeVertex = 0,
   photoFlowStep = 'upload',
   photoObjectUrl = null,
+  photoSource = null,
+  photoLoadSequence = 0,
+  designRevision = 0,
+  modelImportUI,
+  analysisController,
+  analysisUI,
+  photoSourceUrl = null,
+  manualCalibrationSnapshot = null,
+  modelImportSummary = null,
+  lastModelImport = null,
+  projectSession,
+  projectUI,
   photoRectCache = null,
   calibrationCorners = [
     { x: 0.36, y: 0.38 },
@@ -44,16 +70,19 @@ let state = normalize(),
 const money = (n) =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'RON' }).format(n);
 const f = (n) => new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n);
-const history = new SharedUndoManager({
-  capture: () => structuredClone(state),
-  restore: (s) => restore(s),
+const history = new PavingHistory({
+  capture: () => captureHistorySnapshot(),
+  restore: (s) => {
+    try { return restoreHistorySnapshot(s); }
+    catch (error) { showAreaError(geometryError(error)); return false; }
+  },
 });
 
 const PHOTO_FLOW_COPY = {
   en: {
     stepUpload: '1 · Add a site photo',
     uploadTitle: 'Start with a photo of your yard',
-    uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. The photo stays local to this browser session.',
+    uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. Automatic analysis sends a resized copy to the configured analysis service. Manual calibration remains available. The original photo is cached in this browser for saving and reopening.',
     upload: 'Choose yard photo',
     sampleLabel: 'Or choose a sample yard',
     sampleAlt: 'Sample yard',
@@ -76,7 +105,7 @@ const PHOTO_FLOW_COPY = {
   ro: {
     stepUpload: '1 · Adaugă fotografia',
     uploadTitle: 'Începe cu o fotografie a curții',
-    uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Fotografia rămâne doar în această sesiune din browser.',
+    uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Analiza automată trimite o copie redimensionată către serviciul de analiză configurat. Calibrarea manuală rămâne disponibilă. Fotografia originală este stocată local în browser pentru salvare și redeschidere.',
     upload: 'Alege fotografia curții',
     sampleLabel: 'Sau alege o curte exemplu',
     sampleAlt: 'Curte exemplu',
@@ -99,7 +128,7 @@ const PHOTO_FLOW_COPY = {
   de: {
     stepUpload: '1 · Standortfoto hinzufügen',
     uploadTitle: 'Mit einem Foto des Hofs beginnen',
-    uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Das Foto bleibt nur in dieser Browser-Sitzung.',
+    uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Die automatische Analyse sendet eine verkleinerte Kopie an den konfigurierten Analysedienst. Manuelle Kalibrierung bleibt verfügbar. Das Originalfoto wird zum Speichern und Wiederöffnen in diesem Browser zwischengespeichert.',
     upload: 'Hoffoto auswählen',
     sampleLabel: 'Oder einen Beispielhof auswählen',
     sampleAlt: 'Beispielhof',
@@ -152,6 +181,7 @@ function installPhotoFlowShell() {
       <div id="photoCalibrationActions" class="photo-flow-actions" hidden>
         <button id="photoCalibrationConfirm" type="button" class="photo-primary"></button>
         <button id="photoChangeCalibration" type="button" class="photo-secondary"></button>
+        <button id="photoCancelCalibration" type="button" class="photo-secondary photo-full" hidden></button>
       </div>
       <div id="photoDrawingActions" class="photo-flow-actions" hidden>
         <button id="photoUndoPoint" type="button" class="photo-secondary"></button>
@@ -246,46 +276,49 @@ function installDirectionSlider() {
 installDirectionSlider();
 const AREA_EDITOR_COPY = {
   en: {
-    draw: 'Draw area in 3D',
-    redraw : 'Redraw area in 3D',
-    undo: 'Undo point',
-    finish: 'Finish area',
-    cancel: 'Cancel',
-    help: 'Create any outline directly in the 3D scene. Camera orbit/zoom stays available, and every placed corner can be dragged at any time.',
-    drawing: 'Click or tap the ground to add corners. Drag empty space to orbit the camera, use the normal zoom/pan controls, and drag any corner to reposition it. Click the green first corner to close the outline, or use Finish. Use Undo point to remove the last corner.',
-    freeform: 'Freeform outline',
-    status: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} placed · maximum 64`,
-    saved: (count) => `${count} ${count === 1 ? 'corner' : 'corners'} · drag blue handles in the 3D view to edit`,
-    current: (count) => `${count} corners in the current area · use Draw area in 3D to replace it`,
-    invalid: 'The outline must have at least 3 corners, be at least 1 m², stay within 20 × 20 m, and must not cross itself or contain collapsed/sharp corners.',
+    draw: 'Add area', remove: 'Remove area', clear: 'Start from scratch',
+    undo: 'Undo point', finish: 'Apply area', cancel: 'Cancel',
+    undoEdit: 'Undo edit', redoEdit: 'Redo edit', boundary: 'Edit boundary', none: 'No handles',
+    region: 'Region', outer: 'Outer boundary', hole: 'Hole', vertex: 'Vertex',
+    insert: 'Insert after', delete: 'Delete vertex',
+    help: 'Add area extends or joins paving. Remove area cuts holes or splits it. Select a boundary for precise edits. New holes have no curbs until enabled below.',
+    drawing: 'Place a correction polygon on the ground. Drag corners to adjust it, then Apply. Cancel leaves the pavement unchanged. Click the first green corner to finish.',
+    freeform: 'Paving regions',
+    status: (n) => `${n} corners placed · maximum 4096`,
+    saved: (regions, holes, points) => `${regions} regions · ${holes} holes · ${points} vertices`,
+    invalid: 'Use a non-crossing outline with at least 3 distinct corners. Holes must stay strictly inside their region and must not touch another boundary.',
+    complex: 'This area is too large or detailed for the preview. Reduce its extent or number of vertices, or choose a larger tile format.',
+    dense: 'Only a sample of handles is shown on dense boundaries. Select any vertex by number; all vertices remain in the geometry.',
   },
   ro: {
-    draw: 'Desenează suprafața în 3D',
-    redraw : 'Redesenează suprafați în 3D',
-    undo: 'Anulează punctul',
-    finish: 'Finalizează suprafaŢa',
-    cancel: 'Anulează',
-    help: 'Creează orice contur direct în scena 3D. Rotirea și zoom-ul camerei rămân disponibil, iar fiecare colț poate fi mutat prin tragere în orice moment.',
-    drawing: 'Apasă pe sol pentru a adăuga colțuri. Trage pe spațiul liber pentru a roti camera, folosește comenzile normale de zoom/deplasare și trage orice colț pentru a-l muta. Apasă pe primul colț verde pentru închidere sau folosește Finalizează. Folosește Anulează punctul pentru a șterge ultimul colț.',
-    freeform: 'Contur liber',
-    status: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} adăugate · maximum 64`,
-    saved: (count) => `${count} ${count === 1 ? 'colț' : 'colțuri'} · trage punctele albastre din scena 3D pentru editare`,
-    current: (count) => `${count} colțuri în suprafața actuală · folosește Desenează suprafața în 3D pentru a o înlocui`,
-    invalid: 'Conturul trebuie să aibă cel puțin 3 colțuri, minimum 1 m², să încapă în 20 × 20 m și să nu se intersecteze sau să aibă colțuri colapsate/prea ascuțite.',
+    draw: 'Adaugă suprafață', remove: 'Elimină suprafață', clear: 'Începe de la zero',
+    undo: 'Anulează punctul', finish: 'Aplică suprafața', cancel: 'Renunță',
+    undoEdit: 'Anulează editarea', redoEdit: 'Refă editarea', boundary: 'Editează conturul', none: 'Fără puncte de control',
+    region: 'Zonă', outer: 'Contur exterior', hole: 'Gol', vertex: 'Vârf',
+    insert: 'Inserează după', delete: 'Șterge vârful',
+    help: 'Adaugă suprafață extinde sau unește pavajul. Elimină suprafață creează goluri sau separă zonele. Selectează un contur pentru editare precisă. Golurile noi nu au borduri până când le activezi.',
+    drawing: 'Pune punctele poligonului de corecție pe sol. Trage colțurile pentru ajustare, apoi apasă Aplică. Renunță păstrează pavajul neschimbat. Apasă primul colț verde pentru finalizare.',
+    freeform: 'Zone de pavaj',
+    status: (n) => `${n} colțuri adăugate · maximum 4096`,
+    saved: (regions, holes, points) => `${regions} zone · ${holes} goluri · ${points} vârfuri`,
+    invalid: 'Conturul trebuie să aibă cel puțin 3 colțuri distincte și să nu se intersecteze. Golurile trebuie să rămână strict în interior, fără să atingă alt contur.',
+    complex: 'Suprafața este prea mare sau prea detaliată pentru previzualizare. Redu dimensiunile sau numărul de vârfuri ori alege dale mai mari.',
+    dense: 'Pe contururile dense se afișează doar o parte din puncte. Selectează orice vârf după număr; toate vârfurile rămân în geometrie.',
   },
   de: {
-    draw: 'Fläche in 3D zeichnen',
-    redraw: 'Fläche in 3D neu zeichnen',
-    undo: 'Punkt zurück',
-    finish: 'Fläche fertigstellen',
-    cancel: 'Abbrechen',
-    help: 'Beliebige Kontur direkt in der 3D-Szene erstellen. Kamera drehen/zoomen bleibt verfügbar und jeder gesetzte Eckpunkt kann jederzeit gezogen werden.',
-    drawing: 'Auf den Boden klicken oder tippen, um Ecken hinzuzufügen. Freien Raum ziehen, um die Kamera zu drehen, die normalen Zoom-/Pan-Steuerungen verwenden und jeden Eckpunkt ziehen, um ihn zu verschieben. Den ersten grünen Punkt anklicken oder Fertigstellen wählen. Mit Punkt zurück wird der letzte Eckpunkt entfernt.',
-    freeform: 'Freie Kontur',
-    status: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} gesetzt · maximal 64`,
-    saved: (count) => `${count} ${count === 1 ? 'Ecke' : 'Ecken'} · blaue Punkte in 3D ziehen, um die Kontur zu bearbeiten`,
-    current: (count) => `${count} Ecken in der aktuellen Fläche · mit Fläche in 3D zeichnen ersetzen`,
-    invalid: 'Die Kontur braucht mindestens 3 Ecken und 1 m², muss innerhalb 20 × 20 m bleiben und darf sich nicht kreuzen oder eingeklappte/sehr spitze Ecken enthalten.',
+    draw: 'Fläche hinzufügen', remove: 'Fläche entfernen', clear: 'Neu beginnen',
+    undo: 'Punkt zurück', finish: 'Fläche anwenden', cancel: 'Abbrechen',
+    undoEdit: 'Bearbeitung zurück', redoEdit: 'Wiederholen', boundary: 'Kontur bearbeiten', none: 'Keine Griffe',
+    region: 'Bereich', outer: 'Außenkontur', hole: 'Aussparung', vertex: 'Eckpunkt',
+    insert: 'Danach einfügen', delete: 'Eckpunkt löschen',
+    help: 'Hinzufügen erweitert oder verbindet Pflasterflächen. Entfernen erzeugt Aussparungen oder trennt Bereiche. Eine Kontur für genaue Änderungen wählen. Neue Aussparungen haben zunächst keine Randsteine.',
+    drawing: 'Ecken des Korrekturpolygons auf dem Boden setzen und durch Ziehen anpassen. Anwenden bestätigt die Änderung. Abbrechen lässt das Pflaster unverändert. Zum Abschluss den ersten grünen Punkt anklicken.',
+    freeform: 'Pflasterbereiche',
+    status: (n) => `${n} Ecken gesetzt · maximal 4096`,
+    saved: (regions, holes, points) => `${regions} Bereiche · ${holes} Aussparungen · ${points} Eckpunkte`,
+    invalid: 'Die Kontur benötigt mindestens 3 verschiedene Ecken und darf sich nicht kreuzen. Aussparungen müssen vollständig innen liegen und dürfen keine andere Kontur berühren.',
+    complex: 'Die Fläche ist zu groß oder zu detailliert. Ausdehnung oder Eckpunktzahl reduzieren oder größere Pflastersteine wählen.',
+    dense: 'Bei dichten Konturen werden nur einige Griffe angezeigt. Jeden Eckpunkt über seine Nummer auswählen; die Geometrie behält alle Eckpunkte.',
   },
 };
 const vertexLabel = (index) => {
@@ -308,20 +341,44 @@ function installAreaEditor() {
     <p id="areaDrawHelp" class="note"></p>
     <div class="area-draw-actions">
       <button id="drawArea" class="export" type="button"></button>
+      <button id="removeArea" class="area-secondary" type="button"></button>
+      <button id="clearPaving" class="area-secondary area-wide" type="button"></button>
+      <button id="undoPaving" class="area-secondary" type="button"></button>
+      <button id="redoPaving" class="area-secondary" type="button"></button>
       <button id="undoAreaPoint" class="area-secondary" type="button" hidden></button>
       <button id="finishArea" class="export" type="button" hidden></button>
-      <button id="cancelArea" class="area-secondary" type="button" hidden></button>
+      <button id="cancelArea" class="area-secondary area-wide" type="button" hidden></button>
+    </div>
+    <div id="boundaryTools">
+      <label for="boundarySelect" id="boundarySelectLabel"></label>
+      <select id="boundarySelect"></select>
+      <div id="boundaryVertexTools" hidden>
+        <label for="boundaryVertex" id="boundaryVertexLabel"></label>
+        <input id="boundaryVertex" type="number" min="1" step="1" value="1">
+        <span id="boundaryVertexCount" class="note"></span>
+        <div class="area-draw-actions">
+          <button id="insertAreaVertex" class="area-secondary" type="button"></button>
+          <button id="deleteAreaVertex" class="area-secondary" type="button"></button>
+        </div>
+        <p id="denseBoundaryHelp" class="note" hidden></p>
+      </div>
     </div>
     <p id="areaDrawStatus" class="note" role="status" aria-live="polite"></p>
     <svg id="areaPlan" viewBox="0 0 300 170" role="img" aria-label="Area outline"></svg>`;
   const style = document.createElement('style');
   style.textContent = `
     .area-draw-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
-    .area-draw-actions #drawArea{grid-column:1/-1}
-    .area-draw-actions .export,.area-draw-actions .area-secondary{width:100%;min-height:40px}
-    .area-secondary{padding:10px;border:1px solid #bccbd5;border-radius:8px;background:#fff;color:inherit;font-weight:650}
+    .area-draw-actions .area-wide{grid-column:1/-1}
+    .area-draw-actions button{width:100%;min-height:40px;white-space:normal}
+    .area-secondary{padding:10px;border:1px solid #bccbd5;border-radius:8px;background:#fff;color:inherit;font-weight:650;cursor:pointer}
+    .area-draw-actions button:disabled{opacity:.5;cursor:default}
     body.dark .area-secondary{background:#35424a;border-color:#52626c;color:#e4ebef}
+    #boundaryTools select{width:100%;margin:6px 0 10px;min-height:38px}
+    #boundaryVertex{width:90px;margin:6px 8px;min-height:36px}
+    #boundaryTools label{font-weight:650;font-size:12px}
     #areaDrawStatus{min-height:1.6em;margin:7px 0}
+    #edgeChoices{max-height:240px;overflow:auto}
+    #areaError{color:#a13f20;line-height:1.4}
     body.tiles-area-drawing #canvasHost canvas{cursor:crosshair}
   `;
   document.head.append(style);
@@ -335,170 +392,208 @@ function swatches(id, key, colors) {
     .join('');
 }
 
-function planGeometry(points) {
-  const minX = Math.min(...points.map((p) => p.x)),
-    minZ = Math.min(...points.map((p) => p.z)),
-    shifted = points.map((p) => ({ x: p.x - minX, z: p.z - minZ })),
-    width = Math.max(...shifted.map((p) => p.x), 0),
-    depth = Math.max(...shifted.map((p) => p.z), 0);
-  return { points: shifted, width, depth };
+function boundaryName(b) {
+  const c = areaText();
+  return `${c.region} ${b.region + 1} · ${b.hole ? `${c.hole} ${b.ring}` : c.outer}`;
 }
-
 function renderAreaPlan(geometry) {
-  if (drawingArea && !draftAreaPoints.length) {
-    $('areaPlan').setAttribute('aria-label', areaText().freeform);
-    $('areaPlan').innerHTML = '';
-    return;
-  }
-  const draft = drawingArea ? planGeometry(draftAreaPoints) : null,
-    plan = draft || geometry,
-    width = Math.max(plan.width, 1),
-    depth = Math.max(plan.depth, 1),
-    scale = Math.min(230 / width, 110 / depth),
-    ox = (300 - plan.width * scale) / 2,
-    oz = (170 - plan.depth * scale) / 2,
-    points = plan.points,
-    pointString = points.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`).join(' ');
-  $('areaPlan').setAttribute('aria-label', areaText().freeform);
-  if (points.length === 1)
-    $('areaPlan').innerHTML = `<circle cx="${ox}" cy="${oz}" r="5" fill="#0878c9"/>`;
-  else if (points.length > 1)
-    $('areaPlan').innerHTML =
-      `<${points.length >= 3 ? 'polygon' : 'polyline'} points="${pointString}" fill="${points.length >= 3 ? '#e9f5fd' : 'none'}" stroke="#0878c9" stroke-width="2"/>`;
-  else $('areaPlan').innerHTML = '';
-  $('areaPlan').innerHTML += points
-    .map(
-      (p, i) =>
-        `<text x="${ox + p.x * scale}" y="${oz + p.z * scale - 9}" text-anchor="middle">${vertexLabel(i)}</text>`,
-    )
-    .join('');
-  if (!draft && state.houseEnabled)
-    $('areaPlan').innerHTML += `<polygon points="${houseGeometry(state)
-      .outline.map((p) => `${ox + p.x * scale},${oz + p.z * scale}`)
-      .join(' ')}" fill="#69747b" fill-opacity=".8" stroke="#3f4b53" stroke-width="1.5"/>`;
+  const draft = drawingArea ? draftAreaPoints.map((p) => ({
+    x: p.x + geometry.centerX, z: p.z + geometry.centerZ,
+  })) : [];
+  const all = [...geometry.regions.flatMap((r) => r.outer), ...draft];
+  const svg = $('areaPlan'); svg.setAttribute('aria-label', areaText().freeform);
+  if (!all.length) { svg.innerHTML = ''; return; }
+  const minX = Math.min(...all.map((p) => p.x)), minZ = Math.min(...all.map((p) => p.z)),
+    width = Math.max(...all.map((p) => p.x)) - minX,
+    depth = Math.max(...all.map((p) => p.z)) - minZ,
+    scale = Math.min(260 / Math.max(width, .1), 130 / Math.max(depth, .1)),
+    ox = (300 - width * scale) / 2, oz = (170 - depth * scale) / 2,
+    xy = (p) => `${ox + (p.x - minX) * scale},${oz + (p.z - minZ) * scale}`,
+    path = (ring) => `M${ring.map(xy).join(' L')} Z`;
+  svg.innerHTML = geometry.regions.map((r) =>
+    `<path d="${[r.outer, ...r.holes].map(path).join(' ')}" fill="#e9f5fd" fill-rule="evenodd" stroke="#0878c9" stroke-width="1.5"/>`).join('');
+  const active = geometry.boundaries.find((b) => b.key === activeBoundaryKey);
+  if (active) svg.innerHTML += `<path d="${path(active.points)}" fill="none" stroke="${active.hole ? '#bd542f' : '#0878c9'}" stroke-width="3"/>`;
+  if (draft.length) svg.innerHTML += `<polyline points="${draft.map(xy).join(' ')}" fill="none" stroke="${drawingOperation === 'remove' ? '#bd542f' : '#22a06b'}" stroke-width="2" stroke-dasharray="5 3"/>`;
+  if (state.houseEnabled) svg.innerHTML += `<polygon points="${houseGeometry(state).outline.map(xy).join(' ')}" fill="#69747b" fill-opacity=".8" stroke="#3f4b53" stroke-width="1.5"/>`;
 }
-
 function renderAreaEditor(geometry = areaGeometry(state)) {
-  const copy = areaText(),
-    count = drawingArea ? draftAreaPoints.length : geometry.points.length;
-  $('drawArea').hidden = drawingArea;
+  const copy = areaText(), boundaries = geometry.boundaries;
+  if (activeBoundaryKey && !boundaries.some((b) => b.key === activeBoundaryKey)) activeBoundaryKey = '';
+  const active = boundaries.find((b) => b.key === activeBoundaryKey);
+  activeVertex = Math.max(0, Math.min(activeVertex, (active?.points.length || 1) - 1));
+  for (const [id, label] of [['drawArea', 'draw'], ['removeArea', 'remove'], ['clearPaving', 'clear'],
+    ['undoPaving', 'undoEdit'], ['redoPaving', 'redoEdit']]) {
+    $(id).hidden = drawingArea; $(id).textContent = copy[label];
+  }
   $('drawArea').disabled = !viewer;
-  $('drawArea').textContent = state.shape === 'custom' ? copy.redraw : copy.draw;
+  $('removeArea').disabled = !viewer || geometry.area === 0;
+  $('clearPaving').disabled = !viewer || geometry.area === 0;
+  $('undoPaving').disabled = !history.stack.length;
+  $('redoPaving').disabled = !history.future.length;
   for (const id of ['undoAreaPoint', 'finishArea', 'cancelArea']) $(id).hidden = !drawingArea;
   $('undoAreaPoint').textContent = copy.undo;
   $('finishArea').textContent = copy.finish;
   $('cancelArea').textContent = copy.cancel;
   $('undoAreaPoint').disabled = !draftAreaPoints.length;
   $('finishArea').disabled = draftAreaPoints.length < 3;
-  $('areaDrawHelp').textContent = drawingArea ? copy.drawing : copy.help;
-  $('areaDrawStatus').textContent = drawingArea
-    ? copy.status(count)
-    : state.shape === 'custom'
-      ? copy.saved(count)
-      : copy.current(count);
-  document.querySelectorAll('[data-edge]').forEach((el) => (el.disabled = drawingArea));
+  $('areaDrawHelp').textContent = drawingArea
+    ? `${copy[drawingOperation === 'remove' ? 'remove' : 'draw']}: ${copy.drawing}` : copy.help;
+  $('areaDrawStatus').textContent = drawingArea ? copy.status(draftAreaPoints.length)
+    : copy.saved(geometry.regions.length, boundaries.filter((b) => b.hole).length,
+      boundaries.reduce((n, b) => n + b.points.length, 0));
+  $('boundaryTools').hidden = drawingArea || !['regions', 'custom'].includes(state.shape);
+  $('boundarySelectLabel').textContent = copy.boundary;
+  $('boundarySelect').innerHTML = `<option value="">${copy.none}</option>` + boundaries.map((b) =>
+    `<option value="${b.key}">${boundaryName(b)}</option>`).join('');
+  $('boundarySelect').value = activeBoundaryKey;
+  $('boundaryVertexTools').hidden = !active;
+  $('boundaryVertexLabel').textContent = copy.vertex;
+  $('boundaryVertex').max = active?.points.length || 1;
+  $('boundaryVertex').value = activeVertex + 1;
+  $('boundaryVertexCount').textContent = `/ ${active?.points.length || 0}`;
+  $('insertAreaVertex').textContent = copy.insert;
+  $('deleteAreaVertex').textContent = copy.delete;
+  $('deleteAreaVertex').disabled = !active || active.points.length <= 3;
+  $('denseBoundaryHelp').textContent = copy.dense;
+  $('denseBoundaryHelp').hidden = !active || active.points.length <= 48;
+  document.querySelectorAll('[data-edge], [data-boundary-curb]').forEach((el) => (el.disabled = drawingArea));
   document.body.classList.toggle('tiles-area-drawing', drawingArea);
+  viewer?.setAreaSelection(activeBoundaryKey, activeVertex);
   renderAreaPlan(geometry);
 }
-
 function showAreaError(message = areaText().invalid) {
-  $('areaError').textContent = message;
-  $('areaError').hidden = false;
+  $('areaError').textContent = message; $('areaError').hidden = false;
 }
-
-function prepareCustomArea(rawPoints, { sceneCoordinates = false, resetEdges = false } = {}) {
-  if (!Array.isArray(rawPoints) || rawPoints.length < 3) return null;
-  const minX = Math.min(...rawPoints.map((p) => Number(p.x))),
-    minZ = Math.min(...rawPoints.map((p) => Number(p.z))),
-    points = normalizeFootprint(rawPoints);
-  if (!points || !Number.isFinite(minX) || !Number.isFinite(minZ)) return null;
-  const current = areaGeometry(state),
-    patch = {
-      shape: 'custom',
-      areaPoints: points,
-      edges: resetEdges
-        ? Array(points.length).fill(true)
-        : Array.from({ length: points.length }, (_, i) => state.edges[i] ?? true),
-      houseX: sceneCoordinates ? state.houseX - current.width / 2 - minX : state.houseX - minX,
-      houseZ: sceneCoordinates ? state.houseZ - current.depth / 2 - minZ : state.houseZ - minZ,
-    },
-    next = normalize({ ...state, ...patch });
+function geometryError(error) {
+  return error?.message === 'areaTooComplex' ? areaText().complex : areaText().invalid;
+}
+function startAreaDrawing(operation = 'replace') {
+  if (!viewer) return;
+  drawingOperation = ['add', 'remove', 'replace'].includes(operation) ? operation : 'replace';
+  drawingArea = true; draftAreaPoints = []; designRevision++;
+  $('areaError').hidden = true;
+  viewer.startAreaDrawing({ operation: drawingOperation });
+  renderAreaEditor();
+}
+function stopAreaDrawing() {
+  drawingArea = false; draftAreaPoints = []; designRevision++;
+  viewer?.stopAreaDrawing({ preserveCamera: true });
+  renderAreaEditor();
+}
+function captureHistorySnapshot() {
+  // Camera and geometry travel together in local undo. Images/masks are NOT copied
+  // into the history stack or the ordinary saved-state/share payload.
+  return { historyVersion: 1, state: structuredClone(state), photoId: photoSource?.photoId || null,
+    photoView: viewer?.capturePhotoState() || null, photoFlowStep: photoFlowStep === 'analyze' ? 'calibrate' : photoFlowStep,
+    modelSummary: modelImportSummary ? structuredClone(modelImportSummary) : null };
+}
+function restoreHistorySnapshot(snapshot) {
+  if (snapshot.photoId !== (photoSource?.photoId || null)) return false;
+  const next = normalize(snapshot.state), prepared = validatePavingState(next);
+  viewer?.restorePhotoState(snapshot.photoView);
+  photoFlowStep = snapshot.photoFlowStep;
+  designRevision++;
+  modelImportSummary = snapshot.modelSummary ? structuredClone(snapshot.modelSummary) : null;
+  document.body.classList.toggle('tiles-photo-setup', photoFlowStep !== 'done');
+  return commitPavingState(next, { record: false, finishDrawing: true, prepared });
+}
+function importModelResult(input, options = {}) {
+  const photo = photoSource;
+  if (!viewer || !photo) failImport('noPhoto', 'Load the matching photograph first.');
+  if (options.photoId !== photo.photoId || options.designRevision !== designRevision)
+    failImport('staleResult', 'The photograph or design changed. Request a fresh photo token before importing.');
+  const resultImageId = input?.geometry?.image_id || input?.image_id;
+  if (options.associateWithCurrentPhoto !== true && resultImageId !== photo.photoId)
+    failImport('imageMismatch', 'The model result belongs to another image. Local exports require explicit association with the current photograph.');
+  if (drawingArea && draftAreaPoints.length)
+    failImport('unfinishedDrawing', 'Finish or cancel the current outline before importing a model result.');
+  if (asRegionState(state).areaRegions.length && options.replaceExisting !== true)
+    failImport('replaceRequired', 'The current pavement and its holes will not be overwritten without explicit replacement.');
+  const imported = prepareModelImport(input, { ...options, photo }),
+    next = normalize({ ...state, shape: 'regions', areaPoints: null, areaRegions: imported.regions, areaOrigin: imported.origin,
+      // Photo model results must not be clipped by an unrelated 3D demo house.
+      houseEnabled: false }),
+    prepared = validatePavingState(next), before = captureHistorySnapshot(), oldResult = lastModelImport,
+    oldStack = [...history.stack], oldFuture = [...history.future];
   try {
-    areaGeometry(next);
-    return next;
-  } catch {
-    return null;
+    history.record();
+    viewer.applyModelCalibration(imported.camera, imported.origin);
+    designRevision++;
+    const importId = `${photo.photoId}:${designRevision + 1}`;
+    lastModelImport = { importId, photoId: photo.photoId, value: imported,
+      analysisResultId: options.analysisResultId || null, targets: [...(options.targets || ['grass', 'dirt'])],
+      payload: structuredClone(input) };
+    modelImportSummary = { importId, imageId: imported.camera.imageId, source: imported.source,
+      cameraSource: 'metric_model', scaleSource: imported.camera.scaleSource, accuracyVerified: false,
+      diagnostics: imported.diagnostics, warnings: imported.warnings };
+    lastModelImport.summary = structuredClone(modelImportSummary);
+    commitPavingState(next, { record: false, finishDrawing: true, selectFirst: true, prepared });
+    completePhotoFlow();
+    return structuredClone(modelImportSummary);
+  } catch (error) {
+    lastModelImport = oldResult;
+    history.stack = oldStack; history.future = oldFuture;
+    restoreHistorySnapshot(before);
+    throw error;
   }
 }
-
-function startAreaDrawing() {
-  if (!viewer) return;
-  drawingArea = true;
-  draftAreaPoints = [];
+function validatePavingState(next) {
+  areaGeometry(next);
+  const parts = layout(next);
+  return { parts, bom: estimate(next, parts) };
+}
+function commitPavingState(next, { record = true, finishDrawing = false, selectFirst = false, prepared: supplied } = {}) {
+  // Clip and price BEFORE changing state/history so a rejected operation is atomic.
+  const prepared = supplied || validatePavingState(next), changed = JSON.stringify(next) !== JSON.stringify(state);
+  if (record && changed) history.record();
+  if (finishDrawing) {
+    drawingArea = false; draftAreaPoints = [];
+    viewer?.stopAreaDrawing({ preserveCamera: true });
+  }
+  state = next;
+  if (changed) designRevision++;
+  if (selectFirst) { activeBoundaryKey = areaGeometry(next).boundaries[0]?.key || ''; activeVertex = 0; }
+  viewer?.preserveCamera();
   $('areaError').hidden = true;
-  viewer.startAreaDrawing();
-  renderAreaEditor();
+  render(prepared);
+  if (changed) shell?.markDirty();
+  if (typeof projectSession !== 'undefined') {
+    if (changed) projectSession?.markChanged();
+    void projectSession?.rememberDetection();
+  }
+  return true;
 }
-
-function stopAreaDrawing() {
-  drawingArea = false;
-  draftAreaPoints = [];
-  viewer?.stopAreaDrawing();
-  renderAreaEditor();
-}
-
-function pointsCenter(points) {
-  if (!Array.isArray(points) || !points.length) return { x: 0, z: 0 };
-  const xs = points.map((point) => Number(point.x)),
-    zs = points.map((point) => Number(point.z));
-  return {
-    x: (Math.min(...xs) + Math.max(...xs)) / 2,
-    z: (Math.min(...zs) + Math.max(...zs)) / 2,
-  };
-}
-
 function finishAreaDrawing() {
   if (!drawingArea || draftAreaPoints.length < 3) return false;
-  const rawPoints = draftAreaPoints.map((point) => ({ ...point })),
-    next = prepareCustomArea(rawPoints, { sceneCoordinates: true, resetEdges: true });
-  if (!next) {
-    showAreaError();
-    renderAreaEditor();
-    if (photoFlowStep === 'draw') showPhotoFlowError(areaText().invalid);
+  try {
+    const completingPhoto = photoFlowStep === 'draw',
+      next = applyPavingPatch(state, draftAreaPoints, drawingOperation, { sceneCoordinates: true });
+    commitPavingState(next, { finishDrawing: true, selectFirst: true });
+    if (completingPhoto) completePhotoFlow();
+    return true;
+  } catch (error) {
+    showAreaError(geometryError(error));
+    if (photoFlowStep === 'draw') showPhotoFlowError(geometryError(error));
     return false;
   }
-  const center = pointsCenter(rawPoints),
-    completingInitialPhotoFlow = photoFlowStep === 'draw';
-  if (viewer?.hasPhotoCalibration?.()) viewer.shiftPhotoWorld(-center.x, -center.z);
-  history.record();
-  state = next;
-  drawingArea = false;
-  draftAreaPoints = [];
-  viewer?.stopAreaDrawing({ preserveCamera: true });
-  $('areaError').hidden = true;
-  render();
-  if (completingInitialPhotoFlow) completePhotoFlow();
-  shell?.markDirty();
-  return true;
 }
-
-function commitAreaPointMove(points) {
-  const current = areaGeometry(state),
-    rawCenter = pointsCenter(points),
-    next = prepareCustomArea(points);
-  if (!next) {
-    render();
-    showAreaError();
-    return false;
-  }
-  if (viewer?.hasPhotoCalibration?.())
-    viewer.shiftPhotoWorld(current.width / 2 - rawCenter.x, current.depth / 2 - rawCenter.z);
-  history.record();
-  state = next;
-  $('areaError').hidden = true;
-  render();
-  shell?.markDirty();
-  return true;
+function commitAreaPointMove(points, key) {
+  try { return commitPavingState(replaceBoundary(state, key, points)); }
+  catch (error) { render(); showAreaError(geometryError(error)); return false; }
+}
+function clearPavingArea() {
+  try {
+    return commitPavingState(clearPaving(state), { finishDrawing: true, selectFirst: true });
+  } catch (error) { showAreaError(geometryError(error)); return false; }
+}
+function undoPavingEdit() {
+  if (drawingArea) return viewer?.undoAreaPoint();
+  const ok = history.undo(); renderAreaEditor(); return ok;
+}
+function redoPavingEdit() {
+  if (drawingArea) return false;
+  const ok = history.redo(); renderAreaEditor(); return ok;
 }
 
 function showPhotoFlowError(message) {
@@ -549,6 +644,7 @@ function renderPhotoViewControls() {
   const inPhoto = viewer.isPhotoMode();
   button.textContent = photoText()[inPhoto ? 'freeCamera' : 'photoView'];
   camera.hidden = inPhoto;
+  modelImportUI?.update();
 }
 
 function renderPhotoFlow() {
@@ -565,6 +661,10 @@ function renderPhotoFlow() {
     $('photoFlowStep').textContent = copy.stepUpload;
     $('photoFlowTitle').textContent = copy.uploadTitle;
     $('photoFlowHelp').textContent = copy.uploadHelp;
+  } else if (photoFlowStep === 'analyze') {
+    $('photoFlowStep').textContent = '2 · ' + analysisFlowText(locale).title;
+    $('photoFlowTitle').textContent = analysisFlowText(locale).title;
+    $('photoFlowHelp').textContent = analysisFlowText(locale).help;
   } else if (photoFlowStep === 'calibrate') {
     $('photoFlowStep').textContent = copy.stepCalibrate;
     $('photoFlowTitle').textContent = copy.calibrateTitle;
@@ -581,6 +681,8 @@ function renderPhotoFlow() {
   });
   $('photoCalibrationConfirm').textContent = copy.calibrate;
   $('photoChangeCalibration').textContent = copy.changePhoto;
+  $('photoCancelCalibration').hidden = !manualCalibrationSnapshot || photoFlowStep !== 'calibrate';
+  $('photoCancelCalibration').textContent = areaText().cancel;
   $('photoUndoPoint').textContent = copy.undo;
   $('photoFinishArea').textContent = copy.finish;
   $('photoChangeDrawing').textContent = copy.changePhoto;
@@ -588,6 +690,9 @@ function renderPhotoFlow() {
   $('photoFinishArea').disabled = draftAreaPoints.length < 3;
   updateCalibrationOverlay();
   renderPhotoViewControls();
+  modelImportUI?.update();
+  analysisUI?.update();
+  projectUI?.update();
 }
 
 function resetCalibrationCorners() {
@@ -601,27 +706,39 @@ function resetCalibrationCorners() {
 
 async function loadPhotoSource(source, { objectUrl = false } = {}) {
   if (!viewer || !source) return false;
+  analysisController?.cancel({ clearResult: true });
+  manualCalibrationSnapshot = null;
+  const sequence = ++photoLoadSequence, previousPhoto = photoSource, previousUrl = photoObjectUrl;
+  photoSource = null; modelImportUI?.update();
   if (drawingArea) {
-    drawingArea = false;
-    draftAreaPoints = [];
+    drawingArea = false; draftAreaPoints = [];
     viewer.stopAreaDrawing();
   }
-  if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
-  photoObjectUrl = objectUrl ? source : null;
   showPhotoFlowError('');
   try {
-    await viewer.loadSitePhoto(source);
+    const loaded = await viewer.loadSitePhoto(source);
+    if (sequence !== photoLoadSequence) { if (objectUrl) URL.revokeObjectURL(source); return false; }
+    if (previousUrl && previousUrl !== source) URL.revokeObjectURL(previousUrl);
+    photoObjectUrl = objectUrl ? source : null;
+    photoSourceUrl = source;
+    photoSource = { photoId: globalThis.crypto?.randomUUID?.() || `photo-${Date.now()}-${sequence}`,
+      width: loaded.width, height: loaded.height };
+    state = normalize({ ...state, shape: 'regions', areaRegions: [], areaOrigin: { x: 0, z: 0 }, houseEnabled: false });
+    designRevision++; modelImportSummary = null; lastModelImport = null;
+    if (typeof projectSession !== 'undefined') void projectSession?.photoLoaded(photoSource, source);
+    history.clear(); activeBoundaryKey = ''; activeVertex = 0;
     resetCalibrationCorners();
     photoRectCache = viewer.getPhotoRect();
-    photoFlowStep = 'calibrate';
+    photoFlowStep = SEGMENTATION_CONFIG.enabled ? 'analyze' : 'calibrate';
     document.body.classList.add('tiles-photo-setup');
-    renderPhotoFlow();
+    render();
+    if (SEGMENTATION_CONFIG.enabled) void analysisController?.run().catch(error => showPhotoFlowError(error.message));
     return true;
-  } catch {
-    if (objectUrl && photoObjectUrl === source) {
-      URL.revokeObjectURL(photoObjectUrl);
-      photoObjectUrl = null;
-    }
+  } catch (error) {
+    if (objectUrl) URL.revokeObjectURL(source);
+    if (sequence !== photoLoadSequence) return false;
+    photoSource = previousPhoto;
+    modelImportUI?.update();
     showPhotoFlowError(photoText().photoFailed);
     return false;
   }
@@ -635,7 +752,54 @@ async function loadPhotoFile(file) {
   return loadPhotoSource(URL.createObjectURL(file), { objectUrl: true });
 }
 
+function beginManualCalibration() {
+  if (!photoSource || !viewer) return false;
+  if (draftAreaPoints.length) throw new Error('Finish or cancel the current outline before changing calibration.');
+  analysisController?.cancel();
+  if (photoFlowStep !== 'calibrate') {
+    manualCalibrationSnapshot = viewer.hasPhotoCalibration() ? captureHistorySnapshot() : null;
+    resetCalibrationCorners();
+  }
+  if (drawingArea) stopAreaDrawing();
+  designRevision++;
+  photoFlowStep = 'calibrate';
+  viewer.beginReferenceCalibration();
+  document.body.classList.add('tiles-photo-setup');
+  showPhotoFlowError(''); renderPhotoFlow();
+  return true;
+}
+function cancelManualCalibration() {
+  const before = manualCalibrationSnapshot;
+  if (!before) return;
+  manualCalibrationSnapshot = null;
+  restoreHistorySnapshot(before);
+}
 function beginPhotoAreaDrawing() {
+  analysisController?.cancel({ notify: false });
+  if (manualCalibrationSnapshot) {
+    const before = manualCalibrationSnapshot;
+    try {
+      const current = asRegionState(state);
+      const proposal = viewer.prepareReferenceRecalibration(current.areaRegions, current.areaOrigin, calibrationCorners);
+      const next = normalize({ ...current, areaRegions: proposal.regions, areaOrigin: proposal.origin });
+      const prepared = validatePavingState(next);
+      const oldStack = [...history.stack], oldFuture = [...history.future];
+      try {
+        history.record(before);
+        viewer.restorePhotoState(proposal.photoView);
+        modelImportSummary = null;
+        commitPavingState(next, { record: false, finishDrawing: true, prepared });
+        manualCalibrationSnapshot = null;
+        completePhotoFlow();
+      } catch (error) {
+        history.stack = oldStack; history.future = oldFuture;
+        restoreHistorySnapshot(before);
+        manualCalibrationSnapshot = null;
+        throw error;
+      }
+      return true;
+    } catch (error) { showPhotoFlowError(error.message || photoText().calibrationInvalid); return false; }
+  }
   if (!viewer?.applyPhotoCalibration(calibrationCorners)) {
     showPhotoFlowError(photoText().calibrationInvalid);
     return false;
@@ -671,6 +835,7 @@ function wirePhotoFlow() {
     loadPhotoSource(button.dataset.sampleSrc);
   });
   $('photoCalibrationConfirm').addEventListener('click', beginPhotoAreaDrawing);
+  $('photoCancelCalibration').addEventListener('click', cancelManualCalibration);
   for (const id of ['photoChangeCalibration', 'photoChangeDrawing'])
     $(id).addEventListener('click', () => input.click());
   $('photoUndoPoint').addEventListener('click', () => viewer?.undoAreaPoint());
@@ -686,6 +851,7 @@ function wirePhotoFlow() {
   layer.addEventListener('pointerdown', (event) => {
     const handle = event.target.closest('[data-calibration-corner]');
     if (!handle || photoFlowStep !== 'calibrate') return;
+    if (analysisController?.getStatus().busy) beginManualCalibration();
     dragIndex = Number(handle.dataset.calibrationCorner);
     pointerId = event.pointerId;
     handle.setPointerCapture?.(pointerId);
@@ -718,7 +884,7 @@ function wirePhotoFlow() {
   }
 }
 
-function render() {
+function render(prepared = null) {
   document.documentElement.lang = locale.split('-')[0];
   document.querySelectorAll('[data-i18n]').forEach((el) => (el.textContent = t(el.dataset.i18n)));
   for (const key of [
@@ -768,12 +934,15 @@ function render() {
   const geometry = areaGeometry(state),
     custom = state.shape !== 'rectangle';
   renderAreaEditor(geometry);
-  $('edgeChoices').innerHTML = geometry.points
-    .map(
-      (_, i) =>
-        `<label><input type="checkbox" data-edge="${i}" ${state.edges[i] ? 'checked' : ''}><span>${custom ? vertexLabel(i) + vertexLabel((i + 1) % geometry.points.length) : t(['front', 'right', 'back', 'left'][i])}</span></label>`,
-    )
-    .join('');
+  $('edgeChoices').innerHTML = state.shape === 'regions'
+    ? geometry.boundaries.map((b) => `<label><input type="checkbox" data-boundary-curb="${b.key}" ${b.enabled ? 'checked' : ''}><span>${boundaryName(b)}</span></label>`).join('')
+    : geometry.points.map((_, i) =>
+      `<label><input type="checkbox" data-edge="${i}" ${state.edges[i] ? 'checked' : ''}><span>${custom ? vertexLabel(i) + vertexLabel((i + 1) % geometry.points.length) : t(['front', 'right', 'back', 'left'][i])}</span></label>`).join('');
+  document.querySelectorAll('[data-boundary-curb]').forEach((el) => {
+    const b = geometry.boundaries.find((b) => b.key === el.dataset.boundaryCurb);
+    el.indeterminate = b.edges?.some(Boolean) && !b.edges.every(Boolean);
+    el.disabled = drawingArea;
+  });
   $('tileChoices').innerHTML = Object.entries(TILES)
     .map(
       ([key, tile]) =>
@@ -803,11 +972,15 @@ function render() {
   swatches('accents', 'accent', tile.colors);
   swatches('curbColors', 'curbColor', CURBS[state.curb].colors);
   $('accentSection').hidden = state.pattern !== 'checker';
-  const parts = layout(state),
-    bom = estimate(state, parts);
+  const parts = prepared?.parts || layout(state),
+    bom = prepared?.bom || estimate(state, parts);
   viewer?.rebuild(state, parts);
   $('areaBadge').textContent =
     `${f(bom.area)} m² · ${custom ? `${t('perimeter')}: ${f(bom.perimeter)} m` : `${f(state.length)} × ${f(state.width)} m`}`;
+  if (viewer?.getModelCalibration()) {
+    const label = { en: 'Estimated scale', ro: 'Scară estimată', de: 'Geschätzter Maßstab' }[locale.split('-')[0]] || 'Estimated scale';
+    $('areaBadge').textContent += ` · ${label}`;
+  }
   $('metrics').innerHTML = [
     ['netArea', `${f(bom.area)} m²`],
     ['houseArea', `${f(bom.houseArea)} m²`],
@@ -835,56 +1008,107 @@ function render() {
   renderPhotoViewControls();
 }
 
+function detachProjectPhoto() {
+  analysisController?.cancel({ clearResult: true, notify: false });
+  photoLoadSequence++; designRevision++;
+  viewer?.clearSitePhoto();
+  if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
+  photoObjectUrl = photoSourceUrl = photoSource = null;
+  lastModelImport = modelImportSummary = manualCalibrationSnapshot = null;
+  history.clear(); projectSession?.detached();
+}
 function restore(snapshot) {
-  if (
-    !snapshot ||
-    typeof snapshot !== 'object' ||
-    Array.isArray(snapshot) ||
-    snapshot.version !== 1
-  )
-    return false;
+  if (!viewer) return false; // Shared shell retries until the real viewer is ready.
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) || ![1, 2].includes(snapshot.version)) return false;
+  if (snapshot.photoProject) return projectSession.restoreSaved(snapshot);
   try {
-    const next = normalize(snapshot);
-    areaGeometry(next);
-    if (drawingArea) {
-      drawingArea = false;
-      draftAreaPoints = [];
-      viewer?.stopAreaDrawing();
+    // Legacy saves and photo-free share links must never inherit an unrelated photo.
+    const prepared = prepareProjectState({format:'360-tiles-project',version:1,state:snapshot});
+    detachProjectPhoto(); photoFlowStep = 'done'; document.body.classList.remove('tiles-photo-setup');
+    commitPavingState(prepared.document.state, {record:false,finishDrawing:true,prepared});
+    viewer.fitProject(); renderPhotoFlow(); return true;
+  } catch (error) { showAreaError(geometryError(error)); return false; }
+}
+/** Validated project opening: no network inference and no application of masks to
+ * the saved design. A new photo token invalidates all responses from the old job. */
+async function applyStoredProject(bundle, guard) {
+  if (!viewer || !guard()) throw new Error('The viewer or current project changed. Open the project again.');
+  const {document: doc, assets, detection, parts, bom} = bundle;
+  let suggestion = null;
+  if (detection && assets.photo) {
+    try { suggestion = prepareModelImport(detection.payload, {photo:doc.photo, targets:detection.targets,
+      tolerancePx:SEGMENTATION_CONFIG.tolerancePx}); }
+    catch (error) { console.warn('Optional cached detection was not restored:', error); }
+  }
+  if (!guard()) throw new Error('The project changed while validating the saved design.');
+  const before = { state, photoSource, photoSourceUrl, photoObjectUrl, photoFlowStep,
+    calibrationCorners:structuredClone(calibrationCorners), view:viewer.capturePhotoState(),
+    modelImportSummary, lastModelImport, manualCalibrationSnapshot,
+    stack:[...history.stack], future:[...history.future], activeBoundaryKey, activeVertex };
+  const url = assets.photo ? URL.createObjectURL(assets.photo.blob) : null;
+  let mutated = false;
+  try {
+    if (url) await viewer.loadSitePhoto(url, {isCurrent:guard});
+    if (!guard()) throw new Error('The project changed while loading its photograph.');
+    mutated = true;
+    if (!url) viewer.clearSitePhoto();
+    analysisController.cancel({clearResult:true,notify:false});
+    photoLoadSequence++; designRevision++;
+    photoObjectUrl = photoSourceUrl = url;
+    photoSource = url ? {photoId:crypto.randomUUID(),width:doc.photo.width,height:doc.photo.height} : null;
+    photoFlowStep = url ? doc.stage : 'done';
+    calibrationCorners = doc.referenceCorners ? structuredClone(doc.referenceCorners) : [
+      {x:.36,y:.38},{x:.64,y:.4},{x:.66,y:.66},{x:.34,y:.64}];
+    manualCalibrationSnapshot = null; modelImportSummary = null; lastModelImport = null;
+    if (suggestion) {
+      const importId = `reopened:${photoSource.photoId}`;
+      const summary = {importId,imageId:suggestion.camera.imageId,source:suggestion.source,cameraSource:'metric_model',
+        scaleSource:suggestion.camera.scaleSource,accuracyVerified:false,diagnostics:suggestion.diagnostics,warnings:suggestion.warnings};
+      lastModelImport = {importId,photoId:photoSource.photoId,value:suggestion,analysisResultId:null,
+        targets:[...detection.targets],payload:structuredClone(detection.payload),summary};
+      if (doc.view.calibration?.type === 'metric_model' &&
+          JSON.stringify(doc.view.calibration.value) === JSON.stringify(suggestion.camera)) modelImportSummary = summary;
     }
-    state = next;
-    render();
-    $('areaError').hidden = true;
+    document.body.classList.toggle('tiles-photo-setup',photoFlowStep !== 'done');
+    commitPavingState(doc.state,{record:false,finishDrawing:true,selectFirst:true,prepared:{parts,bom}});
+    if (url) viewer.restorePhotoState(doc.view,{force:true});
+    else if (!doc.photo && doc.view.pose) viewer.restorePhotoState(doc.view,{force:true});
+    else viewer.fitProject();
+    photoRectCache = viewer.getPhotoRect(); history.clear();
+    renderAreaEditor(); renderPhotoFlow();
+    if (before.photoObjectUrl && before.photoObjectUrl !== url) URL.revokeObjectURL(before.photoObjectUrl);
+    shell?.markDirty();
     return true;
-  } catch {
-    return false;
+  } catch(error) {
+    // Decode/validation failures leave the previous scene in place. Unexpected
+    // rendering failures restore the prior image and camera, not just geometry.
+    if (mutated) {
+      state = before.state; photoSource = before.photoSource; photoSourceUrl = before.photoSourceUrl;
+      photoObjectUrl = before.photoObjectUrl; photoFlowStep = before.photoFlowStep;
+      calibrationCorners = before.calibrationCorners; modelImportSummary = before.modelImportSummary;
+      lastModelImport = before.lastModelImport; manualCalibrationSnapshot = before.manualCalibrationSnapshot;
+      activeBoundaryKey = before.activeBoundaryKey; activeVertex = before.activeVertex;
+      history.stack = before.stack; history.future = before.future;
+      const rollbackRevision = designRevision;
+      if (before.photoSourceUrl) await viewer.loadSitePhoto(before.photoSourceUrl,{isCurrent:()=>designRevision===rollbackRevision});
+      else viewer.clearSitePhoto();
+      document.body.classList.toggle('tiles-photo-setup',photoFlowStep !== 'done');
+      viewer.restorePhotoState(before.view,{force:true}); render();
+    }
+    if (url) URL.revokeObjectURL(url);
+    throw error;
   }
 }
-
 function change(patch, record = true) {
-  let prepared = patch;
-  if (Object.hasOwn(patch, 'areaPoints') && (patch.shape === 'custom' || state.shape === 'custom')) {
-    const points = normalizeFootprint(patch.areaPoints);
-    if (!points) {
-      render();
-      showAreaError();
-      return false;
-    }
-    prepared = { ...patch, shape: 'custom', areaPoints: points };
-  }
-  const next = normalize({ ...state, ...prepared });
   try {
-    areaGeometry(next);
-  } catch {
-    render();
-    showAreaError(next.shape === 'custom' ? areaText().invalid : t('invalidArea'));
-    return false;
-  }
-  if (record) history.record();
-  state = next;
-  $('areaError').hidden = true;
-  render();
-  shell?.markDirty();
-  return true;
+    let prepared = patch;
+    if (Object.hasOwn(patch, 'areaPoints') && (patch.shape === 'custom' || state.shape === 'custom')) {
+      const points = normalizeFootprint(patch.areaPoints);
+      if (!points) throw new Error('invalidRegions');
+      prepared = { ...patch, shape: 'custom', areaPoints: points };
+    }
+    return commitPavingState(normalize({ ...state, ...prepared }), { record });
+  } catch (error) { showAreaError(geometryError(error)); return false; }
 }
 
 function setLocale(value) {
@@ -907,25 +1131,134 @@ function cycleCamera() {
 }
 const api = {
   captureState: () => structuredClone(state),
+  captureSavedState: () => projectSession.savedState(),
+  getProjectStatus: () => projectSession?.getStatus() || {phase:'idle',message:''},
+  saveLocalProject: (name, options) => projectSession.save(name, options),
+  listLocalProjects: () => projectSession.list(),
+  openLocalProject: id => projectSession.openLocal(id),
+  deleteLocalProject: (id, revision) => projectSession.remove(id, revision),
+  downloadProject: options => projectSession.download(options),
+  openProjectFile: file => projectSession.openFile(file),
+  reattachProjectPhoto: file => projectSession.reattach(file),
+  clearLocalProjects: () => projectSession.clearLocalData(),
+  projectFileName,
   restoreState: restore,
   resetConfiguration() {
-    history.record();
-    if (drawingArea) {
-      drawingArea = false;
-      draftAreaPoints = [];
-      viewer?.stopAreaDrawing();
-    }
-    state = normalize(DEFAULTS);
-    render();
-    shell?.markDirty();
-    return true;
+    detachProjectPhoto();
+    const ok = commitPavingState(normalize(DEFAULTS), { record: false, finishDrawing: true, selectFirst: true });
+    photoFlowStep = 'upload'; document.body.classList.add('tiles-photo-setup'); renderPhotoFlow();
+    return ok;
   },
   setLocale,
   setDarkMode,
   cycleCamera,
-  getEstimate: () => estimate(state),
+  getEstimate: () => ({ ...estimate(state), measurementStatus: viewer?.getModelCalibration() ? 'estimated' : viewer?.hasPhotoCalibration() ? 'reference_calibrated' : 'design_dimensions' }),
+  getPhotoSource: () => photoSource ? { ...photoSource, designRevision, drawing: drawingArea, draftVertices: draftAreaPoints.length } : null,
+  importModelResult,
+  runPhotoAnalysis: options => analysisController.run(options),
+  cancelPhotoAnalysis: options => analysisController?.cancel(options),
+  restoreDetectedArea: (options = {}) => {
+    if (analysisController.getResultInfo()) return analysisController.restore(options);
+    if (!lastModelImport || lastModelImport.photoId !== photoSource?.photoId) throw new Error('No original suggestion is available for this photo.');
+    return importModelResult(lastModelImport.payload, { ...options, ...api.getPhotoSource(),
+      targets: options.targets || lastModelImport.targets, associateWithCurrentPhoto: true });
+  },
+  getAnalysisStatus: () => {
+    const status = analysisController?.getStatus() || {phase:'idle',busy:false,canRestore:false};
+    return {...status, canRestore: status.canRestore || !!(lastModelImport && lastModelImport.photoId === photoSource?.photoId)};
+  },
+  getAnalysisResult: () => analysisController?.getResult() || null,
+  beginManualCalibration,
+  getModelCamera: () => viewer?.getModelCalibration() || null,
+  getModelImportSummary: () => modelImportSummary ? structuredClone(modelImportSummary) : null,
+  getModelImportMasks() {
+    if (!lastModelImport || lastModelImport.photoId !== photoSource?.photoId ||
+        lastModelImport.importId !== modelImportSummary?.importId) return null;
+    return { source: 'original_import_not_current_edits', imageId: lastModelImport.value.camera.imageId,
+      ...lastModelImport.value.camera.image, ...structuredClone(lastModelImport.value.masks) };
+  },
+  // Diagnostics are session-local, read-only copies. Never part of saved state,
+  // pricing or the undo stack. The raw result may differ from the active design.
+  getDebugState() {
+    const info = analysisController?.getResultInfo(), retained = lastModelImport?.photoId === photoSource?.photoId ? lastModelImport : null;
+    return { photo: api.getPhotoSource(), status: api.getAnalysisStatus(),
+      service: analysisController?.getServiceStatus() || { state: 'unchecked' },
+      calibration: viewer?.capturePhotoState()?.calibration || null,
+      measurementStatus: viewer?.getModelCalibration() ? 'estimated' : viewer?.hasPhotoCalibration() ? 'reference_calibrated' : 'unavailable',
+      sources: {
+        analysis: info ? { key: `${info.resultId}:${retained?.analysisResultId === info.resultId ? retained.importId : 'raw'}`,
+          active: retained?.analysisResultId === info.resultId && retained.importId === modelImportSummary?.importId } : null,
+        imported: retained ? { key: retained.importId, active: retained.importId === modelImportSummary?.importId } : null,
+      } };
+  },
+  getDebugSource(kind) {
+    const info = analysisController?.getResultInfo(), retained = lastModelImport?.photoId === photoSource?.photoId ? lastModelImport : null;
+    const selected = kind === 'analysis' ? (info ? { photoId: info.photoId, payload: api.getAnalysisResult(), targets: retained?.analysisResultId === info.resultId ? retained.targets : info.targets,
+      prepared: retained?.analysisResultId === info.resultId ? retained : null } : null) :
+      kind === 'imported' && retained ? { photoId: retained.photoId, payload: retained.payload, targets: retained.targets, prepared: retained } : null;
+    if (!selected) return null;
+    const descriptor = api.getDebugState().sources[kind], imported = selected.prepared;
+    return { ...descriptor, kind, photoId: selected.photoId, targets: [...selected.targets],
+      payload: structuredClone(selected.payload), summary: imported ? structuredClone(imported.summary) : null,
+      prepared: imported ? { image: { ...imported.value.camera.image }, masks: structuredClone(imported.value.masks) } : null };
+  },
+  getDebugView: () => viewer?.getDebugView() || null,
+  setDebugPreviewVisible: visible => viewer?.setDebugPreviewVisible(visible),
+  checkAnalysisService: () => analysisController.checkHealth(),
+  getPavingState: () => structuredClone(asRegionState(state)),
+  setPavingRegions(regions, origin = asRegionState(state).areaOrigin) {
+    return change({ shape: 'regions', areaRegions: regions, areaOrigin: origin });
+  },
+  applyPavingPatch(points, operation = 'add') {
+    try { return commitPavingState(applyPavingPatch(state, points, operation), { selectFirst: true }); }
+    catch (error) { showAreaError(geometryError(error)); return false; }
+  },
+  clearPaving: clearPavingArea,
+  undo: undoPavingEdit,
+  redo: redoPavingEdit,
 };
 window.TILES_CONFIGURATOR_API = api;
+analysisController = createPhotoAnalysis({
+  config: SEGMENTATION_CONFIG,
+  getPhoto: api.getPhotoSource, getPavingState: api.getPavingState,
+  getSource: () => photoSourceUrl, importResult: (payload, options) => {
+    // Automatic imports do not run after reference calibration has started.
+    return api.importModelResult(payload, options);
+  },
+  onStatus(status) {
+    if (status.photoId === photoSource?.photoId && photoFlowStep === 'analyze' && !status.busy &&
+        ['error', 'manual_required', 'cancelled'].includes(status.phase)) photoFlowStep = 'calibrate';
+    renderPhotoFlow();
+  },
+});
+projectSession = createProjectSession({
+  capture: () => ({state:structuredClone(state),view:viewer?.capturePhotoState() || null,
+    referenceCorners:structuredClone(calibrationCorners)}),
+  getPhoto: () => photoSource, getSource: () => photoSourceUrl,
+  getRevision: () => `${photoLoadSequence}:${designRevision}`,
+  getDetection: () => {
+    const info = analysisController?.getResultInfo();
+    if (info) {
+      const targets = lastModelImport?.analysisResultId === info.resultId ? lastModelImport.targets : info.targets;
+      return {key:`${info.resultId}:${targets.join(',')}`,getPayload:()=>analysisController.getResult(),targets};
+    }
+    return lastModelImport?.photoId === photoSource?.photoId && lastModelImport ?
+      {key:lastModelImport.importId,payload:lastModelImport.payload,targets:lastModelImport.targets} : null;
+  },
+  assertSavable: () => {
+    if (!viewer) throw new Error('The viewer is not ready.');
+    if (drawingArea || draftAreaPoints.length || manualCalibrationSnapshot)
+      throw new Error('Finish or cancel the current outline / calibration before saving or downloading a project.');
+  },
+  beforeOpen: () => analysisController.cancel(),
+  apply: applyStoredProject,
+  onStatus: () => projectUI?.update(),
+});
+projectUI = mountProjectPanel({api,getLocale:()=>locale,getStep:()=>photoFlowStep});
+analysisUI = mountAnalysisPanel({ api, getLocale: () => locale, getStep: () => photoFlowStep,
+  initialTargets: SEGMENTATION_CONFIG.targets });
+window.addEventListener('pagehide', () => analysisController.cancel({ notify: false }));
+modelImportUI = mountSegmentationDebugPanel({ api, getLocale: () => locale, getStep: () => photoFlowStep });
 let sliderFrame = 0,
   sliderPatch = null;
 function flushSlider() {
@@ -978,7 +1311,35 @@ $('centerHouse').addEventListener('click', () => {
   const g = areaGeometry(state);
   change({ houseX: (g.width - state.houseLength) / 2, houseZ: (g.depth - state.houseWidth) / 2 });
 });
-$('drawArea').addEventListener('click', startAreaDrawing);
+$('drawArea').addEventListener('click', () => startAreaDrawing('add'));
+$('removeArea').addEventListener('click', () => startAreaDrawing('remove'));
+$('clearPaving').addEventListener('click', clearPavingArea);
+$('undoPaving').addEventListener('click', undoPavingEdit);
+$('redoPaving').addEventListener('click', redoPavingEdit);
+$('boundarySelect').addEventListener('change', (event) => {
+  activeBoundaryKey = event.target.value; activeVertex = 0; renderAreaEditor();
+});
+$('boundaryVertex').addEventListener('change', (event) => {
+  activeVertex = Math.max(0, Math.round(Number(event.target.value) || 1) - 1); renderAreaEditor();
+});
+for (const [id, operation] of [['insertAreaVertex', 'insert'], ['deleteAreaVertex', 'delete']])
+  $(id).addEventListener('click', () => {
+    try {
+      const next = editBoundaryVertex(state, activeBoundaryKey, activeVertex, operation);
+      if (operation === 'insert') activeVertex++;
+      commitPavingState(next);
+    } catch (error) { showAreaError(geometryError(error)); }
+  });
+document.addEventListener('keydown', (event) => {
+  if (event.target.closest('input, select, textarea, [contenteditable="true"]')) return;
+  if (event.key === 'Escape' && drawingArea && photoFlowStep !== 'draw') {
+    event.preventDefault(); stopAreaDrawing(); return;
+  }
+  if ((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (event.shiftKey || event.key.toLowerCase() === 'y') redoPavingEdit(); else undoPavingEdit();
+  }
+});
 $('undoAreaPoint').addEventListener('click', () => viewer?.undoAreaPoint());
 $('finishArea').addEventListener('click', finishAreaDrawing);
 $('cancelArea').addEventListener('click', stopAreaDrawing);
@@ -988,7 +1349,15 @@ document.querySelector('.sidebar').addEventListener('change', (e) => {
     flushSlider();
     return;
   }
-  if (el.dataset.edge !== undefined) {
+  if (el.dataset.boundaryCurb !== undefined) {
+    const regions = structuredClone(state.areaRegions),
+      b = areaGeometry(state).boundaries.find((b) => b.key === el.dataset.boundaryCurb);
+    if (!b) return;
+    if (b.hole) regions[b.region].curbs.holes[b.ring - 1] = el.checked;
+    else regions[b.region].curbs.outer = el.checked;
+    regions[b.region].curbs.edges[b.ring] = Array(b.points.length).fill(el.checked);
+    change({ areaRegions: regions });
+  } else if (el.dataset.edge !== undefined) {
     const edges = [...state.edges];
     edges[Number(el.dataset.edge)] = el.checked;
     change({ edges });
@@ -1025,8 +1394,9 @@ $('export').addEventListener('click', () => {
     [t('total'), '', '', '', bom.total.toFixed(2)],
     [],
     [t('note')],
-    [t('shape'), state.shape === 'custom' ? areaText().freeform : t(state.shape)],
+    [t('shape'), ['custom', 'regions'].includes(state.shape) ? areaText().freeform : t(state.shape)],
     [t('netArea'), bom.area, 'm²'],
+    ['Measurement status', viewer?.getModelCalibration() ? 'model-estimated scale; not physically verified' : 'design dimensions'],
     [t('grossArea'), bom.grossArea, 'm²'],
     [t('houseArea'), bom.houseArea, 'm²'],
     ...(state.houseEnabled
@@ -1051,12 +1421,15 @@ $('export').addEventListener('click', () => {
         ]
       : []),
     [t('perimeter'), bom.perimeter, 'm'],
-    ...areaGeometry(state).lengths.map((length, i) => [
+    ...(state.shape === 'regions' ? areaGeometry(state).boundaries.flatMap((b) => [
+      [boundaryName(b), b.lengths.reduce((n, l) => n + l, 0), 'm', b.enabled ? 'curb' : ''],
+      ...b.points.map((p, i) => [`${boundaryName(b)} / ${i + 1}`, p.x, p.z, 'm', b.edges[i] ? 'curb' : '']),
+    ]) : areaGeometry(state).lengths.map((length, i) => [
       vertexLabel(i) + vertexLabel((i + 1) % state.edges.length),
       length,
       'm',
       state.edges[i] ? 'curb' : '',
-    ]),
+    ])),
     ...(['closed4', 'closed5'].includes(state.shape) ? [[t('angleB'), state.angleB, '°']] : []),
     ...(state.shape === 'custom' && state.areaPoints
       ? state.areaPoints.map((p, i) => [`Area vertex ${vertexLabel(i)}`, p.x, p.z, 'm'])
@@ -1142,13 +1515,19 @@ shell = mountStandaloneConfiguratorShell({
         viewer?.undoAreaPoint();
         return;
       }
-      history.undo();
+      undoPavingEdit();
     },
     resetConfiguration: api.resetConfiguration,
-    captureState: api.captureState,
+    captureState: api.captureSavedState,
     restoreState: restore,
     getShareUrl() {
-      return createShareUrl({ productType: 'tiles', state: api.captureState() });
+      const message = locale.startsWith('ro')
+        ? 'Acest link distribuie numai pavajul și golurile, fără fotografie sau cameră. Pentru proiectul complet folosește Proiect → Descarcă. Continui?'
+        : locale.startsWith('de') ? 'Dieser Link teilt nur Pflaster und Aussparungen, ohne Foto oder Kamera. Für das vollständige Projekt die Projektdatei herunterladen. Fortfahren?'
+        : 'This link shares only the edited pavement and holes, not the photo or camera. Use Project → Download full project to share everything. Continue?';
+      if (!window.confirm(message)) throw new Error('Sharing cancelled.');
+      if (drawingArea) throw new Error('Finish or cancel the current outline before sharing.');
+      return createShareUrl({ productType: 'tiles', state: geometryShareState(state) });
     },
     onPreferenceChange(path, value) {
       if (path === 'locale') { setLocale(value); ar.refresh(); }
@@ -1177,15 +1556,22 @@ try {
     onHouseDragStart: () => history.record(),
     onHouseMove: (patch) => change(patch, false),
     onAreaDraftChange(points) {
+      if (JSON.stringify(points) !== JSON.stringify(draftAreaPoints)) designRevision++;
       draftAreaPoints = points;
       if (drawingArea) renderAreaEditor();
       if (photoFlowStep === 'draw') renderPhotoFlow();
     },
     onAreaFinishRequested: finishAreaDrawing,
     onAreaPointMove: commitAreaPointMove,
+    onAreaVertexSelect(index) {
+      activeVertex = index;
+      // Do not rebuild handles while a pointer owns one of them.
+      $('boundaryVertex').value = index + 1;
+    },
     onPhotoRectChange(rect) {
       photoRectCache = rect;
       updateCalibrationOverlay();
+      modelImportUI?.update();
     },
   });
   viewer.setDarkMode(Boolean(shell.state.darkMode));

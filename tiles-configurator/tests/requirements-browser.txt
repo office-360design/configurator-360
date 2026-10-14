@@ -1,0 +1,5 @@
+# Optional browser harness dependencies. Install service/requirements-test.txt too
+# for the HTTP browser harness; the DOM-only harness needs only these packages.
+playwright>=1.48,<2
+Pillow>=11,<13
+uvicorn>=0.30,<1

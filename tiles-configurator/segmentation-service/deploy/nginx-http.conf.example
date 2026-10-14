@@ -1,0 +1,4 @@
+# Include inside nginx's http {} block. These are example capacity limits, not a
+# substitute for authentication/per-account quotas on a publicly exposed service.
+limit_req_zone $binary_remote_addr zone=paving_jobs:10m rate=6r/m;
+limit_req_zone $binary_remote_addr zone=paving_poll:10m rate=15r/s;
