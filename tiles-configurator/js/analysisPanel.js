@@ -41,20 +41,21 @@ const COPY = {
     first:'Beim ersten Lauf werden gegebenenfalls Modelle heruntergeladen. Fortschritt wird als Phase und nicht als geschätzter Prozentsatz angezeigt.',empty:'Keine nutzbare Fläche erkannt. Manuell hinzufügen oder vorhandenes Pflaster auswählen und den erkannten Bereich wiederherstellen.' },
 };
 export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['grass', 'dirt']}) {
-  const panel = document.createElement('section'); panel.id = 'photoAnalysisPanel'; panel.className = 'panel-section photo-analysis-panel';
-  panel.innerHTML = `<h3></h3><p data-analysis-status role="status" aria-live="polite"></p><progress hidden aria-label="Analysis running"></progress>
+  const panel = document.createElement('details'); panel.id = 'photoAnalysisPanel'; panel.className = 'accordion-section photo-analysis-panel';
+  panel.innerHTML = `<summary class="accordion-toggle"></summary><div class="accordion-panel"><p data-analysis-status role="status" aria-live="polite"></p><progress hidden aria-label="Analysis running"></progress>
     <p data-analysis-error role="alert" hidden></p><fieldset><legend></legend>${['grass','dirt','pavement'].map(k=>`<label><input type="checkbox" value="${k}" ${initialTargets.includes(k)?'checked':''}><span data-target="${k}"></span></label>`).join('')}</fieldset>
     <div class="analysis-actions"><button type="button" data-analyze class="area-secondary"></button><button type="button" data-restore class="area-secondary"></button>
     <button type="button" data-manual class="area-secondary"></button><button type="button" data-stop class="area-secondary"></button>
-    <button type="button" data-change-photo class="area-secondary"></button></div><p class="note" data-analysis-help></p><p class="note" data-analysis-privacy></p>`;
+    <button type="button" data-change-photo class="area-secondary"></button></div><p class="note" data-analysis-help></p><p class="note" data-analysis-privacy></p></div>`;
   const style=document.createElement('style'); style.textContent=`
-    .photo-analysis-panel{min-width:0}.photo-analysis-panel h3{font-size:15px;margin:0 0 8px}.photo-analysis-panel p{font-size:12px;line-height:1.5}
+    .photo-analysis-panel,.photo-analysis-panel .accordion-panel{min-width:0}.photo-analysis-panel p{font-size:12px;line-height:1.5}
     .photo-analysis-panel progress{width:100%;height:8px;margin-bottom:8px}.photo-analysis-panel fieldset{border:0;padding:0;margin:10px 0;display:flex;flex-wrap:wrap;gap:8px 12px}
     .photo-analysis-panel legend{font-size:12px;margin-bottom:7px}.photo-analysis-panel fieldset label{display:flex;align-items:center;gap:5px;font-size:12px;white-space:normal}
     .photo-analysis-panel input[type=checkbox]{width:16px;height:16px;accent-color:#0878c9}.analysis-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .analysis-actions button{font:inherit;font-size:12px;padding:9px;min-height:40px;cursor:pointer}.analysis-actions button:disabled{opacity:.5;cursor:default}
     .analysis-actions [data-stop],.analysis-actions [data-change-photo]{grid-column:1/-1}.photo-analysis-panel [data-analysis-error]{color:#a13f20;overflow-wrap:anywhere}
     .photo-flow-card .photo-analysis-panel{border-top:1px solid #bdcbd3;padding:14px 0 0;margin-top:14px}.photo-analysis-panel [hidden]{display:none!important}
+    .photo-flow-card .photo-analysis-panel summary{cursor:pointer;font-size:15px;font-weight:700;margin-bottom:8px}
     .photo-flow-card{max-height:calc(100dvh - 90px);overflow:auto}.photo-flow.is-upload .photo-analysis-panel{display:none}
     @media(max-width:760px){.photo-flow-card .photo-analysis-panel fieldset{gap:5px}.photo-flow:not(.is-upload) .photo-flow-card{max-height:58dvh}}
   `; document.head.append(style);
@@ -64,13 +65,15 @@ export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['
   function update() {
     const copy=c(), step=getStep(), photo=api.getPhotoSource(), s=api.getAnalysisStatus();
     if (errorPhotoId !== photo?.photoId) { localError=''; errorPhotoId=photo?.photoId; }
-    const parent=step==='done'?document.querySelector('.sidebar'):document.querySelector('.photo-flow-card');
+    const body=document.querySelector('.sidebar .shared-configurator-panel__body')||document.querySelector('.sidebar');
+    const parent=step==='done'?body:document.querySelector('.photo-flow-card');
     if (parent && panel.parentElement !== parent) {
-      if (step === 'done') parent.insertBefore(panel, parent.children[1] || null);
+      if (step === 'done') parent.insertBefore(panel, parent.querySelector(':scope > .accordion-section')?.nextSibling || null);
       else parent.append(panel);
+      panel.open=step!=='done';
     }
     panel.hidden=!photo || step==='upload';
-    $('h3').textContent=copy.title;
+    $('summary').textContent=copy.title;
     $('[data-analysis-status]').textContent=copy.phases[s.phase]||copy.phases.idle;
     if(s.phase==='ready' && s.summary?.diagnostics?.regions===0) $('[data-analysis-status]').textContent=copy.empty;
     $('progress').hidden=!s.busy;

@@ -4,7 +4,7 @@
  */
 export const SEGMENTATION_CONFIG = Object.freeze({
   enabled: true,
-  apiBase: '', // e.g. 'https://analysis.example.com/api/paving'; set server CORS too.
+  apiBase: 'https://tiles-analysis-test-719238533149.europe-central2.run.app/api/paving',
   pollIntervalMs: 900,
   requestTimeoutMs: 45000,
   analysisTimeoutMs: 20 * 60 * 1000, // Covers first-run downloads and CPU inference.

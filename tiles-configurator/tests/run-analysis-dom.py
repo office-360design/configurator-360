@@ -52,6 +52,7 @@ with sync_playwright() as p:
  assert page.evaluate('ctl.getStatus().phase')=='ready'
  assert page.locator('.sidebar #photoAnalysisPanel').count()==1
  assert not page.locator('progress').is_visible();checks.append('Controller status and panel transition to sidebar')
+ page.locator('#photoAnalysisPanel > summary').click()
  before=page.evaluate('importCount')
  page.once('dialog',lambda d:d.dismiss());page.locator('[data-restore]').click()
  assert page.evaluate('importCount')==before;checks.append('Declining replacement performs no import')

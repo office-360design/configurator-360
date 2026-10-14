@@ -1,9 +1,12 @@
-import { createPhotoAnalysis } from './photoAnalysis.js';
-import { SEGMENTATION_CONFIG } from './segmentationConfig.js';
-import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js';
+import { createProjectSession } from './projectSession.js';
+import { mountProjectPanel } from './projectPanel.js';
+import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
+import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-cloud-api-1';
+import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-cloud-api-1';
+import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-menu-2';
 import { prepareModelImport } from './segmentationAdapter.js';
 import { failImport } from './modelCamera.js';
-import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js';
+import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
 import { PavingHistory } from './pavingHistory.js';
 import { mountLocationPicker } from './locationPicker.js';
@@ -53,6 +56,8 @@ let state = normalize(),
   manualCalibrationSnapshot = null,
   modelImportSummary = null,
   lastModelImport = null,
+  projectSession,
+  projectUI,
   photoRectCache = null,
   calibrationCorners = [
     { x: 0.36, y: 0.38 },
@@ -75,7 +80,7 @@ const PHOTO_FLOW_COPY = {
   en: {
     stepUpload: '1 · Add a site photo',
     uploadTitle: 'Start with a photo of your yard',
-    uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. Automatic analysis sends a resized copy to the configured analysis service. Manual calibration remains available.',
+    uploadHelp: 'Use a clear photo that shows the ground where the pavement will go. Automatic analysis sends a resized copy to the configured analysis service. Manual calibration remains available. The original photo is cached in this browser for saving and reopening.',
     upload: 'Choose yard photo',
     sampleLabel: 'Or choose a sample yard',
     sampleAlt: 'Sample yard',
@@ -98,7 +103,7 @@ const PHOTO_FLOW_COPY = {
   ro: {
     stepUpload: '1 · Adaugă fotografia',
     uploadTitle: 'Începe cu o fotografie a curții',
-    uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Analiza automată trimite o copie redimensionată către serviciul de analiză configurat. Calibrarea manuală rămâne disponibilă.',
+    uploadHelp: 'Folosește o fotografie clară în care se vede zona ce va fi pavată. Analiza automată trimite o copie redimensionată către serviciul de analiză configurat. Calibrarea manuală rămâne disponibilă. Fotografia originală este stocată local în browser pentru salvare și redeschidere.',
     upload: 'Alege fotografia curții',
     sampleLabel: 'Sau alege o curte exemplu',
     sampleAlt: 'Curte exemplu',
@@ -121,7 +126,7 @@ const PHOTO_FLOW_COPY = {
   de: {
     stepUpload: '1 · Standortfoto hinzufügen',
     uploadTitle: 'Mit einem Foto des Hofs beginnen',
-    uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Die automatische Analyse sendet eine verkleinerte Kopie an den konfigurierten Analysedienst. Manuelle Kalibrierung bleibt verfügbar.',
+    uploadHelp: 'Ein klares Foto verwenden, auf dem die zu pflasternde Bodenfläche sichtbar ist. Die automatische Analyse sendet eine verkleinerte Kopie an den konfigurierten Analysedienst. Manuelle Kalibrierung bleibt verfügbar. Das Originalfoto wird zum Speichern und Wiederöffnen in diesem Browser zwischengespeichert.',
     upload: 'Hoffoto auswählen',
     sampleLabel: 'Oder einen Beispielhof auswählen',
     sampleAlt: 'Beispielhof',
@@ -551,6 +556,10 @@ function commitPavingState(next, { record = true, finishDrawing = false, selectF
   $('areaError').hidden = true;
   render(prepared);
   if (changed) shell?.markDirty();
+  if (typeof projectSession !== 'undefined') {
+    if (changed) projectSession?.markChanged();
+    void projectSession?.rememberDetection();
+  }
   return true;
 }
 function finishAreaDrawing() {
@@ -681,6 +690,7 @@ function renderPhotoFlow() {
   renderPhotoViewControls();
   modelImportUI?.update();
   analysisUI?.update();
+  projectUI?.update();
 }
 
 function resetCalibrationCorners() {
@@ -713,6 +723,7 @@ async function loadPhotoSource(source, { objectUrl = false } = {}) {
       width: loaded.width, height: loaded.height };
     state = normalize({ ...state, shape: 'regions', areaRegions: [], areaOrigin: { x: 0, z: 0 }, houseEnabled: false });
     designRevision++; modelImportSummary = null; lastModelImport = null;
+    if (typeof projectSession !== 'undefined') void projectSession?.photoLoaded(photoSource, source);
     history.clear(); activeBoundaryKey = ''; activeVertex = 0;
     resetCalibrationCorners();
     photoRectCache = viewer.getPhotoRect();
@@ -995,13 +1006,96 @@ function render(prepared = null) {
   renderPhotoViewControls();
 }
 
+function detachProjectPhoto() {
+  analysisController?.cancel({ clearResult: true, notify: false });
+  photoLoadSequence++; designRevision++;
+  viewer?.clearSitePhoto();
+  if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
+  photoObjectUrl = photoSourceUrl = photoSource = null;
+  lastModelImport = modelImportSummary = manualCalibrationSnapshot = null;
+  history.clear(); projectSession?.detached();
+}
 function restore(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) || ![1, 2].includes(snapshot.version))
-    return false;
+  if (!viewer) return false; // Shared shell retries until the real viewer is ready.
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot) || ![1, 2].includes(snapshot.version)) return false;
+  if (snapshot.photoProject) return projectSession.restoreSaved(snapshot);
   try {
-    const next = normalize(snapshot);
-    return commitPavingState(next, { record: false, finishDrawing: true });
+    // Legacy saves and photo-free share links must never inherit an unrelated photo.
+    const prepared = prepareProjectState({format:'360-tiles-project',version:1,state:snapshot});
+    detachProjectPhoto(); photoFlowStep = 'done'; document.body.classList.remove('tiles-photo-setup');
+    commitPavingState(prepared.document.state, {record:false,finishDrawing:true,prepared});
+    viewer.fitProject(); renderPhotoFlow(); return true;
   } catch (error) { showAreaError(geometryError(error)); return false; }
+}
+/** Validated project opening: no network inference and no application of masks to
+ * the saved design. A new photo token invalidates all responses from the old job. */
+async function applyStoredProject(bundle, guard) {
+  if (!viewer || !guard()) throw new Error('The viewer or current project changed. Open the project again.');
+  const {document: doc, assets, detection, parts, bom} = bundle;
+  let suggestion = null;
+  if (detection && assets.photo) {
+    try { suggestion = prepareModelImport(detection.payload, {photo:doc.photo, targets:detection.targets,
+      tolerancePx:SEGMENTATION_CONFIG.tolerancePx}); }
+    catch (error) { console.warn('Optional cached detection was not restored:', error); }
+  }
+  if (!guard()) throw new Error('The project changed while validating the saved design.');
+  const before = { state, photoSource, photoSourceUrl, photoObjectUrl, photoFlowStep,
+    calibrationCorners:structuredClone(calibrationCorners), view:viewer.capturePhotoState(),
+    modelImportSummary, lastModelImport, manualCalibrationSnapshot,
+    stack:[...history.stack], future:[...history.future], activeBoundaryKey, activeVertex };
+  const url = assets.photo ? URL.createObjectURL(assets.photo.blob) : null;
+  let mutated = false;
+  try {
+    if (url) await viewer.loadSitePhoto(url, {isCurrent:guard});
+    if (!guard()) throw new Error('The project changed while loading its photograph.');
+    mutated = true;
+    if (!url) viewer.clearSitePhoto();
+    analysisController.cancel({clearResult:true,notify:false});
+    photoLoadSequence++; designRevision++;
+    photoObjectUrl = photoSourceUrl = url;
+    photoSource = url ? {photoId:crypto.randomUUID(),width:doc.photo.width,height:doc.photo.height} : null;
+    photoFlowStep = url ? doc.stage : 'done';
+    calibrationCorners = doc.referenceCorners ? structuredClone(doc.referenceCorners) : [
+      {x:.36,y:.38},{x:.64,y:.4},{x:.66,y:.66},{x:.34,y:.64}];
+    manualCalibrationSnapshot = null; modelImportSummary = null; lastModelImport = null;
+    if (suggestion) {
+      const importId = `reopened:${photoSource.photoId}`;
+      const summary = {importId,imageId:suggestion.camera.imageId,source:suggestion.source,cameraSource:'metric_model',
+        scaleSource:suggestion.camera.scaleSource,accuracyVerified:false,diagnostics:suggestion.diagnostics,warnings:suggestion.warnings};
+      lastModelImport = {importId,photoId:photoSource.photoId,value:suggestion,analysisResultId:null,
+        targets:[...detection.targets],payload:structuredClone(detection.payload),summary};
+      if (doc.view.calibration?.type === 'metric_model' &&
+          JSON.stringify(doc.view.calibration.value) === JSON.stringify(suggestion.camera)) modelImportSummary = summary;
+    }
+    document.body.classList.toggle('tiles-photo-setup',photoFlowStep !== 'done');
+    commitPavingState(doc.state,{record:false,finishDrawing:true,selectFirst:true,prepared:{parts,bom}});
+    if (url) viewer.restorePhotoState(doc.view,{force:true});
+    else if (!doc.photo && doc.view.pose) viewer.restorePhotoState(doc.view,{force:true});
+    else viewer.fitProject();
+    photoRectCache = viewer.getPhotoRect(); history.clear();
+    renderAreaEditor(); renderPhotoFlow();
+    if (before.photoObjectUrl && before.photoObjectUrl !== url) URL.revokeObjectURL(before.photoObjectUrl);
+    shell?.markDirty();
+    return true;
+  } catch(error) {
+    // Decode/validation failures leave the previous scene in place. Unexpected
+    // rendering failures restore the prior image and camera, not just geometry.
+    if (mutated) {
+      state = before.state; photoSource = before.photoSource; photoSourceUrl = before.photoSourceUrl;
+      photoObjectUrl = before.photoObjectUrl; photoFlowStep = before.photoFlowStep;
+      calibrationCorners = before.calibrationCorners; modelImportSummary = before.modelImportSummary;
+      lastModelImport = before.lastModelImport; manualCalibrationSnapshot = before.manualCalibrationSnapshot;
+      activeBoundaryKey = before.activeBoundaryKey; activeVertex = before.activeVertex;
+      history.stack = before.stack; history.future = before.future;
+      const rollbackRevision = designRevision;
+      if (before.photoSourceUrl) await viewer.loadSitePhoto(before.photoSourceUrl,{isCurrent:()=>designRevision===rollbackRevision});
+      else viewer.clearSitePhoto();
+      document.body.classList.toggle('tiles-photo-setup',photoFlowStep !== 'done');
+      viewer.restorePhotoState(before.view,{force:true}); render();
+    }
+    if (url) URL.revokeObjectURL(url);
+    throw error;
+  }
 }
 function change(patch, record = true) {
   try {
@@ -1035,9 +1129,23 @@ function cycleCamera() {
 }
 const api = {
   captureState: () => structuredClone(state),
+  captureSavedState: () => projectSession.savedState(),
+  getProjectStatus: () => projectSession?.getStatus() || {phase:'idle',message:''},
+  saveLocalProject: (name, options) => projectSession.save(name, options),
+  listLocalProjects: () => projectSession.list(),
+  openLocalProject: id => projectSession.openLocal(id),
+  deleteLocalProject: (id, revision) => projectSession.remove(id, revision),
+  downloadProject: options => projectSession.download(options),
+  openProjectFile: file => projectSession.openFile(file),
+  reattachProjectPhoto: file => projectSession.reattach(file),
+  clearLocalProjects: () => projectSession.clearLocalData(),
+  projectFileName,
   restoreState: restore,
   resetConfiguration() {
-    return commitPavingState(normalize(DEFAULTS), { finishDrawing: true, selectFirst: true });
+    detachProjectPhoto();
+    const ok = commitPavingState(normalize(DEFAULTS), { record: false, finishDrawing: true, selectFirst: true });
+    photoFlowStep = 'upload'; document.body.classList.add('tiles-photo-setup'); renderPhotoFlow();
+    return ok;
   },
   setLocale,
   setDarkMode,
@@ -1047,8 +1155,16 @@ const api = {
   importModelResult,
   runPhotoAnalysis: options => analysisController.run(options),
   cancelPhotoAnalysis: options => analysisController?.cancel(options),
-  restoreDetectedArea: options => analysisController.restore(options),
-  getAnalysisStatus: () => analysisController?.getStatus() || { phase: 'idle', busy: false, canRestore: false },
+  restoreDetectedArea: (options = {}) => {
+    if (analysisController.getResultInfo()) return analysisController.restore(options);
+    if (!lastModelImport || lastModelImport.photoId !== photoSource?.photoId) throw new Error('No original suggestion is available for this photo.');
+    return importModelResult(lastModelImport.payload, { ...options, ...api.getPhotoSource(),
+      targets: options.targets || lastModelImport.targets, associateWithCurrentPhoto: true });
+  },
+  getAnalysisStatus: () => {
+    const status = analysisController?.getStatus() || {phase:'idle',busy:false,canRestore:false};
+    return {...status, canRestore: status.canRestore || !!(lastModelImport && lastModelImport.photoId === photoSource?.photoId)};
+  },
   getAnalysisResult: () => analysisController?.getResult() || null,
   beginManualCalibration,
   getModelCamera: () => viewer?.getModelCalibration() || null,
@@ -1113,6 +1229,30 @@ analysisController = createPhotoAnalysis({
     renderPhotoFlow();
   },
 });
+projectSession = createProjectSession({
+  capture: () => ({state:structuredClone(state),view:viewer?.capturePhotoState() || null,
+    referenceCorners:structuredClone(calibrationCorners)}),
+  getPhoto: () => photoSource, getSource: () => photoSourceUrl,
+  getRevision: () => `${photoLoadSequence}:${designRevision}`,
+  getDetection: () => {
+    const info = analysisController?.getResultInfo();
+    if (info) {
+      const targets = lastModelImport?.analysisResultId === info.resultId ? lastModelImport.targets : info.targets;
+      return {key:`${info.resultId}:${targets.join(',')}`,getPayload:()=>analysisController.getResult(),targets};
+    }
+    return lastModelImport?.photoId === photoSource?.photoId && lastModelImport ?
+      {key:lastModelImport.importId,payload:lastModelImport.payload,targets:lastModelImport.targets} : null;
+  },
+  assertSavable: () => {
+    if (!viewer) throw new Error('The viewer is not ready.');
+    if (drawingArea || draftAreaPoints.length || manualCalibrationSnapshot)
+      throw new Error('Finish or cancel the current outline / calibration before saving or downloading a project.');
+  },
+  beforeOpen: () => analysisController.cancel(),
+  apply: applyStoredProject,
+  onStatus: () => projectUI?.update(),
+});
+projectUI = mountProjectPanel({api,getLocale:()=>locale,getStep:()=>photoFlowStep});
 analysisUI = mountAnalysisPanel({ api, getLocale: () => locale, getStep: () => photoFlowStep,
   initialTargets: SEGMENTATION_CONFIG.targets });
 window.addEventListener('pagehide', () => analysisController.cancel({ notify: false }));
@@ -1367,10 +1507,16 @@ shell = mountStandaloneConfiguratorShell({
       undoPavingEdit();
     },
     resetConfiguration: api.resetConfiguration,
-    captureState: api.captureState,
+    captureState: api.captureSavedState,
     restoreState: restore,
     getShareUrl() {
-      return createShareUrl({ productType: 'tiles', state: api.captureState() });
+      const message = locale.startsWith('ro')
+        ? 'Acest link distribuie numai pavajul și golurile, fără fotografie sau cameră. Pentru proiectul complet folosește Proiect → Descarcă. Continui?'
+        : locale.startsWith('de') ? 'Dieser Link teilt nur Pflaster und Aussparungen, ohne Foto oder Kamera. Für das vollständige Projekt die Projektdatei herunterladen. Fortfahren?'
+        : 'This link shares only the edited pavement and holes, not the photo or camera. Use Project → Download full project to share everything. Continue?';
+      if (!window.confirm(message)) throw new Error('Sharing cancelled.');
+      if (drawingArea) throw new Error('Finish or cancel the current outline before sharing.');
+      return createShareUrl({ productType: 'tiles', state: geometryShareState(state) });
     },
     onPreferenceChange(path, value) {
       if (path === 'locale') setLocale(value);

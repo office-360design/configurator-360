@@ -20,6 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .analysis_jobs import AnalysisJobs
+from .deployment import configured_job_options, configured_hosts, legacy_api_enabled
 from .geometry import GeometryError, fit_camera_auto
 from .model import CameraModel, ModelUnavailable
 from .segmentation import (SurfaceSegmentationModel, SegmentationModelUnavailable,
@@ -110,6 +111,8 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
                allowed_origins=None, job_options=None) -> FastAPI:
     # root remains an accepted compatibility argument; no source tree is served.
     origins = configured_origins(allowed_origins)
+    hosts = configured_hosts()
+    enable_legacy = legacy_api_enabled()
     @asynccontextmanager
     async def lifespan(app):
         async def expire_results():
@@ -130,7 +133,7 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
     engine = predictor if predictor is not None else CameraModel()
     segmenter = segmentation_predictor if segmentation_predictor is not None else SurfaceSegmentationModel()
     lock = asyncio.Lock()
-    jobs = AnalysisJobs(engine, segmenter, lock, **(job_options or {}))
+    jobs = AnalysisJobs(engine, segmenter, lock, **{**configured_job_options(), **(job_options or {})})
     app.state.analysis_jobs = jobs
     latest_by_client: dict[str, int] = {}
     queued: set[int] = set()
@@ -150,6 +153,15 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
 
     @app.middleware('http')
     async def same_origin(request: Request, call_next):
+        if hosts is not None:
+            try:
+                host = (request.url.hostname or '').lower()
+            except ValueError:
+                host = ''
+            if host not in hosts:
+                return JSONResponse({'detail': 'Host is not allowed.'}, status_code=400)
+        if not enable_legacy and request.url.path in ('/api/segment', '/api/camera'):
+            return JSONResponse({'detail': 'Legacy synchronous API is disabled.'}, status_code=404)
         # No wildcard CORS. A cross-site page must not consume the local GPU service.
         origin = request.headers.get('origin')
         if request.url.path.startswith('/api/') and origin and origin not in origins and origin != f'{request.url.scheme}://{request.url.netloc}':
@@ -309,7 +321,10 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
                     'camera': bool(getattr(engine, '_model', None)),
                     'segmentation': bool(getattr(segmenter, '_loaded', False))},
                 'limits': {'max_image_bytes': MAX_IMAGE_BYTES, 'max_side': 1100,
-                           'min_side': 32, 'result_ttl_s': jobs.ttl_s}}
+                           'min_side': 32, 'result_ttl_s': jobs.ttl_s, 'max_pending': jobs.max_pending,
+                           'max_results': jobs.max_results, 'max_clients': jobs.max_clients},
+                'deployment': {'workers': 1, 'legacy_api': enable_legacy,
+                               'host_allowlist': hosts is not None, 'durable_photo_storage': False}}
 
     @app.post('/api/paving/jobs', status_code=202)
     async def submit_job(image_id: str = Form(...), client_id: str = Form(...),

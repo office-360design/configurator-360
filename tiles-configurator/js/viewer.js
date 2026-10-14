@@ -380,12 +380,12 @@ export function createViewer(host, callbacks = {}) {
         target: controls.target.toArray(), projection: camera.projectionMatrix.toArray(), fov: camera.fov, aspect: camera.aspect },
     };
   }
-  // Private history snapshots only; public JSON result import uses validated data.
-  function restorePhotoState(snapshot) {
+  // History snapshots are private. Persisted views must pass validateSavedView first.
+  function restorePhotoState(snapshot, { force = false } = {}) {
     if (!snapshot) return;
     const sameCalibration = JSON.stringify(capturePhotoState().calibration) === JSON.stringify(snapshot.calibration);
     const sameMode = photoMode === snapshot.photoMode;
-    if (sameCalibration && sameMode && photoSetup === snapshot.photoSetup) return;
+    if (!force && sameCalibration && sameMode && photoSetup === snapshot.photoSetup) return;
     const c = snapshot.calibration;
     modelPhotoCalibration = c?.type === 'metric_model' ? structuredClone(c.value) : null;
     modelPhotoOrigin = c?.type === 'metric_model' ? { ...c.origin } : { x: 0, z: 0 };
@@ -512,13 +512,13 @@ export function createViewer(host, callbacks = {}) {
     if (photoSetup) controls.enabled = false;
     else if (photoMode) controls.enabled = false;
   }
-  function loadSitePhoto(url) {
+  function loadSitePhoto(url, { isCurrent = () => true } = {}) {
     const sequence = ++photoLoadSequence;
     return new Promise((resolve, reject) => {
       const image = new Image();
       image.onload = () => {
         image.onload = image.onerror = null;
-        if (sequence !== photoLoadSequence) { reject(new Error('stalePhoto')); return; }
+        if (sequence !== photoLoadSequence || !isCurrent()) { reject(new Error('stalePhoto')); return; }
         photoCalibrationCorners = null; photoCalibration = null; modelPhotoCalibration = null;
         modelPhotoOrigin = { x: 0, z: 0 }; photoWorldShift = { x: 0, z: 0 };
         photoNaturalWidth = image.naturalWidth; photoNaturalHeight = image.naturalHeight;
@@ -530,6 +530,18 @@ export function createViewer(host, callbacks = {}) {
       image.onerror = () => { image.onload = image.onerror = null; reject(new Error('photoLoadFailed')); };
       image.src = url;
     });
+  }
+  function clearSitePhoto() {
+    photoLoadSequence++;
+    photoBackdrop.removeAttribute('src');
+    photoNaturalWidth = photoNaturalHeight = 0;
+    modelPhotoCalibration = photoCalibrationCorners = photoCalibration = null;
+    modelPhotoOrigin = {x:0,z:0}; photoWorldShift = {x:0,z:0};
+    photoMode = false; preservePhotoPoseUntilInteraction = false;
+    camera.fov = 40; camera.zoom = 1;
+    camera.aspect = host.clientWidth / Math.max(1,host.clientHeight);
+    camera.updateProjectionMatrix();
+    setPhotoSetup(false); updatePhotoPresentation();
   }
   function applyPhotoCalibration(corners) {
     if (!Array.isArray(corners) || corners.length !== 4) return false;
@@ -1289,6 +1301,8 @@ export function createViewer(host, callbacks = {}) {
     },
     preserveCamera() { preserveCameraOnNextRebuild = true; },
     loadSitePhoto,
+    clearSitePhoto,
+    fitProject() { top = false; fit(); },
     getPhotoRect: photoRect,
     setDebugPreviewVisible(visible) {
       debugPreviewVisible = visible !== false;

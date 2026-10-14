@@ -64,6 +64,7 @@ try:
         assert sum(len(r['holes']) for r in result['state']['areaRegions'])>=1
         assert result['step']=='done'
         print('PASS: oriented upload -> live job API -> geometry/holes -> normal controls')
+        page.locator('#photoAnalysisPanel > summary').click()
         page.evaluate('harness.addTestHole()')
         before=page.evaluate('JSON.stringify(harness.inspect().state)')
         page.once('dialog',lambda d:d.dismiss())

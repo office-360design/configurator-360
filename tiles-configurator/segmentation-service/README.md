@@ -1,6 +1,6 @@
 # Tiles segmentation service
 
-This is the **step-3 API service**, not the old segmentation prototype webpage.
+This is the **tiles analysis API service (steps 3–5)**, not the old segmentation prototype webpage.
 It runs the unchanged EoMT-S / MoGe-2 inference and plane-fit implementations from
 `segmentation-final.zip`. The tiles website remains the frontend.
 
@@ -13,8 +13,16 @@ From the repository root, in PowerShell:
 
 ```powershell
 cd tiles-configurator\segmentation-service
-python3 -m pip install -r requirements.txt
-python3 -m server
+python -m pip install -r requirements.txt
+python -m server
+```
+
+On macOS/Linux:
+
+```sh
+cd tiles-configurator/segmentation-service
+python -m pip install -r requirements.txt
+python -m server
 ```
 
 The service listens on `127.0.0.1:8000`. Keep running the website with the project's
@@ -138,3 +146,12 @@ https://fastapi.tiangolo.com/tutorial/cors/
 https://fastapi.tiangolo.com/tutorial/request-files/
 https://starlette.dev/threadpool/
 https://starlette.dev/lifespan/
+
+## Step-5 deployment and persistence
+
+See `DEPLOYMENT.md` for the optional non-root CPU/GPU container, bounded job-cache
+settings, exact Host checking and HTTPS reverse-proxy templates. The default
+direct Python startup remains compatible. The inference service is not a durable
+photo store: browser projects/portable files are described in
+`../SEGMENTATION_STEP5.md`. No cloud photo bucket or database migration is needed
+for those features.

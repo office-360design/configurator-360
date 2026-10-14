@@ -1,4 +1,4 @@
-import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js';
+import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js?v=tiles-cloud-api-1';
 import { prepareWorkingPhoto } from './photoPreparation.js';
 
 const abortError = () => new DOMException('Analysis cancelled.', 'AbortError');

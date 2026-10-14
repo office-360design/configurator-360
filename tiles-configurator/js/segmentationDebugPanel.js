@@ -92,8 +92,14 @@ export function mountSegmentationDebugPanel({ api, getLocale, getStep }) {
       $('[data-debug-raster]').value='none';$('[data-debug-preview]').checked=true;
       $('[data-debug-current]').checked=false;$('[data-debug-grid]').checked=false;
     }
-    const setup=getStep()!=='done', parent=setup?document.getElementById('viewer'):document.querySelector('.sidebar');
-    if (parent && details.parentElement!==parent) parent.append(details);
+    const setup=getStep()!=='done';
+    const body=document.querySelector('.sidebar .shared-configurator-panel__body')||document.querySelector('.sidebar');
+    const parent=setup?document.getElementById('viewer'):body;
+    if (parent && details.parentElement!==parent) {
+      const analysis=parent.querySelector(':scope > #photoAnalysisPanel');
+      if (!setup && analysis) parent.insertBefore(details,analysis.nextSibling);
+      else parent.append(details);
+    }
     details.classList.toggle('is-setup',setup); details.hidden=!id || getStep()==='upload';
     for (const element of details.querySelectorAll('[data-debug-copy]')) element.textContent=copy[element.dataset.debugCopy];
     importer.update();
