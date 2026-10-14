@@ -163,7 +163,8 @@ test('all new localized pages expose correct SEO, visible FAQs, full-app links a
       assert.ok(html.includes('"@type":"FAQPage"'));
       assert.ok(html.includes('"@type":"WebApplication"'));
       assert.ok(html.includes('"@type":"BreadcrumbList"'));
-      assert.equal((html.match(/<details>/g)||[]).length,3);
+      // Three product FAQs plus three project-review objections; neither is dropped.
+      assert.equal((html.match(/<details>/g)||[]).length,6);
       assert.ok(html.includes('data-lite-product="'+slug+'"'));
       const preloads = [...html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)].map(m=>m[0]).join('\n');
       assert.doesNotMatch(preloads,/three\.module|webgl-stage-|\/runtime-|\/bookshelf-|\/chair-|\/tiles-|\/cardbox-/);
