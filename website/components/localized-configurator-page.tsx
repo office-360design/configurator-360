@@ -1,5 +1,6 @@
 import { LitePreview } from "./lite-preview";
 import { NewProductSeo } from "./new-product-seo";
+import { ConfiguratorProjectBrief } from "./configurator-project-brief";
 import { isLiteSlug } from "../lib/lite-products";
 import { newProductCopy } from "../lib/new-configurators";
 import { SiteHeader } from "./site-header";
@@ -81,6 +82,7 @@ export function LocalizedConfiguratorPage({ locale, slug }: { locale: Locale; sl
     {isLiteSlug(item.slug) ? <NewProductSeo locale={locale} slug={item.slug} /> : <ConfiguratorSeoSections locale={locale} slug={item.slug} launchUrl={item.launchUrl} />}
     <section className="detail-proof solid-section"><div className="page-frame proof-frame" data-reveal><span className="mono-label">{copy.deployment}</span><h2>{copy.exploreA}<br/>{copy.exploreB}</h2><a className="project-link" href={item.launchUrl} target="_blank" rel="noreferrer"><span>{copy.open}</span><b>↗</b></a></div></section>
     <nav className="next-configurator solid-section" aria-label={copy.continue}><div className="page-frame"><span className="mono-label">{copy.continue}</span>{all.filter(other=>other.slug!==item.slug).map(other=><a href={localizedPath(locale, `/configurators/${other.slug}`)} key={other.slug}><span>{other.index}</span>{other.title}<b>↗</b></a>)}</div></nav>
+    <ConfiguratorProjectBrief locale={locale} product={item.slug} />
     <SiteFooter locale={locale} />
   </main>;
 }

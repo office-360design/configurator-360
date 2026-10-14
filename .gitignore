@@ -19,6 +19,7 @@ pnpm-debug.log*
 preview.png
 renders/
 screenshots/
+.impeccable/review/
 tmp/
 temp/
 

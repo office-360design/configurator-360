@@ -100,6 +100,9 @@ jobs:
       - name: Build static website
         run: npm run release:static --prefix website
 
+      - name: Verify website consent, lead events and native preview parity
+        run: npm run test:postlaunch --prefix website
+
       # ------------------------------------------------------------
       # Assemble exactly the same site currently sent to GitHub Pages
       # ------------------------------------------------------------

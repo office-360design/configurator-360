@@ -4,6 +4,7 @@ Only the port, document root, PID/log paths and upstream DNS are substituted.
 No upstream route is requested: the auth/Solar proxy config remains syntax-tested.
 """
 import http.client
+import gzip
 import json
 import os
 from pathlib import Path
@@ -40,6 +41,11 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
         'shared-ui/admin/tenant-provisioning/index.html': 'INTERNAL ADMIN',
         'shared-ui/admin/sales-dashboard/index.html': 'SALES DASHBOARD',
         'sitemap-en.xml': 'SITEMAP EN', 'sitemap-ro.xml': 'SITEMAP RO', 'sitemap-de.xml': 'SITEMAP DE',
+        '_next/static/chunks/test-AbCd1234.js': 'const payload = "website";\n' * 150,
+        'styles/homepage-polish.css': 'body { color: black; }\n' * 150,
+        'lite-assets/tiles/yard-4.jpg': 'WEBSITE PHOTO',
+        'llms.txt': 'CONTEXT EN', 'llms-ro.txt': 'CONTEXT RO', 'llms-de.txt': 'CONTEXT DE',
+        'llms-full.txt': 'FULL EN', 'llms-full-ro.txt': 'FULL RO', 'llms-full-de.txt': 'FULL DE',
     }
     marketing_paths = ['about', 'contact', 'pricing', 'book-a-demo'] + [
         f'configurators/{product}' for product in
@@ -73,11 +79,18 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
     path.write_text(config)
     subprocess.run([nginx, '-t', '-c', str(path), '-p', str(work)], check=True)
     process = subprocess.Popen([nginx, '-c', str(path), '-p', str(work), '-g', 'daemon off;'])
-    def get(host, uri, method='GET'):
+    def get(host, uri, method='GET', encoding=None):
         connection = http.client.HTTPConnection('127.0.0.1', port, timeout=3)
-        connection.request(method, uri, headers={'Host': host})
+        request_headers = {'Host': host}
+        if encoding:
+            request_headers['Accept-Encoding'] = encoding
+        connection.request(method, uri, headers=request_headers)
         response = connection.getresponse()
-        result = response.status, dict(response.getheaders()), response.read().decode()
+        headers = dict(response.getheaders())
+        body = response.read()
+        if headers.get('Content-Encoding') == 'gzip':
+            body = gzip.decompress(body)
+        result = response.status, headers, body.decode()
         connection.close()
         return result
     try:
@@ -88,6 +101,28 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
             except OSError:
                 time.sleep(0.1)
         tested = 0
+        for locale, suffix in domains.items():
+            public = f'www.{suffix}'
+            language = locale.split('-')[0].upper()
+            for uri, expected in [('/llms.txt', f'CONTEXT {language}'), ('/llms-full.txt', f'FULL {language}')]:
+                status, headers, body = get(public, uri)
+                assert status == 200 and body == expected, (public, uri, status, body)
+            status, headers, body = get(public, '/_next/static/chunks/test-AbCd1234.js', encoding='gzip')
+            assert status == 200 and headers.get('Content-Encoding') == 'gzip', headers
+            assert 'Accept-Encoding' in headers.get('Vary', ''), headers
+            assert headers.get('Cache-Control') == 'public, max-age=31536000, immutable', headers
+            assert body == fixtures['_next/static/chunks/test-AbCd1234.js']
+            status, headers, body = get(public, '/styles/homepage-polish.css')
+            assert headers.get('Cache-Control') == 'public, max-age=3600, must-revalidate', headers
+            status, headers, body = get(public, '/lite-assets/tiles/yard-4.jpg')
+            assert headers.get('Cache-Control') == 'public, max-age=86400, must-revalidate', headers
+            status, headers, body = get(public, '/api/region-defaults')
+            assert 'no-store' in headers.get('Cache-Control', ''), headers
+            status, headers, body = get(public, '/cardbox-configurator/js/app.js')
+            assert 'immutable' not in headers.get('Cache-Control', ''), headers
+            assert get(f'acme.{suffix}', '/llms.txt')[0] == 404
+            assert get(f'acme.{suffix}', '/llms-full.txt')[0] == 404
+            tested += 9
         for locale, suffix in domains.items():
             host = f'acme.{suffix}'
             for uri, marker in [('/', 'TENANT LAUNCHER'), ('/dashboard/', 'TENANT DASHBOARD')]:
