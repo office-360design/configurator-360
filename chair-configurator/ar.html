@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="description" content="Open your configured chair in augmented reality on Android or iOS." />
+  <title>Chair AR | 360Configurator</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../shared-ui/styles/ar.css?v=firebase-ar-7" />
+</head>
+<body class="hall-ar-page">
+  <main class="hall-ar-phone-card">
+    <h1 data-copy="phoneTitle">Your configured chair</h1>
+    <p id="arPhoneStatus" role="status" aria-live="polite">Loading your AR model…</p>
+    <p id="arPhoneError" class="hall-ar-error" role="alert" hidden></p>
+    <p id="arPhoneHelp"></p>
+    <!-- Quick Look requires exactly one element child: an img or picture. -->
+    <a id="arPhoneLaunch" class="hall-ar-primary" data-label="Open AR" aria-label="Open AR" hidden>
+      <img src="./assets/ar/cube.svg" alt="" />
+    </a>
+    <button type="button" id="arPhoneRetry" hidden data-copy="retry">Try again</button>
+    <p data-copy="phoneNote"></p>
+    <small id="arPhoneExpiry"></small><p><small data-copy="phonePrivacy"></small></p>
+    <a class="hall-ar-back" href="./" data-copy="back">Chair configurator</a>
+  </main>
+  <script type="module" src="./js/ar/phone.js?v=firebase-ar-7"></script>
+</body>
+</html>

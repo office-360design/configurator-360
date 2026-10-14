@@ -22,6 +22,7 @@ let environmentPanelOpen = false;
 let currentBuild = null;
 let rebuildTimer = 0;
 let fitOnNextBuild = false;
+let modelReady = false;
 
 const ui = new FenceUI(state, {
   onModelChange(options = {}) {
@@ -35,11 +36,13 @@ const ui = new FenceUI(state, {
 }, initialLocale);
 
 function rebuildNow({ fitCamera = false } = {}) {
+  modelReady = false;
   window.clearTimeout(rebuildTimer);
   rebuildTimer = 0;
   normalizeFenceState(state);
   currentBuild = scene.rebuild(state, { fitCamera: fitCamera || fitOnNextBuild });
   fitOnNextBuild = false;
+  modelReady = true;
   ui.update(currentBuild);
   syncEnvironmentControls();
   syncToolButtons();
@@ -48,6 +51,7 @@ function rebuildNow({ fitCamera = false } = {}) {
 }
 
 function scheduleRebuild({ fitCamera = false, immediate = false } = {}) {
+  modelReady = false;
   fitOnNextBuild ||= Boolean(fitCamera);
   if (immediate) {
     rebuildNow({ fitCamera: fitOnNextBuild });
@@ -122,6 +126,7 @@ document.querySelector('#nightPreviewToggle')?.addEventListener('change', applyE
 document.querySelector('#environmentClose')?.addEventListener('click', () => setEnvironmentPanelOpen(false));
 
 currentBuild = scene.rebuild(state, { fitCamera: true });
+modelReady = true;
 ui.update(currentBuild);
 syncEnvironmentControls();
 
@@ -193,6 +198,12 @@ window.addEventListener('fence-preference-change', (event) => {
 });
 
 window.FENCE_CONFIGURATOR_API = {
+  // Flush the model's debounce before capture: a freshly changed gate/finish
+  // must never export the previous assembly. Failure leaves AR unavailable.
+  getARAssembly: () => {
+    if (rebuildTimer || !modelReady) rebuildNow();
+    return currentBuild?.root;
+  },
   captureState: () => structuredClone(state),
   restoreState,
   getState: () => structuredClone(state),

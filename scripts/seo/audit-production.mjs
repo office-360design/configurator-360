@@ -53,9 +53,11 @@ const HOSTS = {
   },
 };
 
-const MARKETING_PRODUCTS = ['window', 'pergola', 'roof', 'hall', 'solar'];
-const APP_PRODUCTS = [...MARKETING_PRODUCTS, 'fence', 'cardbox'];
-const MARKETING_PATHS = ['/', '/about', '/contact', ...MARKETING_PRODUCTS.map((product) => `/configurators/${product}`)];
+const MARKETING_PRODUCTS = ['window', 'pergola', 'roof', 'hall', 'solar', 'fence', 'cardbox', 'chair', 'bookshelf', 'tiles'];
+// Full bookshelf/tiles apps are deliberately noindex; their marketing pages
+// above are indexable. Do not turn the app exclusions into audit failures.
+const APP_PRODUCTS = MARKETING_PRODUCTS.filter(product => !['bookshelf', 'tiles'].includes(product));
+const MARKETING_PATHS = ['/', '/about', '/contact', '/pricing', '/book-a-demo', ...MARKETING_PRODUCTS.map((product) => `/configurators/${product}`)];
 
 const args = new Set(process.argv.slice(2));
 const HEADED = args.has('--headed');
@@ -573,6 +575,17 @@ async function main() {
     const trace = await fetchRedirectTrace(spec.url);
     const metadata = await inspectRenderedPage(context, spec);
     const result = evaluatePage({ spec, trace, metadata, issues: [] }, spec);
+    // Marketing pages must work for crawlers without client-side metadata
+    // hoisting. Apps keep their existing JS-owned SEO and are checked above.
+    if (spec.kind !== 'app') {
+      const raw = await fetchNoRedirect(spec.url);
+      const head = raw.body.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+      const canonicals = [...head.matchAll(/<link\b[^>]*rel=["']canonical["'][^>]*>/gi)];
+      const href = canonicals[0]?.[0].match(/\bhref=["']([^"']+)["']/i)?.[1];
+      if (canonicals.length !== 1 || normalizeUrl(href || '') !== normalizeUrl(spec.expectedCanonical)) {
+        addIssue(result, 'FAIL', 'INITIAL_HEAD_CANONICAL', 'Marketing self-canonical must appear exactly once in the initial HTML head, without JavaScript.');
+      }
+    }
     result.status = resultStatus(result.issues);
     pageResults.push(result);
   }

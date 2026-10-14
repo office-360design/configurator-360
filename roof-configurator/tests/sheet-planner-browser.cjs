@@ -1,0 +1,97 @@
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+(async () => {
+  const browser = await chromium.launch({ executablePath: process.env.ROOF_TEST_BROWSER || undefined, args: ['--no-sandbox'] });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.route('**/sheet-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/sheet-planner.css"><body style="font-family:Arial"></body>' }));
+  await page.goto('http://127.0.0.1:8080/sheet-fixture');
+  await page.evaluate(async () => {
+    const { SheetPlannerUI } = await import('/roof-configurator/js/sheetPlannerUI.js?v=layout-21');
+    window.roofState = { roofType: 'hip', length: 10, depth: 7, overhang: .45, pitch: 30 };
+    window.planner = new SheetPlannerUI(window.roofState);
+    window.planner.open();
+  });
+  assert.equal(await page.locator('.sheet-diagram').count(), 4);
+  assert.ok(await page.locator('[data-sheet=csv]').isEnabled());
+  await page.screenshot({ path: '/tmp/sheet-planner-desktop.png' });
+  await page.locator('.sheet-output').evaluate(el => { el.scrollTop = el.querySelector('.sheet-slope').offsetTop - el.offsetTop; });
+  await page.screenshot({ path: '/tmp/sheet-planner-slope.png' });
+  const svgPromise = page.waitForEvent('download');
+  await page.locator('[data-slope-svg]').first().click();
+  const svgFile = await svgPromise;
+  assert.equal(svgFile.suggestedFilename(), 'roof-slope-A.svg');
+  assert.ok(require('node:fs').readFileSync(await svgFile.path(), 'utf8').includes('xmlns="http://www.w3.org/2000/svg"'));
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('[data-sheet=csv]').click();
+  const download = await downloadPromise;
+  assert.equal(download.suggestedFilename(), 'roof-sheet-plan.csv');
+  const csv = require('node:fs').readFileSync(await download.path(), 'utf8');
+  assert.ok(csv.includes('TOTAL pieces'));
+  const previousReport = await page.locator('.sheet-output').innerText();
+  await page.locator('[name=preset]').selectOption('clasic');
+  assert.equal(await page.locator('.sheet-output').innerText(), previousReport);
+  assert.match(await page.locator('.sheet-update-note').innerText(), /previous plan/);
+  assert.ok(await page.locator('[data-slope-svg]').first().isDisabled());
+  assert.equal(await page.locator('button[type=submit]').innerText(), 'Update plan');
+
+  assert.equal(await page.locator('[name=usefulWidth]').inputValue(), '1080');
+  assert.ok(await page.locator('[data-sheet=csv]').isDisabled());
+  await page.locator('button[type=submit]').click();
+  assert.equal(await page.evaluate(() => window.planner.plan.profile.allowedMaxModules), 21);
+  await page.locator('[name=usefulWidth]').fill('1100');
+  assert.equal(await page.locator('[name=preset]').inputValue(), 'custom');
+  await page.locator('button[type=submit]').click();
+  await page.locator('[name=offset]').fill('1100');
+  await page.locator('button[type=submit]').click();
+  assert.ok(await page.locator('.sheet-error').isVisible());
+  assert.equal(await page.locator('.sheet-diagram').count(), 4);
+  assert.ok(await page.locator('[data-sheet=print]').isDisabled());
+  await page.locator('[name=offset]').fill('150');
+  await page.locator('[name=direction]').selectOption('right');
+  await page.locator('button[type=submit]').click();
+  assert.ok(await page.locator('.sheet-error').isHidden());
+  assert.ok(await page.locator('[data-slope-svg]').first().isEnabled());
+  await page.locator('[data-sheet=close]').last().click();
+  await page.evaluate(() => window.planner.open());
+  assert.equal(await page.locator('[name=offset]').inputValue(), '150');
+  assert.equal(await page.locator('[name=direction]').inputValue(), 'right');
+  // Inspect the actual print document before opening the browser print UI.
+  await page.evaluate(() => {
+    const append = document.body.append.bind(document.body);
+    document.body.append = (...items) => {
+      append(...items);
+      for (const item of items) if (item.tagName === 'IFRAME') item.contentWindow.print = () => {};
+    };
+  });
+  await page.locator('[data-sheet=print]').click();
+  const printFrame = page.frameLocator('iframe[title="Printable roof cutting plan"]');
+  assert.equal(await printFrame.locator('.sheet-diagram').count(), 4);
+  assert.equal(await printFrame.locator('h2').last().innerText(), 'Combined order list');
+  if (process.env.ROOF_TEST_PDF) {
+    const printHtml = await printFrame.locator('html').evaluate(el => el.outerHTML);
+    const printPage = await browser.newPage();
+    await printPage.setContent(printHtml);
+    await printPage.pdf({ path: process.env.ROOF_TEST_PDF, preferCSSPageSize: true, printBackground: true });
+    await printPage.close();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fits = await page.locator('dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1);
+  assert.ok(fits, 'Mobile dialog fits screen');
+  await page.locator('[name=offset]').fill('200');
+  assert.equal(await page.locator('.sheet-diagram').count(), 4);
+  await page.locator('.sheet-workspace').evaluate(el => { el.scrollTop = el.scrollHeight; });
+  const action = await page.locator('button[type=submit]').boundingBox();
+  assert.ok(action.y >= 0 && action.y + action.height <= 844, 'Update action stays visible while scrolling on mobile');
+  await page.locator('button[type=submit]').click();
+  assert.ok(await page.locator('[data-sheet=csv]').isEnabled());
+  await page.screenshot({ path: '/tmp/sheet-planner-mobile.png' });
+  await page.locator('[data-sheet=close]').last().click();
+  await page.evaluate(() => { window.roofState.roofType = 'custom'; window.planner.open(); });
+  assert.ok(await page.locator('.sheet-error').isVisible());
+  assert.ok(await page.locator('[data-sheet=csv]').isDisabled());
+  assert.deepEqual(errors, []);
+  await browser.close();
+  console.log('PASS sheet planner presets, diagrams, custom settings, CSV, print, persistence and mobile');
+})().catch(error => { console.error(error); process.exit(1); });

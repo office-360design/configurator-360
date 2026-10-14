@@ -1,4 +1,5 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { createSolarARController } from './ar/controller.js?v=solar-ar-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-10';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { getSeasonForDate } from './solarPosition.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -51,6 +52,16 @@ const tools = [
   },
 ];
 
+const solarAR = createSolarARController({
+  getLocale: () => window.SOLAR_CONFIGURATOR_SHARED_SHELL?.state?.locale || initialLocale,
+  getSnapshot: async (options) => {
+    const api = window.SOLAR_CONFIGURATOR_API;
+    if (!api?.captureARSnapshot) { const error = new Error('not-ready'); error.code = 'not-ready'; throw error; }
+    return api.captureARSnapshot(options);
+  },
+  onFeedback: (message, type, duration) => window.SOLAR_CONFIGURATOR_SHARED_SHELL?.showFeedback(message, type, duration),
+});
+
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Solar',
   productId: 'solar',
@@ -58,7 +69,7 @@ const shell = mountStandaloneConfiguratorShell({
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
-    viewAR: false,
+    viewAR: true,
     save: true,
     undo: false,
     reset: true,
@@ -73,6 +84,7 @@ const shell = mountStandaloneConfiguratorShell({
     priceSelector: '#headerEstimateTotal',
   },
   callbacks: {
+    onViewAR() { void solarAR.open(); },
     async resetConfiguration() {
       const api = window.SOLAR_CONFIGURATOR_API;
       if (!api?.resetConfiguration) return false;

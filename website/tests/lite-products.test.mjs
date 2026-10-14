@@ -114,10 +114,14 @@ test('paving preview matches production layout count, area and edge positions', 
     assert.equal(model.metrics.pieces,expected.length);
     assert.ok(Math.abs(model.metrics.area-length*width)<1e-6);
     assert.ok(expected.length < 700);
-    assert.ok(Math.abs(expected.reduce((n,p)=>n+p.l*p.w,0) - length*width) < 1e-6);
+    // Native layout now preserves the full tile bounding box and reports the
+    // clipped installed polygon area separately for pieces crossing the edge.
+    assert.ok(Math.abs(expected.reduce((n,p)=>n+(p.area??p.l*p.w),0) - length*width) < 1e-6);
     const matrix = new THREE.Matrix4();
     model.group.children.find(child=>child.isInstancedMesh).getMatrixAt(0,matrix);
-    assert.ok(Math.abs(matrix.elements[12] - (expected[0].x-length/2)) < 1e-6);
+    const firstInstancedPiece = expected.find(piece => !piece.fragments);
+    assert.ok(firstInstancedPiece);
+    assert.ok(Math.abs(matrix.elements[12] - (firstInstancedPiece.x-length/2)) < 1e-6);
     disposeModel(model);
   }
 });
@@ -159,7 +163,8 @@ test('all new localized pages expose correct SEO, visible FAQs, full-app links a
       assert.ok(html.includes('"@type":"FAQPage"'));
       assert.ok(html.includes('"@type":"WebApplication"'));
       assert.ok(html.includes('"@type":"BreadcrumbList"'));
-      assert.equal((html.match(/<details>/g)||[]).length,3);
+      // Three product FAQs plus three project-review objections; neither is dropped.
+      assert.equal((html.match(/<details>/g)||[]).length,6);
       assert.ok(html.includes('data-lite-product="'+slug+'"'));
       const preloads = [...html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)].map(m=>m[0]).join('\n');
       assert.doesNotMatch(preloads,/three\.module|webgl-stage-|\/runtime-|\/bookshelf-|\/chair-|\/tiles-|\/cardbox-/);

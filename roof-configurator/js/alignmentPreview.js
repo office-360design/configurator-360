@@ -1,4 +1,5 @@
-import { roofSurfaceGroups, layoutStepWalls } from './roofLayout.js?v=layout-20';
+import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
+import { roofSurfaceGroups, layoutStepWalls } from './roofLayout.js?v=layout-21';
 
 // Lightweight isometric preview: no second WebGL context or covering rebuild
 // while the user is choosing a constraint. Coordinates use the real roof heights.
@@ -20,6 +21,10 @@ export function drawAlignmentPreview(svg, layout, target, point) {
       }),
     }));
   });
+  roofWindowGeometry(layout).forEach(window => polygons.push({
+    points: window.corners.map(p => ({ ...p, h: p.h + .04 })), fill: '#7dd3fc',
+    edges: window.corners.map((p, i) => [p, window.corners[(i + 1) % 4]]),
+  }));
   layoutStepWalls(layout).forEach(points => polygons.push({
     points, fill: '#cbd5e1',
     edges: points.map((a, i) => [a, points[(i + 1) % points.length]]),

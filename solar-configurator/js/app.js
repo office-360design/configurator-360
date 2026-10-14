@@ -1,6 +1,6 @@
 import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=platform-18';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { RoofScene } from './scene.js?v=platform-18';
+import { RoofScene } from './scene.js?v=solar-ar-1';
 import { SolarUI } from './ui.js?v=solar-mobile-2';
 import { fetchPvgisSiteEstimate } from './energyModel.js?v=platform-18';
 import { loadGeographicEnvironment } from './environmentLoader.js?v=platform-18';
@@ -949,7 +949,20 @@ function resetConfiguration() {
   return true;
 }
 
+function assertARConfigurationReady() {
+  const code = !lastMetrics || !scene.modelRoot.children.length ? 'not-ready'
+    : !['gable', 'hip', 'shed'].includes(state.roofType) || !(lastMetrics.roofArea > 0) ? 'roof-incomplete'
+      : !(lastMetrics.placedPanels > 0) ? 'no-panels' : null;
+  if (code) { const error = new Error(code); error.code = code; throw error; }
+}
+
 const configuratorApi = {
+  async captureARSnapshot(options = {}) {
+    assertARConfigurationReady();
+    const snapshot = await scene.captureARSnapshot(options);
+    assertARConfigurationReady();
+    return snapshot;
+  },
   getState() {
     return toolsSnapshot();
   },

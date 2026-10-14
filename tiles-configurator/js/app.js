@@ -9,6 +9,7 @@ import { failImport } from './modelCamera.js';
 import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
 import { PavingHistory } from './pavingHistory.js';
+import { createTilesARController } from './ar/controller.js?v=tiles-ar-1';
 import { mountLocationPicker } from './locationPicker.js';
 import { patternPreview } from './patternPreview.js';
 import { houseGeometry } from './house.js';
@@ -25,6 +26,7 @@ import {
 } from './model.js';
 import { translator } from './i18n.js';
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
@@ -1478,6 +1480,14 @@ mountLocationPicker({
   },
 });
 render();
+const ar = createTilesARController({
+  getState() {
+    if (drawingArea) { const e=new Error('area-in-progress');e.code='area-in-progress';throw e; }
+    return api.captureState();
+  },
+  getLocale: () => shell?.state?.locale || locale,
+  onFeedback: (...args) => shell?.showFeedback(...args),
+});
 const mobile = matchMedia('(max-width:760px)');
 shell = mountStandaloneConfiguratorShell({
   productType: 'Tiles',
@@ -1485,7 +1495,7 @@ shell = mountStandaloneConfiguratorShell({
   storagePrefix: '360-configurator:tiles',
   brandSrc: tenant?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenant?.companyName || '360 Configurator',
-  capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
+  capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
   tools: { items: resolveSharedTools([{ id: 'dimensions', active: true }, 'camera']) },
   configuratorPanel: {
     panelSelector: '.sidebar',
@@ -1499,6 +1509,7 @@ shell = mountStandaloneConfiguratorShell({
     initiallyCollapsed: mobile.matches,
   },
   callbacks: {
+    onViewAR() { ar.open(); },
     onUndo() {
       if (drawingArea) {
         viewer?.undoAreaPoint();
@@ -1519,7 +1530,7 @@ shell = mountStandaloneConfiguratorShell({
       return createShareUrl({ productType: 'tiles', state: geometryShareState(state) });
     },
     onPreferenceChange(path, value) {
-      if (path === 'locale') setLocale(value);
+      if (path === 'locale') { setLocale(value); ar.refresh(); }
       if (path === 'darkMode') setDarkMode(Boolean(value));
     },
     onSettingsPanelToggle(collapsed) {
@@ -1540,7 +1551,7 @@ shell.host.addEventListener('click', (e) => {
   if (action === 'toggle-dimensions') shell.setToolActive('dimensions', viewer?.toggleDimensions());
 });
 try {
-  const { createViewer } = await import('./viewer.js');
+  const { createViewer } = await import('./viewer.js?v=tiles-ar-1');
   viewer = createViewer($('canvasHost'), {
     onHouseDragStart: () => history.record(),
     onHouseMove: (patch) => change(patch, false),

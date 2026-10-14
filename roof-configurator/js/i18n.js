@@ -3,9 +3,7 @@ import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=tenant-dom
 
 const MESSAGES = Object.freeze({
   'en-US': Object.freeze({
-    'panel.eyebrow': 'Roof design',
-    'panel.title': 'Roof settings',
-    'panel.description': 'Configure the roof shape, dimensions, covering and colour from one panel.',
+    'panel.title': 'Configure your roof',
     'brand.subtitle': 'Parametric roof studio',
     'common.live': 'Live',
     'step.1': 'Step 1',
@@ -18,7 +16,9 @@ const MESSAGES = Object.freeze({
     'roof.type.lshape': 'L-shaped',
     'roof.type.dormer': 'Dormer',
     'roof.type.custom': 'Custom',
-    'roof.type.layout': 'Draw layout',
+    'roof.type.layout': 'Draw whole roof',
+    'roof.type.sketch': 'Draw each slope',
+    'roof.name.sketch': 'Slopes drawn one by one (2D)',
     'roof.name.layout': 'Drawn roof layout',
     'roof.name.gable': 'Two-slope roof',
     'roof.name.hip': 'Four-slope roof',
@@ -165,16 +165,16 @@ const MESSAGES = Object.freeze({
     'unit.box': 'box',
     'unit.roll': 'roll',
     'bom.line.tile.generic': 'Metal roof tile – generic preset',
-    'bom.line.tile.roca': 'Lindab Roca Rustica mineral-granule metal tile',
-    'bom.line.tile.teclado': 'Lindab Roca Teclado mineral-granule metal tile',
-    'bom.line.screws': 'Lindab self-drilling timber screw',
-    'bom.line.membrane': 'LAF75 anti-condensation membrane',
+    'bom.line.tile.roca': 'Mineral-granule metal tile',
+    'bom.line.tile.teclado': 'Slate-style mineral tile',
+    'bom.line.screws': 'Self-drilling timber screw',
+    'bom.line.membrane': 'Anti-condensation membrane',
     'bom.line.ridge': 'Round ridge cap',
     'bom.line.ridgeShed': 'Ridge / upper closure',
     'bom.line.ridgeCap': 'Round ridge end cap',
     'bom.line.gableTrim': 'Rectangular gable trim',
     'bom.line.sideFlashing': 'Side flashing / valley',
-    'bom.line.eavesApron': 'Lindab Roca eaves apron',
+    'bom.line.eavesApron': 'Eaves apron',
     'bom.line.flatSheet': 'Granulated flat sheet',
     'bom.line.gutter': 'Gutter',
     'bom.line.gutterJoint': 'Gutter connector',
@@ -207,9 +207,7 @@ const MESSAGES = Object.freeze({
     'compass.west': 'W',
   }),
   'ro-RO': Object.freeze({
-    'panel.eyebrow': 'Proiectare acoperiș',
-    'panel.title': 'Setări acoperiș',
-    'panel.description': 'Configurează forma, dimensiunile, învelitoarea și culoarea acoperișului dintr-un singur panou.',
+    'panel.title': 'Configurează acoperișul',
     'brand.subtitle': 'Studio parametric pentru acoperișuri',
     'common.live': 'Live',
     'step.1': 'Pasul 1',
@@ -222,6 +220,10 @@ const MESSAGES = Object.freeze({
     'roof.type.lshape': 'În formă de L',
     'roof.type.dormer': 'Cu lucarnă',
     'roof.type.custom': 'Personalizat',
+    'roof.type.layout': 'Desenează întregul acoperiș',
+    'roof.type.sketch': 'Desenează fiecare apă',
+    'roof.name.sketch': 'Ape desenate individual (2D)',
+    'roof.name.layout': 'Plan de acoperiș desenat',
     'roof.name.gable': 'Acoperiș în două ape',
     'roof.name.hip': 'Acoperiș în patru ape',
     'roof.name.shed': 'Acoperiș într-o apă',
@@ -367,16 +369,16 @@ const MESSAGES = Object.freeze({
     'unit.box': 'cut.',
     'unit.roll': 'rolă',
     'bom.line.tile.generic': 'Țiglă metalică – preset generic',
-    'bom.line.tile.roca': 'Țiglă metalică granulată Lindab Roca Rustica',
-    'bom.line.tile.teclado': 'Țiglă metalică granulată Lindab Roca Teclado',
-    'bom.line.screws': 'Șurub autofiletant Lindab pentru lemn',
-    'bom.line.membrane': 'Folie anticondens LAF75',
+    'bom.line.tile.roca': 'Țiglă metalică cu granule minerale',
+    'bom.line.tile.teclado': 'Țiglă minerală aspect ardezie',
+    'bom.line.screws': 'Șurub autofiletant pentru lemn',
+    'bom.line.membrane': 'Folie anticondens',
     'bom.line.ridge': 'Coamă rotundă',
     'bom.line.ridgeShed': 'Coamă / închidere superioară',
     'bom.line.ridgeCap': 'Capac coamă rotundă',
     'bom.line.gableTrim': 'Fronton rectangular',
     'bom.line.sideFlashing': 'Racord lateral / dolie',
-    'bom.line.eavesApron': 'Șorț streașină Lindab Roca',
+    'bom.line.eavesApron': 'Șorț streașină',
     'bom.line.flatSheet': 'Tablă plană granulată',
     'bom.line.gutter': 'Jgheab',
     'bom.line.gutterJoint': 'Element îmbinare jgheab',
@@ -409,9 +411,7 @@ const MESSAGES = Object.freeze({
     'compass.west': 'V',
   }),
   'de-DE': Object.freeze({
-    'panel.eyebrow': 'Dachplanung',
-    'panel.title': 'Dacheinstellungen',
-    'panel.description': 'Dachform, Abmessungen, Eindeckung und Farbe in einem Bereich konfigurieren.',
+    'panel.title': 'Dach konfigurieren',
     'brand.subtitle': 'Parametrisches Dachstudio',
     'common.live': 'Live',
     'step.1': 'Schritt 1',
@@ -424,6 +424,10 @@ const MESSAGES = Object.freeze({
     'roof.type.lshape': 'L-förmig',
     'roof.type.dormer': 'Mit Gaube',
     'roof.type.custom': 'Individuell',
+    'roof.type.layout': 'Ganzes Dach zeichnen',
+    'roof.type.sketch': 'DachflÃ¤chen einzeln zeichnen',
+    'roof.name.sketch': 'Einzeln gezeichnete DachflÃ¤chen (2D)',
+    'roof.name.layout': 'Gezeichneter Dachplan',
     'roof.name.gable': 'Satteldach',
     'roof.name.hip': 'Walmdach',
     'roof.name.shed': 'Pultdach',
@@ -569,16 +573,16 @@ const MESSAGES = Object.freeze({
     'unit.box': 'Karton',
     'unit.roll': 'Rolle',
     'bom.line.tile.generic': 'Metalldachstein – generische Vorgabe',
-    'bom.line.tile.roca': 'Lindab Roca Rustica Metalldachstein mit Mineralgranulat',
-    'bom.line.tile.teclado': 'Lindab Roca Teclado Metalldachstein mit Mineralgranulat',
-    'bom.line.screws': 'Lindab selbstbohrende Holzschraube',
-    'bom.line.membrane': 'Antikondensationsbahn LAF75',
+    'bom.line.tile.roca': 'Metalldachstein mit Mineralgranulat',
+    'bom.line.tile.teclado': 'Mineraldachstein in Schieferoptik',
+    'bom.line.screws': 'Selbstbohrende Holzschraube',
+    'bom.line.membrane': 'Antikondensationsbahn',
     'bom.line.ridge': 'Runder First',
     'bom.line.ridgeShed': 'First / oberer Abschluss',
     'bom.line.ridgeCap': 'Runde Firstendkappe',
     'bom.line.gableTrim': 'Rechteckiges Ortgangprofil',
     'bom.line.sideFlashing': 'Seitlicher Anschluss / Kehle',
-    'bom.line.eavesApron': 'Lindab Roca Traufblech',
+    'bom.line.eavesApron': 'Traufblech',
     'bom.line.flatSheet': 'Granuliertes Flachblech',
     'bom.line.gutter': 'Dachrinne',
     'bom.line.gutterJoint': 'Rinnenverbinder',
@@ -637,7 +641,7 @@ const RAINWATER = Object.freeze({
     ['Discharge elbow', 'Directs water away from the façade at the base of the downpipe.'],
   ]),
   'ro-RO': Object.freeze([
-    ['Jgheab', 'Colectează apa de pe versanți. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.'],
+    ['Jgheab', 'Colectează apa de pe acoperiș. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.'],
     ['Burlan', 'Tub vertical Ø 90 mm sau Ø 100 mm care coboară apa spre sol.'],
     ['Colțar interior', 'Schimbă direcția jgheabului la 90° spre interiorul clădirii.'],
     ['Colțar exterior', 'Schimbă direcția jgheabului la 90° spre exteriorul clădirii.'],
@@ -788,11 +792,9 @@ export function applyRoofTranslations(locale) {
 
   setText('.brand-subtitle', resolved, 'brand.subtitle');
   setLivePill(resolved);
-  setText('#roofPanelEyebrow', resolved, 'panel.eyebrow');
   setText('#roofPanelTitle', resolved, 'panel.title');
-  setText('#roofPanelDescription', resolved, 'panel.description');
   setText('#roofSectionType', resolved, 'roof.type');
-  ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom', 'layout'].forEach((type) => setRoofCard(type, resolved));
+  ['gable', 'hip', 'shed', 'lshape', 'dormer', 'custom', 'layout', 'sketch'].forEach((type) => setRoofCard(type, resolved));
   setText('.custom-plan-copy strong', resolved, 'custom.uploadTitle');
   setText('.custom-plan-copy span', resolved, 'custom.uploadBody');
   setText('.custom-plan-main', resolved, 'custom.choose');
@@ -818,17 +820,6 @@ export function applyRoofTranslations(locale) {
   setSwatch('#315449', resolved, 'colour.forestGreen');
 
   setText('#bomOpenButton span', resolved, 'viewer.bomPrice');
-  setAttribute('.view-actions', 'aria-label', resolved, 'viewer.cameraControls');
-  setText('[data-view="front"]', resolved, 'viewer.front');
-  setText('[data-view="top"]', resolved, 'viewer.top');
-  setText('[data-view="reset"]', resolved, 'viewer.reset');
-  setAttribute('[data-view="reset"]', 'title', resolved, 'viewer.resetTitle');
-  setAttribute('.model-options', 'aria-label', resolved, 'viewer.modelOptions');
-  const technicalLabel = document.querySelector('.model-options label');
-  if (technicalLabel) {
-    const textNode = [...technicalLabel.childNodes].find((node) => node.nodeType === Node.TEXT_NODE);
-    if (textNode) textNode.textContent = ` ${roofT(resolved, 'viewer.technicalEdges')}`;
-  }
   setText('.viewer-title-block .eyebrow', resolved, 'viewer.realtime');
   setAttribute('#roofToolsAnchor', 'aria-label', resolved, 'viewer.toolsControl');
   setAttribute('#canvasHost', 'aria-label', resolved, 'viewer.canvasAria');

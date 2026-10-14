@@ -21,7 +21,7 @@ export type Configurator = {
   seoDescription: string;
 };
 
-export const configurators: Configurator[] = [
+const configuratorCatalog: Configurator[] = [
   {
     slug: "pergola",
     index: "01",
@@ -61,7 +61,7 @@ export const configurators: Configurator[] = [
     controls: ["Gable", "Metal", "L-shape"],
     features: [
       { title: "Five roof typologies", short: "Roof forms", body: "Move between two-slope, four-slope, single-slope, L-shaped and dormer roof families inside one rule-driven scene. Each typology is generated as meaningful geometry, allowing the same configurator to resolve very different architectural conditions without relying on a fixed model library." },
-      { title: "Custom-plan intake", short: "Plan intake", body: "Bring PDF, image, DWG or DXF references into the workflow when a project falls outside the standard parametric families. The intake path creates a clear bridge between conventional architectural documentation and a future configurable, measurable roof state." },
+      { title: "Custom-plan intake", short: "Plan intake", body: "The full application accepts PDF, image, DWG or DXF references in its proof-of-concept intake. Uploading a reference does not automatically generate 3D geometry or a bill of materials. Non-standard projects need a separate technical review." },
       { title: "Five-axis dimension control", short: "Dimensions", body: "Tune length, depth, wall height, roof pitch and eaves overhang independently while the entire roof envelope rebuilds in real time. The result remains visually coherent and measurable, making dimensional exploration useful for both customer decisions and technical estimation." },
       { title: "Covering-aware geometry", short: "Materials", body: "Apply metal and mineral covering presets with their own surface behavior and minimum-pitch rules. Material selection affects more than appearance: it informs compatible geometry, quantity logic and the commercial interpretation of the roof being configured." },
       { title: "Measured construction output", short: "Quantities", body: "Derive roof area, ridge length, eaves, valleys, flashings, gutters and associated component quantities directly from the generated geometry. Complex forms such as L-shaped roofs and dormers remain connected to measurable construction data as dimensions change." },
@@ -171,6 +171,14 @@ export const configurators: Configurator[] = [
   },
   ...liteSlugs.map(slug => newConfigurator(slug)),
 ];
+
+// One order feeds the header, homepage, footer, pricing and related lists.
+export const CONFIGURATOR_ORDER: ConfiguratorSlug[] = ["window", "hall", "fence", "tiles", "pergola", "roof", "solar", "chair", "cardbox", "bookshelf"];
+export const configurators: Configurator[] = CONFIGURATOR_ORDER.map((slug, index) => {
+  const entry = configuratorCatalog.find(item => item.slug === slug);
+  if (!entry) throw new Error(`Missing configurator metadata: ${slug}`);
+  return { ...entry, index: String(index + 1).padStart(2, "0") };
+});
 
 export function getConfigurator(slug: string) {
   return configurators.find((item) => item.slug === slug);

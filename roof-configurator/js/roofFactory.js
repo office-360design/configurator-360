@@ -1,7 +1,8 @@
+import { roofWindowGeometry, cutRoofWindows } from './roofWindows.js?v=windows-24';
 import {
   defaultLayout, layoutBounds, layoutMetrics, roofSurfaceGroups,
   layoutWallFootprint, layoutWallSegments, layoutStepWalls, signedArea,
-} from './roofLayout.js?v=layout-20';
+} from './roofLayout.js?v=layout-21';
 import * as THREE from 'three';
 
 console.info('[RoofLab] roofFactory build 14 loaded');
@@ -634,12 +635,14 @@ function addPerimeterTrim(group, segments, materials, thickness = 0.095) {
 
 function addBase(group, state, materials, length = state.length, depth = state.depth, x = 0, z = 0) {
   const slab = new THREE.Mesh(new THREE.BoxGeometry(length + 0.28, 0.2, depth + 0.28), materials.slab);
+  slab.name = 'house-base-slab';
   slab.position.set(x, -0.1, z);
   slab.castShadow = true;
   slab.receiveShadow = true;
   group.add(slab);
 
   const walls = new THREE.Mesh(new THREE.BoxGeometry(length, state.wallHeight, depth), materials.wall);
+  walls.name = 'house-walls';
   walls.position.set(x, state.wallHeight / 2, z);
   walls.castShadow = true;
   walls.receiveShadow = true;
@@ -1175,9 +1178,11 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
       fadeAtBoundary: false,
     });
     const baseIndex = positions.length / 3;
-    positions.push(...geometry.getAttribute('position').array);
-    normals.push(...geometry.getAttribute('normal').array);
-    uvs.push(...geometry.getAttribute('uv').array);
+    // Detailed slate pieces exceed the engine's function-argument limit.
+    // Append scalars instead of spreading the complete vertex buffers.
+    for (const value of geometry.getAttribute('position').array) positions.push(value);
+    for (const value of geometry.getAttribute('normal').array) normals.push(value);
+    for (const value of geometry.getAttribute('uv').array) uvs.push(value);
     const polygonIndices = geometry.getIndex().array;
     for (let index = 0; index < polygonIndices.length; index += 1) {
       indices.push(baseIndex + polygonIndices[index]);
@@ -1716,6 +1721,7 @@ function buildDrawnRoof(group, state, materials) {
     state.wallHeight + ROOF_OFFSET_Y + point.h,
     point.z - centerZ,
   ));
+  const windows = roofWindowGeometry(layout);
   const surfaces = roofSurfaceGroups(layout);
   surfaces.forEach((surface, surfaceIndex) => {
     const normal = new THREE.Vector3(surface.normal.x, surface.normal.y, surface.normal.z);
@@ -1729,15 +1735,49 @@ function buildDrawnRoof(group, state, materials) {
       courseDirection,
       surfaceNormal: normal,
       profileOrigin: normal.clone().multiplyScalar(normal.dot(firstPoint)),
-      boundarySegments: surface.boundary.map(edge => edge.map(id => points[id])),
+      boundarySegments: [...surface.boundary.map(edge => edge.map(id => points[id])),
+        ...windows.filter(window => Math.abs(window.group.constant - surface.constant) < 1e-7 &&
+          Math.hypot(window.normal.x - normal.x, window.normal.y - normal.y, window.normal.z - normal.z) < 1e-7)
+          .flatMap(window => window.corners.map((p, i) => [p, window.corners[(i + 1) % 4]]
+            .map(p => new THREE.Vector3(p.x - centerX, state.wallHeight + ROOF_OFFSET_Y + p.h, p.z - centerZ))))],
       detailedProfile: true,
     };
-    surface.patches.forEach((patch, patchIndex) => {
-      const vertices = patch.map(id => points[id]);
+    const cutPatches = surface.patches.flatMap(patch =>
+      cutRoofWindows(patch.map(id => layout.vertices[id]), windows));
+    cutPatches.forEach((patch, patchIndex) => {
+      const vertices = patch.map(p => new THREE.Vector3(p.x - centerX,
+        state.wallHeight + ROOF_OFFSET_Y + p.h, p.z - centerZ));
       const name = `drawn-slope-${surfaceIndex}-${patchIndex}`;
       group.add(makePlanarRoofBacking(vertices, materials.underlay, `${name}-underlay`));
       group.add(makeFace(vertices, materials, name, options));
     });
+  });
+  windows.forEach((window, index) => {
+    const unit = new THREE.Group();
+    unit.name = `roof-window-${index + 1}`;
+    const normal = new THREE.Vector3(window.normal.x, window.normal.y, window.normal.z);
+    const across = new THREE.Vector3(window.across.x, 0, window.across.z);
+    const uphill = new THREE.Vector3(window.uphill.x / window.scale,
+      Math.sqrt(window.scale * window.scale - 1) / window.scale, window.uphill.z / window.scale);
+    unit.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(across, normal, uphill));
+    const centre = window.point(0, 0);
+    unit.position.set(centre.x - centerX, state.wallHeight + ROOF_OFFSET_Y + centre.h, centre.z - centerZ);
+    const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x3e454c, roughness: .45, metalness: .5 });
+    const glassMaterial = new THREE.MeshPhysicalMaterial({ color: 0x85bace, roughness: .12,
+      metalness: .15, clearcoat: 1, transparent: true, opacity: .78, side: THREE.DoubleSide });
+    const box = (width, height, depth, x, y, z, material, name) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+      mesh.position.set(x, y, z); mesh.name = name; mesh.castShadow = true; mesh.receiveShadow = true;
+      unit.add(mesh);
+    };
+    const w = window.width, l = window.length, rail = .07;
+    box(w, .025, l, 0, -.055, 0, new THREE.MeshStandardMaterial({ color: 0x17212b }), 'window-interior');
+    for (const side of [-1, 1]) {
+      box(rail, .13, l + .12, side * (w / 2), .075, 0, frameMaterial, 'window-frame');
+      box(w + .12, .13, rail, 0, .075, side * (l / 2), frameMaterial, 'window-frame');
+    }
+    box(w - rail, .018, l - rail, 0, .095, 0, glassMaterial, 'window-glazing');
+    group.add(unit);
   });
   const walls = layoutWallFootprint(layout, state.overhang);
   layoutWallSegments(layout, walls.points).forEach(segment => {
@@ -1818,11 +1858,13 @@ function addFacadeDetails(group, state) {
   const dark = new THREE.MeshStandardMaterial({ color: 0x37434c, roughness: 0.62, metalness: 0.2 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x8eb0bc, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.72 });
   const door = new THREE.Mesh(new THREE.BoxGeometry(1.25, Math.min(2.2, state.wallHeight * 0.72), 0.06), dark);
+  door.name = 'house-entrance';
   door.position.set(-state.length * 0.18, Math.min(2.2, state.wallHeight * 0.72) / 2, -state.depth / 2 - 0.031);
   group.add(door);
 
   const windowWidth = Math.min(2.4, state.length * 0.24);
   const window = new THREE.Mesh(new THREE.BoxGeometry(windowWidth, 1.25, 0.065), glass);
+  window.name = 'house-window';
   window.position.set(state.length * 0.2, Math.min(1.65, state.wallHeight * 0.55), -state.depth / 2 - 0.034);
   group.add(window);
 }
@@ -1848,6 +1890,7 @@ function addLShapeFacadeDetails(group, state) {
     new THREE.BoxGeometry(wingWindowWidth, wingWindowHeight, 0.065),
     glass,
   );
+  wingWindow.name = 'house-wing-window';
   wingWindow.position.set(
     -state.length * 0.29,
     Math.min(1.65, state.wallHeight * 0.55),

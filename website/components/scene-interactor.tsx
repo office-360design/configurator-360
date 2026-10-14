@@ -52,6 +52,7 @@ export function SceneInteractor({ scene, locale = "en" }: { scene: ConfiguratorS
     <Fragment>
       <div
         ref={surface}
+        role="group"
         className={`scene-interactor ${enabled ? "enabled is-interacting" : ""}`}
         style={{ touchAction: enabled ? "none" : "pan-y" }}
         onContextMenu={(event) => event.preventDefault()}

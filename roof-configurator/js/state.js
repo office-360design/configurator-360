@@ -6,6 +6,7 @@ export const roofNames = {
   dormer: 'Two-slope roof with dormer',
   custom: 'Custom roof plan',
   layout: 'Drawn roof layout',
+  sketch: 'Slopes drawn one by one',
 };
 
 export const state = {
@@ -20,11 +21,17 @@ export const state = {
   showDimensions: true,
   technicalEdges: false,
   showCompass: false,
+  showDrainage: false,
+  drainageDiameter: 100,
+  drainagePosition: 'both',
+  drainageColor: 'graphite',
   sunPosition: 42,
   northDirection: 108,
   nightPreview: false,
   customPlan: null,
   roofLayout: null,
+  slopeSketch: null,
+  sheetPlanOptions: null,
   units: 'metric',
   currency: 'RON',
   locale: 'en-US',

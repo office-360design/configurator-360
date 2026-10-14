@@ -68,6 +68,15 @@ for (const locale of locales) {
   }
 }
 
+// The new AR copy is shared with Hall, with Window-specific text in each locale.
+const { AR_COPY, arT } = await import(pathToFileURL(path.join(workspaceRoot, "shared-ui/src/ar/i18n.js")).href);
+const arKeys = Object.keys(AR_COPY.window['en-US']).sort();
+for (const locale of locales) {
+  if (JSON.stringify(Object.keys(AR_COPY.window[locale]).sort()) !== JSON.stringify(arKeys)) failures.push(`${locale} AR translation keys differ.`);
+  for (const key of arKeys) if (!arT('window', locale, key)?.trim()) failures.push(`${locale} AR text missing for ${key}.`);
+  if (AR_COPY.window[locale].title === AR_COPY.hall[locale].title) failures.push(`${locale} Window AR still uses Hall's title.`);
+}
+
 const sourceChecks = [
   {
     file: "src/client/shared-shell.js",
@@ -93,12 +102,10 @@ const sourceChecks = [
   {
     file: "src/client/js/ar-controller.js",
     required: [
-      "ar.qrLibraryMissing",
-      "ar.descriptionSelected",
-      "ar.stepBuild",
-      "ar.httpsRequired",
-      "ar.view",
-      "formatLocalizedExportStats",
+      "createFirebaseARDialog",
+      "getWindowLocale",
+      "window-locale-applied",
+      "product: 'window'",
     ],
     forbidden: [
       "button.textContent = 'HTTPS required'",

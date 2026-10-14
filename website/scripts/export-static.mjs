@@ -96,7 +96,10 @@ async function renderRoute(route, { allowNotFound = false } = {}) {
       const worker = await loadFreshWorker(route, attempt);
       const response = await worker.fetch(
         new Request(`https://360configurator.com${route}`, {
-          headers: { accept: "text/html,application/xhtml+xml" },
+          // Static files are served identically to every crawler. Ask the
+          // framework for blocking metadata so canonical/hreflang land in
+          // <head>, not in a streamed body segment that needs JS hoisting.
+          headers: { accept: "text/html,application/xhtml+xml", "user-agent": "Twitterbot/1.0" },
         }),
         { ASSETS: assets },
         { ...executionContext },

@@ -1,4 +1,5 @@
 "use client";
+import { previewEvent } from '../lib/website-analytics.js';
 
 import { useEffect, useRef, useState } from "react";
 import { liteDefaults, type LiteSlug, type LiteState } from "../lib/lite-products";
@@ -39,7 +40,7 @@ type TilesScreenPoint = {x:number;y:number};
 
 const TILES_PHOTO_WIDTH = 768;
 const TILES_PHOTO_HEIGHT = 422;
-const TILES_YARD_IMAGE = 'https://www.360configurator.com/tiles-configurator/assets/sample-yards/4.jpg';
+const TILES_YARD_IMAGE = '/lite-assets/tiles/yard-4.jpg';
 // Crop to the lower-house / lawn region the preview is meant to showcase.
 // Projection coordinates still use the full 768 × 422 calibrated photo plane.
 const TILES_PHOTO_CROP = {x:72,y:156,width:603,height:259} as const;
@@ -120,7 +121,7 @@ function tilesJointPath(length:number,width:number,tile:string,pattern:string,ro
   return path;
 }
 
-function TilesPhotoPreview({state}: {state: LiteState}) {
+function TilesPhotoPreview({state,showImage}: {state: LiteState;showImage:boolean}) {
   const length=Math.min(4,Math.max(1,Number(state.length)||3.25));
   const width=Math.min(3,Math.max(1,Number(state.width)||1.75));
   const rotation=Number(state.rotation)||0;
@@ -145,14 +146,14 @@ function TilesPhotoPreview({state}: {state: LiteState}) {
       viewBox={`${TILES_PHOTO_CROP.x} ${TILES_PHOTO_CROP.y} ${TILES_PHOTO_CROP.width} ${TILES_PHOTO_CROP.height}`}
       preserveAspectRatio="xMidYMid slice"
     >
-      <image
+      {showImage && <image
         href={TILES_YARD_IMAGE}
         x="0"
         y="0"
         width={TILES_PHOTO_WIDTH}
         height={TILES_PHOTO_HEIGHT}
         preserveAspectRatio="none"
-      />
+      />}
       <defs>
         <linearGradient id="tiles-photo-light" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".17"/>
@@ -189,12 +190,12 @@ export function LitePreview({slug,locale}: {slug:LiteSlug;locale:Locale}) {
   const [state,setState] = useState<LiteState>(() => ({...liteDefaults[slug]}));
   const stateRef = useRef(state);
   const [visible,setVisible] = useState(false);
+  const [photoRequested,setPhotoRequested] = useState(false);
   const isTiles = slug === 'tiles';
   const [requested,setRequested] = useState(isTiles);
   const [ready,setReady] = useState(isTiles);
   const [failed,setFailed] = useState(false);
   const [attempt,setAttempt] = useState(0);
-  const [metrics,setMetrics] = useState<Record<string,number>>({});
   useEffect(() => {
     const target = host.current;
     if (!target) return;
@@ -205,12 +206,14 @@ export function LitePreview({slug,locale}: {slug:LiteSlug;locale:Locale}) {
     const observer = new IntersectionObserver(entries => {
       const onScreen = entries.some(entry => entry.isIntersecting && entry.intersectionRatio >= .25);
       setVisible(onScreen);
+      if (onScreen) setPhotoRequested(true);
+      if (onScreen) previewEvent('lite_preview_view', slug);
       if (onScreen && !manual) setRequested(true);
     },{threshold:[0,.25,.6]});
     // Controls are part of the preview: mobile browsers may scroll the model
     // above the fold while focusing a slider. Keep that active edit rendered.
     observer.observe(target.closest('.lite-preview') || target); return () => observer.disconnect();
-  },[]);
+  },[slug]);
   useEffect(() => {
     if (isTiles || !visible || !requested || !host.current) return;
     let cancelled = false;
@@ -219,18 +222,19 @@ export function LitePreview({slug,locale}: {slug:LiteSlug;locale:Locale}) {
     setFailed(false);
     void import('../lib/scenes/lite/runtime.js').then(runtime => { mountedState=stateRef.current; return runtime.mountPreview(host.current,slug,mountedState,{
       cancelled: () => cancelled,
-      metrics: (value:Record<string,number>) => {if (!cancelled) setMetrics(value);},
-      error: () => {if (!cancelled) {setFailed(true);setReady(false);}},
+      metrics: () => {},
+      error: () => {if (!cancelled) {setFailed(true);setReady(false);previewEvent('lite_preview_error',slug);}},
       released: () => {if (!cancelled) {setReady(false);setRequested(false);}},
     }); }).then(value => {
       if (cancelled) { value?.release(); return; }
       owned = value; handle.current = value;
       if (value) { if(mountedState!==stateRef.current)value.update(stateRef.current);value.setInteraction(interactionRef.current);setReady(true); }
       else setRequested(false);
-    }).catch(() => {if (!cancelled) setFailed(true);});
+    }).catch(() => {if (!cancelled) {setFailed(true);previewEvent('lite_preview_error',slug);}});
     return () => { cancelled = true; owned?.release(); handle.current = null; setReady(false); };
   },[visible,requested,slug,attempt,isTiles]);
   const change = (key:string,value:string|number) => {
+    previewEvent('lite_preview_engaged', slug);
     const next = changedState(state,slug,key,value);
     stateRef.current = next; setState(next); handle.current?.update(next);
     if (!isTiles && !requested) setRequested(true);
@@ -242,7 +246,7 @@ export function LitePreview({slug,locale}: {slug:LiteSlug;locale:Locale}) {
   const colour = (key:string,label:string,options:[string,string][]) => <ColourControl label={label} value={String(state[key])} options={options} onChange={value=>change(key,value)} />;
   const metric = slug === 'chair' ? '500 × 470 × 790 mm' : slug === 'cardbox' ? `${(Number(state.width)*Number(state.depth)*Number(state.height)/1e6).toFixed(1)} L` : slug === 'bookshelf' ? `${state.count} ${copy.count.toLowerCase()} · ${Number(state.count)-1} ${copy.connections}` : `${(Number(state.length)*Number(state.width)).toFixed(2)} m²`;
   return <div className={`lite-preview ${ready && !failed ? 'is-ready' : ''} ${collapsed ? 'is-deck-collapsed' : ''} ${interacting ? 'is-interacting' : ''}`} data-lite-product={slug}>
-    <div className="lite-canvas" ref={host} aria-label={`${labels[slug]} ${isTiles ? labels.preview : '3D'}`}>{isTiles ? <TilesPhotoPreview state={state}/> : <Poster slug={slug}/>}</div>
+    <div className="lite-canvas" role="group" ref={host} aria-label={`${labels[slug]} ${isTiles ? labels.preview : '3D'}`}>{isTiles ? <TilesPhotoPreview state={state} showImage={photoRequested}/> : <Poster slug={slug}/>}</div>
     <div className="lite-preview-badge mono-label"><i/>{labels.preview} / {slug.toUpperCase()}</div>
     {!isTiles && ready && !failed && <div className="lite-view-tools"><span>{copy.hint}</span><button type="button" onClick={()=>handle.current?.resetView()} title={labels.reset} aria-label={labels.reset}>↺</button></div>}
     {!isTiles && ready && <MobileSceneActions active={interacting} locale={locale} onToggle={()=>{const next=!interacting;setInteracting(next);interactionRef.current=next;handle.current?.setInteraction(next);}} />}

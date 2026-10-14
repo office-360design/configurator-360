@@ -821,6 +821,9 @@ function addKeyholeCutoutRect(group, { rectWidth, rectHeight, depth, zOffset = 0
   geometry.translate(0, 0, zOffset);
   geometry.computeVertexNormals();
   applyNormalizedBoxUVs(geometry);
+  // Keep the front wood grain orientation consistent with the plain boxed stile
+  // so the two meeting lower-door stiles read the same instead of mirrored.
+  flipFrontBackFaceUVsHorizontally(geometry);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -1107,6 +1110,20 @@ function applyNormalizedBoxUVs(geometry) {
   return geometry;
 }
 
+function flipFrontBackFaceUVsHorizontally(geometry) {
+  const uv = geometry.getAttribute('uv');
+  const normal = geometry.getAttribute('normal');
+  if (!uv || !normal) return geometry;
+  for (let i = 0; i < uv.count; i += 1) {
+    const ax = Math.abs(normal.getX(i));
+    const ay = Math.abs(normal.getY(i));
+    const az = Math.abs(normal.getZ(i));
+    if (az >= ax && az >= ay) uv.setX(i, 1 - uv.getX(i));
+  }
+  uv.needsUpdate = true;
+  return geometry;
+}
+
 function addExtrudedSideProfile(group, points, zCenter, zLength, material, moduleId) {
   const shape = new THREE.Shape();
   shape.moveTo(points[0][0], points[0][1]);
@@ -1389,6 +1406,69 @@ function renderBridgeConnectors(anchor, heading, spec, material) {
   });
 }
 
+function addHorizontalBackPlanks(group, { width, innerWidth, height, material, moduleId }) {
+  const plankHeight = 100;
+  const forwardOffset = 6;
+  const { bottom, top } = shelfSlotLayout(height);
+  const bottomShelfCenterY = bottom;
+  const topShelfCenterY = top;
+  const lowerPlankY = bottomShelfCenterY + BOARD / 2 + plankHeight / 2;
+  const upperPlankY = topShelfCenterY - BOARD / 2 - plankHeight / 2;
+  const middlePlankY = height / 2;
+  const centerZ = -BACK / 2 + forwardOffset;
+
+  [lowerPlankY, middlePlankY, upperPlankY].forEach((y) => {
+    addBox(group, { x: innerWidth, y: plankHeight, z: BACK }, {
+      x: width / 2,
+      y,
+      z: centerZ,
+    }, material, moduleId);
+  });
+}
+
+function addAlternatingBackPlanks(group, { width, innerWidth, height, material, moduleId }) {
+  const targetPlankWidth = 100;
+  const forwardOffset = 3;
+  const plankCount = Math.max(1, Math.round(innerWidth / targetPlankWidth));
+  const plankWidth = innerWidth / plankCount;
+  const xStart = width / 2 - innerWidth / 2 + plankWidth / 2;
+  const seamShadowWidth = Math.min(8, Math.max(4, plankWidth * 0.06));
+  const seamShadowDepth = 0.24;
+  const seamShadowInset = 0.12;
+  const seamShadowOpacity = 0.16;
+  const seamShadowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: seamShadowOpacity,
+    depthWrite: false,
+  });
+
+  for (let index = 0; index < plankCount; index += 1) {
+    const rowOffset = index % 2 === 0 ? 0 : forwardOffset;
+    const plankCenterX = xStart + index * plankWidth;
+    addBox(group, { x: plankWidth, y: height, z: BACK }, {
+      x: plankCenterX,
+      y: height / 2,
+      z: -BACK / 2 + rowOffset,
+    }, material, moduleId);
+
+    if (rowOffset > 0) {
+      const leftSeamX = plankCenterX - plankWidth / 2 + seamShadowWidth / 2;
+      const rightSeamX = plankCenterX + plankWidth / 2 - seamShadowWidth / 2;
+      addBox(group, { x: seamShadowWidth, y: height, z: seamShadowDepth }, {
+        x: leftSeamX,
+        y: height / 2,
+        z: seamShadowInset,
+      }, seamShadowMaterial, moduleId, { cast: false, receive: false });
+      addBox(group, { x: seamShadowWidth, y: height, z: seamShadowDepth }, {
+        x: rightSeamX,
+        y: height / 2,
+        z: seamShadowInset,
+      }, seamShadowMaterial, moduleId, { cast: false, receive: false });
+    }
+  }
+}
+
 function addShelfWing(parent, module, pose, length, { cornerWing = false, sharedSide = null, omitShelves = false, omitStartPosts = false, omitEndPosts = false, omitStartFrontPost = false, omitStartBackPost = false, omitEndFrontPost = false, omitEndBackPost = false } = {}) {
   const spec = familySpec();
   const group = new THREE.Group();
@@ -1406,9 +1486,15 @@ function addShelfWing(parent, module, pose, length, { cornerWing = false, shared
   const shelfDepth = depth - 34;
   const shelfWidth = innerWidth;
 
-  // The back panel now runs the complete predefined module height, matching
-  // the uprights. The lower plinth remains a separate recessed structural part.
-  addBox(group, { x: innerWidth, y: height, z: BACK }, { x: width / 2, y: height / 2, z: -BACK / 2 }, darkWood, module.id);
+  // Build the rear face from individual vertical timber planks. To better
+  // express the real construction, adjacent planks alternate between two rows:
+  // the base back row and a second row set 3 mm forward.
+  addAlternatingBackPlanks(group, { width, innerWidth, height, material: darkWood, moduleId: module.id });
+  // Three horizontal back rails overlay the vertical boarding: one immediately
+  // above the fixed bottom shelf, one through the center of the cabinet, and
+  // one immediately below the fixed top shelf. Their slightly more forward
+  // plane makes the traditional framed back construction clearly readable.
+  addHorizontalBackPlanks(group, { width, innerWidth, height, material: darkWood, moduleId: module.id });
   const plinthWidth = innerWidth;
   const plinthDepth = Math.max(100, shelfDepth - PLINTH_FRONT_RECESS);
   const plinthCenterZ = -depth + POST + plinthDepth / 2;
@@ -2550,7 +2636,7 @@ function bindControls() {
   addShelfButton?.addEventListener('click', addShelfToSelectedModule);
 
   window.addEventListener('keydown', (event) => {
-    if (!selectedShelf || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (!selectedShelf || event.altKey || event.ctrlKey || event.metaKey || document.querySelector('dialog[open]')) return;
     const target = event.target;
     if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
 
@@ -2749,7 +2835,19 @@ function cycleCamera() {
 function syncToolButtons() {}
 function closeToolPanels() { closeAddPanel(); }
 
+async function captureARSnapshot({ signal } = {}) {
+  const { captureBookshelfARSnapshot, waitForBookshelfTextures } = await import('./ar/exportBookshelf.js?v=bookshelf-ar-1');
+  if (signal?.aborted) throw new DOMException('AR preparation cancelled.', 'AbortError');
+  // Door clicks apply on the next animation frame. Flush it before capture.
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  const getParts = () => ({ bookshelfGroup, connectorGroup });
+  await waitForBookshelfTextures(getParts, { signal });
+  if (signal?.aborted) throw new DOMException('AR preparation cancelled.', 'AbortError');
+  return captureBookshelfARSnapshot(getParts());
+}
+
 window.BOOKSHELF_CONFIGURATOR_API = {
+  captureARSnapshot,
   captureState,
   restoreState,
   resetConfiguration,

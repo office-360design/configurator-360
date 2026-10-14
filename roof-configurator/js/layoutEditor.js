@@ -1,15 +1,22 @@
+import { EditorDrainage } from './editorDrainage.js?v=drainage-49';
+import { setupEditorTouch } from './editorTouch.js?v=pan-42';
+import { setupEditorToolbar } from './editorToolbar.js?v=axes-36';
+import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
+import { localizeFeature } from './featureI18n.js?v=drainage-49';
+import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
+import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
   meetRoofSlope, alignmentDirections, inside, triangulate, onSegment, addLayoutPoint,
   joinLayoutInPlace, splitLayoutInPlace, selectionSurfaces, linkedPlanPoints, moveLayoutPoint,
   deleteLayoutPoint, deleteLayoutEdge, cloneLayout, defaultLayout, distance, footprintLayout,
   layoutFoldEdges, layoutSlopeDirections, layoutBounds, layoutMetrics, lShapedLayout, pitchedFootprint, splitSurface, validateLayout,
-} from './roofLayout.js?v=layout-20';
+} from './roofLayout.js?v=layout-21';
 
-import { addDormer } from './roofFeatures.js?v=layout-20';
+import { addDormer } from './roofFeatures.js?v=layout-21';
 
-import { presetRoofLayout } from './presetLayout.js?v=layout-20';
+import { presetRoofLayout } from './presetLayout.js?v=layout-21';
 
-import { drawAlignmentPreview } from './alignmentPreview.js?v=layout-20';
+import { drawAlignmentPreview } from './alignmentPreview.js?v=windows-24';
 
 function surfaceLetter(index) {
   let label = '';
@@ -62,13 +69,17 @@ export class RoofLayoutEditor {
     };
     this.dialog.innerHTML = `
       <header><div><small>ROOF DESIGN STUDIO</small><h2 id="layoutTitle">Draw your roof</h2></div>
+        <button type="button" class="layout-mobile-properties" aria-expanded="false" aria-controls="layoutProperties">Properties</button>
         <button type="button" data-action="cancel" aria-label="Close layout editor">×</button></header>
       <div class="layout-toolbar" aria-label="Drawing tools">
         <button type="button" data-action="select">Select / move</button>
         <button type="button" data-action="draw">New perimeter</button>
+        <button type="button" data-action="extend">Modify perimeter</button>
+        <button type="button" data-action="connect">Connect perimeter points</button>
         <button type="button" data-action="split">Divide surface</button>
         <button type="button" data-action="insert">Insert point</button>
         <button type="button" data-action="dormer">Add dormer</button>
+        <button type="button" data-action="window">Add roof window</button>
         <button type="button" data-action="meet">Meet roof slope</button>
         <button type="button" data-action="splitPlace">Split in place</button>
         <button type="button" data-action="joinPlace">Join in place</button>
@@ -78,6 +89,12 @@ export class RoofLayoutEditor {
       </div>
       <div class="layout-workspace">
         <div class="layout-drawing">
+      <div id="layoutFeedback" class="layout-feedback" hidden role="alert" aria-live="assertive" aria-atomic="true">
+        <span class="layout-feedback-icon" aria-hidden="true">!</span>
+        <div><strong class="layout-feedback-title"></strong><div class="layout-feedback-message"></div></div>
+        <button type="button" class="layout-feedback-dismiss" aria-label="Dismiss message">×</button>
+      </div>
+
           <svg tabindex="0" aria-label="Roof plan drawing canvas" role="application"></svg>
           <div class="layout-canvas-controls layout-history" role="group" aria-label="History">
             <button type="button" data-action="undo" title="Undo (Ctrl/⌘ Z)"><span aria-hidden="true">↶</span> Undo</button>
@@ -90,12 +107,13 @@ export class RoofLayoutEditor {
             <button type="button" data-action="fit" title="Fit roof in view">Fit</button>
           </div>
           <div class="layout-canvas-controls layout-overlays">
+            <button type="button" data-action="axes" aria-pressed="true">Coordinate axes</button>
             <button type="button" data-action="slopeArrows" aria-pressed="false" title="Show downhill slope directions">↘ Slope arrows</button>
           </div>
           <div class="layout-mode-hint"><span id="layoutModeLabel">Select / move</span>
             ${help('Drawing tools', '<span class="layout-help"></span>')}</div>
         </div>
-        <aside aria-label="Roof properties">
+        <aside id="layoutProperties" aria-label="Roof properties">
           <div class="layout-panel-heading">Roof properties
             ${help('Coordinates', 'All coordinates are in metres. Heights are relative to the wall top; negative values place eaves below it. Drag points to move them; Shift-drag changes height.')}</div>
           <fieldset class="layout-dormer" hidden aria-labelledby="dormerTitle">
@@ -167,7 +185,9 @@ export class RoofLayoutEditor {
         <button type="button" data-action="abort">Cancel drawing</button>
         <button type="button" data-action="cancel">Cancel</button>
         <button type="button" data-action="apply" class="layout-primary">Apply roof</button></footer>`;
-    const icons = { dormer: '⌂', select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
+    this.windowTool = new RoofWindowTool(this);
+    this.drainageTool = new EditorDrainage(this);
+    const icons = { connect: '⌁', extend: '⇥', window: '▣', dormer: '⌂', select: '↖', draw: '⬡', split: '╱', insert: '⊕', meet: '∠',
       splitPlace: '⇉', joinPlace: '⋈', cycleCopy: '⇄', delete: '×', finish: '✓' };
     this.dialog.querySelectorAll('.layout-toolbar button').forEach(button => {
       const icon = document.createElement('span');
@@ -179,7 +199,9 @@ export class RoofLayoutEditor {
       label.textContent = button.textContent;
       button.replaceChildren(icon, label);
     });
+    this.toolbar = setupEditorToolbar(this);
     document.body.appendChild(this.dialog);
+    this.translation = localizeFeature(this.dialog, () => this.state.locale);
     this.dialog.querySelectorAll('.layout-info').forEach(button => {
       const tip = this.dialog.querySelector(`#${button.getAttribute('popovertarget')}`);
       const show = () => {
@@ -196,7 +218,14 @@ export class RoofLayoutEditor {
       // Click also positions the native popover for touch users.
       tip.addEventListener('toggle', () => { if (tip.matches(':popover-open')) show(); });
     });
+    const propertiesButton = this.dialog.querySelector('.layout-mobile-properties');
+    propertiesButton.addEventListener('click', () => {
+      const open = this.dialog.classList.toggle('mobile-properties-open');
+      propertiesButton.setAttribute('aria-expanded', String(open));
+      if (open) this.dialog.querySelector('aside').scrollTop = 0;
+    });
     this.svg = this.dialog.querySelector('svg');
+    this.dialog.querySelector('.layout-feedback-dismiss').addEventListener('click', () => this.clearFeedback());
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       button.addEventListener('click', () => this.action(button.dataset.action));
     });
@@ -212,8 +241,11 @@ export class RoofLayoutEditor {
       if (this.dialog.open) this.endDrag(null, true);
       this.updatePanCursor();
     });
+    this.svg.addEventListener('contextmenu', event => event.preventDefault());
     this.svg.addEventListener('auxclick', event => { if (event.button === 1) event.preventDefault(); });
+    setupEditorTouch(this);
     this.svg.addEventListener('pointerdown', event => this.click(event));
+    this.svg.addEventListener('wheel', event => this.zoomAtPointer(event), { passive: false });
     this.svg.addEventListener('pointermove', event => this.movePoint(event));
     this.svg.addEventListener('pointerup', event => this.endDrag(event));
     this.svg.addEventListener('pointercancel', event => this.endDrag(event, true));
@@ -248,23 +280,34 @@ export class RoofLayoutEditor {
         this.action('delete');
       } else if (event.key === 'Backspace' && this.path.length) {
         event.preventDefault();
-        this.path.pop();
+        if (this.mode !== 'draw' || this.path.length > 1) this.path.pop();
         this.render();
       }
     });
   }
 
   open() {
+    this.dialog.classList.remove('mobile-properties-open');
+    this.dialog.querySelector('.layout-mobile-properties').setAttribute('aria-expanded', 'false');
+    this.toolbar.close();
+    this.windowTool.close();
     this.stopMeet();
     this.stopDormer();
     this.layout = cloneLayout(this.state.roofType === 'layout' || !this.state.roofType
-      ? this.state.roofLayout || defaultLayout() : presetRoofLayout(this.state));
+      ? this.state.roofLayout || this.atOrigin(defaultLayout()) : presetRoofLayout(this.state));
+    if (this.state.roofType && this.state.roofType !== 'layout') this.layout = this.atOrigin(this.layout);
     this.pickingSplitFaces = false;
     this.panEnabled = false;
     this.spacePan = false;
     this.splitSelectionKey = null;
-    this.history = [];
-    this.future = [];
+    // Restore the last applied timeline, not edits discarded by Cancel/Escape.
+    // A different roof loaded outside the editor starts its own history.
+    const checkpoint = this.appliedHistory;
+    const sameRoof = this.state.roofType === 'layout' && checkpoint &&
+      JSON.stringify(this.layout) === JSON.stringify(checkpoint.layout);
+    this.history = sameRoof ? structuredClone(checkpoint.history) : [];
+    this.future = sameRoof ? structuredClone(checkpoint.future) : [];
+    if (!sameRoof) this.appliedHistory = null;
     this.path = [];
     this.mode = 'select';
     this.selected = null;
@@ -280,11 +323,66 @@ export class RoofLayoutEditor {
   }
 
   status(message) {
+    this.clearFeedback();
     this.dialog.querySelector('.layout-status').textContent = message;
+  }
+
+  clearFeedback(owner = null) {
+    if (owner && this.feedbackOwner !== owner) return;
+    this.feedbackOwner = null;
+    this.issuePoints = [];
+    this.dialog.querySelectorAll('[aria-invalid="true"]').forEach(input => {
+      input.removeAttribute('aria-invalid');
+      input.removeAttribute('aria-errormessage');
+    });
+    this.dialog.querySelector('.layout-feedback').hidden = true;
+    this.svg?.querySelectorAll('.layout-issue-marker').forEach(node => node.remove());
+  }
+
+  feedback(message, { owner = 'action', warning = false, points = [] } = {}) {
+    this.feedbackOwner = owner;
+    this.issuePoints = points.filter(point => point && Number.isFinite(point.x) && Number.isFinite(point.z));
+    const box = this.dialog.querySelector('.layout-feedback');
+    box.dataset.severity = warning ? 'warning' : 'error';
+    box.querySelector('.layout-feedback-title').textContent = warning ? 'Complete this step' : owner === 'action' ? 'Change not applied' : 'Preview needs attention';
+    box.querySelector('.layout-feedback-message').textContent = message;
+    box.hidden = false;
+    this.dialog.querySelectorAll('input[type="number"]').forEach(input => {
+      if (input.getClientRects().length && !input.validity.valid) {
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-errormessage', 'layoutFeedback');
+      }
+    });
+    this.dialog.querySelector('.layout-status').textContent = '';
+    this.drainageTool.render(project);
+    this.drawIssues();
+  }
+
+  previewFeedback(output, message, valid, { owner, points = [], warning = false } = {}) {
+    output.textContent = message;
+    output.classList.add('layout-validation');
+    output.dataset.severity = valid ? 'success' : warning ? 'warning' : 'error';
+    if (valid) this.clearFeedback(owner);
+    else this.feedback(message, { owner, points, warning });
+  }
+
+  drawIssues() {
+    this.svg.querySelectorAll('.layout-issue-marker').forEach(node => node.remove());
+    for (const point of this.issuePoints || []) {
+      const x = 400 + (point.x - this.center.x) * this.scale;
+      const y = 300 + (point.z - this.center.z) * this.scale;
+      const group = svgElement('g', { class: 'layout-issue-marker', 'aria-label': 'Check this position', role: 'img' });
+      group.append(svgElement('circle', { cx: x, cy: y, r: 17 }));
+      const label = svgElement('text', { x, y: y + 5, 'text-anchor': 'middle' });
+      label.textContent = '!';
+      group.append(label);
+      this.svg.append(group);
+    }
   }
 
   commit(next) {
     validateLayout(next);
+    roofWindowGeometry(next);
     this.pickingSplitFaces = false;
     this.splitSelectionKey = null;
     this.history.push(cloneLayout(this.layout));
@@ -297,6 +395,17 @@ export class RoofLayoutEditor {
     this.render();
   }
 
+  atOrigin(layout) {
+    const next = cloneLayout(layout);
+    const bounds = layoutBounds(next);
+    // Z increases down the plan, so its maximum is the bottom edge.
+    for (const point of [...next.vertices, ...(next.roofWindows || [])]) {
+      point.x -= bounds.minX;
+      point.z -= bounds.maxZ;
+    }
+    return next;
+  }
+
   fit() {
     const bounds = layoutBounds(this.layout);
     this.center = { x: (bounds.minX + bounds.maxX) / 2, z: (bounds.minZ + bounds.maxZ) / 2 };
@@ -304,19 +413,26 @@ export class RoofLayoutEditor {
   }
 
   action(action) {
+    if (!['pan', 'fit', 'zoomIn', 'zoomOut', 'slopeArrows', 'axes'].includes(action)) this.clearFeedback();
     this.endDrag(null, true);
-    if (!['pan', 'slopeArrows', 'pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
+    if (!['pan', 'slopeArrows', 'axes', 'pickSplitFaces', 'splitPlace', 'fit', 'zoomIn', 'zoomOut'].includes(action)) this.pickingSplitFaces = false;
     try {
-      if (this.dormer && !['dormer', 'pickDormer', 'applyDormer', 'cancelDormer', 'pan', 'fit', 'zoomIn', 'zoomOut', 'slopeArrows'].includes(action)) {
+      if (this.windowTool.active && !['window', 'pan', 'fit', 'zoomIn', 'zoomOut', 'slopeArrows', 'axes'].includes(action)) {
+        if (action === 'apply') throw new Error('Save or cancel the roof window preview first.');
+        this.windowTool.close();
+      }
+      if (this.dormer && !['dormer', 'pickDormer', 'applyDormer', 'cancelDormer', 'pan', 'fit', 'zoomIn', 'zoomOut', 'slopeArrows', 'axes'].includes(action)) {
         if (action === 'apply') throw new Error('Add or cancel the dormer preview before applying the roof.');
         this.stopDormer();
       }
-      const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'pan', 'slopeArrows', 'fit', 'zoomIn', 'zoomOut'];
+      const meetActions = ['meet', 'pickTarget', 'pickDirection', 'applyMeet', 'cancelMeet', 'pan', 'slopeArrows', 'axes', 'fit', 'zoomIn', 'zoomOut'];
       if (this.meet && !meetActions.includes(action)) {
         if (action === 'apply') throw new Error('Apply or cancel the alignment preview first.');
         this.stopMeet();
       }
-      if (action === 'dormer') {
+      if (action === 'window') {
+        this.windowTool.open();
+      } else if (action === 'dormer') {
         this.stopMeet();
         this.path = [];
         this.mode = 'select';
@@ -325,8 +441,8 @@ export class RoofLayoutEditor {
         const select = this.dialog.querySelector('#dormerSurface');
         select.replaceChildren(...this.layout.faces.map((_, i) => new Option(`Surface ${surfaceLetter(i)}`, i)));
         this.dialog.querySelector('.layout-dormer').hidden = false;
-        this.placeDormerAtCenter();
         this.status('Click the front of the dormer on a slope, adjust its size, then Add dormer.');
+        this.placeDormerAtCenter();
       } else if (action === 'pickDormer') {
         this.dormer.picking = true;
         this.panEnabled = false;
@@ -345,6 +461,8 @@ export class RoofLayoutEditor {
       } else if (action === 'pan') {
         this.panEnabled = !this.panEnabled;
         this.svg.focus();
+      } else if (action === 'axes') {
+        this.showAxes = this.showAxes === false;
       } else if (action === 'slopeArrows') {
         this.showSlopeArrows = !this.showSlopeArrows;
       } else if (action === 'pickSplitFaces') {
@@ -365,10 +483,13 @@ export class RoofLayoutEditor {
         this.selected = null;
         this.commit(next);
         this.status('Roof aligned. Undo restores the previous junction.');
-      } else if (['select', 'draw', 'split', 'insert'].includes(action)) {
+      } else if (['select', 'draw', 'split', 'insert', 'extend', 'connect'].includes(action)) {
         this.panEnabled = false;
         this.mode = action;
-        this.path = [];
+        this.path = action === 'draw' ? [{ x: 0, z: 0 }] : [];
+        if (action === 'draw') {
+          this.center = { x: this.span * 0.45, z: -this.span * 0.3 };
+        }
         this.selected = null;
         this.selectedEdge = null;
       } else if (action === 'cancel') {
@@ -392,8 +513,9 @@ export class RoofLayoutEditor {
         this.selectedEdge = null;
         this.mode = 'select';
       } else if (action === 'undo' || action === 'redo') {
-        if (this.path.length) this.path.pop();
-        else {
+        if (this.path.length) {
+          if (this.mode !== 'draw' || this.path.length > 1) this.path.pop();
+        } else {
           const from = action === 'undo' ? this.history : this.future;
           const to = action === 'undo' ? this.future : this.history;
           if (from.length) {
@@ -436,7 +558,7 @@ export class RoofLayoutEditor {
         if (this.selected === null) return;
         const fields = ['X', 'Z', 'H'].map(axis => this.dialog.querySelector(`#layout${axis}`));
         if (fields.some(input => input.value === '' || !input.checkValidity())) {
-          throw new Error('Enter valid coordinates and a height between -30 and 30 m.');
+          throw new Error('Enter X and Z between -100 and 100 m, and a height between -30 and 30 m.');
         }
         const next = cloneLayout(this.layout);
         const [x, z, h] = fields.map(input => Number(input.value));
@@ -467,7 +589,7 @@ export class RoofLayoutEditor {
           for (const x of [-3, 0, 3]) next = splitSurface(next, [{ x, z: -4 }, { x, z: 4 }]);
           next.vertices.forEach(p => { p.h = Math.abs(p.x) === 3 ? 2 : 0; });
         }
-        this.commit(next);
+        this.commit(this.atOrigin(next));
         this.path = [];
         this.mode = 'select';
         this.selected = null;
@@ -476,19 +598,27 @@ export class RoofLayoutEditor {
       } else if (action === 'apply') {
         if (this.path.length) throw new Error('Finish or cancel the current drawing before applying.');
         validateLayout(this.layout);
+        roofWindowGeometry(this.layout);
         this.state.roofLayout = cloneLayout(this.layout);
+        if (this.layout.drainage) this.state.showDrainage = true;
         this.state.roofType = 'layout';
         this.onApply();
+        this.appliedHistory = structuredClone({
+          layout: this.state.roofLayout,
+          history: this.history,
+          future: this.future,
+        });
         this.dialog.close();
         return;
       }
       this.render();
     } catch (error) {
-      this.status(error.message);
+      this.feedback(error.message, { points: this.selectionIds().map(id => this.layout.vertices[id]) });
     }
   }
 
   stopDormer() {
+    this.clearFeedback('dormer');
     this.dormer = null;
     this.dialog.querySelector('.layout-dormer').hidden = true;
   }
@@ -513,12 +643,12 @@ export class RoofLayoutEditor {
       const result = addDormer(this.layout, { faceIndex: read('dormerSurface'), x: read('dormerX'), z: read('dormerZ'),
         width: read('dormerWidth'), wallRise: read('dormerRise'), pitch: read('dormerPitch') });
       this.dormer.result = result;
-      output.textContent = `Depth ${result.depth.toFixed(2)} m · Ridge ${result.ridgeHeight.toFixed(2)} m above wall datum. Ready to add.`;
+      this.previewFeedback(output, `Depth ${result.depth.toFixed(2)} m · Ridge ${result.ridgeHeight.toFixed(2)} m above wall datum. Ready to add.`, true, { owner: 'dormer' });
       preview.removeAttribute('hidden');
       drawAlignmentPreview(preview, result.layout, result.roofFaces[0], result.previewPoint);
     } catch (error) {
       this.dormer.result = null;
-      output.textContent = error.message;
+      this.previewFeedback(output, error.message, false, { owner: 'dormer', points: [{ x: read('dormerX'), z: read('dormerZ') }] });
       preview.setAttribute('hidden', '');
     }
     this.dialog.querySelector('[data-action="applyDormer"]').disabled = !this.dormer.result;
@@ -526,6 +656,7 @@ export class RoofLayoutEditor {
   }
 
   stopMeet() {
+    this.clearFeedback('alignment');
     this.meet = null;
     if (this.mode?.startsWith('meet')) this.mode = 'select';
     this.dialog.querySelector('.layout-meet').hidden = true;
@@ -567,13 +698,13 @@ export class RoofLayoutEditor {
         directionId: get('meetDirection').value === '' ? null : Number(get('meetDirection').value),
       });
       this.meet.result = result;
-      get('meetResult').textContent = `Preview: X ${result.position.x.toFixed(3)} m, Z ${result.position.z.toFixed(3)} m, height ${result.position.h.toFixed(3)} m. Plan move ${result.distance.toFixed(3)} m.`
-        + (result.reconnected ? ' Selected and target copies will reconnect.' : '');
+      this.previewFeedback(get('meetResult'), `Preview: X ${result.position.x.toFixed(3)} m, Z ${result.position.z.toFixed(3)} m, height ${result.position.h.toFixed(3)} m. Plan move ${result.distance.toFixed(3)} m.`
+        + (result.reconnected ? ' Selected and target copies will reconnect.' : ''), true, { owner: 'alignment' });
       get('meetPreview').toggleAttribute('hidden', false);
       drawAlignmentPreview(get('meetPreview'), result.layout, Number(get('meetTarget').value), result.position);
       this.dialog.querySelector('[data-action="applyMeet"]').disabled = false;
     } catch (error) {
-      get('meetResult').textContent = error.message;
+      this.previewFeedback(get('meetResult'), error.message, false, { owner: 'alignment', warning: get('meetTarget').value === '', points: [this.layout.vertices[this.selected]] });
     }
     this.render();
   }
@@ -620,6 +751,22 @@ export class RoofLayoutEditor {
     };
   }
 
+  zoomAtPointer(event) {
+    event.preventDefault();
+    if (this.drag) return;
+    const anchor = this.rawPointer(event);
+    const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.svg.clientHeight : 1;
+    const delta = Math.max(-300, Math.min(300, event.deltaY * units));
+    const span = Math.max(4, Math.min(220, this.span * Math.exp(delta * .002)));
+    const ratio = span / this.span;
+    this.center = {
+      x: anchor.x + (this.center.x - anchor.x) * ratio,
+      z: anchor.z + (this.center.z - anchor.z) * ratio,
+    };
+    this.span = span;
+    this.render();
+  }
+
   updatePanCursor() {
     this.svg.classList.toggle('pan-enabled', Boolean(this.panEnabled || this.spacePan));
     this.svg.classList.toggle('panning', this.drag?.kind === 'pan');
@@ -629,7 +776,10 @@ export class RoofLayoutEditor {
     const drag = this.drag;
     if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
+    if (drag.kind === 'window') { this.windowTool.moveDrag(event, drag); return; }
     if (drag.kind === 'pan') {
+      if (!drag.moved && Math.hypot(event.clientX - drag.screenX, event.clientY - drag.screenY) < 3) return;
+      drag.moved = true;
       const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(drag.inverse);
       this.center = {
         x: drag.center.x - (point.x - drag.start.x) / this.scale,
@@ -653,13 +803,15 @@ export class RoofLayoutEditor {
     moveLayoutPoint(next, drag.id, { ...point });
     try {
       validateLayout(next);
+      roofWindowGeometry(next);
       this.layout = next;
       drag.valid = true;
       this.render();
       this.status(drag.heightMode ? 'Release to set the height.' : 'Release to move the point. Shift-drag adjusts height.');
     } catch (error) {
       drag.valid = false;
-      this.status(`${error.message} Release to cancel this move.`);
+      drag.error = error.message;
+      this.feedback(`${error.message} Release to cancel this move.`, { points: [point] });
     }
   }
 
@@ -668,6 +820,7 @@ export class RoofLayoutEditor {
     if (!drag || (event && drag.pointerId !== event.pointerId)) return;
     this.drag = null;
     if (this.svg.hasPointerCapture(drag.pointerId)) this.svg.releasePointerCapture(drag.pointerId);
+    if (drag.kind === 'window') { this.windowTool.finishDrag(drag, cancel); return; }
     if (drag.kind === 'pan') {
       if (cancel) this.center = drag.center;
       this.render();
@@ -678,7 +831,10 @@ export class RoofLayoutEditor {
     if (drag.moved && drag.valid && !cancel) this.commit(next);
     else {
       this.render();
-      if (drag.moved) this.status('Move cancelled; the original point has been restored.');
+      if (drag.moved) {
+        if (!drag.valid && !cancel) this.feedback(`${drag.error} Move cancelled; the original point has been restored.`, { warning: true, points: [drag.original.vertices[drag.id]] });
+        else this.status('Move cancelled; the original point has been restored.');
+      }
     }
   }
 
@@ -710,11 +866,12 @@ export class RoofLayoutEditor {
 
   click(event) {
     if (this.drag || event.isPrimary === false) return;
-    if (event.button === 1 || (event.button === 0 && (this.panEnabled || this.spacePan))) {
+    if (event.button === 1 || event.button === 2 || (event.button === 0 && (this.panEnabled || this.spacePan))) {
       event.preventDefault();
       this.svg.focus();
       const inverse = this.svg.getScreenCTM().inverse();
-      this.drag = { kind: 'pan', pointerId: event.pointerId, inverse,
+      this.drag = { kind: 'pan', pointerId: event.pointerId, inverse, moved: false,
+        screenX: event.clientX, screenY: event.clientY,
         start: new DOMPoint(event.clientX, event.clientY).matrixTransform(inverse), center: { ...this.center } };
       this.svg.setPointerCapture(event.pointerId);
       this.updatePanCursor();
@@ -723,8 +880,13 @@ export class RoofLayoutEditor {
     if (event.button !== 0) return;
     event.preventDefault();
     const point = this.pointer(event);
+    this.clearFeedback();
     try {
-      if (this.dormer) {
+      if (event.target.dataset.roofWindow !== undefined && (!this.windowTool.active || Number(this.windowTool.field('selection').value) >= 0)) {
+        this.windowTool.beginDrag(event, Number(event.target.dataset.roofWindow));
+      } else if (this.windowTool.active) {
+        this.windowTool.place(this.rawPointer(event));
+      } else if (this.dormer) {
         if (!this.dormer.picking) return;
         const raw = this.rawPointer(event);
         const faceIndex = this.layout.faces.findIndex(face => inside(raw, face.map(id => this.layout.vertices[id])));
@@ -779,8 +941,42 @@ export class RoofLayoutEditor {
           this.action('finish');
           return;
         }
+        if (this.path.length && distance(point, this.path.at(-1)) < 14 / this.scale) return;
         if (this.path.length >= 160) throw new Error('Maximum 160 perimeter points.');
         this.path.push(point);
+      } else if (this.mode === 'connect') {
+        if (point.id === undefined || !this.layout.boundary.some(id => linkedPlanPoints(this.layout, id).includes(point.id))) {
+          throw new Error('Choose two existing points on the outer perimeter.');
+        }
+        if (this.selected === null) {
+          this.selected = point.id;
+          this.selectedEdge = null;
+          this.status('First point selected. Click another perimeter point across the gap to close the surface.');
+        } else {
+          const next = connectPerimeterPoints(this.layout, this.selected, point.id);
+          this.commit(next);
+          this.selected = null;
+          this.status('Gap closed. The new surface uses the existing point heights. Undo restores the previous perimeter.');
+        }
+      } else if (this.mode === 'extend') {
+        if (point.edgeIds) {
+          const [a, b] = point.edgeIds;
+          const boundary = this.layout.boundary;
+          const isBoundary = boundary.some((id, i) => {
+            const next = boundary[(i + 1) % boundary.length];
+            return (linkedPlanPoints(this.layout, id).includes(a) && linkedPlanPoints(this.layout, next).includes(b)) ||
+              (linkedPlanPoints(this.layout, id).includes(b) && linkedPlanPoints(this.layout, next).includes(a));
+          });
+          if (!isBoundary) throw new Error('Choose an outer perimeter edge to extend. Interior dividing edges cannot be extended.');
+          this.selected = null;
+          this.selectedEdge = point.edgeIds;
+          this.status('Edge selected. Click outside the roof to add a perimeter point.');
+        } else {
+          const added = extendPerimeter(this.layout, this.selectedEdge, point);
+          this.commit(added.layout);
+          this.selected = added.id;
+          this.status('Perimeter extended. Choose another outer edge to continue, or Select / move to adjust the new point.');
+        }
       } else if (this.mode === 'insert') {
         const added = addLayoutPoint(this.layout, point);
         this.selected = added.id;
@@ -795,7 +991,7 @@ export class RoofLayoutEditor {
       }
       this.render();
     } catch (error) {
-      this.status(error.message);
+      this.feedback(error.message, { points: [point] });
     }
   }
 
@@ -851,7 +1047,8 @@ export class RoofLayoutEditor {
         });
       }
       this.layout.faces.forEach((face, index) => {
-        const point = project(surfaceLabelPosition(face, this.layout.vertices));
+        const point = this.windowTool.surfaceLabelPoint(face, this.layout.vertices, project,
+          project(surfaceLabelPosition(face, this.layout.vertices)));
         const label = svgElement('text', { x: point.x, y: point.y,
           'text-anchor': 'middle', 'dominant-baseline': 'central',
           class: 'layout-surface-label', 'pointer-events': 'none',
@@ -871,7 +1068,9 @@ export class RoofLayoutEditor {
         const [a, b] = this.selectedEdge.map(id => project(this.layout.vertices[id]));
         this.svg.append(svgElement('line', {
           x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-          stroke: '#dc2626', 'stroke-width': 5, 'pointer-events': 'none',
+          stroke: this.mode === 'extend' ? '#1260aa' : '#dc2626',
+          class: this.mode === 'extend' ? 'layout-perimeter-target' : '',
+          'stroke-width': 5, 'pointer-events': 'none',
         }));
       }
       const dividingFaces = this.mode === 'split' ? this.layout.faces.filter(face =>
@@ -903,6 +1102,24 @@ export class RoofLayoutEditor {
         this.svg.append(svgElement('circle', { cx: v.x, cy: v.y, r: 8, class: 'layout-node division-path' }));
       });
     }
+    if (this.showAxes !== false) {
+      const origin = project({ x: 0, z: 0 });
+      const axes = svgElement('g', { class: 'layout-axes', 'pointer-events': 'none' });
+      axes.append(svgElement('line', { x1: 0, x2: 800, y1: origin.y, y2: origin.y }));
+      axes.append(svgElement('line', { x1: origin.x, x2: origin.x, y1: 0, y2: 600 }));
+      for (const [text, x, y] of [
+        ['X →', 755, origin.y - 10],
+        ['Z ↓', origin.x + 10, 580],
+        ['(0, 0)', origin.x + 12, origin.y + 22],
+      ]) {
+        const label = svgElement('text', { x, y });
+        label.textContent = text;
+        axes.append(label);
+      }
+      this.svg.append(axes);
+    }
+    this.windowTool.draw(this.svg, project);
+    this.svg.querySelectorAll('.layout-surface-label').forEach(label => this.svg.append(label));
     if (this.dormer?.result) {
       this.svg.append(svgElement('polygon', { points: coords(this.dormer.result.outline), class: 'layout-dormer-outline' }));
     }
@@ -914,19 +1131,25 @@ export class RoofLayoutEditor {
       }));
       this.svg.append(svgElement('circle', { cx: ghost.x, cy: ghost.y, r: 11, class: 'layout-meet-ghost' }));
     }
+    this.drainageTool.render(project);
+    this.drawIssues();
     this.updatePanCursor();
     const hints = {
+      connect: 'Click two existing perimeter points across an outside gap. The editor adds the missing surface and keeps existing surfaces and point heights. Connections through the roof or across other edges are rejected. Use Undo to reopen the gap.',
+      extend: 'Click an outer edge, then click outside the roof to extend it. Repeat on another outer edge to add more points. New points follow the adjoining slope. Existing surfaces and windows stay in place. Use Select / move to adjust points, or Undo to revert.',
       meetTarget: 'Click the target slope, then choose Keep position or Keep height. Review the ghost point and 3D preview before applying.',
       meetDirection: 'Click the connected ridge or edge to follow. The point can move along its line in either direction.',
 
       select: 'Split in place detaches chosen adjoining surfaces for independent height control. Next copy cycles stacked points or edges; attached surfaces are highlighted. Select a point or edge, then Delete selected (or Delete/Backspace). Removing a dividing edge merges its adjoining surfaces. Outer edges must stay closed. Drag a point to move it on the plan. Shift-drag up/down changes its height. You can also enter exact coordinates below. Shared points update adjoining surfaces.',
-      draw: 'Click around the outer roof edge. Click the first point or Close perimeter to finish. This creates a pitched roof at the starter pitch and replaces the current draft.',
+      draw: 'The first point is placed at the origin (0, 0). Click around the outer roof edge. Click the first point or Close perimeter to finish. This creates a pitched roof at the starter pitch and replaces the current draft.',
       split: 'Start on a surface edge, add optional interior points, then finish on another edge of the same surface. Raise the new points to form ridges, or lower them for valleys.',
       insert: 'Click an edge or inside a surface to add a point. Interior points connect to surrounding corners and keep the current roof height. Move or raise the point to shape the roof.',
     };
     this.dialog.querySelector('.layout-help').textContent = hints[this.mode];
-    this.dialog.querySelector('#layoutModeLabel').textContent = { select: 'Drag to move · Shift-drag for height', draw: 'Click to draw · Click first point to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    this.dialog.querySelector('#layoutModeLabel').textContent = { connect: this.selected === null ? 'Choose the first perimeter point' : 'Choose a second point across the gap', extend: this.selectedEdge ? 'Click outside the roof to extend the selected edge' : 'Choose an outer edge to extend', select: 'Drag points to edit · Right-drag to pan · Scroll to zoom', draw: 'Start at (0, 0) · Click to add points · Click origin to close', split: 'Draw a line between surface edges', insert: 'Click an edge or surface to add a point', meetTarget: 'Choose a target slope', meetDirection: 'Choose a connected edge' }[this.mode];
+    if (this.mode === 'select' && matchMedia('(pointer: coarse)').matches) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag canvas to pan · Pinch to zoom · Drag points to edit';
     if (this.dormer) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click to place dormer front · Adjust size in the panel';
+    if (this.windowTool.active) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag window or click to position · Update window to save';
     if (this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Drag to pan · Turn Pan off to edit · Fit to recenter';
     if (this.pickingSplitFaces && !this.panEnabled) this.dialog.querySelector('#layoutModeLabel').textContent = 'Click surfaces to toggle · Split in place to confirm';
     this.dialog.querySelector('.layout-detach').hidden = incident.length < 2 && this.selectionCopies().length < 2;
@@ -966,8 +1189,9 @@ export class RoofLayoutEditor {
     }
     this.dialog.querySelectorAll('[data-action]').forEach(button => {
       const action = button.dataset.action;
-      if (['select', 'draw', 'split', 'insert'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
+      if (['select', 'draw', 'split', 'insert', 'extend', 'connect'].includes(action)) button.setAttribute('aria-pressed', String(action === this.mode));
       if (action === 'pan') button.setAttribute('aria-pressed', String(Boolean(this.panEnabled)));
+      if (action === 'axes') button.setAttribute('aria-pressed', String(this.showAxes !== false));
       if (action === 'slopeArrows') button.setAttribute('aria-pressed', String(Boolean(this.showSlopeArrows)));
       if (action === 'meet') button.disabled = this.mode !== 'select' || this.selected === null;
       if (action === 'pickSplitFaces') {
@@ -987,5 +1211,6 @@ export class RoofLayoutEditor {
       if (action === 'undo') button.disabled = !this.history.length && !this.path.length;
       if (action === 'redo') button.disabled = !this.future.length || !!this.path.length;
     });
+    this.toolbar.refresh();
   }
 }

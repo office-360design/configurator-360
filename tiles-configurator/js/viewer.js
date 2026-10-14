@@ -1,5 +1,6 @@
 import { reprojectRegions } from './referenceReprojection.js';
 import { REGION_LIMITS } from './pavingRegions.js';
+import { pavementCutSurfaces, curbCutSurfaces } from './surfaceLayout.js?v=tiles-ar-1';
 import { stoneAppearance } from './stoneAppearance.js';
 import { houseGeometry } from './house.js';
 import * as THREE from 'three';
@@ -885,22 +886,7 @@ export function createViewer(host, callbacks = {}) {
       GROUND_Y,
     );
     drawPolygons(
-      curbs
-        .flatMap((p) =>
-          (p.fragments || (p.polygon ? [p.polygon] : [])).map((polygon) => ({ polygon, stone: p })),
-        )
-        .map((p) => {
-          const cx = p.polygon.reduce((a, v) => a + v.x, 0) / p.polygon.length,
-            cz = p.polygon.reduce((a, v) => a + v.z, 0) / p.polygon.length;
-          return {
-            polygon: p.polygon.map((v) => ({
-              x: cx + (v.x - cx) * 0.996,
-              z: cz + (v.z - cz) * 0.996,
-            })),
-            color: s.curbColor,
-            stone: p.stone,
-          };
-        }),
+      curbCutSurfaces(curbs, s),
       visibleCurbHeight,
       GROUND_Y,
     );

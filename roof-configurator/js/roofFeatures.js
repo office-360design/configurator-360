@@ -1,5 +1,5 @@
-import { assembleLayoutPatches } from './presetLayout.js?v=layout-20';
-import { cloneLayout, cross, distance, inside, insertPoint, onSegment, signedArea, triangulate, validateLayout } from './roofLayout.js?v=layout-20';
+import { assembleLayoutPatches } from './presetLayout.js?v=layout-21';
+import { cloneLayout, cross, distance, inside, insertPoint, onSegment, signedArea, triangulate, validateLayout } from './roofLayout.js?v=layout-21';
 
 function clip(points, value) {
   const result = [];

@@ -142,6 +142,25 @@ for (const route of pageRoutes) {
     : expectedLanguage === "de"
       ? "https://www.360konfigurator.de"
       : "https://www.360configurator.com";
+  const publicPath = route.replace(/^\/(ro|de)(?=\/|$)/, "") || "/";
+  const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || "";
+  const canonicalTags = [...head.matchAll(/<link\b[^>]*rel=["']canonical["'][^>]*>/gi)];
+  const tagUrl = tag => tag.match(/\bhref=["']([^"']+)["']/i)?.[1];
+  const matchesUrl = (tag, expected) => {
+    try { return new URL(tagUrl(tag)).href === new URL(expected).href; } catch { return false; }
+  };
+  if (canonicalTags.length !== 1 || !matchesUrl(canonicalTags[0]?.[0] || "", `${expectedOrigin}${publicPath}`)) {
+    failures.push(`${route} must have exactly one self-canonical in the initial HTML head`);
+  }
+  for (const [language, alternateOrigin] of [["en", "https://www.360configurator.com"], ["ro-RO", "https://www.360configurator.ro"], ["de-DE", "https://www.360konfigurator.de"], ["x-default", "https://www.360configurator.com"]]) {
+    const alternates = [...head.matchAll(/<link\b[^>]*rel=["']alternate["'][^>]*>/gi)].map(match => match[0]);
+    if (!alternates.some(tag => new RegExp(`hreflang=["']${language}["']`, "i").test(tag) && matchesUrl(tag, `${alternateOrigin}${publicPath}`))) {
+      failures.push(`${route} lacks reciprocal ${language} hreflang in the initial HTML head`);
+    }
+  }
+  if (!/<meta\b[^>]*name=["']robots["'][^>]*content=["']index, follow/i.test(head)) {
+    failures.push(`${route} lacks indexable robots metadata in the initial HTML head`);
+  }
   if (!html.includes(expectedOrigin)) failures.push(`${route} lacks its localized canonical origin ${expectedOrigin}`);
   const legacyLocalePrefixedUrlPattern = /https:\/\/(?:www\.)?360configurator\.com\/(?:ro|de)(?![A-Za-z0-9_-])/;
   if (legacyLocalePrefixedUrlPattern.test(html)) failures.push(`${route} contains a legacy locale-prefixed .com URL`);
@@ -155,6 +174,11 @@ for (const route of pageRoutes) {
     failures.push(`${route} is missing the correct English roof configurator URL`);
   }
   if (!html.includes(`<html lang="${expectedLanguage}"`)) failures.push(`${route} has an incorrect document language; expected ${expectedLanguage}`);
+  if (route === "/" || route === "/ro" || route === "/de") {
+    for (const slug of ["pergola", "roof", "window", "hall", "solar", "fence", "chair", "cardbox", "bookshelf", "tiles"]) {
+      if (!html.includes(`href="/configurators/${slug}"`)) failures.push(`${route} lacks crawlable product link for ${slug}`);
+    }
+  }
 }
 
 const sitemapExpectations = {

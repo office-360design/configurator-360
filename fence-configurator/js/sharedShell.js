@@ -1,4 +1,5 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { createFenceARController } from './ar/controller.js?v=fence-ar-2';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-5';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
@@ -20,13 +21,18 @@ const history = new SharedUndoManager({
   restore: (snapshot) => window.FENCE_CONFIGURATOR_API?.restoreState?.(snapshot),
 });
 
+const ar = createFenceARController({
+  getAssembly: () => window.FENCE_CONFIGURATOR_API?.getARAssembly?.(),
+  getLocale: () => window.FENCE_CONFIGURATOR_SHARED_SHELL?.state?.locale || initialLocale,
+  onFeedback: (...args) => window.FENCE_CONFIGURATOR_SHARED_SHELL?.showFeedback?.(...args),
+});
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Fence',
   productId: 'fence',
   storagePrefix: '360-configurator:fence',
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
-  capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
+  capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
   tools: {
     items: resolveSharedTools([
       'environment',
@@ -50,6 +56,7 @@ const shell = mountStandaloneConfiguratorShell({
     geometry: 'floating-right',
   },
   callbacks: {
+    onViewAR() { ar.open(); },
     onUndo() { history.undo(); },
     async resetConfiguration() {
       const api = window.FENCE_CONFIGURATOR_API;
@@ -70,7 +77,7 @@ const shell = mountStandaloneConfiguratorShell({
       return snapshot ? createShareUrl({ productType: 'fence', state: snapshot }) : window.location.href;
     },
     onPreferenceChange(name, value, preferences) {
-      if (name === 'locale') applyFenceTranslations(preferences.locale);
+      if (name === 'locale') { applyFenceTranslations(preferences.locale); ar.refresh(); }
       window.dispatchEvent(new CustomEvent('fence-preference-change', { detail: { name, value, preferences: { ...preferences } } }));
     },
     onToolsOpenChange(open) {
@@ -153,3 +160,6 @@ window.FENCE_CONFIGURATOR_UNDO_HISTORY = history;
 window.FENCE_CONFIGURATOR_API?.setDarkMode?.(Boolean(shell.state.darkMode));
 window.FENCE_CONFIGURATOR_API?.setPreferences?.(shell.state);
 window.FENCE_CONFIGURATOR_API?.syncToolButtons?.();
+
+const destroyShell = shell.destroy?.bind(shell);
+shell.destroy = () => { ar.destroy(); destroyShell?.(); };

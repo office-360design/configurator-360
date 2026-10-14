@@ -17,9 +17,12 @@ const assert = require('node:assert/strict');
   await page.goto('http://127.0.0.1:8080/roof-configurator/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.ROOF_CONFIGURATOR_API);
 
-  const draw = await page.locator('[data-roof-type="layout"]').boundingBox();
-  const gable = await page.locator('[data-roof-type="gable"]').boundingBox();
-  assert.ok(draw.width >= gable.width * 2.8);
+  // Drawing modes sit centred above the stage; the roof type grid keeps templates only.
+  assert.equal(await page.locator('#roofTypeGrid [data-roof-type="layout"], #roofTypeGrid [data-roof-type="sketch"]').count(), 0);
+  const draw = await page.locator('.draw-mode-switch').boundingBox();
+  const stage = await page.locator('#viewerStage').boundingBox();
+  assert.ok(Math.abs(draw.x + draw.width / 2 - (stage.x + stage.width / 2)) < 2);
+  assert.ok(draw.y - stage.y < 30);
   const before = await page.evaluate(() => window.ROOF_CONFIGURATOR_API.captureState());
   await page.locator('#editRoofLayout').click();
   assert.equal(await page.locator('.layout-surface-label').count(), 2);
@@ -34,5 +37,5 @@ const assert = require('node:assert/strict');
   await page.screenshot({path: '/tmp/preset-edit-render.png'});
   assert.deepEqual(errors, []);
   await browser.close();
-  console.log('PASS full-width layout card, preset editor launch, cancellation and 3D conversion');
+  console.log('PASS centred drawing modes, preset editor launch, cancellation and 3D conversion');
 })().catch(error => { console.error(error); process.exit(1); });

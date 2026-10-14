@@ -3,9 +3,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./lite-previews.css";
 import "./critical-polish.css";
+import "./growth-journey.css";
 import { languageAlternates, SITE_URL } from "../lib/seo";
 import { GoogleAnalytics } from "../components/google-analytics";
+import { SwiftCallback } from "../components/swift-callback";
 import { DeferredPolishStyles } from "../components/deferred-polish-styles";
+import { analyticsChoiceBootstrap } from "../lib/website-bootstrap.js";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -89,12 +92,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
-        <script type="text/javascript" src="https://cdn.swiftcallback.com/scb.js?key=RtWCjzUgCRz6v8UBCNKzc1MhWMHqOePBX" charSet="UTF-8" async></script>
+        <script dangerouslySetInnerHTML={{ __html: analyticsChoiceBootstrap }} />
+        <DeferredPolishStyles />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
-        <DeferredPolishStyles />
         <GoogleAnalytics />
+        <SwiftCallback />
       </body>
     </html>
   );

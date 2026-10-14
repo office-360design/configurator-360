@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Only the scoped Admin service reads/writes this private bucket. Phones use
+    // the expiring getHallAR endpoint, never Firebase download tokens/public ACLs.
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

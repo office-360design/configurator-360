@@ -1,9 +1,10 @@
+import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-10';
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=tenant-routes-1';
 import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
 import { sharedT } from './i18n.js?v=platform-21';
 import { renderActionFeedback } from './components/feedback.js?v=platform-21';
-import { renderTopBar } from './components/topBar.js?v=tenant-branding-1';
+import { renderTopBar } from './components/topBar.js?v=firebase-ar-10';
 import { syncAccountIdentity } from './components/accountMenu.js?v=platform-21';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
 import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
@@ -997,6 +998,7 @@ export class StandaloneConfiguratorShell {
           profileAvatarUrl: this.profileAvatarUrl,
         },
         capabilities: this.options.capabilities,
+        productId: this.productId,
       })}
       ${renderCartMenu(this.state.locale, this.cartRenderItems(), { open: this.cartOpen, busy: this.cartBusy, totalText: this.cartTotalText() })}
       ${renderActionFeedback(this.state.locale)}
@@ -2208,6 +2210,7 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'reset') {
       void this.resetConfiguration();
     } else if (action === 'view-ar') {
+      if (actionTarget.disabled || !isConfiguratorAREnabled(this.productId, this.options.capabilities)) return;
       this.options.callbacks.onViewAR?.();
     } else if (action === 'share') {
       this.share(actionTarget);

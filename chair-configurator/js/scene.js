@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { captureChairARSnapshot } from './ar/exportChair.js?v=chair-ar-1';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createSurfaceSystem } from '../../shared-3d/src/index.js?v=platform-19';
 import { createChairModel } from './chairGeometry.js?v=chair-joint-25';
@@ -92,6 +93,11 @@ export class ChairScene {
     this.invalidate();
   }
 
+  captureARSnapshot() {
+    // Material selection and custom-colour inputs update the active meshes
+    // synchronously in setState(). Capture them without changing the live view.
+    return captureChairARSnapshot(this.model?.group);
+  }
   setState(state) { this.state = state; this.applyMaterials(state); }
   setQuality(value) { this.state.quality = value; this.surfaceSystem.setQuality(value, { compact: matchMedia('(max-width: 760px)').matches }); this.invalidate(); }
   setDarkMode(value) { this.scene.background.set(value ? 0x22282c : 0xf2f4f5); this.floor.material.color.set(value ? 0x33393d : 0xe9ecee); this.invalidate(); }

@@ -8,12 +8,12 @@ const assert = require('node:assert/strict');
   await page.route('**/editor-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/layout-editor.css"><body></body>' }));
   await page.goto('http://127.0.0.1:8080/editor-fixture');
   await page.evaluate(async () => {
-    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-20');
+    const { RoofLayoutEditor } = await import('/roof-configurator/js/layoutEditor.js?v=layout-21');
     window.editor = new RoofLayoutEditor({ pitch: 30 }, () => {});
     window.editor.open();
   });
   const previewEdges = await page.evaluate(async () => {
-    const { drawAlignmentPreview } = await import('/roof-configurator/js/alignmentPreview.js?v=layout-20');
+    const { drawAlignmentPreview } = await import('/roof-configurator/js/alignmentPreview.js?v=layout-21');
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     const layout = { version: 1, vertices: [
       { x: 0, z: 0, h: 0 }, { x: 2, z: 0, h: 0 },

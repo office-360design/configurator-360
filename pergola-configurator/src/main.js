@@ -1,4 +1,5 @@
 import './styles/pergola.css?v=pergola-panel-1';
+import '../../shared-ui/styles/ar.css?v=firebase-ar-3';
 import '../../shared-ui/styles/index.css?v=platform-18';
 import './styles/pergola-theme-overrides.css?v=pergola-panel-1';
 import '../../shared-ui/styles/panelControls.css?v=pergola-panel-1';
@@ -9,7 +10,7 @@ import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=p
 import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js?v=tenant-domains-1';
 import { PergolaScene } from './scene/PergolaScene.js?v=platform-18';
 import { ConfiguratorUI } from './ui/ConfiguratorUI.js?v=mobile-panel-1';
-import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=mobile-panel-1';
+import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=pergola-ar-1';
 import { pergolaT } from './i18n.js?v=pergola-panel-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=platform-18';
