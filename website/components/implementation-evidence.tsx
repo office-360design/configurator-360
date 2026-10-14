@@ -46,7 +46,7 @@ export function ImplementationEvidence({locale}: {locale:Locale}) {
       <div className="evidence-heading"><h2 id="implementation-examples-title">{text.title}</h2><p>{text.intro}</p></div>
       <div className="evidence-examples">{text.examples.map(example=><article key={example.product}>
         <h3>{example.title}</h3><p>{example.body}</p>
-        <a className="text-link" href={localizedPath(locale,`/configurators/${example.product}`)}>{example.link}<span aria-hidden="true">→</span></a>
+        <a className="text-link" href={`${localizedPath(locale,`/configurators/${example.product}`)}${example.product==='roof'?'#roof-technical-example':''}`}>{example.link}<span aria-hidden="true">→</span></a>
       </article>)}</div>
       <div className="evidence-next"><p>{text.next}</p><a className="launch-link" href={`${localizedPath(locale,'/contact')}?project=custom-system`}>{text.action}<span aria-hidden="true">↗</span></a></div>
     </div>

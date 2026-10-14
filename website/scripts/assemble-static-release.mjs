@@ -1,5 +1,5 @@
 import { cp, mkdir, rm, stat, writeFile } from "node:fs/promises";
-import { localizedMachineContext } from "./localized-machine-context.mjs";
+import { localizedMachineContext, localizedFullContext } from "./localized-machine-context.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pageRoutes, configurators as marketingConfiguratorSlugs } from "./static-routes.mjs";
@@ -103,11 +103,11 @@ await writeFile(path.join(releaseRoot, ".nojekyll"), "");
 
 for (const locale of Object.keys(localizedOrigins)) {
   await writeFile(path.join(releaseRoot, `sitemap-${locale}.xml`), sitemapXml(locale));
-  if (locale !== 'en') {
-    const context = await localizedMachineContext(releaseRoot, locale, localizedOrigins[locale], marketingConfiguratorSlugs);
-    await writeFile(path.join(releaseRoot, `llms-${locale}.txt`), context);
-    await writeFile(path.join(releaseRoot, `llms-full-${locale}.txt`), context);
-  }
+  const context = await localizedMachineContext(releaseRoot, locale, localizedOrigins[locale], marketingConfiguratorSlugs);
+  const fullContext = await localizedFullContext(releaseRoot, locale, localizedOrigins[locale], marketingConfiguratorSlugs);
+  const suffix=locale==='en'?'':`-${locale}`;
+  await writeFile(path.join(releaseRoot, `llms${suffix}.txt`), context);
+  await writeFile(path.join(releaseRoot, `llms-full${suffix}.txt`), fullContext);
 }
 // Keep the static/default sitemap coherent for direct previews and non-Nginx hosting.
 await writeFile(path.join(releaseRoot, "sitemap.xml"), sitemapXml("en"));

@@ -84,7 +84,7 @@ export function ConfiguratorSeoSections({
       </div>
     </section>
 
-    <section className="pergola-faq solid-section">
+    <section className="pergola-faq solid-section" data-machine-section="questions">
       <div className="page-frame pergola-faq-grid">
         <div className="pergola-faq-heading" data-reveal>
           <span className="mono-label">{copy.faq.label}</span>

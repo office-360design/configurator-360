@@ -21,7 +21,7 @@
 - [Chair](https://www.360configurator.com/configurators/chair): Fixed-dimension chair with interactive frame and upholstery finishes; full application offers more material options.
 - [Cardboard boxes](https://www.360configurator.com/configurators/cardbox): Packaging dimensions, structure and closure preview; full application includes board specification and artwork.
 - [Modular bookshelves](https://www.360configurator.com/configurators/bookshelf): Connected straight/L modules, dimensional families, doors and finishes; client-specific system without preview pricing.
-- [Pavement tiles](https://www.360configurator.com/configurators/tiles): Prototype paving layouts, patterns, area and installed-piece counts; illustrative materials and no supplier quote.
+- [Pavement tiles](https://www.360configurator.com/configurators/tiles): Lite photo/2D paving illustration with formats, patterns, rotation, colours, curbs and rectangular area. House exclusions and installed-piece counts belong to the full 3D prototype; no supplier quote.
 
 ## Languages and canonical domains
 

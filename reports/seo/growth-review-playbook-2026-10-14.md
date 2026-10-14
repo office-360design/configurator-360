@@ -7,6 +7,11 @@ Starea de mai jos este baseline-ul lotului #563. Pentru administrarea GA4,
 testul autorizat și lotul următor consultați
 `growth-mobile-release-2026-10-14.md`; nu interpretați baseline-ul ca verificare live curentă.
 
+Lotul ulterior de conținut și protocolul AI sunt documentate în
+`ai-content-release-2026-10-14.md` și `ai-search-prompts-2026-10-14.json`.
+Observațiile AI rămân în `website/outputs/ai-search-baseline-2026-10-14.json`
+(ignorat de Git). Verificați starea publicării din raport, nu deduceți că un draft este live.
+
 ## Rezultatul urmărit
 
 Mai multe contacte umane distincte prin SwiftCallback și formulare, apoi mai multe
