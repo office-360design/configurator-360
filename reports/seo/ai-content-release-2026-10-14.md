@@ -75,6 +75,12 @@ Pilotul inițial rulează numai ro-01/en-01/de-01, câte trei conversații noi p
 (ChatGPT cu web și Perplexity Search). Celelalte șapte întrebări sunt nemăsurate,
 nu rezultate zero. Nu generalizăm pilotul la toate intențiile sau piața totală.
 
+Pilotul a fost finalizat: 18 răspunsuri complete în conversații noi, la 14 octombrie,
+înainte de publicarea PR #565. Inventarul și clasificările sunt în fișierul privat
+`website/outputs/ai-search-baseline-2026-10-14.json`. Rezultatele Perplexity EN cu
+advanced-preview și Search Free se păstrează separat; modelul exact și țara de
+retrieval nu sunt cunoscute. Nu s-au rulat Google AI/Gemini în acest pilot.
+
 ChatGPT: Temporary + Unpersonalized, fără memorie/plugins/instrucțiuni personalizate
 în conversația verificată, Think off. Perplexity: Incognito + Search, Free; condiția
 advanced-preview se notează separat dacă apare. Țara efectivă de retrieval și
