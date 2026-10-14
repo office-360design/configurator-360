@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Locale } from "../lib/i18n";
+import { trackWebsiteEvent } from "../lib/website-analytics.js";
 
 const FIREBASE_SDK_VERSION = "12.17.1";
 const FIREBASE_APP_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`;
@@ -321,7 +322,7 @@ export function DemoRequestForm({ locale }: { locale: Locale }) {
   };
 
   return (
-    <form className="demo-request-form" noValidate onSubmit={async (event) => {
+    <form className="demo-request-form" noValidate onFocus={() => trackWebsiteEvent('lead_form_start', {form_id: 'demo_request'}, true)} onSubmit={async (event) => {
       event.preventDefault();
       if (state === "submitting") return;
       const form = event.currentTarget;
@@ -362,6 +363,7 @@ export function DemoRequestForm({ locale }: { locale: Locale }) {
           website: String(data.get("website") || ""),
         });
         if (!response.data?.success) throw new Error("Demo request was not accepted.");
+        if (response.data.delivered) trackWebsiteEvent('generate_lead', {form_id: 'demo_request', product: primaryConfigurator});
 
         const requestId = String(response.data.requestId || "");
         if (requestId) {
@@ -380,6 +382,7 @@ export function DemoRequestForm({ locale }: { locale: Locale }) {
       } catch (error) {
         console.error("Demo request submission failed.", error);
         const code = firebaseErrorCode(error);
+        trackWebsiteEvent('form_error', {form_id: 'demo_request', error_code: code.includes('resource-exhausted') ? 'rate_limited' : 'network_or_service'});
         setState(code.includes("resource-exhausted") ? "rate-limited" : "error");
       }
     }}>
