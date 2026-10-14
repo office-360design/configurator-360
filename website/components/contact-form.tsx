@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Locale } from "../lib/i18n";
-import { trackWebsiteEvent } from "../lib/website-analytics.js";
+import { trackWebsiteEvent, websiteProduct } from "../lib/website-analytics.js";
 
 const FIREBASE_SDK_VERSION = "12.17.1";
 const FIREBASE_APP_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`;
@@ -182,6 +182,7 @@ export function ContactForm({ locale }: { locale: Locale }) {
       if (response.data.delivered) {
         trackWebsiteEvent("generate_lead", {
           form_id: "marketing_contact",
+          product: websiteProduct(String(data.get("configuratorInterest") || projectPath)),
         });
       }
     } catch (error) {

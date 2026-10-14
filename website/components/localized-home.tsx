@@ -8,6 +8,7 @@ import { ShowcaseControls } from "./showcase-controls";
 import { SceneInteractor } from "./scene-interactor";
 import { WindowConfiguratorPreview, WindowHeroRuntime } from "./window-preview";
 import { CapabilityCube, ProductFeatureCube } from "./capability-cube";
+import { ImplementationEvidence, projectActions } from "./implementation-evidence";
 import { getLocalizedConfigurators } from "../lib/configurators-localized";
 import { homeCopy, localizedPath, type Locale, uiCopy } from "../lib/i18n";
 import { absoluteUrl, graphSchema, organizationSchema, siteUrl, SITE_URL, websiteSchema } from "../lib/seo";
@@ -15,6 +16,7 @@ import { absoluteUrl, graphSchema, organizationSchema, siteUrl, SITE_URL, websit
 export function LocalizedHome({ locale }: { locale: Locale }) {
   const copy = homeCopy[locale];
   const ui = uiCopy[locale];
+  const project = projectActions[locale];
   const configurators = getLocalizedConfigurators(locale);
   const schemaDescription = locale === "ro" ? "Configuratoare 3D pentru produse industriale complexe, cu reguli tehnice, prețuri și liste de materiale." : locale === "de" ? "Visuelle und räumliche 3D-Produktkonfiguration für komplexe Industrieprodukte." : "Industrial 3D visual and spatial product configuration for complex products.";
   const structuredData = graphSchema([
@@ -52,7 +54,7 @@ export function LocalizedHome({ locale }: { locale: Locale }) {
         <div className="hero-sticky page-frame">
           <div className="hero-index mono-label"><span>01</span> {copy.heroLabel.replace("01 / ", "")}</div>
           <h1>{copy.heroA}<span>{copy.heroB}</span></h1>
-          <div className="hero-copy"><p>{copy.heroCopy}</p><a className="text-link" href="#configurators">{copy.explore} <span>↓</span></a></div>
+          <div className="hero-copy"><p>{copy.heroCopy}</p><a className="text-link" href="#configurators">{copy.explore} <span>↓</span></a><a className="launch-link hero-project-link" href={`${localizedPath(locale,'/contact')}?project=custom-system`}>{project.action}<span aria-hidden="true">↗</span></a><p className="hero-project-note">{project.note}</p></div>
           <div className="hero-axis" aria-hidden="true"><span>X 05.420</span><i /><span>Y 08.160</span></div>
         </div>
         <div className="hero-chapter chapter-debug page-frame"><div><span className="mono-label">{copy.stage2}</span><h2>{copy.breakA}<br/>{copy.breakB}</h2></div><p>{copy.breakCopy}</p></div>
@@ -67,6 +69,7 @@ export function LocalizedHome({ locale }: { locale: Locale }) {
         <div className="manifesto-data"><span><b>3D</b>{copy.spatial}</span><span><b>BOM</b>{copy.resolved}</span><span><b>API</b>{copy.connected}</span></div>
       </div></section>
 
+      <ImplementationEvidence locale={locale} />
       <section className="configurator-sequence" id="configurators">
         <div className="sequence-intro page-frame" data-reveal><span className="mono-label">{copy.systems}</span><h2>{copy.systemsA}<br/>{copy.systemsB}</h2><p className="sequence-intro-copy">{copy.systemsCopy}</p></div>
         {configurators.map((item) => <article className={`spatial-showcase showcase-${item.slug}${isLiteSlug(item.slug) ? " showcase-lite" : ""}`} data-scene={isLiteSlug(item.slug) ? undefined : item.slug} key={item.slug}>

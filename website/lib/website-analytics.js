@@ -56,3 +56,9 @@ export function previewEvent(name, product) {
   if (typeof window === 'undefined' || !PRODUCTS.has(product)) return false;
   return trackWebsiteEvent(name, {product, placement: window.location.pathname.includes('/configurators/') ? 'product_page' : 'homepage', ...(name === 'lite_preview_error' ? {error_code:'preview_unavailable'} : {})}, true);
 }
+
+// Only an exact known product may accompany a form event. Free-text interests,
+// messages and personal fields never enter Analytics.
+export function websiteProduct(value) {
+  return PRODUCTS.has(value) ? value : undefined;
+}

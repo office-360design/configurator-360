@@ -1,18 +1,18 @@
 import { getLocalizedConfigurators } from "../lib/configurators-localized";
 import { contactEmail, contactPhone, localizedPath, type Locale, uiCopy } from "../lib/i18n";
 import { SOCIAL_PROFILES } from "../lib/seo";
-import { AnalyticsPreferencesButton } from "./google-analytics";
+import { AnalyticsPreferencesButton, AnalyticsPreferences } from "./google-analytics";
 
 export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
   const copy = uiCopy[locale];
   const configurators = getLocalizedConfigurators(locale);
   const email = contactEmail(locale);
   return (
-    <footer className="site-footer">
+    <><footer className="site-footer">
       <div className="footer-main page-frame">
         <div className="footer-brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/360configurator.png" alt="360Configurator" width={380} height={190} />
+          <img src="/brand/360configurator.png" alt="360Configurator" width={380} height={190} loading="lazy" decoding="async" />
           <p>{copy.footerLine}</p>
         </div>
         <div className="footer-links">
@@ -48,6 +48,6 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
       <div className="footer-bottom page-frame">
         <span>© 2026 360Configurator</span><span>{copy.location}</span><span>{copy.render}</span>
       </div>
-    </footer>
+    </footer><AnalyticsPreferences locale={locale} /></>
   );
 }

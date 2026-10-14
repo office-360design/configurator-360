@@ -51,18 +51,9 @@ export function AnalyticsPreferencesButton({locale = 'en'}: {locale?: keyof type
 }
 
 export function GoogleAnalytics() {
-  const [visible, setVisible] = useState(false);
-  const [locale, setLocale] = useState<keyof typeof copy>('en');
   useEffect(() => {
     const choice = readChoice(browserStorage());
-    const frame = requestAnimationFrame(() => {
-      const language = document.documentElement.lang;
-      setLocale(language === 'ro' || language === 'de' ? language : analyticsContext(window.location).language as keyof typeof copy);
-      setVisible(!choice);
-    });
     if (choice === 'granted') initializeAnalytics();
-    const open = () => setVisible(true);
-    window.addEventListener('analytics-preferences-open', open);
     const visibleProducts = new Set<string>();
     const views = new IntersectionObserver(entries => {
       for (const entry of entries) {
@@ -111,22 +102,35 @@ export function GoogleAnalytics() {
     };
     document.addEventListener('click', click);
     return () => {
-      cancelAnimationFrame(frame);
       views.disconnect();
       window.removeEventListener('analytics-consent-granted', granted);
       document.removeEventListener('pointerdown', gesture, true);
       document.removeEventListener('keydown', gesture, true);
       document.removeEventListener('wheel', gesture, true);
-      window.removeEventListener('analytics-preferences-open', open);
       window.removeEventListener('configurator-control', engaged);
       window.removeEventListener('scene-orbit', engaged);
       window.removeEventListener('active-scene-change', viewed);
       document.removeEventListener('click', click);
     };
   }, []);
+  return null;
+}
+
+// Locale comes from the server-rendered page footer, not a post-hydration guess.
+// Reading storage in the head hides a previously decided panel without a flash.
+export function AnalyticsPreferences({locale = 'en'}: {locale?: keyof typeof copy}) {
+  const [visible, setVisible] = useState(true);
+  const [opened, setOpened] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setVisible(!readChoice(browserStorage())));
+    const open = () => {setOpened(true);setVisible(true);};
+    window.addEventListener('analytics-preferences-open', open);
+    return () => {cancelAnimationFrame(frame);window.removeEventListener('analytics-preferences-open', open);};
+  }, []);
   const choose = (value: 'granted' | 'denied') => {
     // Retain this explicit choice in memory if persistent storage is unavailable.
     setChoice(value);
+    document.documentElement.dataset.analyticsChoice = value;
     if (value === 'granted') initializeAnalytics();
     else if (initialized) {
       (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = true;
@@ -142,7 +146,7 @@ export function GoogleAnalytics() {
   };
   if (!visible) return null;
   const text = copy[locale];
-  return <section className="analytics-preferences" aria-labelledby="analytics-preferences-title" data-lenis-prevent>
+  return <section className="analytics-preferences" data-preferences-open={opened ? 'true' : undefined} aria-labelledby="analytics-preferences-title" data-lenis-prevent>
     <h2 id="analytics-preferences-title">{text.title}</h2><p>{text.body}</p>
     <div><button type="button" onClick={() => choose('denied')}>{text.reject}</button><button type="button" onClick={() => choose('granted')}>{text.accept}</button></div>
   </section>;

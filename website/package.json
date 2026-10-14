@@ -16,7 +16,7 @@
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "test:lite": "node --test tests/lite-products.test.mjs",
-    "test:postlaunch": "node --test tests/website-analytics.test.mjs tests/localized-machine-context.test.mjs tests/rendered-html.test.mjs tests/lite-products.test.mjs",
+    "test:postlaunch": "node --test tests/website-analytics.test.mjs tests/localized-machine-context.test.mjs tests/rendered-html.test.mjs tests/lite-products.test.mjs tests/growth-release.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },
