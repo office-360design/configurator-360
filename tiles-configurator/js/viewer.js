@@ -839,39 +839,8 @@ export function createViewer(host, callbacks = {}) {
       pavementBaseY,
       { topOnly: true },
     );
-    const cuts = [];
-    parts.forEach((p) => {
-      for (const fragment of p.fragments || []) {
-        const rotated = Math.abs((Number(p.rotation) || 0) % 180) > 1e-6;
-        let polygon;
-        if (p.profile) {
-          const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length,
-            cz = fragment.reduce((sum, v) => sum + v.z, 0) / fragment.length;
-          polygon = fragment.map((v) => ({
-            x: cx + (v.x - cx) * 0.985,
-            z: cz + (v.z - cz) * 0.985,
-          }));
-        } else if (rotated) {
-          const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length,
-            cz = fragment.reduce((sum, v) => sum + v.z, 0) / fragment.length,
-            inset = Math.min(0.02, 0.0015 / Math.max(0.001, Math.min(p.l, p.w))),
-            factor = Math.max(0.9, 1 - inset);
-          polygon = fragment.map((v) => ({
-            x: cx + (v.x - cx) * factor,
-            z: cz + (v.z - cz) * factor,
-          }));
-        } else {
-          polygon = clipRect(
-            fragment,
-            p.x - p.l / 2 + 0.0015,
-            p.z - p.w / 2 + 0.0015,
-            Math.max(0.001, p.l - 0.003),
-            Math.max(0.001, p.w - 0.003),
-          );
-        }
-        cuts.push({ polygon, color: p.accent ? s.accent : s.color, stone: p });
-      }
-    });
+    // Same cut geometry as the AR export (surfaceLayout.js).
+    const cuts = pavementCutSurfaces(parts, s);
     drawPolygons(cuts, t.thickness, pavementBaseY, { topOnly: true });
     const curb = CURBS[s.curb],
       curbs = curbLayout(s),
