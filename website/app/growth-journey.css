@@ -10,6 +10,10 @@
 .evidence-examples .text-link{font-size:11px;min-height:44px;width:auto;max-width:max-content}
 .evidence-next{align-items:center;border-top:1px solid var(--line-strong);padding-top:28px}
 .evidence-next p{margin:0}
+.evidence-reference{max-width:760px;margin:24px 0;color:var(--ink-soft);font-size:14px;line-height:1.7}
+.evidence-reference a{color:var(--brand);text-decoration:underline;text-underline-offset:3px}
+.pricing-review .evidence-next{margin-top:32px}
+.evidence-next .text-link{max-width:100%;width:fit-content;white-space:normal}
 .evidence-next .launch-link{justify-self:start;min-height:48px;font-size:11px;white-space:normal}
 .hero-copy .hero-project-link{margin-top:18px;min-height:48px;font-size:11px;white-space:normal}
 .hero-copy .hero-project-note{margin:12px 0 0;font-size:14px;line-height:1.5}

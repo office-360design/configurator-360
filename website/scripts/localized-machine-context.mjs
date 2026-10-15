@@ -6,21 +6,21 @@ const copy = {
     overview: '360Configurator develops browser-based 3D product configurators for manufacturers and distributors. Website previews are lite versions; features, pricing and outputs vary between the full applications.',
     pages: 'Primary pages', products: 'Configurators and use cases', boundaries: 'Implementation and limits',
     scope: 'Existing system, adaptation or custom development: the recommendation, scope and price follow technical review. Previews are not manufacturing specifications or supplier quotations. The paving configurator is a prototype. Use Contact or the demo request to discuss a software project.',
-    resources: 'Official resources', sitemap: 'XML sitemap', robots: 'Crawler policy', full: 'Full product context', details: 'Product details from the public website', application: 'Full application',
+    resources: 'Official resources', sitemap: 'XML sitemap', robots: 'Crawler policy', full: 'Full product context', details: 'Product details from the public website', application: 'Full application', pricing: 'Implementation costs and ongoing service',
   },
   ro: {
     overview: '360Configurator dezvoltă configuratoare 3D în browser pentru produse cu dimensiuni, variante și reguli de compatibilitate. Previzualizările de pe website sunt versiuni lite; funcțiile, prețurile și rezultatele disponibile diferă între aplicațiile complete.',
     pages: 'Pagini principale', products: 'Configuratoare și utilizări',
     boundaries: 'Implementare și limite',
     scope: 'Sistem existent, adaptare sau dezvoltare personalizată: recomandarea, implementarea și prețul se stabilesc după evaluarea tehnică. Previzualizările nu sunt specificații de fabricație și nu garantează o ofertă de la un furnizor. Configuratorul de pavaj este un prototip. Pentru proiecte, folosiți pagina de contact sau solicitarea de demonstrație.',
-    resources: 'Resurse oficiale', sitemap: 'Sitemap XML', robots: 'Reguli pentru crawlere', full: 'Context complet despre produse', details: 'Detalii despre produse din website-ul public', application: 'Aplicația completă',
+    resources: 'Resurse oficiale', sitemap: 'Sitemap XML', robots: 'Reguli pentru crawlere', full: 'Context complet despre produse', details: 'Detalii despre produse din website-ul public', application: 'Aplicația completă', pricing: 'Costurile implementării și serviciile de operare',
   },
   de: {
     overview: '360Configurator entwickelt browserbasierte 3D-Konfiguratoren für Produkte mit Maßen, Varianten und Kompatibilitätsregeln. Website-Vorschauen sind Lite-Versionen; Funktionen, Preise und Ausgaben unterscheiden sich je nach vollständiger Anwendung.',
     pages: 'Hauptseiten', products: 'Konfiguratoren und Anwendungsfälle',
     boundaries: 'Implementierung und Grenzen',
     scope: 'Vorhandenes System, Anpassung oder individuelle Entwicklung: Empfehlung, Umfang und Preis werden nach der technischen Prüfung festgelegt. Vorschauen sind keine Fertigungsspezifikationen und garantieren kein Lieferantenangebot. Der Pflasterkonfigurator ist ein Prototyp. Für Projekte nutzen Sie Kontakt oder Demo-Anfrage.',
-    resources: 'Offizielle Ressourcen', sitemap: 'XML-Sitemap', robots: 'Crawler-Regeln', full: 'Vollständiger Produktkontext', details: 'Produktdetails aus der öffentlichen Website', application: 'Vollständige Anwendung',
+    resources: 'Offizielle Ressourcen', sitemap: 'XML-Sitemap', robots: 'Crawler-Regeln', full: 'Vollständiger Produktkontext', details: 'Produktdetails aus der öffentlichen Website', application: 'Vollständige Anwendung', pricing: 'Implementierungskosten und laufender Betrieb',
   },
 };
 function decode(value) {
@@ -70,6 +70,10 @@ export async function localizedMachineContext(releaseRoot, locale, origin, produ
 
 export async function localizedFullContext(releaseRoot,locale,origin,products) {
   const summary=await localizedMachineContext(releaseRoot,locale,origin,products);
+  const pricingHtml=await readFile(pageFile(releaseRoot,locale,'/pricing'),'utf8');
+  const pricing=pricingHtml.match(/<section\b[^>]*data-machine-section="implementation-costs"[^>]*>([\s\S]*?)<\/section>/)?.[1];
+  if (!pricing) throw new Error(`Missing implementation costs for ${locale}`);
+  const pricingContext=`## ${copy[locale].pricing}\n\n${origin}/pricing#cost-breakdown\n\n${sectionText(pricing)}`;
   const sections=[];
   for (const slug of products) {
     const route=`/configurators/${slug}`;
@@ -84,5 +88,5 @@ export async function localizedFullContext(releaseRoot,locale,origin,products) {
     if (!application || new URL(application).origin!==origin) throw new Error(`Invalid full app URL for ${locale}/${slug}`);
     sections.push(`## ${title}\n\n${origin}${route}\n\n${marked.map(([, ,fragment])=>sectionText(fragment)).join('\n\n')}\n\n${copy[locale].application}: ${application}`);
   }
-  return `${summary}\n## ${copy[locale].details}\n\n${sections.join('\n\n')}\n`;
+  return `${summary}\n${pricingContext}\n\n## ${copy[locale].details}\n\n${sections.join('\n\n')}\n`;
 }

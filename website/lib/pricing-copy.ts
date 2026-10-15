@@ -1,7 +1,7 @@
 export const pricingCopy = {
   en: {
     nav: "Pricing",
-    hero: { index: "01 / Commercial architecture", titleA: "One platform.", titleB: "Three ways to deploy it.", body: "The right commercial model depends on what already exists: proven product logic ready to deploy, an established system that needs adaptation, or a new configuration engine built around your product." },
+    hero: { index: "01 / Product configurator cost", titleA: "What does a", titleB: "configurator cost?", body: "The cost depends on your product rules, 3D data and required outputs. Compare an existing system, adaptation and custom development. We separate implementation from the ongoing subscription after reviewing your product." },
     selectorLabel: "Select a deployment path",
     paths: [
       { id: "existing-system", index: "01", name: "Existing System", model: "Subscription", summary: "Deploy a proven 360Configurator system with established geometry, validated product logic, managed hosting, platform maintenance, technical support and a standard implementation framework ready for production use.", fit: "For products already represented by one of our live systems.", items: ["Hosted configurator", "Customer subdomain", "Brand configuration", "Existing parametric product logic", "Real-time pricing and BOM where available", "Standard analytics and lead capture", "Platform updates and maintenance", "Technical support", "Monthly or annual billing", "Production launch and handover"] },
@@ -19,7 +19,7 @@ export const pricingCopy = {
   },
   ro: {
     nav: "Prețuri",
-    hero: { index: "01 / Opțiuni de implementare", titleA: "O singură platformă.", titleB: "Trei moduri de implementare.", body: "Alegem varianta potrivită în funcție de produsul tău: folosim un configurator existent, adaptăm unul apropiat sau construim unul nou." },
+    hero: { index: "01 / Costuri configurator 3D", titleA: "Cât costă un", titleB: "configurator 3D?", body: "Costul depinde de regulile produsului, datele 3D și rezultatele necesare. Compară un configurator existent, o adaptare și dezvoltarea nouă. După analiza produsului, separăm implementarea de abonamentul pentru operare." },
     selectorLabel: "Alege tipul de implementare",
     paths: [
       { id: "existing-system", index: "01", name: "Configurator existent", model: "Abonament", summary: "Implementăm unul dintre configuratoarele 360Configurator deja dezvoltate și îl pregătim pentru marca și domeniul tău.", fit: "Pentru produse acoperite deja de configuratoarele noastre.", items: ["Configurator găzduit", "Subdomeniu dedicat", "Personalizare de brand", "Reguli parametrice existente", "Prețuri și listă de materiale, unde sunt disponibile", "Analiză standard și colectarea solicitărilor", "Actualizări și mentenanță", "Suport tehnic", "Facturare lunară sau anuală", "Lansare și predare"] },
@@ -62,7 +62,7 @@ export const pricingCopy = {
   },
   de: {
     nav: "Preise",
-    hero: { index: "01 / Kaufmännische Architektur", titleA: "Eine Plattform.", titleB: "Drei Wege zur Implementierung.", body: "Das passende Geschäftsmodell richtet sich danach, was bereits vorhanden ist: bewährte Produktlogik für den direkten Einsatz, ein etabliertes System mit Anpassungsbedarf oder eine neue Konfigurationsengine für Ihr Produkt." },
+    hero: { index: "01 / Produktkonfigurator Kosten", titleA: "Was kostet ein", titleB: "3D-Konfigurator?", body: "Die Kosten hängen von Produktregeln, 3D-Daten und benötigten Ausgaben ab. Vergleichen Sie ein bestehendes System, eine Anpassung und eine Neuentwicklung. Nach der Produktprüfung trennen wir Implementierung und laufendes Abonnement." },
     selectorLabel: "Implementierungsweg wählen",
     paths: [
       { id: "existing-system", index: "01", name: "Bestehendes System", model: "Abonnement", summary: "Ein bewährtes 360Configurator-System wird mit vorhandener Geometrie, Produktlogik und standardisiertem Implementierungsrahmen bereitgestellt.", fit: "Für Produkte, die bereits durch eines unserer Live-Systeme abgebildet werden.", items: ["Gehosteter Konfigurator", "Eigene Kundensubdomain", "Markenkonfiguration", "Bestehende parametrische Produktlogik", "Echtzeitkalkulation und Stückliste, soweit verfügbar", "Standard-Analytics und Lead-Erfassung", "Plattformupdates und Wartung", "Technischer Support", "Monatliche oder jährliche Abrechnung", "Produktivstart und Übergabe"] },

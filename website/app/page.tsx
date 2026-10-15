@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { LocalizedHome } from "../components/localized-home";
 import { pageMetadata } from "../lib/seo";
+import { homeMetadata } from "../lib/commercial-content";
 
 export const metadata: Metadata = pageMetadata({
   locale: "en",
-  title: "Industrial 3D Product Configuration",
-  description: "Industrial 3D visual and spatial product configuration for complex products, real-time pricing and production-ready outputs.",
+  ...homeMetadata.en,
 });
 
 export default function Home() {
