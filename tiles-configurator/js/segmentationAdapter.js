@@ -1,5 +1,5 @@
 import { normalizeRegions, ringArea } from './pavingRegions.js';
-import { traceMask, simplifyContours } from './maskContours.js';
+import { traceMask, simplifyContours } from './maskContours.js?v=tiles-corners-2';
 import { failImport, assertSameImage, validateModelCamera, imageToGround, assertPhotoMatches } from './modelCamera.js';
 
 export const GROUND_LABELS = Object.freeze({ grass: 10, dirt: 6, pavement: 4 });
@@ -99,7 +99,8 @@ export function prepareModelImport(input, options={}) {
     if(!centre||!Number.isFinite(area)||area<=0||area>maxPixelArea) {projectionRejectedPixels++;continue;}
     effective[i]=1; pavingPixels++; exactPixelAreaM2+=area;
   }
-  const traced=traceMask(effective,W,H), simplified=simplifyContours(traced.regions,W,H,options.tolerancePx??.75);
+  const traced=traceMask(effective,W,H), simplified=simplifyContours(traced.regions,W,H,options.tolerancePx??.75,
+    options.maxCornersPerBoundary);
   const mapRing=ring=>ring.map(p=>{
     const v=project(p.x,p.z);
     if(!v) failImport('invalidProjection','A boundary lies outside the valid ground projection.');
@@ -117,12 +118,14 @@ export function prepareModelImport(input, options={}) {
     warnings=['Camera, scale and quantities are estimated from the photograph, not physically verified.'];
   if(unsupportedPixels+projectionRejectedPixels) warnings.push(`${unsupportedPixels+projectionRejectedPixels} selected pixels were excluded by ground support or projection safety checks.`);
   if(traced.saddleCorners) warnings.push('Diagonal pixel contacts were separated with a 0.02 px bevel; pixel-centre classifications are unchanged.');
+  if(simplified.boundariesOverCornerTarget) warnings.push(`Some detected boundaries need more than ${simplified.maxCornersPerBoundary} corners to preserve their shape and holes. Extra corners were kept.`);
   if(!regions.length) warnings.push('The result contains no usable paving. The imported camera can still be used for manual drawing.');
   if(!labels) warnings.push('This import contains an explicit paving mask, not original semantic labels. Semantic protection diagnostics are unavailable.');
   if(occlusionMask) warnings.push('The supplied occlusion mask is retained separately; it is not subtracted from design quantities. Foreground compositing is not part of step 2.');
   return {camera,regions,origin:{x:0,z:0},pixelRegions:simplified.regions,source,
     diagnostics:{selectedPixels,pavingPixels,unsupportedPixels,projectionRejectedPixels,regions:regions.length,holes,vertices,
       rawBoundaryEdges:traced.edgeCount,saddleCorners:traced.saddleCorners,tolerancePx:simplified.tolerancePx,
+      maxCornersPerBoundary:simplified.maxCornersPerBoundary,boundariesOverCornerTarget:simplified.boundariesOverCornerTarget,
       exactPixelAreaM2,vectorAreaM2:area,areaDifferenceM2:area-exactPixelAreaM2,measurementStatus:'estimated'},
     masks:{labels,uncertain,groundHint,protected:blocked,groundSupport:support,requested:requestedMask,selection:selected,effective,occlusion:occlusionMask},warnings};
 }

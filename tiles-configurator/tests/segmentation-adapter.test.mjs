@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {fixture,binaryRLE,uint8RLE,prototypeExport} from './fixtures/model-results.mjs';
 import {prepareModelImport,decodeBinaryRLE,decodeUint8RLE} from '../js/segmentationAdapter.js';
 import {imageToGround} from '../js/modelCamera.js';
@@ -30,6 +31,27 @@ test('uncertainty is preserved, not silently used to erase selections',()=>{
  const b=fixture(),size=b.geometry.image.width*b.geometry.image.height;
  const before=prepareModelImport(b);b.segmentation.uncertainty=binaryRLE(new Uint8Array(size).fill(1));
  const after=prepareModelImport(b);near(after.diagnostics.vectorAreaM2,before.diagnostics.vectorAreaM2);assert.equal(sum(after.masks.uncertain),size);
+});
+
+test('corner-target diagnostics explain preserved extra corners and leave raw masks reusable',()=>{
+ const bundle=fixture(), before=structuredClone(bundle), result=prepareModelImport(bundle,{maxCornersPerBoundary:3});
+ assert.deepEqual(bundle,before);assert.equal(result.diagnostics.maxCornersPerBoundary,3);
+ assert.ok(result.diagnostics.boundariesOverCornerTarget>0);
+ assert.ok(result.warnings.some(w=>w.includes('more than 3 corners')));
+ const restored=prepareModelImport(bundle,{maxCornersPerBoundary:20});
+ assert.equal(restored.diagnostics.boundariesOverCornerTarget,0);
+ assert.equal(restored.regions.length,result.regions.length);assert.equal(restored.diagnostics.holes,result.diagnostics.holes);
+});
+
+test('saved sample-yard model export reduces its dense outer boundary to 20 actual editor vertices',()=>{
+ const payload=JSON.parse(readFileSync(new URL('../assets/sample-yards/mama.json',import.meta.url),'utf8')),
+   original=prepareModelImport(payload,{maxCornersPerBoundary:null}), reduced=prepareModelImport(payload),
+   boundaries=reduced.regions.flatMap(r=>[r.outer,...r.holes]);
+ assert.ok(original.regions.some(r=>r.outer.length>200));
+ assert.equal(Math.max(...boundaries.map(r=>r.length)),20);
+ assert.equal(reduced.regions.length,original.regions.length);assert.equal(reduced.diagnostics.holes,original.diagnostics.holes);
+ assert.equal(reduced.diagnostics.boundariesOverCornerTarget,0);
+ assert.equal(reduced.diagnostics.vertices,boundaries.reduce((sum,ring)=>sum+ring.length,0));
 });
 test('ground support clips suggestions without rewriting semantic labels',()=>{
  const b=fixture(),size=b.geometry.image.width*b.geometry.image.height,before=JSON.stringify(b.segmentation.labels);

@@ -1,4 +1,4 @@
-import { normalizeRegions, pointInRing } from './pavingRegions.js';
+import { normalizeRegions, pointInRing, canRemoveBoundaryVertex } from './pavingRegions.js?v=tiles-corners-2';
 import { failImport } from './modelCamera.js';
 
 export const MASK_LIMITS = Object.freeze({ pixels: 1100*1100, edges: 100000, saddleInsetPx: .02 });
@@ -7,7 +7,9 @@ const vectors = [[1,0],[0,1],[-1,0],[0,-1]];
 /** Pixel-cell boundary tracing: 4-connected foreground / 8-connected background.
  * At a diagonal saddle, a 0.02 px inward bevel resolves a zero-width contact.
  * No pixel centre changes class; no region is joined and no enclosed hole is filled.
- * Locked bevel vertices survive simplification. There is no morphology/min-size filter.
+ * Bevel vertices survive pixel-tolerance simplification. The corner-budget pass
+ * may remove them only when the resulting boundaries remain separate and valid.
+ * There is no morphology/min-size filter.
  */
 export function traceMask(mask, width, height) {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width<1 || height<1 ||
@@ -91,10 +93,49 @@ function simplifyRing(ring,tolerance) {
   return out.length>=3?out:ring;
 }
 const mapRegions = (regions,fn) => regions.map(r=>({...r,outer:r.outer.map(fn),holes:r.holes.map(h=>h.map(fn))}));
+/** Simplify to the requested count, removing the least significant corners first.
+ * Rank removals by deviation from the original arc, then swept area. Accuracy
+ * is a ranking criterion, not a veto that leaves hundreds of noisy vertices.
+ * Topology checks protect holes, separate islands and self-intersections.
+ */
+function reduceCorners(regions, maximum) {
+  const candidate = mapRegions(regions, p => ({...p}));
+  // Bound work on pathological masks. Keeping extra corners is always safe.
+  let work = 0;
+  const vertices = candidate.reduce((sum, r) => sum + r.outer.length + r.holes.reduce((n, h) => n + h.length, 0), 0);
+  for (let ri = 0; ri < candidate.length; ri++) {
+    const region = candidate[ri];
+    for (let hi = -1; hi < region.holes.length; hi++) {
+      const ring = hi < 0 ? region.outer : region.holes[hi], original = [...ring],
+        indices = ring.map((_, i) => i);
+      while (ring.length > maximum && work < 20000000) {
+        const n = ring.length, choices = ring.map((p, i) => {
+          const previous = (i + n - 1) % n, next = (i + 1) % n, a = ring[previous], c = ring[next];
+          let error = 0;
+          for (let j = (indices[previous] + 1) % original.length; j !== indices[next]; j = (j + 1) % original.length)
+            error = Math.max(error, dist2(original[j], a, c));
+          return {i, error, area: Math.abs((p.x - a.x) * (c.z - a.z) - (p.z - a.z) * (c.x - a.x))};
+        }).sort((a, b) => a.error - b.error || a.area - b.area || a.i - b.i);
+        let removed = false;
+        for (const {i} of choices) {
+          work += vertices;
+          if (work >= 20000000) break;
+          if (!canRemoveBoundaryVertex(candidate, ri, hi, i)) continue;
+          ring.splice(i, 1); indices.splice(i, 1);
+          removed = true; break;
+        }
+        if (!removed) break;
+      }
+    }
+  }
+  return candidate;
+}
 /** Retry less simplification when necessary; never delete rings to meet a budget. */
-export function simplifyContours(regions, width, height, tolerancePx=.75) {
+export function simplifyContours(regions, width, height, tolerancePx=.75, maxCornersPerBoundary=20) {
   if(typeof tolerancePx!=='number' || !Number.isFinite(tolerancePx) || tolerancePx<0 || tolerancePx>4)
     failImport('invalidOptions','Contour tolerance must be between 0 and 4 working-image pixels.');
+  if (maxCornersPerBoundary !== null && (!Number.isSafeInteger(maxCornersPerBoundary) || maxCornersPerBoundary < 3 || maxCornersPerBoundary > 4096))
+    failImport('invalidOptions','The corner target must be an integer between 3 and 4096, or null to disable it.');
   const scale=100/Math.max(width,height), attempts=[...new Set([tolerancePx,tolerancePx/2,tolerancePx/4,0])];
   let lastError;
   for(const tolerance of attempts) {
@@ -103,7 +144,18 @@ export function simplifyContours(regions, width, height, tolerancePx=.75) {
       // Scale solely for numerical validation, not metric placement. Large photos
       // exceed the model's coordinate bounds if fed to metre validators directly.
       normalizeRegions(mapRegions(candidate,p=>({x:p.x*scale,z:p.z*scale})));
-      return {regions:mapRegions(candidate,p=>({x:p.x,z:p.z})),tolerancePx:tolerance};
+      let reduced = candidate;
+      if (maxCornersPerBoundary !== null) {
+        const proposed = reduceCorners(candidate, maxCornersPerBoundary);
+        try {
+          normalizeRegions(mapRegions(proposed,p=>({x:p.x*scale,z:p.z*scale})));
+          reduced = proposed;
+        } catch { /* Keep the validated original if numerical validation disagrees. */ }
+      }
+      const boundariesOverCornerTarget = maxCornersPerBoundary === null ? 0 : reduced.reduce((sum, r) =>
+        sum + [r.outer, ...r.holes].filter(ring => ring.length > maxCornersPerBoundary).length, 0);
+      return {regions:mapRegions(reduced,p=>({x:p.x,z:p.z})),tolerancePx:tolerance,
+        maxCornersPerBoundary,boundariesOverCornerTarget};
     } catch(error) {lastError=error;}
   }
   failImport(lastError?.message==='areaTooComplex'?'areaTooComplex':'invalidTopology',

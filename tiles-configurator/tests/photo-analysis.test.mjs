@@ -139,6 +139,13 @@ test('restoring detected area does not rerun or upload to models',async()=>{
  ctl.restore({replaceExisting:true,targets:['pavement']});assert.equal(env.requests.length,count);
  assert.equal(env.imports.length,2);assert.equal(env.imports[1].value.regions.length,0);
 });
+
+test('analysis and retained-result restore pass the configured corner target to the importer',async()=>{
+ const {ctl,env}=setup({config:{maxCornersPerBoundary:12}});
+ await ctl.run();assert.equal(env.imports[0].token.maxCornersPerBoundary,12);
+ const requests=env.requests.length;ctl.restore({replaceExisting:true});
+ assert.equal(env.imports[1].token.maxCornersPerBoundary,12);assert.equal(env.requests.length,requests);
+});
 test('retained results are copies and never leak to a different photo',async()=>{
  const {ctl,env}=setup();await ctl.run();const a=ctl.getResult();a.geometry.image_id='changed';
  assert.equal(ctl.getResult().geometry.image_id,env.photo.photoId);env.photo.photoId='different';assert.equal(ctl.getResult(),null);

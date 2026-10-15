@@ -8,8 +8,9 @@ export const SEGMENTATION_CONFIG = Object.freeze({
   pollIntervalMs: 900,
   requestTimeoutMs: 45000,
   analysisTimeoutMs: 20 * 60 * 1000, // Covers first-run downloads and CPU inference.
-  targets: ['grass', 'dirt'],
+  targets: ['pavement'],
   tolerancePx: 0.75,
+  maxCornersPerBoundary: 20,
 });
 
 export function resolveAnalysisBase(config = SEGMENTATION_CONFIG, location = globalThis.location) {

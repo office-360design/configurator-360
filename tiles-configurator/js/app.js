@@ -1,10 +1,10 @@
 import { createProjectSession } from './projectSession.js';
 import { mountProjectPanel } from './projectPanel.js';
 import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
-import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-cloud-api-1';
-import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-cloud-api-1';
-import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-menu-2';
-import { prepareModelImport } from './segmentationAdapter.js';
+import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-corners-2';
+import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-corners-2';
+import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-corners-2';
+import { prepareModelImport } from './segmentationAdapter.js?v=tiles-corners-2';
 import { failImport } from './modelCamera.js';
 import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
@@ -1037,7 +1037,7 @@ async function applyStoredProject(bundle, guard) {
   let suggestion = null;
   if (detection && assets.photo) {
     try { suggestion = prepareModelImport(detection.payload, {photo:doc.photo, targets:detection.targets,
-      tolerancePx:SEGMENTATION_CONFIG.tolerancePx}); }
+      tolerancePx:SEGMENTATION_CONFIG.tolerancePx,maxCornersPerBoundary:SEGMENTATION_CONFIG.maxCornersPerBoundary}); }
     catch (error) { console.warn('Optional cached detection was not restored:', error); }
   }
   if (!guard()) throw new Error('The project changed while validating the saved design.');

@@ -1,6 +1,7 @@
 /** Normal user controls; raw models/masks stay in the separate Debug dropdown. */
 const COPY = {
   en: { title:'Automatic paving suggestion', run:'Analyze photo again', retry:'Retry automatic analysis', restore:'Restore detected area',
+    cornerNotice:n=>`Some boundaries need more than ${n} corners to preserve their shape and holes. Extra corners were kept.`,
     manual:'Use the 1 m reference square', change:'Choose another photo', cancel:'Stop analysis · continue manually',
     replace:'Replace the current pavement, including its intentional holes, with a new detected suggestion? Undo will restore the current design.',
     target:'Ground to suggest for paving', grass:'Grass', dirt:'Dirt / gravel', pavement:'Existing pavement',
@@ -14,6 +15,7 @@ const COPY = {
     privacy:'Automatic analysis sends a resized copy of this photo to the configured analysis service. Manual calibration does not require the models.',
     first:'The first run may download model weights. Progress is shown by stage, not an estimated percentage.', empty:'No usable paving was detected. Add an area manually, or include existing pavement and restore the detected area.' },
   ro: { title:'Sugestie automată de pavaj',run:'Analizează din nou fotografia',retry:'Reîncearcă analiza automată',restore:'Restabilește zona detectată',
+    cornerNotice:n=>`Unele contururi necesită mai mult de ${n} colțuri pentru a păstra forma și golurile. Colțurile suplimentare au fost păstrate.`,
     manual:'Folosește pătratul de referință de 1 m',change:'Alege altă fotografie',cancel:'Oprește analiza · continuă manual',
     replace:'Înlocuiești pavajul actual, inclusiv golurile create manual, cu o nouă sugestie? Anulare va restabili proiectul actual.',
     target:'Suprafețe propuse pentru pavare',grass:'Iarbă',dirt:'Pământ / pietriș',pavement:'Pavaj existent',
@@ -27,6 +29,7 @@ const COPY = {
     privacy:'Analiza automată trimite o copie redimensionată a fotografiei către serviciul de analiză configurat. Calibrarea manuală nu necesită modelele.',
     first:'Prima rulare poate descărca modelele. Progresul este afișat pe etape, nu ca procent estimat.',empty:'Nu s-a detectat o zonă utilizabilă. Adaugă manual o zonă sau include pavajul existent și restabilește detecția.' },
   de: { title:'Automatischer Pflastervorschlag',run:'Foto erneut analysieren',retry:'Automatische Analyse wiederholen',restore:'Erkannten Bereich wiederherstellen',
+    cornerNotice:n=>`Einige Konturen benötigen mehr als ${n} Ecken, um ihre Form und Aussparungen zu erhalten. Zusätzliche Ecken wurden beibehalten.`,
     manual:'1-m-Referenzquadrat verwenden',change:'Anderes Foto auswählen',cancel:'Analyse stoppen · manuell fortfahren',
     replace:'Die aktuelle Pflasterfläche einschließlich absichtlich angelegter Löcher durch einen neuen Vorschlag ersetzen? Rückgängig stellt den aktuellen Entwurf wieder her.',
     target:'Vorgeschlagene Bodenflächen',grass:'Rasen',dirt:'Erde / Kies',pavement:'Vorhandenes Pflaster',
@@ -40,9 +43,9 @@ const COPY = {
     privacy:'Die automatische Analyse sendet eine verkleinerte Kopie an den konfigurierten Analysedienst. Manuelle Kalibrierung benötigt keine Modelle.',
     first:'Beim ersten Lauf werden gegebenenfalls Modelle heruntergeladen. Fortschritt wird als Phase und nicht als geschätzter Prozentsatz angezeigt.',empty:'Keine nutzbare Fläche erkannt. Manuell hinzufügen oder vorhandenes Pflaster auswählen und den erkannten Bereich wiederherstellen.' },
 };
-export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['grass', 'dirt']}) {
+export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['pavement']}) {
   const panel = document.createElement('details'); panel.id = 'photoAnalysisPanel'; panel.className = 'accordion-section photo-analysis-panel';
-  panel.innerHTML = `<summary class="accordion-toggle"></summary><div class="accordion-panel"><p data-analysis-status role="status" aria-live="polite"></p><progress hidden aria-label="Analysis running"></progress>
+  panel.innerHTML = `<summary class="accordion-toggle"></summary><div class="accordion-panel"><p data-analysis-status role="status" aria-live="polite"></p><p class="note" data-analysis-corner-notice role="status" hidden></p><progress hidden aria-label="Analysis running"></progress>
     <p data-analysis-error role="alert" hidden></p><fieldset><legend></legend>${['grass','dirt','pavement'].map(k=>`<label><input type="checkbox" value="${k}" ${initialTargets.includes(k)?'checked':''}><span data-target="${k}"></span></label>`).join('')}</fieldset>
     <div class="analysis-actions"><button type="button" data-analyze class="area-secondary"></button><button type="button" data-restore class="area-secondary"></button>
     <button type="button" data-manual class="area-secondary"></button><button type="button" data-stop class="area-secondary"></button>
@@ -76,6 +79,9 @@ export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['
     $('summary').textContent=copy.title;
     $('[data-analysis-status]').textContent=copy.phases[s.phase]||copy.phases.idle;
     if(s.phase==='ready' && s.summary?.diagnostics?.regions===0) $('[data-analysis-status]').textContent=copy.empty;
+    const diagnostics = (api.getModelImportSummary?.() || (s.phase === 'ready' ? s.summary : null))?.diagnostics;
+    $('[data-analysis-corner-notice]').hidden = s.busy || !diagnostics?.boundariesOverCornerTarget;
+    $('[data-analysis-corner-notice]').textContent = diagnostics?.boundariesOverCornerTarget ? copy.cornerNotice(diagnostics.maxCornersPerBoundary) : '';
     $('progress').hidden=!s.busy;
     $('fieldset').disabled=s.busy;
     $('legend').textContent=copy.target;
