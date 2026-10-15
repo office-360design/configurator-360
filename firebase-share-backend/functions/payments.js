@@ -74,6 +74,8 @@ async function readCartTotal(uid, tenantSlug, currency) {
     if (!data.s || !Number.isFinite(amount) || amount < 0 || !CURRENCIES.has(itemCurrency)) return;
     items.push({ key: doc.id, productId: PRODUCTS[index], name: String(data.n || data.name || PRODUCTS[index]).slice(0, 120), amount: convertMoney(amount, itemCurrency, currency) });
   }));
+  // Test mode: the same fixed 1 RON test product the cart shows.
+  if (paymentMode() === 'test') items.push({ key: 'payment-test-item', productId: 'test', name: 'Test product', amount: convertMoney(1, 'RON', currency) });
   const total = Math.round(items.reduce((sum, item) => sum + item.amount, 0) * 100) / 100;
   return { items, total };
 }

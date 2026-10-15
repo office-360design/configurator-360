@@ -4,6 +4,11 @@ import { getFirebaseIdToken } from './firebaseAuth.js?v=platform-18';
 // server-side cart total; the browser posts the signed form to EuPlatesc and
 // comes back through the payment callback with ?payment=success|failed.
 const FUNCTIONS_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
+// While EuPlatesc runs on the test merchant account, every cart shows a fixed
+// 1 RON test product so the whole payment flow can be tried with a real cart
+// total. Must match EUPLATESC_MODE in firebase-share-backend/functions.
+export const PAYMENT_TEST_MODE = true;
+export const PAYMENT_TEST_ITEM = Object.freeze({ key: 'payment-test-item', productId: 'test', costAmount: 1, currency: 'RON' });
 const CONTROLLER_FLAG = '__360ConfiguratorPaymentControllerV1';
 const SUPPORTED_LOCALES = new Set(['en-US', 'ro-RO', 'de-DE']);
 

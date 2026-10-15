@@ -1999,3 +1999,6 @@ body.shared-ui-dark-mode .configuration-quotation{background:#253139;color:#edf4
 .shared-payment-banner.is-failed, .shared-payment-banner.is-invalid { color:#7a1d14; background:#fdecea; }
 .shared-payment-banner span { color:inherit; opacity:.8; font-weight:500; }
 .shared-payment-banner button { border:0; background:transparent; color:inherit; font-size:18px; line-height:1; cursor:pointer; }
+
+.shared-ui-host .cart-menu__item--test { background: #f6faf3; }
+.shared-ui-host .cart-menu__test-badge { align-self: center; padding: 2px 7px; border-radius: 999px; background: #e3f1d8; color: #3b6b1f; font-size: 10px; font-weight: 800; letter-spacing: .06em; }
