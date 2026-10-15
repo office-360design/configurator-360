@@ -7,7 +7,11 @@ export function pavementCutSurfaces(parts, state) {
     const rotated = Math.abs((Number(p.rotation) || 0) % 180) > 1e-6;
     let polygon;
     if (p.profile) {
-      polygon = fragment.map(v => ({ x: p.x + (v.x - p.x) * 0.985, z: p.z + (v.z - p.z) * 0.985 }));
+      // Inset around the fragment's own centroid so cut profile pieces stay
+      // inside their fragment (not around the uncut stone's centre).
+      const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length;
+      const cz = fragment.reduce((sum, v) => sum + v.z, 0) / fragment.length;
+      polygon = fragment.map(v => ({ x: cx + (v.x - cx) * 0.985, z: cz + (v.z - cz) * 0.985 }));
     } else if (rotated) {
       const cx = fragment.reduce((sum, v) => sum + v.x, 0) / fragment.length;
       const cz = fragment.reduce((sum, v) => sum + v.z, 0) / fragment.length;

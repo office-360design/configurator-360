@@ -12,7 +12,7 @@ import { renderSavedConfigurationsDialog } from './components/savedConfiguration
 import { renderProfileDialog } from './components/profileDialog.js?v=platform-19';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=platform-19';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=quotation-1';
-import { renderCartMenu } from './components/cartMenu.js?v=platform-19';
+import { renderCartMenu } from './components/cartMenu.js?v=payments-3';
 import { getUserCart, mutateUserCart } from './userCart.js?v=platform-19';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=platform-19';
 import { readShareState } from './shareState.js?v=platform-19';

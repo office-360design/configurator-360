@@ -1,9 +1,11 @@
 import { sharedT } from '../i18n.js?v=platform-18';
 import { sharedIcon } from '../icons.js?v=platform-18';
 import { installQuotationRequestController } from '../quotationRequest.js?v=platform-18';
+import { PAYMENT_TEST_ITEM, PAYMENT_TEST_MODE, installPaymentController } from '../paymentRequest.js?v=payments-3';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 installQuotationRequestController();
+installPaymentController();
 
 const CART_FX_RATES_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const SUPPORTED_CURRENCIES = new Set(['EUR', 'USD', 'RON']);
@@ -104,7 +106,21 @@ function cartDisplayModel(locale, items) {
   };
 }
 
+// The test product cannot be edited or removed; it only exists for payments.
+function renderTestCartItem(locale, item) {
+  return `
+    <article class="cart-menu__item cart-menu__item--test" data-cart-test-item>
+      <div class="cart-menu__item-copy">
+        <strong>${escapeHtml(sharedT(locale, 'cart.testItem'))}</strong>
+        <span>${escapeHtml(String(item?.costText || '—'))}</span>
+      </div>
+      <span class="cart-menu__test-badge">TEST</span>
+    </article>
+  `;
+}
+
 function renderCartItem(locale, item) {
+  if (item?.key === PAYMENT_TEST_ITEM.key) return renderTestCartItem(locale, item);
   const key = escapeHtml(String(item?.key || ''));
   const productId = escapeHtml(String(item?.productId || ''));
   const name = escapeHtml(String(item?.name || sharedT(locale, 'cart.unnamed')));
@@ -131,9 +147,11 @@ function renderCartItem(locale, item) {
 
 export function renderCartMenu(locale, items = [], { open = false, busy = false } = {}) {
   const normalized = Array.isArray(items) ? items : [];
-  const model = cartDisplayModel(locale, normalized);
+  const model = cartDisplayModel(locale, PAYMENT_TEST_MODE ? [...normalized, PAYMENT_TEST_ITEM] : normalized);
+  const payDisabled = busy || (!PAYMENT_TEST_MODE && normalized.length === 0);
   const emptyLabel = escapeHtml(sharedT(locale, 'cart.emptyCart'));
   const quoteLabel = escapeHtml(sharedT(locale, 'cart.quote'));
+  const payLabel = escapeHtml(sharedT(locale, 'cart.pay'));
   const quotationLocale = escapeHtml(String(locale || 'en-US'));
   const quotationCurrency = escapeHtml(model.currency);
   return `
@@ -161,6 +179,13 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false 
             <span class="cart-menu__quote-loader"><i></i><i></i><i></i></span>
           </span>
           <span>${quoteLabel}</span>
+        </button>
+        <button class="cart-menu__pay" type="button" data-action="cart-pay" ${payDisabled ? 'disabled' : ''}>
+          <span class="cart-menu__quote-icon" aria-hidden="true">
+            <span class="cart-menu__quote-mail"><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6.5 15h4"/></svg></span>
+            <span class="cart-menu__quote-loader"><i></i><i></i><i></i></span>
+          </span>
+          <span data-pay-label>${payLabel}</span>
         </button>
       </div>
     </section>
