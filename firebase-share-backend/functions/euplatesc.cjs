@@ -50,6 +50,13 @@ function verifyResponse(body, key) {
   return received.length === expected.length && crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected));
 }
 
+// Test merchant accounts accept at most 1 USD per payment, so in test mode a
+// symbolic amount is charged instead of the cart total.
+const TEST_CHARGE = Object.freeze({ RON: 1, EUR: 0.5, USD: 0.5 });
+function chargeAmount(total, currency, mode) {
+  return mode === 'live' ? total : Math.min(total, TEST_CHARGE[currency] ?? 0.5);
+}
+
 // The browser returns to the page that started the payment, never elsewhere.
 function safeReturnUrl(value, origin) {
   try {
@@ -61,4 +68,4 @@ function safeReturnUrl(value, origin) {
   } catch { return `${origin}/`; }
 }
 
-module.exports = { EUPLATESC_URL, CALLBACK_URL, RESPONSE_FIELDS, euplatescMac, euplatescTimestamp, buildPaymentFields, verifyResponse, safeReturnUrl };
+module.exports = { EUPLATESC_URL, TEST_CHARGE, chargeAmount, CALLBACK_URL, RESPONSE_FIELDS, euplatescMac, euplatescTimestamp, buildPaymentFields, verifyResponse, safeReturnUrl };

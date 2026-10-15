@@ -10,10 +10,13 @@ const { defineSecret } = require('firebase-functions/params');
 const logger = require('firebase-functions/logger');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { TENANT_ORIGIN_PATTERN, tenantOriginContext, tenantRecordMatchesHost } = require('./tenantDomains.cjs');
-const { EUPLATESC_URL, buildPaymentFields, safeReturnUrl, verifyResponse } = require('./euplatesc.cjs');
+const { EUPLATESC_URL, buildPaymentFields, chargeAmount, safeReturnUrl, verifyResponse } = require('./euplatesc.cjs');
 
 const EUPLATESC_MID = defineSecret('EUPLATESC_MID');
 const EUPLATESC_KEY = defineSecret('EUPLATESC_KEY');
+// 'test' charges a symbolic amount (EuPlatesc test accounts accept ≤ 1 USD);
+// add EUPLATESC_MODE=live to functions/.env once the live account is active.
+const paymentMode = () => (process.env.EUPLATESC_MODE === 'live' ? 'live' : 'test');
 
 const FUNCTION_REGION = 'europe-west1';
 const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserviceaccount.com';
@@ -96,20 +99,23 @@ exports.createCartPayment = onCall({ ...CALLABLE_OPTIONS, secrets: [EUPLATESC_MI
   const ref = getFirestore().collection(PAYMENTS_COLLECTION).doc();
   const email = String(request.auth?.token?.email || '').slice(0, 320);
   const [firstName = '', ...rest] = String(request.auth?.token?.name || '').trim().split(/\s+/);
-  const description = `360Configurator · ${items.length} ${items.length === 1 ? 'configuration' : 'configurations'}`.slice(0, 120);
+  const mode = paymentMode();
+  const charged = chargeAmount(total, currency, mode);
+  const testNote = mode === 'live' ? '' : ` · TEST (cart ${total.toFixed(2)} ${currency})`;
+  const description = `360Configurator · ${items.length} ${items.length === 1 ? 'configuration' : 'configurations'}${testNote}`.slice(0, 120);
   const fields = buildPaymentFields({
-    amount: total, currency, invoiceId: ref.id, description,
+    amount: charged, currency, invoiceId: ref.id, description,
     merchantId: EUPLATESC_MID.value().trim(), key: EUPLATESC_KEY.value(),
     customer: { firstName, lastName: rest.join(' '), email },
   });
   await ref.create({
     v: 1, uid, tenantSlug: tenantSlug || null, origin,
     returnUrl: safeReturnUrl(request.data?.returnUrl, origin),
-    amount: fields.amount, currency, description,
+    amount: fields.amount, cartTotal: total, mode, currency, description,
     items: items.map(({ key, productId, name, amount }) => ({ key, productId, name, amount: Math.round(amount * 100) / 100 })),
     status: 'pending', createdAt: Timestamp.now(),
   });
-  logger.info('EuPlatesc payment created.', { event: 'payment-created', orderId: ref.id, uid, amount: fields.amount, currency, itemCount: items.length });
+  logger.info('EuPlatesc payment created.', { event: 'payment-created', orderId: ref.id, uid, amount: fields.amount, cartTotal: total, mode, currency, itemCount: items.length });
   return { orderId: ref.id, action: EUPLATESC_URL, fields };
 });
 
@@ -121,7 +127,7 @@ exports.getCartPayment = onCall(CALLABLE_OPTIONS, async (request) => {
   const snapshot = await getFirestore().collection(PAYMENTS_COLLECTION).doc(orderId).get();
   const data = snapshot.data();
   if (!snapshot.exists || data.uid !== uid) throw new HttpsError('not-found', 'Payment not found.');
-  return { orderId, status: data.status, amount: data.amount, currency: data.currency, message: data.bankMessage || null, epId: data.epId || null };
+  return { orderId, status: data.status, amount: data.amount, cartTotal: data.cartTotal ?? null, mode: data.mode || 'test', currency: data.currency, message: data.bankMessage || null, epId: data.epId || null };
 });
 
 // EuPlatesc posts the result twice: to the browser return URL and to the

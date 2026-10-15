@@ -1,7 +1,7 @@
 import { sharedT } from '../i18n.js?v=platform-18';
 import { sharedIcon } from '../icons.js?v=platform-18';
 import { installQuotationRequestController } from '../quotationRequest.js?v=platform-18';
-import { installPaymentController } from '../paymentRequest.js?v=payments-1';
+import { installPaymentController } from '../paymentRequest.js?v=payments-2';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 installQuotationRequestController();

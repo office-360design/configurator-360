@@ -102,7 +102,10 @@ async function showReturnBanner() {
   if (outcome === 'success' && orderId) {
     try {
       const status = await callFunction('getCartPayment', { orderId });
-      if (status?.amount) banner.querySelector('span').textContent = `${status.amount} ${status.currency} · ${text.order} ${orderId}`;
+      if (status?.amount) {
+        const test = status.mode === 'test' && status.cartTotal != null ? ` (TEST · ${Number(status.cartTotal).toFixed(2)} ${status.currency})` : '';
+        banner.querySelector('span').textContent = `${status.amount} ${status.currency}${test} · ${text.order} ${orderId}`;
+      }
     } catch { /* the banner already shows the verified redirect result */ }
   }
 }

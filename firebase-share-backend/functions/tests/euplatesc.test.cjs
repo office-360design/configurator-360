@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { buildPaymentFields, euplatescMac, euplatescTimestamp, safeReturnUrl, verifyResponse, RESPONSE_FIELDS } = require('../euplatesc.cjs');
+const { TEST_CHARGE, buildPaymentFields, chargeAmount, euplatescMac, euplatescTimestamp, safeReturnUrl, verifyResponse, RESPONSE_FIELDS } = require('../euplatesc.cjs');
 
 const KEY = '00112233445566778899AABBCCDDEEFF00112233';
 
@@ -38,4 +38,13 @@ test('return URLs stay on the origin that started the payment', () => {
   assert.equal(safeReturnUrl('https://www.360configurator.com/window-configurator/?payment=failed&x=1#a', 'https://www.360configurator.com'), 'https://www.360configurator.com/window-configurator/?x=1');
   assert.equal(safeReturnUrl('https://evil.example/phish', 'https://www.360configurator.com'), 'https://www.360configurator.com/');
   assert.equal(safeReturnUrl('not a url', 'http://127.0.0.1:8080'), 'http://127.0.0.1:8080/');
+});
+
+test('test mode charges a symbolic amount within the 1 USD test limit', () => {
+  assert.equal(chargeAmount(12500.4, 'RON', 'test'), 1);
+  assert.equal(chargeAmount(980, 'EUR', 'test'), 0.5);
+  assert.equal(chargeAmount(0.3, 'USD', 'test'), 0.3, 'smaller carts are charged in full');
+  assert.equal(chargeAmount(12500.4, 'RON', 'live'), 12500.4);
+  // ≤ 1 USD at the backend rates (EUR 1 = RON 4.98 = USD 1.09).
+  assert.ok(TEST_CHARGE.RON / 4.98 * 1.09 <= 1 && TEST_CHARGE.EUR * 1.09 <= 1 && TEST_CHARGE.USD <= 1);
 });
