@@ -17,7 +17,7 @@ const copy = {
     caption:'Outputs for this exact two-slope preset', columns:['Output','Value'], rows:['Building footprint','Sloped roof area','Ridge length','Eaves length','Covering panels','Ridge pieces','Gutter pieces'], pieces:'pieces',
     limits:'Panel coverage, waste allowance, effective ridge length (0.37 m) and gutter length (3 m) are assumptions of this demo preset. Other products and drawn-roof modes may use different calculations. Validate the catalogue, construction and purchasing quantities before production.',
     next:'For a software project, send your available drawings, dimensions, compatibility rules and a sample material list. We review the required outputs and interfaces before agreeing scope or price.',
-    action:'Discuss your roof configurator', open:'Reproduce in the full configurator',
+    action:'Discuss your roof configurator', open:'Reproduce in the full configurator', pricing:'Understand implementation costs',
   },
   ro: {
     title:'De la acoperișul configurat la lista de materiale.',
@@ -34,7 +34,7 @@ const copy = {
     caption:'Rezultate pentru această configurație în două ape', columns:['Rezultat','Valoare'], rows:['Amprenta clădirii','Suprafața înclinată','Lungimea coamei','Lungimea streșinilor','Panouri de învelitoare','Piese de coamă','Piese de jgheab'], pieces:'bucăți',
     limits:'Acoperirea utilă, rezerva, lungimea utilă a coamei (0,37 m) și lungimea jgheabului (3 m) sunt ipotezele variantei demo. Alte produse și modurile cu acoperiș desenat pot avea alte calcule. Validează catalogul, construcția și necesarul pentru achiziție înainte de producție.',
     next:'Pentru un proiect software, trimite desenele disponibile, dimensiunile, regulile de compatibilitate și un exemplu de listă de materiale. Verificăm rezultatele și interfețele necesare înainte să stabilim ce include proiectul și prețul.',
-    action:'Discută configuratorul pentru acoperișuri', open:'Reproduce în configuratorul complet',
+    action:'Discută configuratorul pentru acoperișuri', open:'Reproduce în configuratorul complet', pricing:'Vezi costurile de implementare',
   },
   de: {
     title:'Vom konfigurierten Dach zur Stückliste.',
@@ -51,7 +51,7 @@ const copy = {
     caption:'Ergebnisse für genau dieses Satteldach', columns:['Ergebnis','Wert'], rows:['Gebäudegrundfläche','Geneigte Dachfläche','Firstlänge','Trauflänge','Deckpaneele','Firstteile','Rinnenteile'], pieces:'Stück',
     limits:'Nutzdeckung, Verschnitt, wirksame Firstlänge (0,37 m) und Rinnenlänge (3 m) sind Annahmen dieses Demobeispiels. Andere Produkte und gezeichnete Dachformen können andere Berechnungen verwenden. Prüfen Sie Katalog, Konstruktion und Bestellmengen vor der Produktion.',
     next:'Senden Sie für ein Softwareprojekt vorhandene Zeichnungen, Maße, Variantenregeln und eine Beispielstückliste. Wir prüfen die benötigten Ausgaben und Schnittstellen, bevor Umfang und Preis festgelegt werden.',
-    action:'Dachkonfigurator-Projekt besprechen', open:'Im vollständigen Konfigurator nachvollziehen',
+    action:'Dachkonfigurator-Projekt besprechen', open:'Im vollständigen Konfigurator nachvollziehen', pricing:'Implementierungskosten verstehen',
   },
 };
 
@@ -66,6 +66,7 @@ export function RoofTechnicalExample({locale,launchUrl}: {locale:Locale;launchUr
       <ol className="roof-example-workflow">{text.steps.map(([title,body])=><li key={title}><h3>{title}</h3><p>{body}</p></li>)}</ol>
       <table className="roof-example-table"><caption>{text.caption}</caption><thead><tr>{text.columns.map(label=><th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{text.rows.map((label,index)=><tr key={label}><th scope="row">{label}</th><td>{values[index]}</td></tr>)}</tbody></table>
       <p className="roof-example-limits">{text.limits}</p>
+      <p><a className="text-link" href={`${localizedPath(locale, '/pricing')}#cost-breakdown`}>{text.pricing}<span aria-hidden="true">→</span></a></p>
       <div className="evidence-next"><p>{text.next}</p><div className="roof-example-actions"><a className="launch-link" href={`${localizedPath(locale,'/contact')}?project=roof`}>{text.action}<span aria-hidden="true">↗</span></a><a className="text-link" href={launchUrl} target="_blank" rel="noreferrer">{text.open}<span aria-hidden="true">↗</span></a></div></div>
     </div>
   </section>;

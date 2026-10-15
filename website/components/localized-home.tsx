@@ -11,6 +11,7 @@ import { CapabilityCube, ProductFeatureCube } from "./capability-cube";
 import { ImplementationEvidence, projectActions } from "./implementation-evidence";
 import { getLocalizedConfigurators } from "../lib/configurators-localized";
 import { homeCopy, localizedPath, type Locale, uiCopy } from "../lib/i18n";
+import { homeMetadata } from "../lib/commercial-content";
 import { absoluteUrl, graphSchema, organizationSchema, siteUrl, SITE_URL, websiteSchema } from "../lib/seo";
 
 export function LocalizedHome({ locale }: { locale: Locale }) {
@@ -18,7 +19,7 @@ export function LocalizedHome({ locale }: { locale: Locale }) {
   const ui = uiCopy[locale];
   const project = projectActions[locale];
   const configurators = getLocalizedConfigurators(locale);
-  const schemaDescription = locale === "ro" ? "Configuratoare 3D pentru produse industriale complexe, cu reguli tehnice, prețuri și liste de materiale." : locale === "de" ? "Visuelle und räumliche 3D-Produktkonfiguration für komplexe Industrieprodukte." : "Industrial 3D visual and spatial product configuration for complex products.";
+  const schemaDescription = homeMetadata[locale].description;
   const structuredData = graphSchema([
     organizationSchema(locale, schemaDescription),
     websiteSchema(locale, schemaDescription),

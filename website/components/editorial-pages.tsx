@@ -2,6 +2,7 @@ import { SiteHeader } from "./site-header";
 import { SiteFooter } from "./site-footer";
 import { SmoothScroll } from "./smooth-scroll";
 import { ContactForm } from "./contact-form";
+import { SpotlightReference } from "./spotlight-reference";
 import { contactEmail, contactPhone, localizedPath, type Locale } from "../lib/i18n";
 import { absoluteUrl, breadcrumbSchema, graphSchema, organizationSchema, siteUrl, websiteSchema } from "../lib/seo";
 
@@ -37,7 +38,7 @@ export function AboutPage({ locale }: { locale: Locale }) {
   const schema = graphSchema([organizationSchema(locale, copy.intro), websiteSchema(locale, copy.intro), { "@type": "AboutPage", "@id": `${absoluteUrl(locale,"/about")}#webpage`, url: absoluteUrl(locale,"/about"), name: copy.index, description: copy.intro, inLanguage: locale, isPartOf: { "@id": `${siteUrl(locale)}/#website` }, breadcrumb: { "@id": `${absoluteUrl(locale,"/about")}#breadcrumb` } }, breadcrumbSchema(locale,[{name:"360Configurator",path:"/"},{name:copy.index.replace(/^01 \/ /,""),path:"/about"}])]);
   return <main className="site-shell editorial-page about-page"><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema)}}/><SmoothScroll/><SiteHeader locale={locale} currentPath={path}/>
     <section className="editorial-hero page-frame"><div className="editorial-orbit" aria-hidden="true"><i/><i/><i/></div><span className="mono-label">{copy.index}</span><p className="editorial-eyebrow">{copy.eyebrow}</p><h1>{copy.titleA}<br/><em>{copy.titleB}</em></h1><p className="editorial-intro">{copy.intro}</p></section>
-    <section className="editorial-origin"><div className="page-frame"><span className="mono-label">{copy.origin}</span><h2>{copy.originTitle}</h2><p>{copy.originBody}</p></div></section>
+    <section className="editorial-origin"><div className="page-frame"><span className="mono-label">{copy.origin}</span><h2>{copy.originTitle}</h2><p>{copy.originBody}</p><SpotlightReference locale={locale}/></div></section>
     <section className="editorial-principles"><div className="page-frame"><span className="mono-label">{copy.method}</span><div className="principle-grid">{copy.principles.map(([title,body],index)=><article key={title}><span>0{index+1}</span><h3>{title}</h3><p>{body}</p></article>)}</div></div></section>
     <section className="editorial-close"><div className="page-frame"><h2>{copy.closingA}<br/><em>{copy.closingB}</em></h2><a className="project-link" href={localizedPath(locale,"/contact")}><span>{copy.cta}</span><b>↗</b></a></div></section><SiteFooter locale={locale}/>
   </main>;
