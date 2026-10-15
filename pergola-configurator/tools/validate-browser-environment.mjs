@@ -81,7 +81,8 @@ try {
     await page.locator('[data-action="select-roof-rectangle"]').first().click();
     await changesFrame(() => page.locator('[data-action="spotlight-counter"][data-delta="1"]').click(), 'spotlight added');
     if (viewport.width < 760) await page.locator('#pergolaSidebarToggle').click();
-    if (!await tool('environment').isVisible()) await page.getByRole('button', { name: 'Toggle tools', exact: true }).click();
+    const launcher = page.getByRole('button', { name: 'Toggle tools', exact: true });
+    if (await launcher.getAttribute('aria-expanded') !== 'true') await launcher.click();
     await tool('environment').click();
     for (const night of [true, false, true]) {
       await changesFrame(() => page.locator('[data-action="toggle-night"]').click(), `night=${night}`);
