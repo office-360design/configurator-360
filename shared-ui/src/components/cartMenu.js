@@ -1,9 +1,11 @@
 import { sharedT } from '../i18n.js?v=platform-18';
 import { sharedIcon } from '../icons.js?v=platform-18';
 import { installQuotationRequestController } from '../quotationRequest.js?v=platform-18';
+import { installPaymentController } from '../paymentRequest.js?v=payments-1';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 installQuotationRequestController();
+installPaymentController();
 
 const CART_FX_RATES_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const SUPPORTED_CURRENCIES = new Set(['EUR', 'USD', 'RON']);
@@ -134,6 +136,7 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false 
   const model = cartDisplayModel(locale, normalized);
   const emptyLabel = escapeHtml(sharedT(locale, 'cart.emptyCart'));
   const quoteLabel = escapeHtml(sharedT(locale, 'cart.quote'));
+  const payLabel = escapeHtml(sharedT(locale, 'cart.pay'));
   const quotationLocale = escapeHtml(String(locale || 'en-US'));
   const quotationCurrency = escapeHtml(model.currency);
   return `
@@ -161,6 +164,13 @@ export function renderCartMenu(locale, items = [], { open = false, busy = false 
             <span class="cart-menu__quote-loader"><i></i><i></i><i></i></span>
           </span>
           <span>${quoteLabel}</span>
+        </button>
+        <button class="cart-menu__pay" type="button" data-action="cart-pay" ${busy || normalized.length === 0 ? 'disabled' : ''}>
+          <span class="cart-menu__quote-icon" aria-hidden="true">
+            <span class="cart-menu__quote-mail"><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6.5 15h4"/></svg></span>
+            <span class="cart-menu__quote-loader"><i></i><i></i><i></i></span>
+          </span>
+          <span data-pay-label>${payLabel}</span>
         </button>
       </div>
     </section>

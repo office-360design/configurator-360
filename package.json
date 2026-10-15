@@ -52,7 +52,8 @@
     "check:cages": "node --test cages-configurator/tests/model.test.mjs && node --check cages-configurator/js/app.js && node --check cages-configurator/js/scene.js && node --check cages-configurator/js/section.js",
     "check:cages:browser": "node cages-configurator/tests/cages-browser.cjs",
     "check:curtain-wall": "node --test curtain-wall-configurator/tests/facade.test.mjs && node --check curtain-wall-configurator/js/app.js && node --check curtain-wall-configurator/js/scene.js && node --check curtain-wall-configurator/js/drawings.js",
-    "check:curtain-wall:browser": "node curtain-wall-configurator/tests/curtain-wall-browser.cjs"
+    "check:curtain-wall:browser": "node curtain-wall-configurator/tests/curtain-wall-browser.cjs",
+    "check:payments": "node --test firebase-share-backend/functions/tests/euplatesc.test.cjs && node --check firebase-share-backend/functions/payments.js"
   },
   "dependencies": {
     "playwright": "^1.54.1"
