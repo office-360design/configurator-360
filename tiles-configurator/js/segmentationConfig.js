@@ -11,6 +11,7 @@ export const SEGMENTATION_CONFIG = Object.freeze({
   targets: ['pavement'],
   tolerancePx: 0.75,
   maxCornersPerBoundary: 20,
+  minRegionAreaM2: 0.5,
 });
 
 export function resolveAnalysisBase(config = SEGMENTATION_CONFIG, location = globalThis.location) {

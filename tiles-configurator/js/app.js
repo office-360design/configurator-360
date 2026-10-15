@@ -1,10 +1,10 @@
 import { createProjectSession } from './projectSession.js';
 import { mountProjectPanel } from './projectPanel.js';
 import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
-import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-corners-2';
-import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-corners-2';
+import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-area-1';
+import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-area-1';
 import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-corners-2';
-import { prepareModelImport } from './segmentationAdapter.js?v=tiles-corners-2';
+import { prepareModelImport } from './segmentationAdapter.js?v=tiles-area-1';
 import { failImport } from './modelCamera.js';
 import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
@@ -510,7 +510,7 @@ function importModelResult(input, options = {}) {
     failImport('unfinishedDrawing', 'Finish or cancel the current outline before importing a model result.');
   if (asRegionState(state).areaRegions.length && options.replaceExisting !== true)
     failImport('replaceRequired', 'The current pavement and its holes will not be overwritten without explicit replacement.');
-  const imported = prepareModelImport(input, { ...options, photo }),
+  const imported = prepareModelImport(input, { minRegionAreaM2: SEGMENTATION_CONFIG.minRegionAreaM2, ...options, photo }),
     next = normalize({ ...state, shape: 'regions', areaPoints: null, areaRegions: imported.regions, areaOrigin: imported.origin,
       // Photo model results must not be clipped by an unrelated 3D demo house.
       houseEnabled: false }),
@@ -1037,7 +1037,8 @@ async function applyStoredProject(bundle, guard) {
   let suggestion = null;
   if (detection && assets.photo) {
     try { suggestion = prepareModelImport(detection.payload, {photo:doc.photo, targets:detection.targets,
-      tolerancePx:SEGMENTATION_CONFIG.tolerancePx,maxCornersPerBoundary:SEGMENTATION_CONFIG.maxCornersPerBoundary}); }
+      tolerancePx:SEGMENTATION_CONFIG.tolerancePx,maxCornersPerBoundary:SEGMENTATION_CONFIG.maxCornersPerBoundary,
+      minRegionAreaM2:SEGMENTATION_CONFIG.minRegionAreaM2}); }
     catch (error) { console.warn('Optional cached detection was not restored:', error); }
   }
   if (!guard()) throw new Error('The project changed while validating the saved design.');

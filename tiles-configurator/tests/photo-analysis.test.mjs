@@ -48,7 +48,7 @@ test('upload -> job -> both model outputs -> real hole-capable adapter',async()=
   assert.deepEqual(env.events.filter(x=>x.busy).map(x=>x.phase),['preparing','connecting','uploading','queued','camera','applying']);
   assert.equal(ctl.getStatus().phase,'ready');assert.equal(env.imports.length,1);
   assert.equal(env.imports[0].token.designRevision,1);assert.equal(env.imports[0].value.diagnostics.holes,1);
-  assert.equal(env.imports[0].value.regions.length,2);
+  assert.equal(env.imports[0].value.regions.length,1);assert.equal(env.imports[0].value.diagnostics.filteredSmallRegions,1);
   const upload=env.requests.find(x=>x.path==='/jobs');assert.equal(upload.options.body.get('image_id'),env.photo.photoId);
   assert.equal(upload.options.body.get('client_id'),'test-client');
 });
@@ -140,11 +140,13 @@ test('restoring detected area does not rerun or upload to models',async()=>{
  assert.equal(env.imports.length,2);assert.equal(env.imports[1].value.regions.length,0);
 });
 
-test('analysis and retained-result restore pass the configured corner target to the importer',async()=>{
- const {ctl,env}=setup({config:{maxCornersPerBoundary:12}});
+test('analysis and retained-result restore pass corner and area settings to the importer',async()=>{
+ const {ctl,env}=setup({config:{maxCornersPerBoundary:12,minRegionAreaM2:.75}});
  await ctl.run();assert.equal(env.imports[0].token.maxCornersPerBoundary,12);
+ assert.equal(env.imports[0].token.minRegionAreaM2,.75);
  const requests=env.requests.length;ctl.restore({replaceExisting:true});
  assert.equal(env.imports[1].token.maxCornersPerBoundary,12);assert.equal(env.requests.length,requests);
+ assert.equal(env.imports[1].token.minRegionAreaM2,.75);
 });
 test('retained results are copies and never leak to a different photo',async()=>{
  const {ctl,env}=setup();await ctl.run();const a=ctl.getResult();a.geometry.image_id='changed';

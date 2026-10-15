@@ -48,6 +48,13 @@ corners only when topology or the bounded processing budget prevents further
 reduction, with a notice in the analysis panel. Manual editing retains its existing geometry limits. Raw
 model results remain available for Restore without another model request.
 
+Detected regions smaller than 0.5 m² of estimated ground area are ignored.
+The threshold uses the outer area minus its holes, before and after corner
+simplification. Holes within retained regions are preserved. Configure it with
+`minRegionAreaM2` in `js/segmentationConfig.js`; `0` disables the filter. Manual
+drawing and existing saved designs retain their areas. Original masks are kept
+for diagnostics and restoring the detection with different settings.
+
 First-use model downloads may be slow. Progress reports stages, not invented
 percentages or an unsupported time estimate. Default HTTP timeout is 45 seconds
 per request; the overall analysis timeout is 20 minutes and can be configured in

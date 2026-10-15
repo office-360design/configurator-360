@@ -1,4 +1,4 @@
-import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js?v=tiles-corners-2';
+import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js?v=tiles-area-1';
 import { prepareWorkingPhoto } from './photoPreparation.js';
 
 const abortError = () => new DOMException('Analysis cancelled.', 'AbortError');
@@ -194,7 +194,7 @@ export function createPhotoAnalysis({
       }
       const summary = importResult(bundle, { photoId: token.photoId, designRevision: token.designRevision,
         replaceExisting, targets, analysisResultId: retained.resultId, tolerancePx: config.tolerancePx ?? .75,
-        maxCornersPerBoundary: config.maxCornersPerBoundary });
+        maxCornersPerBoundary: config.maxCornersPerBoundary, minRegionAreaM2: config.minRegionAreaM2 });
       publish({ phase: payload.segmentation ? 'ready' : 'camera_only', busy: false, summary,
         errors: payload.errors || {}, timing_s: payload.timing_s || {}, error: null, elapsedMs: now() - start });
       return { applied: true, summary };
@@ -216,6 +216,7 @@ export function createPhotoAnalysis({
       photoId: token.photoId, designRevision: token.designRevision, replaceExisting,
       targets, analysisResultId: retained.resultId, tolerancePx: config.tolerancePx ?? .75,
       maxCornersPerBoundary: config.maxCornersPerBoundary,
+      minRegionAreaM2: config.minRegionAreaM2,
     });
     publish({ phase: retained.payload.segmentation ? 'ready' : 'camera_only', busy: false,
       photoId: token.photoId, summary, error: null, errors: retained.payload.errors || {} });
