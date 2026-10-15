@@ -30,23 +30,33 @@ try {
     await page.route('https://**', route => route.abort());
     await page.route('**/src/main.js', async route => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: `${await response.text()}\nwindow.testApp = { store, ui, scene };` });
+      await route.fulfill({ response, body: `${await response.text()}
+        window.testApp = { store, ui, scene };
+        window.testFrame = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 96; canvas.height = 64;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(scene.renderer.domElement, 0, 0, 96, 64);
+          let image = 2166136261;
+          for (const value of ctx.getImageData(0, 0, 96, 64).data) image = Math.imul(image ^ value, 16777619);
+          return { frames: scene.visualsApi.getDiagnostics().performance.drawnFrames, image };
+        };
+      ` });
     });
     await page.goto(origin);
     await page.waitForFunction(() => window.testApp?.scene?.pergola);
     await page.evaluate(async () => { await testApp.scene.assets.ready; });
     await page.waitForFunction(() => testApp.scene.visualsApi.getDiagnostics().performance.skippedIdleFrames > 3);
 
-    const snapshot = () => page.evaluate(() => ({
-      frames: testApp.scene.visualsApi.getDiagnostics().performance.drawnFrames,
-      image: testApp.scene.renderer.domElement.toDataURL(),
-    }));
+    const snapshot = () => page.evaluate(() => testFrame());
     async function changesFrame(action, label) {
       const before = await snapshot();
       await action();
-      await page.waitForFunction(frames =>
-        testApp.scene.visualsApi.getDiagnostics().performance.drawnFrames > frames, before.frames);
-      assert.notEqual((await snapshot()).image, before.image, `${label} changes the visible frame without refresh`);
+      await page.waitForFunction(before => {
+        const current = testFrame();
+        return current.frames > before.frames && current.image !== before.image;
+      }, before);
+      console.log(`PASS: ${viewport.width}px ${label} changes the visible frame without refresh.`);
     }
     const tool = id => page.locator(`[data-tool-id="${id}"]`);
     await page.getByRole('button', { name: 'Toggle tools', exact: true }).click();
