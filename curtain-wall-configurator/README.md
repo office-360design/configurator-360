@@ -1,4 +1,4 @@
-# Curtain wall configurator (GUTMANN GCW 050)
+# Curtain wall configurator (GUTMANN GCW 050 and Cortizo)
 
 3D configurator for stick curtain walls (mullion/transom) built on the
 GUTMANN GCW 050 system. It follows the window configurator's ideas (profile
@@ -82,3 +82,47 @@ npm run check:curtain-wall:browser   # server on 8080, Playwright; CW_TEST_BROWS
   domains are blocked by `requireTenantConfiguratorAccess('curtainwall')`.
 - Corners and polygonal facades (glazing tables exist for 0–45°), opening
   vents, steel/aluminium stiffening inserts, GCW 060.
+
+
+## Cortizo systems
+
+The **Manufacturer and system** section switches between GUTMANN GCW 050 and
+**Cortizo**, which has seven systems from the Cortizo catalogue “Sistemas de
+fachadas y lucernarios” v26.04.01 (04/2026): TP 52, SG 52, TPH 52, TPV 52,
+ST 52, SST 52 and Lucernario – Veranda (skylight).
+
+- `cortizo/` holds the Cortizo project **unchanged**: the pure engine
+  (`src/`), the catalogue data and rules (`data/`), its 12 tests, the
+  methodology, catalogue sources, assumptions and conversation history
+  (`docs/`), and the extraction scripts. Read `cortizo/CLAUDE.md` before you
+  change the calculation. Run its tests with `npm test` inside `cortizo/`.
+- `js/cortizo.js` is the adapter between the two:
+  - It loads the JSON data on first use (about 1.4 MB).
+  - It maps the configurator state to an engine project. Rows are bottom-up
+    here and top-down in the engine. Spandrel rows become opaque panels where
+    the system has them, and clicked cells override that.
+  - It turns the result into the model the 3D scene and drawings read.
+  - Member sections follow the system edges: pressure plate + cap, a sealed
+    clip/silicone joint, or the ST/SST glass frame.
+- `js/cortizoUi.js` builds the sidebar controls and the sheet:
+  - an elevation with the status of every field; clicking a field cycles
+    glass → vent → panel;
+  - checks with catalogue pages;
+  - the anchors table and glazing components;
+  - the cutting list on bars and the accessories list;
+  - the systems comparison and the logic map (`cortizo/web/map.html`).
+- The skylight leans at its slope in 3D. Snow and slope go into the engine.
+- Engine messages and catalogue texts stay in Romanian/Spanish, as in
+  `cortizo/`. Labels follow the RO/EN/DE locale.
+- Deploy publishes `cortizo/src`, `cortizo/data/*.json` and `web/map.html`
+  only. Docs, tests, scripts and the spreadsheet stay in the repository.
+
+To bring in a newer version of the standalone project (for example after
+re-extracting the catalogue):
+
+```bash
+rsync -a --exclude .git --exclude dist --exclude node_modules ~/Documents/cortizo-configurator/ curtain-wall-configurator/cortizo/
+npm run check:curtain-wall
+```
+
+Then bump `CORTIZO_DATA_VERSION` in `js/cortizo.js`.

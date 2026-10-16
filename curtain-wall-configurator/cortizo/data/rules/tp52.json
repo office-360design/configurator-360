@@ -1,0 +1,23 @@
+{
+  "id": "TP52", "name": "TP 52", "pages": "289–564",
+  "principle": "Stick clasic: sticla e prinsă pe toate cele 4 laturi cu presor continuu înșurubat, acoperit de capac.",
+  "edges": { "vertical": "pressure", "horizontal": "pressure" },
+  "max_glass_mm": 64,
+  "tests": { "air": "AE", "water": "RE1350", "wind": "2000 Pa", "pages": [299, 301] },
+  "deductions": { "transom": 22, "rpt_horizontal": 22, "pressure_horizontal": 58, "cap_horizontal": 53, "glass_w": 22, "glass_h": 22, "page": 379 },
+  "pressure_plate": "COR-9914",
+  "caps": [ { "code": "COR-9142", "label": "Capac 14 mm" }, { "code": "COR-9143", "label": "Capac 19 mm" }, { "code": "COR-9133", "label": "Capac în H" }, { "code": "COR-9183", "label": "Capac vertical 100 mm" } ],
+  "glazing_variants": [
+    { "variant": "Standard – nivel 1", "pages": [305] },
+    { "variant": "Standard – nivel 2", "pages": [306] },
+    { "variant": "Gran Aislamiento (izolare sporită)", "pages": [311] },
+    { "variant": "RC3 (antiefracție)", "pages": [315], "note": "RC3 cere sticlă P5A, min. 4+4 mm la exterior și interior; plăci de siguranță 999848/49/50." }
+  ],
+  "blind_panel": { "frame_vertical": { "code": "COR-9949", "cut": "H-52" }, "frame_horizontal": { "code": "COR-9950", "cut": "L-22" }, "strap": "COR-9955", "page": 388 },
+  "awning_window": {
+    "page": 393, "max_kg": 80, "Lm": [500, 1500], "Hm": [650, 1500], "glass": { "w": "L-85", "h": "H-84", "thickness_mm": 28 },
+    "profiles": [ { "code": "COR-9977", "role": "toc", "cuts": [["L-22", 2], ["H-22", 2]] }, { "code": "COR-9975", "role": "cercevea", "cuts": [["L-85", 2], ["H-84", 2]] } ],
+    "accessories": [ ["222085", 4], ["327971", 4], ["920135", 4], ["222085", 4], ["999121", 2], ["259101", 1], ["329811", 1], ["323003", 1], ["313016", 2] ],
+    "gaskets": [ ["253010", "2L+2H"], ["999118", "2L+2H"], ["999117", "2L+2H"], ["999003", "2L+2H"], ["999001", "2L"], ["999004", "2H"] ]
+  }
+}

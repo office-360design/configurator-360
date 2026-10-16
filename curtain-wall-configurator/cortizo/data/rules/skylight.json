@@ -1,0 +1,58 @@
+{
+  "id": "SKY", "name": "Lucernario – Veranda", "pages": "1219–1304",
+  "principle": "Aceeași structură montant–traversă, dar înclinată: montanții devin căpriori pe pantă. Pe căpriori sticla e prinsă cu presor + capac; pe traversele din acoperiș rostul se etanșează cu silicon pe garnitură de fund (K), ca apa să curgă liber spre streașină. Greutatea sticlei se descompune: o parte perpendicular (încovoiere), o parte în lungul pantei (pe tăvițele de sprijin).",
+  "edges": { "rafter": "pressure", "roof_transom": "silicone", "vertical_wall": "pressure" },
+  "slope_deg": { "min": 7, "max": 40, "_page": 1271, "_note": "Minim 7° (12 %), maxim 40° (84 %)." },
+  "mullion_range": ["COR-9804", "COR-9805", "COR-9806", "COR-9807", "COR-9808", "COR-9809", "COR-9810"],
+  "max_glass_mm": 50, "glass_range_tables_mm": [26, 38],
+  "tests": { "air": "clasa 4", "water": "E2100", "wind": "C5", "standard": "EN 12207/12208/12210 (fereastră de acoperiș 1,23 × 1,48 m)", "page": 1229 },
+  "deductions": { "transom": 22, "rpt_horizontal": 22, "rpt_horizontal_high_insulation": 91, "pressure_horizontal": 87, "cap_horizontal": 86, "glass_w": 22, "glass_h": 22, "page": 1278, "_note": "Deducerile de presor/capac (L−87 / L−86) sunt pentru varianta cu capac înclinat COR-9935 + set capace 999935 pe traverse." },
+  "eaves_joint": {
+    "_page": [1271, 1272], "sleeve": "COR-9912", "sleeve_bar_mm": 6500,
+    "A_mm": { "COR-9804": 103, "COR-9805": 123, "COR-9806": 147, "COR-9807": 147, "COR-9808": 173, "COR-9809": 203, "COR-9810": 206 },
+    "formula": "β = 90° − panta; L1 = A / cos(β/2); L2 = L1 + 200 / tan(90° − β/2)",
+    "fixings": [["810516", 2], ["999112", 2], ["999113", 1], ["810635", 1], ["810634", 1]]
+  },
+  "glazing_tables": {
+    "vertical": { "page": 1233, "columns": ["glass_mm", "mullion_gasket_AB", "pressure_gasket_CD", "mullion_supplement_S1", "mullion_screw_T1", "transom_gasket_EF", "transom_pressure_gasket_GH", "transom_supplement_S2", "transom_screw_T2", "tray_M1"],
+      "rows": [
+        [26, "999005", "999000", "COR-9841+COR-9842", "815545", "999002", "999000", "COR-9841+COR-9842", "815545", "999037"],
+        [28, "999004", "999000", "COR-9841+COR-9842", "815545", "999001", "999000", "COR-9841+COR-9842", "815545", "999037"],
+        [30, "999003", "999000", "COR-9841+COR-9842", "815545", "999000", "999000", "COR-9841+COR-9842", "815545", "999037"],
+        [32, "999005", "999000", "COR-9843", "999095", "999002", "999000", "COR-9843", "999095", "999039"],
+        [34, "999004", "999000", "COR-9843", "999095", "999001", "999000", "COR-9843", "999095", "999039"],
+        [36, "999004", "999000", "COR-9843", "999095", "999001", "999000", "COR-9843", "999095", "999040"],
+        [38, "999003", "999000", "COR-9843", "999095", "999000", "999000", "COR-9843", "999095", "999040"] ] },
+    "roof": { "page": 1234, "columns": ["glass_mm", "mullion_gasket_AB", "pressure_gasket_CD", "mullion_supplement_S1", "mullion_screw_T1", "transom_gasket_EF", "sealing_backer_K", "transom_supplement_S2", "tray_M1"],
+      "rows": [
+        [26, "999005", "999000", "COR-9841+COR-9842", "815545", "999002", "999012", "COR-9841", "999037"],
+        [28, "999004", "999000", "COR-9841+COR-9842", "815545", "999001", "999012", "COR-9841", "999037"],
+        [30, "999003", "999000", "COR-9841+COR-9842", "815545", "999000", "999012", "COR-9841", "999037"],
+        [32, "999005", "999000", "COR-9843", "999095", "999002", "999012", "COR-9841+COR-9840", "999039"],
+        [34, "999004", "999000", "COR-9843", "999095", "999001", "999012", "COR-9841+COR-9840", "999039"],
+        [36, "999004", "999000", "COR-9843", "999095", "999001", "999013", "COR-9841+COR-9840", "999040"],
+        [38, "999003", "999000", "COR-9843", "999095", "999000", "999013", "COR-9841+COR-9840", "999040"] ] },
+    "roof_with_window": { "page": 1235, "columns": ["glass_mm", "mullion_gasket_A_opening", "mullion_gasket_B_fixed", "pressure_gasket_CD", "mullion_supplement_S1", "mullion_screw_T1", "transom_gasket_E_opening", "transom_gasket_F_fixed", "sealing_backer_K", "transom_supplement_S2", "sash_gasket_I", "outer_sealing_mm"],
+      "rows": [
+        [24, null, null, null, null, null, null, null, null, null, "COR-9945+999005", 4],
+        [26, "999004", "999005", "999000", "COR-9841+COR-9842", "815545", "999001", "999002", "999012", "COR-9841", "COR-9945+999004", 4],
+        [28, "999004", "999004", "999000", "COR-9841+COR-9842", "815545", "999001", "999001", "999012", "COR-9841", "COR-9945+999003", 4],
+        [30, "999004", "999003", "999000", "COR-9841+COR-9842", "815545", "999001", "999000", "999012", "COR-9841", "COR-9945+999002", 4],
+        [32, "999004+COR-9944", "999005", "999000", "COR-9843", "999095", "999001+COR-9944", "999002", "999012", "COR-9840+COR-9841", "COR-9945+999001", 4],
+        [34, "999004+COR-9944", "999004", "999000", "COR-9843", "999095", "999001+COR-9944", "999001", "999012", "COR-9840+COR-9841", "COR-9945+999000", 4],
+        [36, "999005+COR-9944", "999004", "999000", "COR-9843", "999095", "999002+COR-9944", "999001", "999013", "COR-9840+COR-9841", "999005", 4],
+        [38, "999005+COR-9944", "999003", "999000", "COR-9843", "999095", "999002+COR-9944", "999000", "999013", "COR-9840+COR-9841", "999004", 4] ] }
+  },
+  "pressure_plate": "COR-9914",
+  "angle_pressure_plates": [ { "code": "COR-9915", "range_deg": [0, 15] }, { "code": "COR-9916", "range_deg": [15, 30] }, { "code": "COR-9917", "range_deg": [30, 45] }, { "_note": "Presoare pentru coame / rosturi cu unghi între planuri (pag. 31)." } ],
+  "inclined_cover_set": { "pressure": "COR-9919", "cap": "COR-9935", "end_caps": "999935", "pages": [1276, 1277, 1278] },
+  "caps": [ { "code": "COR-9142", "label": "Capac 14 mm" }, { "code": "COR-9143", "label": "Capac 19 mm" } ],
+  "setting_blocks": { "note": "Cale de 5 mm sus și lateral, cală 2 mm pe tăviță jos; distanța de la margine L/10. C1 sprijin, C2 perimetrală, C3 siguranță.", "pages": [1236, 1237] },
+  "roof_window": {
+    "page": 1286, "Lm": [500, 1500], "Hm": [650, 1500], "glass": { "w": "L-192", "h": "H-189", "thickness_mm": 28 },
+    "profiles": [ { "code": "COR-9835", "role": "toc", "cuts": [["L-25", 2], ["H-22", 2]] }, { "code": "COR-9825", "role": "cercevea", "cuts": [["L-92.2", 2], ["H-89.2", 2]] }, { "code": "COR-9826", "role": "capac exterior cercevea", "cuts": [["L-38.4", 2], ["H-35.4", 2]] }, { "code": "COR-9945", "role": "reductor", "cuts": [["L-210", 2], ["H-219", 2]] } ],
+    "accessories": [ ["999044", 2], ["254111", 3], ["248221", 8], ["247228", 8], ["248220", 4], ["287310", 4] ],
+    "gaskets": [ ["237201", "6L+6H"], ["950030", "2L+2H"], ["287300", "2L+2H"] ],
+    "_note": "254111: 2 sau 3 bucăți după dimensiune; am luat 3."
+  }
+}

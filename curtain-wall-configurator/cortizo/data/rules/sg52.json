@@ -1,0 +1,33 @@
+{
+  "id": "SG52", "name": "SG 52", "pages": "565–756",
+  "principle": "Sticla e prinsă cu cleme SG care intră într-un profil U (COR-9956) lipit în camera geamului termoizolant; rostul de 22 mm dintre geamuri se etanșează cu silicon (sau garnitură uscată). La exterior nu se vede aluminiu.",
+  "edges": { "vertical": "clip", "horizontal": "clip" },
+  "max_glass_mm": 64, "allowed_chambers_mm": [16, 18, 20],
+  "tests": { "air": "AE", "water": "RE1500", "wind": "2000 Pa", "pages": [575, 577] },
+  "deductions": { "glass_w": 22, "glass_h": 22, "page": 677 },
+  "glazing_variants": [
+    { "variant": "Standard siliconat – nivel 1", "pages": [582, 583, 584], "sealing": "silicone" },
+    { "variant": "Standard siliconat – nivel 2", "pages": [586], "sealing": "silicone" },
+    { "variant": "Fără siliconare (garnitură uscată) – nivel 1", "pages": [597, 598, 599], "sealing": "dry" },
+    { "variant": "Fără siliconare (garnitură uscată) – nivel 2", "pages": [601], "sealing": "dry" }
+  ],
+  "clip_sizes_by_inner_pane": { "3+3": "10 mm", "4+4": "10 mm", "5+5": "16 mm", "6+6": "16 mm", "8+8": "20 mm", "_note": "Dedus din tabelele de vitraj: 999021/999025 = 10 mm, 999018/999022 = 16 mm, 999216/999226 = 20 mm." },
+  "clips": { "double_slot": "6a", "single_slot": "6b", "screw_slot": "7", "first_after_support_mm": 30, "vertical_end_from_axis_mm": 70, "pages": [678, 679] },
+  "silicone_bite_min_mm": { "silicone_6_10": 6, "silicone_12": 8, "dry_6_10": 10, "dry_12": 15, "pages": [669, 671, 672] },
+  "max_glass_sealed": { "max_side_m": 4.5, "max_w_plus_h_m": 6.5, "basis_Pa": 1500, "pages": [671] },
+  "max_glass_width_dry_m": {
+    "_pages": [672, 673, 674], "basis_Pa": 1500,
+    "SG-500": { "6": 2.8, "8": 2.4, "10": 1.9, "12": 1.5 },
+    "SG-550": { "6": 3.75, "8": 3.1, "10": 2.45, "12": 2.1 },
+    "IG-25 HM Plus": { "6": 1.9, "8": 1.6 }
+  },
+  "joint_sealing": { "silicone": "DOW CORNING 791 / 756 SMS sau SIKASIL WS-605 S", "backer_slot": "8", "page": 682 },
+  "assembly_order": "Geamurile se montează întotdeauna de jos în sus (pag. 680).",
+  "polygonal_transom_cuts": { "page": 683, "examples": [["45°/90°", "L-32"]] },
+  "awning_window": {
+    "page": 687, "max_kg": 80, "Lm": [500, 1500], "Hm": [650, 1500], "glass": { "w": "L-59", "h": "H-58", "thickness_mm": 28 },
+    "profiles": [ { "code": "COR-9976", "role": "toc", "cuts": [["L-22", 2], ["H-22", 2]] }, { "code": "COR-9975", "role": "cercevea", "cuts": [["L-85", 2], ["H-84", 2]] }, { "code": "COR-9968", "role": "ramă exterioară", "cuts": [["L-22", 2], ["H-22", 2]] } ],
+    "accessories": [ ["222085", 4], ["920135", 4], ["222085", 4], ["999123", 2], ["259101", 1], ["329811", 1], ["323003", 1], ["313016", 2] ],
+    "gaskets": [ ["253010", "2L+2H"], ["999118", "2L+2H"], ["999117", "2L+2H"], ["999003", "2L+2H"], ["999001", "2L"], ["999004", "2H"] ]
+  }
+}

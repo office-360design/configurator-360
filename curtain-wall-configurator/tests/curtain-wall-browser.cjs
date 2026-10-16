@@ -82,6 +82,42 @@ const path = require('node:path');
   // Camera cycle through the Tools API.
   assert.equal(await api(() => window.CURTAIN_WALL_API.cycleCamera()), 'front');
 
+  // Cortizo: the seven systems on the same grid, with the catalogue engine.
+  await api(() => window.CURTAIN_WALL_API.setLocale('ro-RO'));
+  await page.locator('[data-brand="cortizo"]').click();
+  await page.waitForFunction(() => window.CURTAIN_WALL_API.getModel()?.brand === 'cortizo', null, { timeout: 30000 });
+  for (const system of ['TP52', 'SG52', 'TPH52', 'TPV52', 'ST52', 'SST52', 'SKY']) {
+    await page.locator(`[data-cz-system="${system}"]`).click();
+    await page.waitForFunction(id => window.CURTAIN_WALL_API.getModel()?.C?.system === id, system);
+    const m = await api(() => { const r = window.CURTAIN_WALL_API.getModel().result; return { mullion: r.mullion?.code, cuts: r.cuts.length, accessories: r.accessories.length }; });
+    assert.ok(m.mullion && m.cuts > 0 && m.accessories > 0, `${system}: ${JSON.stringify(m)}`);
+  }
+  assert.equal(await api(() => window.CURTAIN_WALL_API.getScene().root.rotation.x !== 0), true, 'the skylight leans at its slope');
+  await page.locator('[data-cz-system="TP52"]').click();
+  await page.waitForFunction(() => window.CURTAIN_WALL_API.getModel()?.C?.system === 'TP52');
+  assert.match(await page.locator('#tag .mark').textContent(), /^Cortizo TP 52/);
+  // A click on a field in the elevation turns it into a vent.
+  await page.locator('[data-tab="elevation"]').click();
+  await page.locator('.cz-cell[data-cell-row="0"][data-cell-col="1"]').click();
+  await page.waitForFunction(() => window.CURTAIN_WALL_API.getModel().panes.some(p => p.window));
+  // Glass build from the TP table drives the components.
+  if (!(await page.locator('[data-cz="totalMm"]').isVisible())) await page.locator('[data-accordion="glazing"] .accordion-toggle').click();
+  await page.locator('[data-cz="totalMm"]').selectOption('28');
+  await page.waitForFunction(() => window.CURTAIN_WALL_API.getModel().C.totalMm === 28);
+  await page.locator('[data-tab="bom"]').click();
+  assert.match(await page.locator('#bom').textContent(), /COR-9803|COR-98/);
+  await page.locator('[data-tab="checks"]').click();
+  assert.match(await page.locator('#checks').textContent(), /pag\. 27/);
+  await page.locator('[data-tab="systems"]').click();
+  assert.equal(await page.locator('.cz-cmp th').count() >= 8, true);
+  await page.locator('[data-tab="map"]').click();
+  await page.waitForSelector('#map svg.map');
+  if (shots) await page.screenshot({ path: path.join(shots, 'cw-cortizo.png') });
+  // Back to GUTMANN: the Cortizo tabs disappear, the GCW 050 model returns.
+  await page.locator('[data-brand="gutmann"]').click();
+  await page.waitForFunction(() => window.CURTAIN_WALL_API.getModel()?.brand !== 'cortizo');
+  assert.ok(await page.locator('[data-tab="systems"]').isHidden());
+
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
   const overflow = await api(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

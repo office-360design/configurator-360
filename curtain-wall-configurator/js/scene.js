@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createSurfaceSystem, disposeObjectResources } from '../../shared-3d/src/index.js?v=platform-19';
-import { FINISHES } from './facade.js?v=cw-2';
-import { GLASS_GAP, nodeParts } from './sections.js?v=cw-2';
+import { FINISHES } from './facade.js?v=cw-3';
+import { GLASS_GAP, nodeParts } from './sections.js?v=cw-3';
 
 const MM = 0.001;
 // Exploded view: offset of each layer along the facade normal (m at amount 1),
@@ -12,10 +12,13 @@ const MM = 0.001;
 export const EXPLODE_LAYERS = Object.freeze([
   { kind: 'profile', role: 'mullion', z: -0.34 },
   { kind: 'profile', role: 'transom', z: -0.2 },
+  { kind: 'frame', z: -0.04 },
   { kind: 'gasketInner', z: -0.08 },
   { kind: 'glass', z: 0 },
   { kind: 'panel', z: 0 },
   { kind: 'insulator', z: 0.1 },
+  { kind: 'joint', z: 0.1 },
+  { kind: 'sash', z: 0.06 },
   { kind: 'gasketOuter', z: 0.2 },
   { kind: 'strip', z: 0.32 },
   { kind: 'cover', z: 0.46 },
@@ -109,7 +112,10 @@ export class FacadeScene {
       case 'strip': return metal(S.finishOutside);
       case 'cover': return metal(S.finishOutside);
       case 'gasketInner':
-      case 'gasketOuter': return this.surface.materials.create('rubber.epdm');
+      case 'gasketOuter':
+      case 'joint': return this.surface.materials.create('rubber.epdm');
+      case 'frame': return metal(S.finishInside);
+      case 'sash': return metal(S.finishOutside);
       case 'insulator': return this.surface.materials.create('plastic.thermalBreak');
       case 'glass': return this.surface.materials.create('glass.architectural', { color: TINTS[S.glassTint], side: THREE.DoubleSide });
       case 'panel': return metal(S.finishOutside);
@@ -123,9 +129,9 @@ export class FacadeScene {
     const root = new THREE.Group();
     root.name = 'curtain-wall';
     const buckets = {};
-    const node = profile => nodeParts({ depth: profile.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverMullion });
-    const mullionParts = node(mullion);
-    const transomParts = nodeParts({ depth: transom.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverTransom });
+    // Cortizo models bring their own section per member (see cortizo.js).
+    const mullionParts = model.section?.('mullion') ?? nodeParts({ depth: mullion.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverMullion });
+    const transomParts = model.section?.('transom') ?? nodeParts({ depth: transom.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverTransom });
     const collectAs = (role, geometries) => Object.entries(geometries).forEach(([kind, list]) => (buckets[`${role}:${kind}`] ||= []).push(...list));
     mullions.forEach(m => collectAs('mullion', memberGeometries(mullionParts, m.length, { horizontal: false, x: m.x, y: 0 })));
     transoms.forEach(t => collectAs('transom', memberGeometries(transomParts, t.length, { horizontal: true, x: t.x0, y: t.y })));
@@ -142,13 +148,23 @@ export class FacadeScene {
       root.add(mesh);
     }
     // Infills: glass panes and opaque spandrel panels between the gaskets.
-    const glass = [], panel = [];
+    const glass = [], panel = [], sash = [];
     panes.forEach(p => {
       const g = new THREE.BoxGeometry(p.width * MM, p.height * MM, glazing.thickness * MM);
-      g.translate((p.x0 + p.x1) / 2 * MM, (p.y0 + p.y1) / 2 * MM, (GLASS_GAP + glazing.thickness / 2) * MM);
+      const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2, cz = GLASS_GAP + glazing.thickness / 2;
+      g.translate(cx * MM, cy * MM, cz * MM);
       (p.spandrel ? panel : glass).push(g);
+      // Opening vents: a visible sash frame on the outer face of the glass.
+      if (p.window) {
+        const f = 55, d = 14, z = (GLASS_GAP + glazing.thickness + d / 2) * MM;
+        [[p.width, f, 0, (p.height - f) / 2], [p.width, f, 0, -(p.height - f) / 2], [f, p.height - 2 * f, (p.width - f) / 2, 0], [f, p.height - 2 * f, -(p.width - f) / 2, 0]].forEach(([w, h, dx, dy]) => {
+          const b = new THREE.BoxGeometry(w * MM, h * MM, d * MM);
+          b.translate((cx + dx) * MM, (cy + dy) * MM, z);
+          sash.push(b);
+        });
+      }
     });
-    for (const [kind, list] of [['glass', glass], ['panel', panel]]) {
+    for (const [kind, list] of [['glass', glass], ['panel', panel], ['sash', sash]]) {
       if (!list.length) continue;
       const mesh = new THREE.Mesh(mergeGeometries(list, false), this.material(kind, S));
       list.forEach(g => g.dispose());
@@ -159,10 +175,14 @@ export class FacadeScene {
       if (kind === 'glass') mesh.renderOrder = 2;
       root.add(mesh);
     }
-    // Facade centred on the origin, standing on the ground.
+    // Facade centred on the origin, standing on the ground. A skylight leans
+    // back at its slope from the eaves line (rotation about the bottom edge).
     root.position.set(-model.W / 2 * MM, 0.02, 0);
+    const slope = model.slopeDeg ? THREE.MathUtils.degToRad(model.slopeDeg) : null;
+    root.rotation.x = slope ? -(Math.PI / 2 - slope) : 0;
     this.root = root;
-    this.size = { W: model.W * MM, H: model.H * MM, depth: mullion.depth * MM };
+    const height = slope ? Math.max(0.6, model.H * MM * Math.sin(slope)) : model.H * MM;
+    this.size = { W: model.W * MM, H: height, depth: mullion.depth * MM };
     this.scene.add(root);
     const k = this.key.shadow.camera, ext = Math.max(this.size.W, this.size.H) * 0.8 + 1;
     k.left = -ext; k.right = ext; k.top = ext; k.bottom = -ext; k.far = 60; k.updateProjectionMatrix();
@@ -215,8 +235,9 @@ export class FacadeScene {
       const x = this.firstNode?.x ?? 0, y = this.firstNode?.y ?? H / 2;
       // Step back and to the side when the layers are exploded.
       const extra = this.explode.to * this.explode.scale * 0.5;
-      target = new THREE.Vector3(x, y, extra * 0.15);
-      pos = new THREE.Vector3(x + 0.35 + extra * 1.6, y + 0.28 + extra * 0.4, 0.55 + extra * 1.4);
+      const z = this.firstNode?.z ?? 0;
+      target = new THREE.Vector3(x, y, z + extra * 0.15);
+      pos = new THREE.Vector3(x + 0.35 + extra * 1.6, y + 0.28 + extra * 0.4, z + 0.55 + extra * 1.4);
     }
     this.viewIndex = Math.max(0, this.views.indexOf(view));
     this.camera.position.copy(pos);
@@ -232,8 +253,10 @@ export class FacadeScene {
   }
 
   setNodeFocus(model) {
-    const x = model.xs[Math.min(1, model.xs.length - 1)] * MM - model.W / 2 * MM;
-    const y = model.ys[Math.min(1, model.ys.length - 1)] * MM;
-    this.firstNode = { x, y };
+    // First interior crossing, in world space (the skylight is rotated).
+    const local = new THREE.Vector3(model.xs[Math.min(1, model.xs.length - 1)] * MM, model.ys[Math.min(1, model.ys.length - 1)] * MM, 0);
+    this.root?.updateMatrixWorld(true);
+    const world = this.root ? this.root.localToWorld(local) : local;
+    this.firstNode = { x: world.x, y: world.y, z: world.z };
   }
 }

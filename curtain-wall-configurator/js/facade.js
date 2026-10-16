@@ -5,7 +5,7 @@
 import {
   COVER_PLATES, GASKETS, GLASS_SUPPORTS, GLAZING_PRESETS, INSULATORS, PRESSURE_STRIPS, PROFILES, SPANDREL, SYSTEM,
   estimatedKgPerM, frameUf, getProfile, glazingComponents,
-} from './catalog.js?v=cw-2';
+} from './catalog.js?v=cw-3';
 
 export const LIMITS = Object.freeze({
   bays: [1, 20], rows: [1, 20], width: [400, 4000], height: [300, 5000],
@@ -28,6 +28,9 @@ export const FINISHES = Object.freeze([
 
 export const DEFAULT_STATE = Object.freeze({
   version: 1,
+  // 'gutmann' (GCW 050, this module) or 'cortizo' (seven systems, see cortizo.js).
+  brand: 'gutmann',
+  cortizo: null,
   widths: [1500, 1500, 1500, 1500],
   heights: [900, 2400, 900, 2400],
   rowTypes: ['spandrel', 'vision', 'spandrel', 'vision'],
@@ -85,6 +88,9 @@ export function normalizeState(input = {}) {
   if (S.sameFinish) S.finishInside = S.finishOutside;
   if (!['clear', 'neutral', 'blue', 'bronze'].includes(S.glassTint)) S.glassTint = DEFAULT_STATE.glassTint;
   S.qty = clamp(round(S.qty) || 1, LIMITS.qty);
+  S.brand = S.brand === 'cortizo' ? 'cortizo' : 'gutmann';
+  // Cortizo settings are validated against the catalogue in cortizo.js.
+  S.cortizo = S.cortizo && typeof S.cortizo === 'object' ? { ...S.cortizo } : null;
   S.version = 1;
   return S;
 }

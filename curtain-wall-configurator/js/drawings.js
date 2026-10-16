@@ -1,8 +1,8 @@
 // 2D technical drawings as SVG markup: facade elevation with axis dimensions
 // and the horizontal section through a mullion node.
-import { SYSTEM } from './catalog.js?v=cw-2';
-import { fmt } from './facade.js?v=cw-2';
-import { GLASS_GAP, nodeParts } from './sections.js?v=cw-2';
+import { SYSTEM } from './catalog.js?v=cw-3';
+import { fmt } from './facade.js?v=cw-3';
+import { GLASS_GAP, nodeParts } from './sections.js?v=cw-3';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -30,7 +30,8 @@ export function elevationSvg(model, t) {
 
 export function nodeSvg(model, t) {
   const { S, glazing, mullion } = model;
-  const parts = nodeParts({ depth: mullion.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverMullion });
+  const parts = model.section?.('mullion') ?? nodeParts({ depth: mullion.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverMullion });
+  const half = (model.faceWidth || SYSTEM.faceWidth) / 2;
   const zs = parts.flatMap(p => p.contour.map(([, z]) => z));
   const zMin = Math.min(...zs), zMax = Math.max(...zs);
   const scale = Math.min(2.2, 300 / (zMax - zMin));
@@ -42,14 +43,21 @@ export function nodeSvg(model, t) {
   const path = pts => pts.map(([x, z], i) => `${i ? 'L' : 'M'}${X(x).toFixed(1)},${Z(z).toFixed(1)}`).join('') + 'Z';
   const shapes = parts.map(p => `<path class="cw-part cw-${p.kind}" fill-rule="evenodd" d="${path(p.contour)}${p.holes.map(path).join('')}"/>`).join('');
   const g0 = GLASS_GAP, g1 = GLASS_GAP + glazing.thickness;
-  const glass = [[-glassW - 25, -11], [11, glassW + 25]].map(([a, b]) => `<rect class="cw-glass" x="${X(a)}" y="${Z(g1)}" width="${(b - a) * scale}" height="${(g1 - g0) * scale}"/>`).join('');
+  const glass = [[-glassW - half, -11], [11, glassW + half]].map(([a, b]) => `<rect class="cw-glass" x="${X(a)}" y="${Z(g1)}" width="${(b - a) * scale}" height="${(g1 - g0) * scale}"/>`).join('');
   const lx = X(glassW + 25) + 14;
+  const roles = model.result?.fields?.find(f => f.type !== 'window')?.roles || {};
+  const outer = model.brand === 'cortizo'
+    ? (model.edges.v === 'pressure' ? `${t('cz.cap')} ${model.C.cap || ''} · COR-9914` : t('layer.joint'))
+    : t('node.cover', { id: model.S.strip, cover: S.coverMullion });
+  const gaskets = model.brand === 'cortizo'
+    ? `${t('cz.role.mullionGasket')} ${roles.mullionGasket || '—'}`
+    : t('node.gaskets', { outside: '760006', inside: '760110' });
   const labels = [
-    [zMax, t('node.cover', { id: model.S.strip, cover: S.coverMullion })],
+    [zMax, outer],
     [(g0 + g1) / 2, t('node.glass', { t: glazing.thickness, build: glazing.label })],
-    [g0 / 2, t('node.gaskets', { outside: '760006', inside: '760110' })],
+    [g0 / 2, gaskets],
     [-mullion.depth / 2, t('node.profile', { id: mullion.id, depth: mullion.depth })],
-  ].map(([z, text]) => `<line x1="${X(25)}" y1="${Z(z)}" x2="${lx - 4}" y2="${Z(z)}"/><text x="${lx}" y="${Z(z) + 4}">${esc(text)}</text>`).join('');
+  ].map(([z, text]) => `<line x1="${X(half)}" y1="${Z(z)}" x2="${lx - 4}" y2="${Z(z)}"/><text x="${lx}" y="${Z(z) + 4}">${esc(text)}</text>`).join('');
   return `<svg class="cw-node" viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" role="img" aria-label="${esc(t('drawing.node'))}">
     ${glass}${shapes}
     <g class="cw-labels">${labels}</g>
