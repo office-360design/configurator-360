@@ -1,12 +1,11 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
-import { COVER_PLATES, GLASS_THICKNESSES, GLAZING_PRESETS, PRESSURE_STRIPS, PROFILES } from './catalog.js?v=cw-3';
-import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, checks, facadeModel, fmt, normalizeState } from './facade.js?v=cw-3';
-import { elevationSvg, nodeSvg } from './drawings.js?v=cw-3';
-import { applyTranslations, translator } from './i18n.js?v=cw-3';
-import { FacadeScene } from './scene.js?v=cw-3';
-import { createCortizo, cortizoListText, cortizoModel, fieldTypes, loadCortizoData, normalizeCortizo } from './cortizo.js?v=cw-3';
-import * as czUi from './cortizoUi.js?v=cw-3';
+import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, TINTS, fmt, normalizeState } from './facade.js?v=cw-4';
+import { nodeSvg } from './drawings.js?v=cw-4';
+import { applyTranslations, translator } from './i18n.js?v=cw-4';
+import { FacadeScene } from './scene.js?v=cw-4';
+import { createCortizo, cortizoListText, cortizoModel, fieldTypes, loadCortizoData, normalizeCortizo } from './cortizo.js?v=cw-4';
+import * as czUi from './cortizoUi.js?v=cw-4';
 
 await requireTenantConfiguratorAccess('curtainwall');
 
@@ -19,24 +18,15 @@ let locale = window.CURTAIN_WALL_PREFERENCES?.locale || 'ro-RO';
 let t = translator(locale);
 let tab = 'elevation';
 const view = new FacadeScene($('#canvasHost'));
-// Cortizo catalogue (≈1.4 MB of JSON) is loaded the first time it is needed.
-let CZ = null, czLoading = null;
-function ensureCortizo() {
-  czLoading ||= loadCortizoData().then(data => { CZ = createCortizo(data); return CZ; }).catch(error => {
-    console.error(error);
-    czLoading = null;
-    $('#cortizoLoading').hidden = false;
-    $('#cortizoLoading').textContent = t('cz.loadFailed');
-    return null;
-  });
-  return czLoading;
-}
-const isCortizo = () => S.brand === 'cortizo' && CZ;
 
-function options(select, list, value) {
-  select.innerHTML = list.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('');
-  select.value = String(value);
-}
+// Cortizo catalogue data (≈1.4 MB of JSON), loaded once at start.
+let CZ = null;
+const czReady = loadCortizoData().then(data => { CZ = createCortizo(data); return true; }).catch(error => {
+  console.error(error);
+  $('#cortizoLoading').hidden = false;
+  $('#cortizoLoading').textContent = t('cz.loadFailed');
+  return false;
+});
 
 function renderTracks() {
   $('#bayList').innerHTML = S.widths.map((w, i) => `<div class="track bay">
@@ -54,18 +44,7 @@ function renderTracks() {
 }
 
 function syncControls() {
-  const profileOptions = [['auto', t('profiles.auto')], ...PROFILES.map(p => [p.id, `${p.id} · ${p.depth} mm · Ix ${fmt(p.Ix, 1)}`])];
-  options($('#sel-mullion'), profileOptions, S.mullion);
-  options($('#sel-transom'), profileOptions, S.transom);
-  options($('#sel-glazing'), [...GLAZING_PRESETS.map(p => [p.id, `${p.thickness} mm · ${p.label} · Ug ${fmt(p.Ug, 1)}`]), ['custom', t('glazing.custom')]], S.glazing);
-  options($('#sel-thickness'), GLASS_THICKNESSES.map(v => [v, `${v} mm`]), S.customThickness);
-  options($('#sel-strip'), Object.keys(PRESSURE_STRIPS).map(id => [id, `${id} · ${t(`strip.${id}`)}`]), S.strip);
-  const covers = Object.values(COVER_PLATES).map(c => [c.id, `${c.id} · ${c.depth} mm`]);
-  options($('#sel-coverMullion'), covers, S.coverMullion);
-  options($('#sel-coverTransom'), covers, S.coverTransom);
-  $('#customGlazing').hidden = S.glazing !== 'custom';
-  $('#coverFields').hidden = !PRESSURE_STRIPS[S.strip].cover;
-  $('#tintChips').innerHTML = ['clear', 'neutral', 'blue', 'bronze'].map(id => `<button type="button" class="chip" data-tint="${id}" aria-pressed="${S.glassTint === id}">${esc(t(`tint.${id}`))}</button>`).join('');
+  $('#tintChips').innerHTML = TINTS.map(id => `<button type="button" class="chip" data-tint="${id}" aria-pressed="${S.glassTint === id}">${esc(t(`tint.${id}`))}</button>`).join('');
   const swatches = (key) => FINISHES.map(f => `<button type="button" class="swatch" style="background:${f.color}" data-finish="${key}" data-id="${f.id}" title="${esc(f.label)}" aria-label="${esc(f.label)}" aria-pressed="${S[key] === f.id}"></button>`).join('');
   $('#outsideSwatches').innerHTML = swatches('finishOutside');
   $('#insideSwatches').innerHTML = swatches('finishInside');
@@ -80,19 +59,9 @@ function syncControls() {
     out.value = k === 'windLoad' ? `${fmt(S.windLoad, 2)} kN/m²` : k === 'qty' ? `${S.qty}` : `${fmt(S[k])} mm`;
   });
   renderTracks();
-  syncBrand();
-}
-
-function syncBrand() {
-  const cortizo = Boolean(isCortizo());
-  $$('[data-brand]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.brand === S.brand)));
-  $('#brandName').textContent = cortizo ? CZ.engine.systems.find(s => s.id === S.cortizo.system).name : S.brand === 'cortizo' ? 'Cortizo' : 'GCW 050';
-  $('#cortizoLoading').hidden = !(S.brand === 'cortizo' && !CZ);
-  for (const [id, show] of [['#cortizoSystem', cortizo], ['#cortizoProfiles', cortizo], ['#cortizoGlazing', cortizo], ['#gutmannProfiles', !cortizo], ['#gutmannGlazing', !cortizo]]) $(id).hidden = !show;
-  $$('[data-brand-only]').forEach(b => { b.hidden = b.dataset.brandOnly !== (cortizo ? 'cortizo' : 'gutmann'); });
-  if ($(`[data-tab="${tab}"]`)?.hidden) selectTab('elevation');
-  $('#sourceNote').textContent = t(cortizo ? 'cz.source' : 'order.source');
-  if (!cortizo) return;
+  $('#cortizoLoading').hidden = Boolean(CZ);
+  if (!CZ) return;
+  $('#systemName').textContent = CZ.engine.systems.find(s => s.id === S.cortizo.system).name;
   $('#cortizoSystem').innerHTML = czUi.systemControls(t, CZ, S.cortizo);
   $('#cortizoGlazing').innerHTML = czUi.glazingControls(t, CZ, S.cortizo);
 }
@@ -103,44 +72,7 @@ function selectTab(next) {
   $$('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== tab; });
 }
 
-function bomTable(m) {
-  const groups = ['profiles', 'connectors', 'glazing', 'infill'];
-  const rows = groups.flatMap(g => {
-    const items = m.bom.items.filter(i => i.group === g);
-    if (!items.length) return [];
-    return [`<tr class="group"><td colspan="4">${esc(t(`bom.group.${g}`))}</td></tr>`,
-      ...items.map(i => `<tr><td class="code">${esc(i.id)}</td><td>${esc(t(i.key, i.vars))}</td><td class="n">${fmt(i.qty * S.qty)} ${esc(t(i.unit))}</td><td>${i.note ? esc(t(i.note, i.noteVars)) : ''}</td></tr>`)];
-  }).join('');
-  const T = m.bom.totals;
-  const tiles = [
-    [t('totals.aluminium'), `${fmt(T.aluminiumKg * S.qty)} kg`],
-    [t('totals.coatingIn'), `${fmt(T.coatingInside * S.qty, 1)} m²`],
-    ...(T.coatingOutside != null ? [[t('totals.coatingOut'), `${fmt(T.coatingOutside * S.qty, 1)} m²`]] : []),
-    [t('totals.glass'), `${fmt(T.glassArea * S.qty, 2)} m²`],
-    [t('totals.spandrel'), `${fmt(T.spandrelArea * S.qty, 2)} m²`],
-    [t('totals.infillKg'), `${fmt(T.infillKg * S.qty)} kg`],
-  ];
-  return `<div class="bom-head"><strong>${esc(S.qty > 1 ? t('totals.order', { qty: S.qty }) : t('tab.bom'))}</strong><button type="button" class="copy" id="copyBom">${esc(t('bom.copy'))}</button></div>
-    <div class="table-wrap"><table><thead><tr><th>${esc(t('bom.article'))}</th><th>${esc(t('bom.item'))}</th><th class="n">${esc(t('bom.qty'))}</th><th>${esc(t('bom.details'))}</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="totals">${tiles.map(([a, b]) => `<article><span>${esc(a)}</span><strong>${esc(b)}</strong></article>`).join('')}</div>
-    <p class="note">${esc(t('totals.note'))}</p>`;
-}
-
-function checksPanel(m) {
-  const list = checks(m).map(c => `<li><span class="pill ${c.lv}">${c.lv === 'ok' ? 'OK' : c.lv === 'warn' ? '!' : '×'}</span><span>${esc(t(c.key, c.vars))}</span></li>`).join('');
-  const th = m.thermal;
-  const perf = th ? `<div class="big">${fmt(th.Ucw, 2)} <small>W/m²K</small></div>
-      <table><tbody>
-        <tr><td>${esc(t('perf.uf'))}</td><td class="n">${fmt(th.Uf, 2)}</td></tr>
-        <tr><td>${esc(t('perf.ug'))}</td><td class="n">${fmt(th.Ug, 1)}</td></tr>
-        <tr><td>${esc(t('perf.up'))}</td><td class="n">${fmt(th.Up, 2)}</td></tr>
-        <tr><td>${esc(t('perf.psi'))}</td><td class="n">${fmt(th.psi, 2)}</td></tr>
-      </tbody></table>` : `<div class="big">—</div>`;
-  return `<div class="checks-grid"><ul class="checks">${list}</ul>
-    <div class="perf"><h3>${esc(t('perf.title'))} · ${esc(t('perf.ucw'))}</h3>${perf}<p class="note">${esc(t('perf.note'))}</p></div></div>`;
-}
-
-function renderCortizo(m) {
+function render(m) {
   const R = m.result, ok = R.fields.filter(f => f.status === 'ok').length;
   $('#tag').innerHTML = `<div class="mark">${esc(t('cz.tag1', { system: R.system.name, w: fmt(m.W), h: fmt(m.H), bays: S.widths.length, rows: S.heights.length }))}</div>
     ${esc(t('cz.tag2', { mullion: m.mullion.id, transom: m.transom.id, t: m.glazing.thickness }))}<br>
@@ -157,49 +89,19 @@ function renderCortizo(m) {
   renderExplodeLegend(m);
 }
 
-function render(m) {
-  if (m.brand === 'cortizo') return renderCortizo(m);
-  const area = (m.W + 50) * (m.H + 50) / 1e6;
-  $('#tag').innerHTML = `<div class="mark">${esc(t('tag.line1', { w: fmt(m.W), h: fmt(m.H), bays: S.widths.length, rows: S.heights.length }))}</div>
-    ${esc(t('tag.line2', { mullion: m.mullion.id, transom: m.transom.id, t: m.glazing.thickness }))}<br>
-    ${esc(m.thermal ? t('tag.line3', { ucw: fmt(m.thermal.Ucw, 2), area: fmt(area * S.qty, 1) }) : t('tag.noUcw'))}`;
-  $('#gridTotal').textContent = t('grid.total', { w: fmt(m.W), h: fmt(m.H) });
-  $('#autoPick').textContent = t('profiles.autoPick', { mullion: m.mullion.id, md: m.mullion.depth, transom: m.transom.id, td: m.transom.depth });
-  $('#elevation').innerHTML = elevationSvg(m, t);
-  $('#node').innerHTML = nodeSvg(m, t);
-  $('#bom').innerHTML = bomTable(m);
-  $('#checks').innerHTML = checksPanel(m);
-  $('#copyBom').addEventListener('click', copyBom);
-  renderExplodeLegend(m);
-}
-
 // Layers from the outside in, with the catalogue article of each part.
 function renderExplodeLegend(m) {
   const outside = FINISHES.find(f => f.id === S.finishOutside).color, inside = FINISHES.find(f => f.id === S.finishInside).color;
-  if (m.brand === 'cortizo') {
-    const e = m.edges, roles = m.result.fields.find(f => f.type !== 'window')?.roles || {};
-    const pressure = e.v === 'pressure' || e.h === 'pressure', sealed = e.v !== 'pressure' || e.h !== 'pressure';
-    const layers = [
-      ...(pressure ? [['layer.cover', m.C.cap || '—', outside], ['layer.strip', 'COR-9914', outside], ['layer.gasketOuter', roles.pressureGasket || '999000', '#1d1f21'], ['layer.insulator', roles.rpt || 'RPT', '#d9b77c']] : []),
-      ...(sealed ? [['layer.joint', roles.backer || roles.dryGasket || 'SILICON', '#1d1f21']] : []),
-      ...(m.panes.some(p => p.window) ? [['layer.sash', m.panes.find(p => p.window).field.win.profiles.map(p => p.code).join(' / '), outside]] : []),
-      ['layer.glass', `${m.glazing.thickness} mm · ${m.glazing.label}`, '#a9c6d3'],
-      ...(e.v === 'frame' ? [['layer.frame', m.C.system === 'ST52' ? 'COR-9982' : 'COR-9983', inside]] : []),
-      ['layer.gasketInner', roles.mullionGasket || '—', '#1d1f21'],
-      ['layer.transom', `${m.transom.id} · ${m.transom.depth} mm`, inside],
-      ['layer.mullion', `${m.mullion.id} · ${m.mullion.depth} mm`, inside],
-    ];
-    $('#explodeLegend').innerHTML = layers.map(([key, code, color]) => `<li><i style="background:${color}"></i><span>${esc(t(key))}</span><b>${esc(code)}</b></li>`).join('');
-    return;
-  }
-  const strip = PRESSURE_STRIPS[S.strip];
+  const e = m.edges, roles = m.result.fields.find(f => f.type !== 'window')?.roles || {};
+  const pressure = e.v === 'pressure' || e.h === 'pressure', sealed = e.v !== 'pressure' || e.h !== 'pressure';
+  const vent = m.panes.find(p => p.window);
   const layers = [
-    ['layer.cover', strip.cover ? `${S.coverMullion} / ${S.coverTransom}` : S.strip, outside],
-    ...(strip.cover ? [['layer.strip', S.strip, outside]] : []),
-    ['layer.gasketOuter', '760006', '#1d1f21'],
-    ...(m.components?.insulator ? [['layer.insulator', m.components.insulator, '#d9b77c']] : []),
+    ...(pressure ? [['layer.cover', m.C.cap || '—', outside], ['layer.strip', 'COR-9914', outside], ['layer.gasketOuter', roles.pressureGasket || '999000', '#1d1f21'], ['layer.insulator', roles.rpt || 'RPT', '#d9b77c']] : []),
+    ...(sealed ? [['layer.joint', roles.backer || roles.dryGasket || 'SILICON', '#1d1f21']] : []),
+    ...(vent ? [['layer.sash', vent.field.win.profiles.map(p => p.code).join(' / '), outside]] : []),
     ['layer.glass', `${m.glazing.thickness} mm · ${m.glazing.label}`, '#a9c6d3'],
-    ['layer.gasketInner', '760110', '#1d1f21'],
+    ...(e.v === 'frame' ? [['layer.frame', m.C.system === 'ST52' ? 'COR-9982' : 'COR-9983', inside]] : []),
+    ['layer.gasketInner', roles.mullionGasket || '—', '#1d1f21'],
     ['layer.transom', `${m.transom.id} · ${m.transom.depth} mm`, inside],
     ['layer.mullion', `${m.mullion.id} · ${m.mullion.depth} mm`, inside],
   ];
@@ -215,27 +117,20 @@ function setExploded(on, amount = Number($('#explodeAmount').value) || 1) {
 }
 
 async function copyBom() {
-  if (M.brand === 'cortizo') {
-    try { await navigator.clipboard.writeText(cortizoListText(M, S.qty)); $('#copyBom').textContent = '✓'; } catch { $('#copyBom').textContent = '!'; }
-    setTimeout(() => { const b = $('#copyBom'); if (b) b.textContent = t('bom.copy'); }, 1400);
-    return;
-  }
-  const lines = M.bom.items.map(i => [i.id, t(i.key, i.vars), `${i.qty * S.qty} ${t(i.unit)}`, i.note ? t(i.note, i.noteVars) : ''].join('\t'));
-  const text = [`GUTMANN GCW 050 · ${fmt(M.W)} × ${fmt(M.H)} mm × ${S.qty}`, ...lines].join('\n');
-  try { await navigator.clipboard.writeText(text); $('#copyBom').textContent = '✓'; } catch { $('#copyBom').textContent = '!'; }
+  try { await navigator.clipboard.writeText(cortizoListText(M, S.qty)); $('#copyBom').textContent = '✓'; } catch { $('#copyBom').textContent = '!'; }
   setTimeout(() => { const b = $('#copyBom'); if (b) b.textContent = t('bom.copy'); }, 1400);
 }
 
 let pending = false, refit = false;
 function schedule(fit = false) {
   refit = refit || fit;
-  if (pending) return;
+  if (pending || !CZ) return;
   pending = true;
   requestAnimationFrame(() => {
     pending = false;
     const previous = M ? `${M.W}x${M.H}` : null;
     try {
-      M = isCortizo() ? cortizoModel(S, CZ) : facadeModel(S);
+      M = cortizoModel(S, CZ);
     } catch (error) {
       console.error(error);
       $('#checks').innerHTML = `<p class="note">${esc(error.message)}</p>`;
@@ -251,14 +146,7 @@ function schedule(fit = false) {
 
 function update(next, fit = false) {
   S = normalizeState(next);
-  if (S.brand === 'cortizo') {
-    if (!CZ) {
-      syncControls();
-      ensureCortizo().then(loaded => update(loaded ? S : { ...S, brand: 'gutmann' }, true));
-      return;
-    }
-    S.cortizo = normalizeCortizo(S.cortizo || {}, CZ);
-  }
+  if (CZ) S.cortizo = normalizeCortizo(S.cortizo || {}, CZ);
   syncControls();
   schedule(fit);
 }
@@ -273,7 +161,7 @@ function cortizoInput(el) {
 }
 
 // Elevation click: glass → vent → opaque panel (where the system has them).
-function cycleCortizoField(row, col) {
+function cycleField(row, col) {
   const types = fieldTypes(CZ, S.cortizo.system);
   const fields = S.cortizo.fields.filter(f => !(f.row === row && f.col === col));
   const rowPanel = S.rowTypes[row] === 'spandrel' && types.includes('panel');
@@ -293,7 +181,6 @@ document.addEventListener('change', event => {
   const k = el.dataset.k;
   if (!k) return;
   if (el.type === 'checkbox') return update({ ...S, [k]: el.checked });
-  if (el.tagName === 'SELECT') return update({ ...S, [k]: ['customThickness'].includes(k) ? Number(el.value) : el.value });
   const value = parseFloat(String(el.value).replace(',', '.'));
   if (Number.isNaN(value)) return syncControls();
   update({ ...S, [k]: value });
@@ -304,9 +191,10 @@ document.addEventListener('input', event => {
   if (el.type === 'range' && el.dataset.k) update({ ...S, [el.dataset.k]: Number(el.value) });
 });
 document.addEventListener('click', event => {
+  const cell = event.target.closest?.('.cz-cell');
+  if (cell && CZ) return cycleField(Number(cell.dataset.cellRow), Number(cell.dataset.cellCol));
   const el = event.target.closest('button');
   if (!el || el.closest('.shared-ui-host')) return;
-  if (el.dataset.brand) return update({ ...S, brand: el.dataset.brand }, true);
   if (el.dataset.czSystem) return update({ ...S, cortizo: { system: el.dataset.czSystem } }, true);
   if (el.dataset.preset) return update({ ...S, ...PRESETS[el.dataset.preset] }, true);
   if (el.dataset.tint) return update({ ...S, glassTint: el.dataset.tint });
@@ -325,15 +213,11 @@ document.addEventListener('click', event => {
   }
   if (el.dataset.tab) selectTab(el.dataset.tab);
 });
-document.addEventListener('click', event => {
-  const cell = event.target.closest?.('.cz-cell');
-  if (cell && isCortizo()) cycleCortizoField(Number(cell.dataset.cellRow), Number(cell.dataset.cellCol));
-});
 document.addEventListener('keydown', event => {
   const cell = event.target.closest?.('.cz-cell');
-  if (!cell || !isCortizo() || !['Enter', ' '].includes(event.key)) return;
+  if (!cell || !CZ || !['Enter', ' '].includes(event.key)) return;
   event.preventDefault();
-  cycleCortizoField(Number(cell.dataset.cellRow), Number(cell.dataset.cellCol));
+  cycleField(Number(cell.dataset.cellRow), Number(cell.dataset.cellCol));
 });
 
 function applyLocale(next) {
@@ -360,11 +244,10 @@ window.CURTAIN_WALL_API = {
   isExploded: () => view.exploded > 0,
   setView: name => view.setView(name),
   getModel: () => M,
-  ready: () => (S.brand === 'cortizo' ? ensureCortizo().then(Boolean) : Promise.resolve(true)),
+  ready: () => czReady,
   getScene: () => view,
   setLocale: applyLocale,
 };
 
 applyLocale(locale);
-if (S.brand === 'cortizo') update(S, true);
-else schedule(true);
+czReady.then(() => update(S, true));

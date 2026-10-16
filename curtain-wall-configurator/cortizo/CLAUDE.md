@@ -100,7 +100,7 @@ Exemple complete în `tests/examples.js`. Ieșirea are forma `{ system, geometry
 
 ## Integrarea în 360Configurator (făcută)
 
-Proiectul stă în repo-ul `configurator-360`, în `curtain-wall-configurator/cortizo/`, și e folosit de configuratorul 3D de pereți cortină (alegerea „Cortizo” din secțiunea *Producător și sistem*):
+Proiectul stă în repo-ul `configurator-360`, în `curtain-wall-configurator/cortizo/`, și e motorul configuratorului 3D de pereți cortină (singurul producător din configurator):
 - **`../js/cortizo.js`** e adaptorul. Încarcă datele, face proiectul din grila configuratorului (rândurile sunt de jos în sus acolo și de sus în jos aici) și produce modelul pentru 3D și desene.
 - **`../js/cortizoUi.js`** face interfața:
   - controalele;

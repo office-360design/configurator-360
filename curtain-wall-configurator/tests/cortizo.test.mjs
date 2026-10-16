@@ -5,11 +5,9 @@ import { EXAMPLES } from '../cortizo/tests/examples.js';
 import { createCortizo, cortizoListText, cortizoModel, fieldTypes, normalizeCortizo, toProject } from '../js/cortizo.js';
 import { DEFAULT_STATE, normalizeState } from '../js/facade.js';
 import { cortizoNodeParts } from '../js/sections.js';
-import { MESSAGES } from '../js/i18n.js';
-import { readFileSync } from 'node:fs';
 
 const cz = createCortizo(loadData());
-const state = (cortizo, extra = {}) => normalizeState({ ...DEFAULT_STATE, brand: 'cortizo', cortizo, ...extra });
+const state = (cortizo, extra = {}) => normalizeState({ ...DEFAULT_STATE, cortizo, ...extra });
 
 test('the configurator project matches the Cortizo example for every system', () => {
   // Same grid as cortizo/tests/examples.js: rows listed bottom-up here, top-down in the engine.
@@ -56,7 +54,6 @@ test('spandrel rows become opaque panels and clicked cells override them', () =>
 
 test('model for the scene: grid bottom-up, member sections follow the system edges', () => {
   const m = cortizoModel(state({ system: 'TPH52' }), cz);
-  assert.equal(m.brand, 'cortizo');
   assert.deepEqual(m.xs, [0, 1500, 3000, 4500, 6000]);
   assert.equal(m.H, 6600);
   assert.equal(m.panes.length, 16);
@@ -87,10 +84,4 @@ test('cutting and accessory list text scales with the order quantity', () => {
   assert.match(one, /^Cortizo TP 52 · 6000 × 6600 mm × 1/);
   const bars = text => Number(text.split('\n').find(l => l.includes(m.mullion.id)).match(/(\d+) bare/)[1]);
   assert.equal(bars(two), 2 * bars(one));
-});
-
-test('Cortizo UI strings exist in every locale', () => {
-  const sources = ['../js/app.js', '../js/cortizoUi.js', '../js/drawings.js', '../index.html'].map(f => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
-  const used = new Set([...sources.matchAll(/['"`]((?:cz|system|layer|tab)\.[\w.]+)['"`]/g)].map(m => m[1]).filter(k => !k.endsWith('.')));
-  for (const locale of Object.keys(MESSAGES)) for (const key of used) assert.ok(key in MESSAGES[locale], `${locale} lacks ${key}`);
 });

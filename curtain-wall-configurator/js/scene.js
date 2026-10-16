@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createSurfaceSystem, disposeObjectResources } from '../../shared-3d/src/index.js?v=platform-19';
-import { FINISHES } from './facade.js?v=cw-3';
-import { GLASS_GAP, nodeParts } from './sections.js?v=cw-3';
+import { FINISHES } from './facade.js?v=cw-4';
+import { GLASS_GAP } from './sections.js?v=cw-4';
 
 const MM = 0.001;
 // Exploded view: offset of each layer along the facade normal (m at amount 1),
@@ -24,7 +24,7 @@ export const EXPLODE_LAYERS = Object.freeze([
   { kind: 'cover', z: 0.46 },
 ]);
 const layerOffset = (kind, role) => (EXPLODE_LAYERS.find(l => l.kind === kind && (!l.role || l.role === role))?.z ?? 0);
-const TINTS = { clear: '#dfeaec', neutral: '#a9b8bd', blue: '#7fa6c2', bronze: '#a8906f' };
+const TINT_COLORS = { clear: '#dfeaec', neutral: '#a9b8bd', blue: '#7fa6c2', bronze: '#a8906f' };
 
 function shapeFrom(part) {
   // Section (x, z) → shape (x, −z), extruded along +Z then rotated so the
@@ -117,21 +117,21 @@ export class FacadeScene {
       case 'frame': return metal(S.finishInside);
       case 'sash': return metal(S.finishOutside);
       case 'insulator': return this.surface.materials.create('plastic.thermalBreak');
-      case 'glass': return this.surface.materials.create('glass.architectural', { color: TINTS[S.glassTint], side: THREE.DoubleSide });
+      case 'glass': return this.surface.materials.create('glass.architectural', { color: TINT_COLORS[S.glassTint], side: THREE.DoubleSide });
       case 'panel': return metal(S.finishOutside);
       default: return new THREE.MeshStandardMaterial();
     }
   }
 
   build(model) {
-    const { S, glazing, mullions, transoms, panes, mullion, transom } = model;
+    const { S, glazing, mullions, transoms, panes, mullion } = model;
     if (this.root) { this.scene.remove(this.root); disposeObjectResources?.(this.root); }
     const root = new THREE.Group();
     root.name = 'curtain-wall';
     const buckets = {};
-    // Cortizo models bring their own section per member (see cortizo.js).
-    const mullionParts = model.section?.('mullion') ?? nodeParts({ depth: mullion.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverMullion });
-    const transomParts = model.section?.('transom') ?? nodeParts({ depth: transom.depth, thickness: glazing.thickness, stripId: S.strip, coverId: S.coverTransom });
+    // Member sections follow the fixing of the system on each direction (cortizo.js).
+    const mullionParts = model.section('mullion');
+    const transomParts = model.section('transom');
     const collectAs = (role, geometries) => Object.entries(geometries).forEach(([kind, list]) => (buckets[`${role}:${kind}`] ||= []).push(...list));
     mullions.forEach(m => collectAs('mullion', memberGeometries(mullionParts, m.length, { horizontal: false, x: m.x, y: 0 })));
     transoms.forEach(t => collectAs('transom', memberGeometries(transomParts, t.length, { horizontal: true, x: t.x0, y: t.y })));

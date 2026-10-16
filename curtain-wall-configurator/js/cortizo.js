@@ -4,7 +4,7 @@
 // configurator state to an engine project and the engine result to the model
 // the 3D scene and the drawings use.
 import { createEngine } from '../cortizo/src/engine.js?v=cortizo-1';
-import { cortizoNodeParts } from './sections.js?v=cw-3';
+import { cortizoNodeParts } from './sections.js?v=cw-4';
 
 export const CORTIZO_DATA_VERSION = 'cortizo-1';
 const CATALOG = ['accessories', 'glass_supports', 'glazing_tables', 'mullions', 'profiles', 'transoms', 'ucw'];
@@ -134,8 +134,8 @@ export function toProject(S, C) {
 
 const cumulative = values => values.reduce((acc, v) => [...acc, acc.at(-1) + v], [0]);
 
-// Engine result → the model the scene and drawings read (same shape as
-// facade.js: xs/ys bottom-up, panes, mullions, transoms, mullion/transom).
+// Engine result → the model the scene and drawings read (xs/ys bottom-up,
+// panes, mullions, transoms, mullion/transom, member sections).
 export function cortizoModel(S, cortizo) {
   const C = normalizeCortizo(S.cortizo, cortizo);
   const project = toProject(S, C);
@@ -155,7 +155,7 @@ export function cortizoModel(S, cortizo) {
   const transoms = [];
   ys.forEach((y, line) => S.widths.forEach((w, bay) => transoms.push({ line, bay, y, x0: xs[bay] + half, x1: xs[bay + 1] - half, span: w, length: w - FACE_WIDTH })));
   return {
-    brand: 'cortizo', S, C, project, result: R, glazing, xs, ys, W, H, panes, mullions, transoms, mullion, transom,
+    S, C, project, result: R, glazing, xs, ys, W, H, panes, mullions, transoms, mullion, transom,
     edges: R.system.edges, faceWidth: FACE_WIDTH, slopeDeg: C.system === 'SKY' ? C.slopeDeg : null,
     // Section of a member by the fixing on its direction (v: mullions, h: transoms).
     section: role => cortizoNodeParts({ depth: depth || 100, thickness: C.totalMm, edge: R.system.edges[role === 'mullion' ? 'v' : 'h'] }),

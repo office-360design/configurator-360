@@ -2,7 +2,7 @@
 // sheet (elevation with field status, checks, cutting list, accessories,
 // systems comparison and logic map). Catalogue texts and engine messages are
 // Romanian, as in cortizo/; labels around them follow the configurator locale.
-import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=cw-3';
+import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=cw-4';
 
 const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (x, d = 0) => (x == null || Number.isNaN(Number(x)) ? '–' : Number(x).toLocaleString('ro-RO', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -16,8 +16,7 @@ export function systemControls(t, cortizo, C) {
   const chips = cortizo.engine.systems.map(s => `<button type="button" class="chip" data-cz-system="${s.id}" aria-pressed="${s.id === C.system}">${esc(s.name)}</button>`).join('');
   const edges = Object.entries(R.edges || {}).map(([k, v]) => `<span>${esc(t(`cz.edgeDir.${k}`))}: ${esc(t(`cz.edge.${v}`))}</span>`).join('');
   const tests = R.tests ? `<span>${esc(t('cz.tests', { air: R.tests.air, water: R.tests.water, wind: R.tests.wind }))}</span>` : '';
-  return `<span class="select-label" data-i18n="cz.system">${esc(t('cz.system'))}</span>
-    <div class="chip-row" role="group">${chips}</div>
+  return `<div class="chip-row" role="group" aria-label="${esc(t('cz.system'))}">${chips}</div>
     <div class="info-card cz-principle"><strong>${esc(cortizo.engine.systems.find(s => s.id === C.system).name)} · ${esc(t('cz.pages', { p: R.pages }))}</strong>
       <small>${esc(R.principle)}</small><div class="cz-edges">${edges}<span>${esc(t('cz.maxGlass', { mm: R.max_glass_mm }))}</span>${tests}</div></div>`;
 }
@@ -179,7 +178,7 @@ let mapMarkup = null;
 export async function mapPanel(t) {
   if (mapMarkup == null) {
     try {
-      const response = await fetch(new URL('../cortizo/web/map.html?v=cw-3', import.meta.url));
+      const response = await fetch(new URL('../cortizo/web/map.html?v=cw-4', import.meta.url));
       mapMarkup = response.ok ? await response.text() : '';
     } catch { mapMarkup = ''; }
   }
