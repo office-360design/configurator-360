@@ -973,7 +973,7 @@ const settingsSource = await read('window-configurator/src/client/js/window-sett
 // dependency as well as the size schema so the production module can link.
 const loadingTraceUrl = dataUrl(await read('window-configurator/src/client/js/loading-trace.js'));
 const { loadPublishedWindowSettings } = await import(dataUrl(settingsSource.replace(
-  "'../../../../shared-ui/src/windowSizeSettings.js?v=1'", JSON.stringify(sizeModelUrl),
+  "'../../../../shared-ui/src/windowSizeSettings.js?v=size-limits-1'", JSON.stringify(sizeModelUrl),
 ).replace(
   /(['"])\.\/loading-trace\.js(?:\?[^'"]*)?\1/g, JSON.stringify(loadingTraceUrl),
 )));
@@ -1051,7 +1051,29 @@ test('overall sizing respects published lower/upper bounds in preview and commit
   await manager.resizeOverall({ widthM: 100, heightM: .1 });
   assert.deepEqual(dimensions(), { widthM: 4, heightM: 1 });
   await manager.resizeOverall({ widthM: .1, heightM: 100 });
-  assert.deepEqual(dimensions(), { widthM: 2, heightM: 3 });
+  // One row: the overall height is one window, so the window maximum (2 m) wins over the overall 3 m.
+  assert.deepEqual(dimensions(), { widthM: 2, heightM: 2 });
+});
+test('overall maximum follows the layout: columns × window maximum, capped by the overall maximum', async () => {
+  const { manager, state, dimensions } = await sizingHarness({
+    overall: { width: { minMm: 450, maxMm: 25000 }, height: { minMm: 450, maxMm: 25000 } },
+    individual: { width: { minMm: 450, maxMm: 2500 }, height: { minMm: 450, maxMm: 2500 } },
+  });
+  assert.deepEqual(manager.getMaximumDimensions(), { widthM: 5, heightM: 2.5 });
+  await manager.resizeOverall({ widthM: 18.725, heightM: 13.244 });
+  assert.deepEqual(dimensions(), { widthM: 5, heightM: 2.5 });
+  // A window merged over both columns may only be one window wide.
+  const merged = { ...state(), windows: [{ id: 'all', rect: { x0: 0, x1: 2, y0: 0, y1: 1 } }] };
+  assert.deepEqual(manager.getMaximumDimensions(merged), { widthM: 2.5, heightM: 2.5 });
+});
+test('layouts above the maximum are brought back within it', async () => {
+  const { manager, state, dimensions } = await sizingHarness({
+    overall: { width: { minMm: 450, maxMm: 25000 }, height: { minMm: 450, maxMm: 25000 } },
+    individual: { width: { minMm: 450, maxMm: 1000 }, height: { minMm: 450, maxMm: 2500 } },
+  });
+  assert.equal(await manager.clampToLimits(), true);
+  assert.deepEqual(dimensions(), { widthM: 2, heightM: 1.5 });
+  assert.equal(await manager.clampToLimits(), false, 'nothing to do within the limits');
 });
 test('individual resizing respects published caps and keeps overall size and sibling minimums', async () => {
   const { manager, state, dimensions } = await sizingHarness(narrowLimits());

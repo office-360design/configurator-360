@@ -18,7 +18,7 @@ import {
     createWindowLayoutController,
     getWindowLayoutRequest,
 } from './window-layout-controller.js?v=platform-18';
-import { createLayoutSizingManager } from './layout-sizing-manager.js?v=platform-18';
+import { createLayoutSizingManager } from './layout-sizing-manager.js?v=size-limits-1';
 import { createSegmentedResizeOptimizer } from './segmented-resize-optimizer.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 import { readShareState } from '../shared-ui/src/shareState.js?v=4';
@@ -875,6 +875,8 @@ windowLayoutOverlay = measureCadLoadingSync(
     onMergeWindows: async (cellAId, cellBId, type, handleSide) => {
         const result = await windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide });
         layoutSizingManager?.resetModifiedFlags();
+        // A merged window spans several columns/rows and must stay within the window maximum.
+        await layoutSizingManager?.clampToLimits();
         layoutSizingManager?.syncOverallControls();
         selectWindowCell(null);
         return result;
@@ -974,6 +976,8 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         { notify: false }
     );
     layoutSizingManager?.resetModifiedFlags();
+    // Saved/shared layouts from before the size limits are brought within them.
+    await layoutSizingManager?.clampToLimits();
     layoutSizingManager?.syncOverallControls();
     const combinedProfileSelection = {
         ...selectedProfiles,
