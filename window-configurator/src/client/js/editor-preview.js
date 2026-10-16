@@ -1,4 +1,4 @@
-import { WINDOW_SIZE_CONTROLS, applyWindowSliderBounds, validateWindowSizeLimits } from '../../../../shared-ui/src/windowSizeSettings.js?v=1';
+import { WINDOW_SIZE_CONTROLS, applyWindowSliderBounds, validateWindowSizeLimits } from '../../../../shared-ui/src/windowSizeSettings.js?v=size-limits-1';
 
 const element = id => document.getElementById(id);
 const groupIds = ['mill', 'anodized', 'coated'];

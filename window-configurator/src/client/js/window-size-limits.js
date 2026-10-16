@@ -2,7 +2,7 @@ import { WINDOW_SLIDER_LIMITS } from './window-settings.js';
 import {
     WINDOW_SIZE_CONTROLS,
     applyWindowSliderBounds
-} from '../../../../shared-ui/src/windowSizeSettings.js?v=1';
+} from '../../../../shared-ui/src/windowSizeSettings.js?v=size-limits-1';
 import { getGlazingBeadCode } from './config.js?v=platform-18';
 
 import {

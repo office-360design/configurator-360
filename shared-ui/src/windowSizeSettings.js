@@ -80,10 +80,13 @@ export function applyWindowSliderBounds(limits, root = globalThis.document) {
         const number = root.getElementById(control.valueId);
         const bounds = limits[control.scope][control.axis];
         const layoutMin = control.scope === 'overall' ? Number(range?.dataset.layoutMinimumM) * 1000 || 0 : 0;
-        const minMm = Math.min(bounds.maxMm, Math.max(bounds.minMm, Math.ceil(layoutMin - 1e-6)));
+        // The overall maximum also depends on the layout (columns × window maximum).
+        const layoutMax = control.scope === 'overall' ? Number(range?.dataset.layoutMaximumM) * 1000 || Infinity : Infinity;
+        const maxMm = Math.max(bounds.minMm, Math.min(bounds.maxMm, Math.floor(layoutMax + 1e-6)));
+        const minMm = Math.min(maxMm, Math.max(bounds.minMm, Math.ceil(layoutMin - 1e-6)));
         set(range, 'min', (minMm / 1000).toFixed(3));
-        set(range, 'max', (bounds.maxMm / 1000).toFixed(3));
+        set(range, 'max', (maxMm / 1000).toFixed(3));
         set(number, 'min', String(minMm));
-        set(number, 'max', String(bounds.maxMm));
+        set(number, 'max', String(maxMm));
     }
 }
