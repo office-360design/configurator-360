@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createSurfaceSystem, disposeObjectResources } from '../../shared-3d/src/index.js?v=platform-19';
-import { FINISHES } from './facade.js?v=cw-4';
-import { GLASS_GAP } from './sections.js?v=cw-4';
+import { FINISHES } from './facade.js?v=cw-5';
+import { GLASS_GAP } from './sections.js?v=cw-5';
 
 const MM = 0.001;
 // Exploded view: offset of each layer along the facade normal (m at amount 1),

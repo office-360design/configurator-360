@@ -85,3 +85,19 @@ test('cutting and accessory list text scales with the order quantity', () => {
   const bars = text => Number(text.split('\n').find(l => l.includes(m.mullion.id)).match(/(\d+) bare/)[1]);
   assert.equal(bars(two), 2 * bars(one));
 });
+
+test('catalogue names are the English ones, never the Spanish ones', () => {
+  const { profiles, accessories } = cz.data.catalog;
+  const english = new Map([...profiles, ...accessories].map(x => [x.code, x.desc_en]));
+  const spanish = new Set([...profiles, ...accessories].map(x => x.desc_es).filter(d => d && !english.has(d) && ![...english.values()].includes(d)));
+  for (const system of ['TP52', 'SG52', 'TPH52', 'TPV52', 'ST52', 'SST52', 'SKY']) {
+    const R = cortizoModel(state({ system }), cz).result;
+    for (const item of [...R.cuts, ...R.accessories]) {
+      if (english.has(item.code)) assert.equal(item.desc, english.get(item.code), `${system} ${item.code}`);
+      assert.ok(!spanish.has(item.desc), `${system} ${item.code}: ${item.desc}`);
+    }
+    assert.ok(!/Lucernario|Aislamiento/.test(R.system.name));
+  }
+  assert.ok(cortizoModel(state({ system: 'SKY' }), cz).result.ucw, 'skylight Ucw is still read from the catalogue table');
+  assert.ok(!cz.engine.options('TP52').some(o => /Aislamiento/.test(o.variant)));
+});

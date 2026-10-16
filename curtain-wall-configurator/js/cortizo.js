@@ -1,12 +1,12 @@
-// Cortizo systems (TP 52, SG 52, TPH 52, TPV 52, ST 52, SST 52, Lucernario)
+// Cortizo systems (TP 52, SG 52, TPH 52, TPV 52, ST 52, SST 52, Skylight – Veranda)
 // in the curtain wall configurator. The engine and the catalogue data live
 // unchanged in ../cortizo (see cortizo/CLAUDE.md); this module only maps the
 // configurator state to an engine project and the engine result to the model
 // the 3D scene and the drawings use.
-import { createEngine } from '../cortizo/src/engine.js?v=cortizo-1';
-import { cortizoNodeParts } from './sections.js?v=cw-4';
+import { createEngine } from '../cortizo/src/engine.js?v=cortizo-2';
+import { cortizoNodeParts } from './sections.js?v=cw-5';
 
-export const CORTIZO_DATA_VERSION = 'cortizo-1';
+export const CORTIZO_DATA_VERSION = 'cortizo-2';
 const CATALOG = ['accessories', 'glass_supports', 'glazing_tables', 'mullions', 'profiles', 'transoms', 'ucw'];
 const RULES = ['common', 'tp52', 'sg52', 'tph52', 'tpv52', 'st52', 'sst52', 'skylight'];
 export const RULE_KEY = Object.freeze({ TP52: 'tp52', SG52: 'sg52', TPH52: 'tph52', TPV52: 'tpv52', ST52: 'st52', SST52: 'sst52', SKY: 'skylight' });

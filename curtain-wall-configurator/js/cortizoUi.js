@@ -1,8 +1,8 @@
 // Markup for the Cortizo systems: sidebar controls and the documentation
 // sheet (elevation with field status, checks, cutting list, accessories,
-// systems comparison and logic map). Catalogue texts and engine messages are
-// Romanian, as in cortizo/; labels around them follow the configurator locale.
-import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=cw-4';
+// systems comparison and logic map). Catalogue names are the English ones (desc_en)
+// and engine messages are Romanian, as in cortizo/; labels around them follow the configurator locale.
+import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=cw-5';
 
 const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (x, d = 0) => (x == null || Number.isNaN(Number(x)) ? '–' : Number(x).toLocaleString('ro-RO', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -106,7 +106,7 @@ const ROLE_NAMES = ['mullionGasket', 'transomGasket', 'reducer', 'supportStd', '
 
 export function checksPanel(model, t, cortizo) {
   const R = model.result;
-  const describe = code => code.split(/[+/]/).map(c => c.trim()).map(c => cortizo.data.catalog.accessories.find(x => x.code === c)?.desc_es || cortizo.data.catalog.profiles.find(x => x.code === c)?.desc_es || '').filter(Boolean).join(' + ');
+  const describe = code => code.split(/[+/]/).map(c => c.trim()).map(c => cortizo.data.catalog.accessories.find(x => x.code === c)?.desc_en || cortizo.data.catalog.profiles.find(x => x.code === c)?.desc_en || '').filter(Boolean).join(' + ');
   const checks = R.checks.map(c => `<li>${pill(c.level, t)}<span><b>${esc(c.title)}</b> ${esc(c.text)}${page(t, c.page)}</span></li>`).join('');
   const sky = R.system.id === 'SKY';
   const axes = R.axes.map((a, i) => `<tr><td>M${i + 1}</td><td class="n">${fmt(a.b)}</td><td class="n">${fmt(a.need, 1)}</td><td class="n">${fmt(a.Rv)}</td><td class="n">${fmt(a.Rh, 2)}</td><td>${sky ? pill('warn', t) : a.anchors ? `${a.anchors} × 999183` : pill('bad', t)}</td></tr>`).join('');
@@ -150,13 +150,13 @@ const CMP = {
   spec: { TP52: 'fereastră pag. 393 · zonă oarbă pag. 388', SG52: 'pas cleme · profil U în geam · limite geam (671–674)', TPH52: 'cleme doar pe verticală', TPV52: 'cleme doar pe orizontală', ST52: 'silicon structural · cuplaj COR-9971', SST52: 'fără silicon structural · vânt 1200 Pa', SKY: 'zăpadă + pantă · streașină COR-9912' },
 };
 const CARDS = [
-  ['TP 52', 'Presorul preia vântul pe toate laturile, deci nu există verificare de cleme.', ['Debitare: traversă L−22, presor L−58, capac L−53 (pag. 379).', 'Componente din tabelul TP după grosimea pachetului; suport 4a/4b/4c.', 'Șuruburi de presor la 30 mm de capăt, apoi la max. 250 mm.', 'Variante: nivel 1, nivel 2, Gran Aislamiento, RC3 (sticlă P5A).']],
+  ['TP 52', 'Presorul preia vântul pe toate laturile, deci nu există verificare de cleme.', ['Debitare: traversă L−22, presor L−58, capac L−53 (pag. 379).', 'Componente din tabelul TP după grosimea pachetului; suport 4a/4b/4c.', 'Șuruburi de presor la 30 mm de capăt, apoi la max. 250 mm.', 'Variante: nivel 1, nivel 2, High Insulation, RC3 (sticlă P5A).']],
   ['SG 52', 'Vântul e preluat de cleme, deci pasul clemelor și dimensiunea geamului devin verificări de sine stătătoare.', ['Pas cleme din graficul pag. 678, la vânt × 1,5.', 'Clemă dublă pe rosturi interioare, simplă pe margine; mărimea după foaia interioară.', 'Profil U COR-9956 în camera de 16/18/20 mm, 1 bucată ≤ 1800 mm, altfel 2.', 'Limite geam: 4,5 m pe latură, L + H ≤ 6,5 m; la garnitură uscată lățimea după silicon.']],
   ['TPH 52', 'Combină TP pe orizontală cu SG pe verticală; folosește două tabele de vitraj.', ['Presor + capac pe traverse, cu deducerile TP.', 'Cleme și profil U doar pe laturile verticale.', 'Suporții și calele vin din tabelul TP, pentru că geamul stă pe presor.']],
   ['TPV 52', 'Inversul TPH: presor pe montanți, cleme pe orizontală, deci suportul și clemele sunt pe aceeași latură.', ['Presor vertical COR-9914 cu prelucrare TPV (pag. 897).', 'Cleme, suporți și garnitura de fund din tabelul SG cu aceeași foaie interioară.', 'Pipete la traversa de jos, ca la TP.']],
   ['ST 52', 'Sticla nu atinge structura: e lipită în atelier pe o ramă care se agață pe cleme și suporți.', ['Ramă COR-9982 L−22 × H−22 la 45°, cu platbandă COR-7298 pentru siliconul structural.', 'Suport de sticlă după grosimea geamului (999204…999191), 2 bucăți la L/10.', 'Cuplaj COR-9971 L−28,5, șuruburi la max. 250 mm; cleme 999030 pe 3 laturi.', 'Sticlă max. 38 mm.']],
   ['SST 52', 'Ca ST, dar geamul e ținut mecanic de ornamentul ramei, fără silicon structural.', ['Ramă COR-9983 L−22 × H−22; sticla e L−60 × H−60.', 'Garnitură și reductor după grosime (pag. 1113); sticlă max. 28 mm.', 'Capacitatea suportului COR-9942 nu e în catalog: câmpurile rămân cu atenționare.', 'Vânt testat 1200 Pa.']],
-  ['Lucernario – Veranda', 'Singurul sistem cu zăpadă, pantă și etanșare diferită pe orizontală, ca apa să curgă liber.', ['q⊥ = vânt + zăpadă·cos²α + sticlă·cosα pentru căpriori și traverse.', 'Tăvițele de sprijin preiau doar componenta în lungul pantei.', 'Căpriori COR-9804…9810, pantă 7°–40°.', 'Îmbinare streașină cu cămașa COR-9912: L1 = A/cos(β/2), L2 = L1 + 200/tan(90° − β/2).']],
+  ['Skylight – Veranda', 'Singurul sistem cu zăpadă, pantă și etanșare diferită pe orizontală, ca apa să curgă liber.', ['q⊥ = vânt + zăpadă·cos²α + sticlă·cosα pentru căpriori și traverse.', 'Tăvițele de sprijin preiau doar componenta în lungul pantei.', 'Căpriori COR-9804…9810, pantă 7°–40°.', 'Îmbinare streașină cu cămașa COR-9912: L1 = A/cos(β/2), L2 = L1 + 200/tan(90° − β/2).']],
 ];
 
 export function systemsPanel(t, cortizo) {
@@ -178,7 +178,7 @@ let mapMarkup = null;
 export async function mapPanel(t) {
   if (mapMarkup == null) {
     try {
-      const response = await fetch(new URL('../cortizo/web/map.html?v=cw-4', import.meta.url));
+      const response = await fetch(new URL('../cortizo/web/map.html?v=cw-5', import.meta.url));
       mapMarkup = response.ok ? await response.text() : '';
     } catch { mapMarkup = ''; }
   }

@@ -21,9 +21,9 @@ still open: their GCW fields are dropped and the grid is kept.
 
 ## Cortizo systems
 
-The configurator covers the seven systems of the Cortizo catalogue “Sistemas
-de fachadas y lucernarios” v26.04.01 (04/2026): TP 52, SG 52, TPH 52, TPV 52,
-ST 52, SST 52 and Lucernario – Veranda (skylight).
+The configurator covers the seven systems of the Cortizo catalogue façade and skylight systems
+catalogue v26.04.01 (04/2026): TP 52, SG 52, TPH 52, TPV 52,
+ST 52, SST 52 and Skylight – Veranda.
 
 - `cortizo/` holds the Cortizo project **unchanged**: the pure engine
   (`src/`), the catalogue data and rules (`data/`), its 12 tests, the
@@ -46,8 +46,9 @@ ST 52, SST 52 and Lucernario – Veranda (skylight).
   - the cutting list on bars and the accessories list;
   - the systems comparison and the logic map (`cortizo/web/map.html`).
 - The skylight leans at its slope in 3D. Snow and slope go into the engine.
-- Engine messages and catalogue texts stay in Romanian/Spanish, as in
-  `cortizo/`. Labels follow the RO/EN/DE locale.
+- Catalogue names are shown in English only (`desc_en`); no Spanish text is
+  displayed. Engine messages stay Romanian, as in `cortizo/`. Labels follow
+  the RO/EN/DE locale.
 - Deploy publishes `cortizo/src`, `cortizo/data/*.json` and `web/map.html`
   only. Docs, tests, scripts and the spreadsheet stay in the repository.
 

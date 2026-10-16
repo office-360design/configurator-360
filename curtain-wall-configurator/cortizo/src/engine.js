@@ -1,4 +1,4 @@
-// Motorul configuratorului de pereți cortină Cortizo (TP 52, SG 52, TPH 52, TPV 52, ST 52, SST 52, Lucernario).
+// Motorul configuratorului de pereți cortină Cortizo (TP 52, SG 52, TPH 52, TPV 52, ST 52, SST 52, Skylight – Veranda).
 // Funcție pură: compute(project) → rezultat. Nu citește fișiere; datele vin prin createEngine(data).
 //
 // Ordinea etapelor (vezi docs/METODOLOGIE.md):
@@ -22,7 +22,8 @@ export function createEngine(data) {
   const prof = new Map(data.catalog.profiles.map((p) => [p.code, p]));
   const acc = new Map(data.catalog.accessories.map((a) => [a.code, a]));
   const ctx = { data, rules: data.rules, glz, prof, acc };
-  const describe = (code) => prof.get(code)?.desc_es || acc.get(code)?.desc_es || '';
+  // Denumirile din catalog se afișează doar în engleză (desc_en); textele în spaniolă nu se preiau.
+  const describe = (code) => prof.get(code)?.desc_en || acc.get(code)?.desc_en || '';
 
   return {
     systems: SYSTEM_LIST,
@@ -268,9 +269,9 @@ function compute(project, ctx, describe) {
     const pk = packBars(c.pieces, o.barMm, o.kerfMm);
     return { code: c.code, desc: describe(c.code), notes: [...c.notes], n: c.pieces.length, lengths: [...new Set(c.pieces)].sort((a, b) => b - a), m, kg: p?.kg_m ? m * p.kg_m : null, paint_m2: p?.paint_dm2_m ? (m * p.paint_dm2_m) / 100 : null, bars: pk.bars, waste: pk.waste, overLength: pk.overLength };
   });
-  const accessories = [...accs.values()].map((a) => ({ code: a.code, desc: a.code === 'SILICON-EXT' ? 'Silicon de etanșare (nu e produs Cortizo)' : describe(a.code), qty: a.unit === 'm' ? Math.round(a.qty * 10) / 10 : Math.ceil(a.qty), unit: a.unit, rules: [...a.rules] }));
+  const accessories = [...accs.values()].map((a) => ({ code: a.code, desc: a.code === 'SILICON-EXT' ? 'Sealing silicone (not a Cortizo product)' : a.code === 'SILICON-STRUCT' ? 'Structural silicone (not a Cortizo product)' : describe(a.code), qty: a.unit === 'm' ? Math.round(a.qty * 10) / 10 : Math.ceil(a.qty), unit: a.unit, rules: [...a.rules] }));
   cuts.filter((c) => c.overLength.length).forEach((c) => check('bad', 'Debitare', `${c.code}: ${c.overLength.length} bucăți mai lungi decât bara de ${o.barMm} mm (${c.overLength.join(', ')} mm). Micșorați distanța între ancoraje sau comandați bare mai lungi.`));
-  const ucw = ucwFor(ctx.data.catalog.ucw, sys.name, project.glass.ug);
+  const ucw = ucwFor(ctx.data.catalog.ucw, sys.tableName || sys.name, project.glass.ug);
 
   return {
     system: { id: sys.id, name: sys.name, principle: SR.principle, edges: sys.edges, tests: SR.tests, pages: SR.pages },

@@ -1,4 +1,4 @@
-// UI strings for ro-RO, en-US and de-DE. Cortizo catalogue names (desc_es) and engine messages stay as in cortizo/.
+// UI strings for ro-RO, en-US and de-DE. Cortizo catalogue names are English (desc_en); engine messages stay as in cortizo/.
 const ro = {
   'explode.title': 'Vedere explodată', 'explode.amount': 'Distanță între straturi', 'explode.close': 'Asamblează',
   'layer.cover': 'Capac exterior', 'layer.strip': 'Placă de presiune', 'layer.gasketOuter': 'Garnitură exterioară', 'layer.insulator': 'Izolator',
@@ -127,7 +127,7 @@ const ro = {
   "cz.tag1": "Cortizo {system} · {w} × {h} mm · {bays} × {rows} câmpuri",
   "cz.tag2": "Montant {mullion} · traversă {transom} · sticlă {t} mm",
   "cz.tag3": "{ok} / {total} câmpuri OK · {kg} kg aluminiu",
-  "cz.source": "Date din catalogul Cortizo „Sistemas de fachadas y lucernarios” v26.04.01 (04/2026): profile, tabele de vitraj, suporți, cleme, îmbinări, ancoraje și debitări, fiecare cu pagina ei. Rezultatul e o predimensionare și nu înlocuiește calculul static al proiectantului.",
+  "cz.source": "Date din catalogul Cortizo de fațade și luminatoare v26.04.01 (04/2026): profile, tabele de vitraj, suporți, cleme, îmbinări, ancoraje și debitări, fiecare cu pagina ei. Rezultatul e o predimensionare și nu înlocuiește calculul static al proiectantului.",
   "cz.loadFailed": "Catalogul Cortizo nu a putut fi încărcat.",
 };
 
@@ -259,7 +259,7 @@ const en = {
   "cz.tag1": "Cortizo {system} · {w} × {h} mm · {bays} × {rows} fields",
   "cz.tag2": "Mullion {mullion} · transom {transom} · glass {t} mm",
   "cz.tag3": "{ok} / {total} fields OK · {kg} kg aluminium",
-  "cz.source": "Data from the Cortizo catalogue “Sistemas de fachadas y lucernarios” v26.04.01 (04/2026): profiles, glazing tables, supports, clips, joints, anchors and cuts, each with its page. The result is a pre-sizing and does not replace the structural engineer’s calculation.",
+  "cz.source": "Data from the Cortizo façade and skylight systems catalogue v26.04.01 (04/2026): profiles, glazing tables, supports, clips, joints, anchors and cuts, each with its page. The result is a pre-sizing and does not replace the structural engineer’s calculation.",
   "cz.loadFailed": "The Cortizo catalogue could not be loaded.",
 };
 
@@ -391,7 +391,7 @@ const de = {
   "cz.tag1": "Cortizo {system} · {w} × {h} mm · {bays} × {rows} Felder",
   "cz.tag2": "Pfosten {mullion} · Riegel {transom} · Glas {t} mm",
   "cz.tag3": "{ok} / {total} Felder OK · {kg} kg Aluminium",
-  "cz.source": "Daten aus dem Cortizo-Katalog „Sistemas de fachadas y lucernarios“ v26.04.01 (04/2026): Profile, Verglasungstabellen, Glasträger, Klammern, Verbindungen, Anker und Zuschnitte, jeweils mit Seite. Das Ergebnis ist eine Vorbemessung und ersetzt nicht die statische Berechnung.",
+  "cz.source": "Daten aus dem Cortizo-Katalog für Fassaden- und Lichtdachsysteme v26.04.01 (04/2026): Profile, Verglasungstabellen, Glasträger, Klammern, Verbindungen, Anker und Zuschnitte, jeweils mit Seite. Das Ergebnis ist eine Vorbemessung und ersetzt nicht die statische Berechnung.",
   "cz.loadFailed": "Der Cortizo-Katalog konnte nicht geladen werden.",
 };
 

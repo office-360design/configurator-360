@@ -118,7 +118,7 @@ Motorul descrie fiecare sistem prin **tipul de prindere pe fiecare direcție**:
 **Calcul specific.**
 - **Debitări (pag. 379):** traversă L−22, izolator RPT L−22, presor orizontal L−58, capac orizontal L−53, sticlă L−22 × H−22. Presorul și capacul vertical merg pe lungimea deschiderii; **ipoteză:** fără deducere, desenul nu o dă.
 - **Componente din tabelul de vitraj** (pag. 305–315), după grosimea pachetului: garnitură montant (1), garnitură traversă (2), reductor de falț (3, doar la sticlă subțire), suport standard / sarcini mari / în cruce (4a/4b/4c), cală (5), izolator RPT (6), șurub presor (7), pipetă (8).
-- **Variante:** standard nivel 1 și 2, Gran Aislamiento, RC3. La RC3 se cere sticlă P5A de minimum 4+4 pe ambele fețe și plăci de siguranță 999848/49/50.
+- **Variante:** standard nivel 1 și 2, High Insulation, RC3. La RC3 se cere sticlă P5A de minimum 4+4 pe ambele fețe și plăci de siguranță 999848/49/50.
 - **Șuruburi de presor:** primul la 30 mm, apoi la maximum 250 mm.
 - **Pipete:** la capetele traverselor, pentru drenajul în cascadă pe 3 niveluri.
 

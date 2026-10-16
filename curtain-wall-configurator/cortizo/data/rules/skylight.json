@@ -1,5 +1,5 @@
 {
-  "id": "SKY", "name": "Lucernario – Veranda", "pages": "1219–1304",
+  "id": "SKY", "name": "Skylight – Veranda", "pages": "1219–1304",
   "principle": "Aceeași structură montant–traversă, dar înclinată: montanții devin căpriori pe pantă. Pe căpriori sticla e prinsă cu presor + capac; pe traversele din acoperiș rostul se etanșează cu silicon pe garnitură de fund (K), ca apa să curgă liber spre streașină. Greutatea sticlei se descompune: o parte perpendicular (încovoiere), o parte în lungul pantei (pe tăvițele de sprijin).",
   "edges": { "rafter": "pressure", "roof_transom": "silicone", "vertical_wall": "pressure" },
   "slope_deg": { "min": 7, "max": 40, "_page": 1271, "_note": "Minim 7° (12 %), maxim 40° (84 %)." },

@@ -24,7 +24,7 @@ Catalog: Cortizo „Sistemas de fachadas y lucernarios”, v26.04.01 (04/2026), 
 
 | Sistem | Variantă | Pagini |
 |---|---|---|
-| TP 52 | Standard nivel 1 / nivel 2 / Gran Aislamiento / RC3 | 305, 306, 311, 315 |
+| TP 52 | Standard nivel 1 / nivel 2 / High Insulation / RC3 | 305, 306, 311, 315 |
 | SG 52 | Siliconat nivel 1 / nivel 2 | 582–584, 586 |
 | SG 52 | Garnitură uscată nivel 1 / nivel 2 | 597–599, 601 |
 | TPH 52 | Standard nivel 1 / nivel 2 | 777–779, 783 |

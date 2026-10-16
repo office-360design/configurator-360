@@ -48,7 +48,8 @@ export const SYSTEMS = {
     },
   },
   SKY: {
-    id: 'SKY', name: 'Lucernario – Veranda', rules: 'skylight', edges: { v: 'pressure', h: 'silicone' },
+    // tableName: numele din tabelele extrase din catalog (ucw.json); name e cel afișat, în engleză.
+    id: 'SKY', name: 'Skylight – Veranda', tableName: 'Lucernario – Veranda', rules: 'skylight', edges: { v: 'pressure', h: 'silicone' },
     usesInnerPane: false, sloped: true, window: 'roof_window',
     roles: (ctx, f) => {
       const tb = ctx.rules.skylight.glazing_tables.roof;

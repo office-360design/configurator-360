@@ -23,7 +23,7 @@ Proiectul face parte din linia **360Configurator** (configuratoare 3D pentru tâ
 | TPV52 | TPV 52 | presor pe verticală, cleme pe orizontală |
 | ST52 | ST 52 | geam lipit structural pe ramă proprie |
 | SST52 | SST 52 | geam pe ramă cu ornament, fără silicon structural |
-| SKY | Lucernario – Veranda | acoperiș vitrat înclinat (căpriori + traverse siliconate) |
+| SKY | Skylight – Veranda | acoperiș vitrat înclinat (căpriori + traverse siliconate) |
 
 ## Comenzi
 
@@ -86,7 +86,7 @@ Exemple complete în `tests/examples.js`. Ieșirea are forma `{ system, geometry
 2. **Nu inventa valori.** Ce nu e în catalog se marchează explicit **ipoteză**, cu `_note` în JSON, și se adaugă în `docs/IPOTEZE.md`. Utilizatorul trebuie să le poată confirma cu Cortizo.
 3. **`data/catalog/` se regenerează, nu se editează.** Corecturile manuale merg în `data/rules/`.
 4. **Motorul rămâne o funcție pură**, fără DOM și fără I/O. UI-ul e în `web/app.js`. Build-ul concatenează modulele (vezi `scripts/build-web.mjs`). Nu folosi nume de funcții duplicate între module, pentru că bundle-ul le pune în același scope.
-5. **Limba:** interfața, documentația și mesajele motorului (checks, notes) sunt în **română**; identificatorii din cod sunt în engleză. Denumirile din catalog (desc_es) rămân în spaniolă.
+5. **Limba:** interfața, documentația și mesajele motorului (checks, notes) sunt în **română**; identificatorii din cod sunt în engleză. Denumirile din catalog se afișează **doar în engleză** (`desc_en`); nu se preia niciun text în spaniolă (`desc_es`, `colour_es` rămân doar în date, pentru extracție). Numele sistemului de acoperiș e „Skylight – Veranda”; „Lucernario – Veranda” e doar cheia din tabelele extrase (`tableName`).
 6. **Orice schimbare de calcul primește un test** în `tests/engine.test.js`, cu valoarea așteptată și pagina sursă.
 7. **Rezultatul e predimensionare.** Mesajele nu trebuie să sugereze că înlocuiesc calculul static al proiectantului.
 

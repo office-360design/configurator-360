@@ -1,5 +1,5 @@
 {
-  "_source": "Cortizo – Sistemas de fachadas y lucernarios, v26.04.01 (04/2026). Paginile sunt numerele din PDF.",
+  "_source": "Cortizo – façade and skylight systems catalogue, v26.04.01 (04/2026). Paginile sunt numerele din PDF.",
   "material": { "E_aluminium_N_mm2": 70000, "alloy": "EN AW 6063 T5", "glass_kg_per_m2_per_mm": 2.5 },
   "deflection": { "relative_limit": 200, "absolute_limit_mm": 15, "_note": "Ipoteză de lucru (EN 13830 uzual): L/200, max. 15 mm. Se verifică la încărcarea caracteristică (SLS)." },
   "wind": { "design_factor": 1.5, "_page": 678, "_note": "Graficul de cleme folosește sarcina de calcul = nominală × 1,5 (CTE DB SE / EN 1990)." },

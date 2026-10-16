@@ -10,7 +10,7 @@
   "glazing_variants": [
     { "variant": "Standard – nivel 1", "pages": [305] },
     { "variant": "Standard – nivel 2", "pages": [306] },
-    { "variant": "Gran Aislamiento (izolare sporită)", "pages": [311] },
+    { "variant": "High Insulation (izolare sporită)", "pages": [311] },
     { "variant": "RC3 (antiefracție)", "pages": [315], "note": "RC3 cere sticlă P5A, min. 4+4 mm la exterior și interior; plăci de siguranță 999848/49/50." }
   ],
   "blind_panel": { "frame_vertical": { "code": "COR-9949", "cut": "H-52" }, "frame_horizontal": { "code": "COR-9950", "cut": "L-22" }, "strap": "COR-9955", "page": 388 },

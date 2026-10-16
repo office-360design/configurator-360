@@ -80,7 +80,7 @@ LEG={
  'TPHDRY':{'1':'Garnitură montant','2':'Izolator RPT','3a':'Clemă (a)','3b':'Clemă (b)','4':'Șurub','5':'Garnitură uscată SG'},
  'TPV':{'1':'Garnitură montant','2':'Izolator RPT','3':'Șurub presor','4':'Pipetă drenaj'},
 }
-PAGES={305:('TP 52','Standard – nivel 1','TP'),306:('TP 52','Standard – nivel 2','TP'),311:('TP 52','Gran Aislamiento (izolare sporită)','TPGA'),315:('TP 52','RC3 (antiefracție)','TPRC3'),
+PAGES={305:('TP 52','Standard – nivel 1','TP'),306:('TP 52','Standard – nivel 2','TP'),311:('TP 52','High Insulation (izolare sporită)','TPGA'),315:('TP 52','RC3 (antiefracție)','TPRC3'),
  582:('SG 52','Standard siliconat – nivel 1','SG'),583:('SG 52','Standard siliconat – nivel 1','SG'),584:('SG 52','Standard siliconat – nivel 1','SG'),586:('SG 52','Standard siliconat – nivel 2','SG'),
  597:('SG 52','Fără siliconare (garnitură uscată) – nivel 1','SGDRY'),598:('SG 52','Fără siliconare (garnitură uscată) – nivel 1','SGDRY'),599:('SG 52','Fără siliconare (garnitură uscată) – nivel 1','SGDRY'),601:('SG 52','Fără siliconare (garnitură uscată) – nivel 2','SGDRY'),
  777:('TPH 52','Standard – nivel 1','TPH'),778:('TPH 52','Standard – nivel 1','TPH'),779:('TPH 52','Standard – nivel 1','TPH'),783:('TPH 52','Standard – nivel 2','SG'),
