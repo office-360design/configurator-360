@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-3" />
-  <link rel="stylesheet" href="./styles.css?v=cw-5" />
+  <link rel="stylesheet" href="./styles.css?v=cw-6" />
   <script type="importmap">
     {
       "imports": {
@@ -92,6 +92,7 @@
             <span class="range-row"><input id="r-wind" type="range" data-k="windLoad" min="0.3" max="3" step="0.05"><input id="n-wind" class="number-input" type="number" data-k="windLoad" min="0.3" max="3" step="0.05"></span></label>
           <label class="range-control"><span class="control-label"><b data-i18n="profiles.anchor"></b><output data-out="anchorSpacing"></output></span>
             <span class="range-row"><input id="r-anchor" type="range" data-k="anchorSpacing" min="1000" max="7000" step="50"><input id="n-anchor" class="number-input" type="number" data-k="anchorSpacing" min="1000" max="7000" step="50"></span></label>
+          <label class="toggle-row"><span><b data-i18n="building.show"></b><small data-i18n="building.hint"></small></span><input type="checkbox" data-k="showBuilding"><i></i></label>
           <div id="cortizoProfiles" class="control-list"></div>
         </div>
       </div>
@@ -132,7 +133,7 @@
 <button id="cwSidebarToggle" type="button" data-i18n-aria="toggle.sidebar" aria-expanded="true">
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
 </button>
-<script type="module" src="./js/sharedShell.js?v=cw-5"></script>
-<script type="module" src="./js/app.js?v=cw-5"></script>
+<script type="module" src="./js/sharedShell.js?v=cw-6"></script>
+<script type="module" src="./js/app.js?v=cw-6"></script>
 </body>
 </html>

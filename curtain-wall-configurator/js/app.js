@@ -1,11 +1,11 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
-import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, TINTS, fmt, normalizeState } from './facade.js?v=cw-5';
-import { nodeSvg } from './drawings.js?v=cw-5';
-import { applyTranslations, translator } from './i18n.js?v=cw-5';
-import { FacadeScene } from './scene.js?v=cw-5';
-import { createCortizo, cortizoListText, cortizoModel, fieldTypes, loadCortizoData, normalizeCortizo } from './cortizo.js?v=cw-5';
-import * as czUi from './cortizoUi.js?v=cw-5';
+import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, TINTS, fmt, normalizeState } from './facade.js?v=cw-6';
+import { nodeSvg } from './drawings.js?v=cw-6';
+import { applyTranslations, translator } from './i18n.js?v=cw-6';
+import { FacadeScene } from './scene.js?v=cw-6';
+import { createCortizo, cortizoListText, cortizoModel, fieldTypes, loadCortizoData, normalizeCortizo } from './cortizo.js?v=cw-6';
+import * as czUi from './cortizoUi.js?v=cw-6';
 
 await requireTenantConfiguratorAccess('curtainwall');
 

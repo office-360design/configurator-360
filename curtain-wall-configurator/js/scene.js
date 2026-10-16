@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createSurfaceSystem, disposeObjectResources } from '../../shared-3d/src/index.js?v=platform-19';
-import { FINISHES } from './facade.js?v=cw-5';
-import { GLASS_GAP } from './sections.js?v=cw-5';
+import { FINISHES } from './facade.js?v=cw-6';
+import { GLASS_GAP } from './sections.js?v=cw-6';
+import { BUILDING, facadeBuilding, skylightBuilding } from './building.js?v=cw-6';
 
 const MM = 0.001;
 // Exploded view: offset of each layer along the facade normal (m at amount 1),
@@ -79,7 +80,7 @@ export class FacadeScene {
     this.ground.receiveShadow = true;
     this.scene.add(this.ground);
     this.root = null;
-    this.views = ['exterior', 'front', 'interior', 'node'];
+    this.views = ['exterior', 'front', 'interior', 'node', 'anchor'];
     this.viewIndex = 0;
     this.explode = { value: 0, from: 0, to: 0, start: 0, scale: 1 };
     this.needsFrame = true;
@@ -126,6 +127,7 @@ export class FacadeScene {
   build(model) {
     const { S, glazing, mullions, transoms, panes, mullion } = model;
     if (this.root) { this.scene.remove(this.root); disposeObjectResources?.(this.root); }
+    if (this.building) { this.scene.remove(this.building); disposeObjectResources?.(this.building); this.building = null; }
     const root = new THREE.Group();
     root.name = 'curtain-wall';
     const buckets = {};
@@ -177,11 +179,13 @@ export class FacadeScene {
     }
     // Facade centred on the origin, standing on the ground. A skylight leans
     // back at its slope from the eaves line (rotation about the bottom edge).
-    root.position.set(-model.W / 2 * MM, 0.02, 0);
     const slope = model.slopeDeg ? THREE.MathUtils.degToRad(model.slopeDeg) : null;
+    root.position.set(-model.W / 2 * MM, 0.02 + (slope ? BUILDING.eavesHeight * MM : 0), 0);
     root.rotation.x = slope ? -(Math.PI / 2 - slope) : 0;
     this.root = root;
-    const height = slope ? Math.max(0.6, model.H * MM * Math.sin(slope)) : model.H * MM;
+    this.building = this.buildBuilding(model, S);
+    this.scene.add(this.building);
+    const height = slope ? BUILDING.eavesHeight * MM + model.H * MM * Math.sin(slope) : model.H * MM;
     this.size = { W: model.W * MM, H: height, depth: mullion.depth * MM };
     this.scene.add(root);
     const k = this.key.shadow.camera, ext = Math.max(this.size.W, this.size.H) * 0.8 + 1;
@@ -191,6 +195,37 @@ export class FacadeScene {
     this.explode.scale = Math.min(2.5, Math.max(0.8, Math.max(this.size.W, this.size.H) / 6));
     this.applyExplode();
     this.invalidate();
+  }
+
+  // Floor slabs, columns and anchor brackets (building.js), in the facade's
+  // own coordinates; the skylight's supports are already in world axes.
+  buildBuilding(model, S) {
+    const group = new THREE.Group();
+    group.name = 'building';
+    const parts = model.slopeDeg ? skylightBuilding(model) : facadeBuilding(model);
+    const meshFrom = (boxes, material, name) => {
+      if (!boxes.length) return;
+      const list = boxes.map(b => {
+        const g = new THREE.BoxGeometry((b.x1 - b.x0) * MM, (b.y1 - b.y0) * MM, (b.z1 - b.z0) * MM);
+        g.translate((b.x0 + b.x1) / 2 * MM, (b.y0 + b.y1) / 2 * MM, (b.z0 + b.z1) / 2 * MM);
+        return g;
+      });
+      const mesh = new THREE.Mesh(mergeGeometries(list, false), material);
+      list.forEach(g => g.dispose());
+      mesh.name = name;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    };
+    meshFrom(parts.concrete, new THREE.MeshStandardMaterial({ color: 0xcdcac3, roughness: 0.92, metalness: 0 }), 'building:concrete');
+    meshFrom(parts.steel, this.surface.materials.create('steel.brushed'), 'building:anchors');
+    group.position.set(-model.W / 2 * MM, 0.02, 0);
+    group.userData.anchors = parts.anchors;
+    // Anchor close-up target in world space (the group sits like the facade root).
+    this.anchorFocus = new THREE.Vector3((parts.focus.x - model.W / 2) * MM, parts.focus.y * MM + 0.02, parts.focus.z * MM);
+    group.visible = S.showBuilding !== false && this.explode.value < 0.02;
+    this.showBuilding = S.showBuilding !== false;
+    return group;
   }
 
   // Animate the exploded view to `amount` (0 = assembled, 1 = fully exploded).
@@ -217,6 +252,8 @@ export class FacadeScene {
     if (!this.root) return;
     const amount = this.explode.value * this.explode.scale;
     this.root.children.forEach(mesh => { mesh.position.z = (mesh.userData.explodeZ || 0) * amount; });
+    // The building would overlap the separated layers: hide it while exploded.
+    if (this.building) this.building.visible = this.showBuilding && this.explode.value < 0.02;
     this.surface.invalidate?.();
   }
 
@@ -238,6 +275,11 @@ export class FacadeScene {
       const z = this.firstNode?.z ?? 0;
       target = new THREE.Vector3(x, y, z + extra * 0.15);
       pos = new THREE.Vector3(x + 0.35 + extra * 1.6, y + 0.28 + extra * 0.4, z + 0.55 + extra * 1.4);
+    }
+    else if (view === 'anchor' && this.anchorFocus) {
+      // From inside the building, looking at a mullion bracket on the slab edge.
+      target = this.anchorFocus.clone();
+      pos = target.clone().add(new THREE.Vector3(0.55, 0.42, -0.95));
     }
     this.viewIndex = Math.max(0, this.views.indexOf(view));
     this.camera.position.copy(pos);

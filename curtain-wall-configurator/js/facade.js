@@ -30,6 +30,7 @@ export const DEFAULT_STATE = Object.freeze({
   finishInside: '7016',
   sameFinish: true,
   glassTint: 'neutral',
+  showBuilding: true,
   qty: 1,
   // Cortizo system, glass and execution; validated against the catalogue in cortizo.js.
   cortizo: null,
@@ -59,6 +60,7 @@ export function normalizeState(input = {}) {
   if (!FINISHES.some(f => f.id === S.finishOutside)) S.finishOutside = DEFAULT_STATE.finishOutside;
   if (!FINISHES.some(f => f.id === S.finishInside)) S.finishInside = DEFAULT_STATE.finishInside;
   S.sameFinish = Boolean(S.sameFinish);
+  S.showBuilding = S.showBuilding !== false;
   if (S.sameFinish) S.finishInside = S.finishOutside;
   if (!TINTS.includes(S.glassTint)) S.glassTint = DEFAULT_STATE.glassTint;
   S.qty = clamp(round(S.qty) || 1, LIMITS.qty);

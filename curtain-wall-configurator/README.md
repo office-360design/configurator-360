@@ -9,6 +9,20 @@ transoms butt against mullions.
 - **Grid**: bay widths and row heights, axis to axis, bottom up. Rows are
   vision or opaque spandrel. Presets: shopfront, office on 2 storeys, atrium.
   Wind load and anchor spacing are inputs.
+- **Building and anchors** (`js/building.js`): the building scales with the
+  facade.
+  - **Facade:** a concrete slab at every anchor level (every anchor spacing,
+    plus the top), extending 400 mm past each end of the facade. The building
+    depth is 55 % of the width, kept between 4 and 9 m. Columns stand behind
+    the slab edge at most 6 m apart. On each slab, every mullion has a steel
+    bracket: a base plate and two fins either side of the mullion, in a
+    120 mm gap behind it.
+  - **Skylight:** a support wall behind the ridge and an eaves beam on posts
+    (eaves at 2.4 m), with brackets at both ends of every rafter.
+  - The toggle is in the statics section. The building hides during the
+    exploded view. The camera cycle has an `anchor` close-up.
+  - The geometry is indicative. The anchor type and count come from the
+    engine (Checks tab).
 - **Finishes**: RAL / anodised, for outside and inside. Glass tint. Order
   quantity.
 - **Tools**: camera views (exterior, front, interior, node) and an exploded

@@ -2,7 +2,7 @@
 // sheet (elevation with field status, checks, cutting list, accessories,
 // systems comparison and logic map). Catalogue names are the English ones (desc_en)
 // and engine messages are Romanian, as in cortizo/; labels around them follow the configurator locale.
-import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=cw-5';
+import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=cw-6';
 
 const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (x, d = 0) => (x == null || Number.isNaN(Number(x)) ? '–' : Number(x).toLocaleString('ro-RO', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -178,7 +178,7 @@ let mapMarkup = null;
 export async function mapPanel(t) {
   if (mapMarkup == null) {
     try {
-      const response = await fetch(new URL('../cortizo/web/map.html?v=cw-5', import.meta.url));
+      const response = await fetch(new URL('../cortizo/web/map.html?v=cw-6', import.meta.url));
       mapMarkup = response.ok ? await response.text() : '';
     } catch { mapMarkup = ''; }
   }

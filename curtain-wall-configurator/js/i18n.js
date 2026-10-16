@@ -129,6 +129,8 @@ const ro = {
   "cz.tag3": "{ok} / {total} câmpuri OK · {kg} kg aluminiu",
   "cz.source": "Date din catalogul Cortizo de fațade și luminatoare v26.04.01 (04/2026): profile, tabele de vitraj, suporți, cleme, îmbinări, ancoraje și debitări, fiecare cu pagina ei. Rezultatul e o predimensionare și nu înlocuiește calculul static al proiectantului.",
   "cz.loadFailed": "Catalogul Cortizo nu a putut fi încărcat.",
+  "building.show": "Arată clădirea și prinderile",
+  "building.hint": "Plăcile, stâlpii și ancorajele se scalează cu fațada; câte o placă la fiecare distanță între ancoraje.",
 };
 
 const en = {
@@ -261,6 +263,8 @@ const en = {
   "cz.tag3": "{ok} / {total} fields OK · {kg} kg aluminium",
   "cz.source": "Data from the Cortizo façade and skylight systems catalogue v26.04.01 (04/2026): profiles, glazing tables, supports, clips, joints, anchors and cuts, each with its page. The result is a pre-sizing and does not replace the structural engineer’s calculation.",
   "cz.loadFailed": "The Cortizo catalogue could not be loaded.",
+  "building.show": "Show the building and anchors",
+  "building.hint": "Slabs, columns and anchors scale with the facade; one slab at every anchor spacing.",
 };
 
 const de = {
@@ -393,6 +397,8 @@ const de = {
   "cz.tag3": "{ok} / {total} Felder OK · {kg} kg Aluminium",
   "cz.source": "Daten aus dem Cortizo-Katalog für Fassaden- und Lichtdachsysteme v26.04.01 (04/2026): Profile, Verglasungstabellen, Glasträger, Klammern, Verbindungen, Anker und Zuschnitte, jeweils mit Seite. Das Ergebnis ist eine Vorbemessung und ersetzt nicht die statische Berechnung.",
   "cz.loadFailed": "Der Cortizo-Katalog konnte nicht geladen werden.",
+  "building.show": "Gebäude und Anker zeigen",
+  "building.hint": "Decken, Stützen und Anker skalieren mit der Fassade; eine Decke je Ankerabstand.",
 };
 
 export const MESSAGES = { 'ro-RO': ro, 'en-US': en, 'de-DE': de };

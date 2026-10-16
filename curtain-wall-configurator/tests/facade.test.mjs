@@ -32,7 +32,7 @@ test('presets fit the limits', () => {
 
 test('translations exist in every locale for every key used', () => {
   const sources = ['../js/app.js', '../js/cortizoUi.js', '../js/drawings.js', '../index.html'].map(f => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
-  const used = new Set([...sources.matchAll(/['"`]((?:cz|system|layer|tab|bom|unit|totals|perf|node|drawing|grid|profiles|glazing|tint|finish|order|section|preset|stage|toggle|explode)\.[\w.]+)['"`]/g)].map(m => m[1]).filter(k => !k.endsWith('.')));
+  const used = new Set([...sources.matchAll(/['"`]((?:cz|system|building|layer|tab|bom|unit|totals|perf|node|drawing|grid|profiles|glazing|tint|finish|order|section|preset|stage|toggle|explode)\.[\w.]+)['"`]/g)].map(m => m[1]).filter(k => !k.endsWith('.')));
   for (const locale of Object.keys(MESSAGES)) {
     for (const key of used) assert.ok(key in MESSAGES[locale], `${locale} lacks ${key}`);
     assert.deepEqual(Object.keys(MESSAGES[locale]).sort(), Object.keys(MESSAGES['ro-RO']).sort(), `${locale} key parity`);

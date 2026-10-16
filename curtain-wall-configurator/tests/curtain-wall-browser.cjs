@@ -91,6 +91,7 @@ const path = require('node:path');
   assert.ok(await page.locator('#explodePanel').isHidden());
   assert.equal(await api(() => window.CURTAIN_WALL_API.getScene().root.children.every(m => Math.abs(m.position.z) < 1e-9)), true);
   assert.equal(await api(() => window.CURTAIN_WALL_API.cycleCamera()), 'front');
+  assert.ok(await api(() => window.CURTAIN_WALL_API.getScene().building.userData.anchors > 0), 'the building carries the anchors');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
