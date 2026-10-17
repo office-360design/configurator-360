@@ -76,8 +76,8 @@ function selectTab(next) {
 function render(m) {
   const R = m.result, ok = R.fields.filter(f => f.status === 'ok').length;
   $('#tag').innerHTML = `<div class="mark">${esc(t('cz.tag1', { system: R.system.name, w: fmt(m.W), h: fmt(m.H), bays: S.widths.length, rows: S.heights.length }))}</div>
-    ${esc(t('cz.tag2', { mullion: m.mullion.id, transom: m.transom.id, t: m.glazing.thickness }))}<br>
-    ${esc(t('cz.tag3', { ok, total: R.fields.length, kg: fmt(R.totals.kgAluminium * S.qty) }))}${R.ucw ? ` · Ucw ${fmt(R.ucw.ucw, 1)} W/m²K` : ''}`;
+    <span>${esc(t('cz.tag2', { mullion: m.mullion.id, transom: m.transom.id, t: m.glazing.thickness }))}</span>
+    <span>${esc(t('cz.tag3', { ok, total: R.fields.length, kg: fmt(R.totals.kgAluminium * S.qty) }))}${R.ucw ? ` · Ucw ${fmt(R.ucw.ucw, 1)} W/m²K` : ''}</span>`;
   $('#gridTotal').textContent = t('grid.total', { w: fmt(m.W), h: fmt(m.H) });
   $('#cortizoProfiles').innerHTML = czUi.profileControls(t, CZ, S.cortizo, m);
   $('#elevation').innerHTML = czUi.elevationSvg(m, t);

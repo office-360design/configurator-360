@@ -1,14 +1,14 @@
 import '../../shared-ui/styles/index.css?v=platform-18';
 import 'leaflet/dist/leaflet.css';
-import './styles/gas.css?v=platform-18';
+import './styles/gas.css?v=mobile-panels-1';
 import { RouteElevationController } from './elevation/routeElevation.js?v=platform-18';
-import { RouteMap } from './map/RouteMap.js?v=locales-6';
+import { RouteMap } from './map/RouteMap.js?v=mobile-panels-1';
 import { RouteObstacleController } from './obstacles/routeObstacles.js?v=platform-18';
-import { applyGasTranslations } from './i18n.js?v=locales-6';
+import { applyGasTranslations } from './i18n.js?v=mobile-panels-1';
 import { GasConfiguratorStore } from './state.js?v=locales-6';
-import { renderGasLayout } from './ui/layout.js?v=platform-18';
-import { profilePointerToDesign, renderGasState } from './ui/renderers.js?v=locales-6';
-import { mountGasSharedShell } from './ui/sharedShell.js?v=locales-6';
+import { renderGasLayout } from './ui/layout.js?v=mobile-panels-1';
+import { profilePointerToDesign, renderGasState } from './ui/renderers.js?v=mobile-panels-1';
+import { mountGasSharedShell } from './ui/sharedShell.js?v=mobile-panels-1';
 
 const root = document.querySelector('#app');
 if (!root) throw new Error('The #app mount element is missing.');
@@ -93,6 +93,13 @@ root.querySelector('#removeWaypointButton')?.addEventListener('click', () => sto
 root.querySelector('#clearWaypointsButton')?.addEventListener('click', () => store.clearWaypoints());
 root.querySelector('#fitRouteButton')?.addEventListener('click', () => routeMap?.fitRoute());
 root.querySelector('#fitExistingNetworkButton')?.addEventListener('click', () => routeMap?.fitExistingNetwork());
+// On a phone the layer list starts folded so the map stays visible.
+root.querySelector('#mapLayersExpand')?.addEventListener('click', (event) => {
+  const layers = event.currentTarget.closest('.gas-map-layers');
+  const open = !layers.classList.contains('is-open');
+  layers.classList.toggle('is-open', open);
+  event.currentTarget.setAttribute('aria-expanded', String(open));
+});
 root.querySelector('#snapToNearestNetworkButton')?.addEventListener('click', () => {
   if (store.snapStartToNearestNetwork()) store.setEditMode('setB');
 });

@@ -7,7 +7,7 @@ import {
   interpolateRoute,
   nearestPointOnSegmentRatio,
 } from '../domain/geometry.js?v=platform-18';
-import { gasT } from '../i18n.js?v=locales-6';
+import { gasT } from '../i18n.js?v=mobile-panels-1';
 import {
   getRouteEvents,
   legacyCrossingToRouteEvent,

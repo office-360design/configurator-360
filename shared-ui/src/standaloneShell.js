@@ -1,6 +1,7 @@
 import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-10';
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=locales-6';
+import { startsWithPanelClosed } from './phoneLayout.js?v=mobile-panels-1';
 import { COUNTRY_REGION_DEFAULTS, DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=locales-6';
 import { sharedT } from './i18n.js?v=locales-6';
 import { renderActionFeedback } from './components/feedback.js?v=locales-6';
@@ -1276,7 +1277,8 @@ export class StandaloneConfiguratorShell {
 
     this.onSettingsToggle = () => this.setSettingsPanelCollapsed(!this.settingsPanelCollapsed);
     this.settingsToggle.addEventListener('click', this.onSettingsToggle);
-    this.setSettingsPanelCollapsed(Boolean(config.initiallyCollapsed), { silent: true });
+    // On a phone the model comes first: the panel opens only when the visitor asks for it.
+    this.setSettingsPanelCollapsed(Boolean(config.initiallyCollapsed) || startsWithPanelClosed(), { silent: true });
   }
 
   setSettingsPanelCollapsed(collapsed, { silent = false } = {}) {

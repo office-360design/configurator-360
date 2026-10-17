@@ -9,11 +9,11 @@ import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
 import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=locales-6';
 import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js?v=locales-6';
 import { PergolaScene } from './scene/PergolaScene.js?v=locales-6';
-import { ConfiguratorUI } from './ui/ConfiguratorUI.js?v=locales-6';
-import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=locales-6';
+import { ConfiguratorUI } from './ui/ConfiguratorUI.js?v=mobile-panels-1';
+import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=mobile-panels-1';
 import { pergolaT } from './i18n.js?v=locales-6';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
-import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=locales-6';
+import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=mobile-panels-1';
 import { initializePergolaColorCatalog } from './color-catalog.js';
 
 const tenantContext = await requireTenantConfiguratorAccess('pergola');
