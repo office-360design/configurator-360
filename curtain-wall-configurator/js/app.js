@@ -2,11 +2,11 @@ import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=locales-6';
 import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, TINTS, fmt, normalizeState, setNumberLocale } from './facade.js?v=locales-6';
-import { nodeSvg } from './drawings.js?v=locales-6';
-import { applyTranslations, resolveLocale, translator } from './i18n.js?v=locales-6';
+import { nodeSvg } from './drawings.js?v=cortizo-i18n-1';
+import { applyTranslations, resolveLocale, translator } from './i18n.js?v=cortizo-i18n-1';
 import { FacadeScene } from './scene.js?v=locales-6';
-import { createCortizo, cortizoListText, cortizoModel, fieldTypes, loadCortizoData, normalizeCortizo } from './cortizo.js?v=locales-6';
-import * as czUi from './cortizoUi.js?v=locales-6';
+import { createCortizo, cortizoListText, cortizoModel, fieldTypes, glazingLabel, loadCortizoData, normalizeCortizo } from './cortizo.js?v=cortizo-i18n-1';
+import * as czUi from './cortizoUi.js?v=cortizo-i18n-1';
 
 await requireTenantConfiguratorAccess('curtainwall');
 
@@ -100,7 +100,7 @@ function renderExplodeLegend(m) {
     ...(pressure ? [['layer.cover', m.C.cap || '—', outside], ['layer.strip', 'COR-9914', outside], ['layer.gasketOuter', roles.pressureGasket || '999000', '#1d1f21'], ['layer.insulator', roles.rpt || 'RPT', '#d9b77c']] : []),
     ...(sealed ? [['layer.joint', roles.backer || roles.dryGasket || 'SILICON', '#1d1f21']] : []),
     ...(vent ? [['layer.sash', vent.field.win.profiles.map(p => p.code).join(' / '), outside]] : []),
-    ['layer.glass', `${m.glazing.thickness} mm · ${m.glazing.label}`, '#a9c6d3'],
+    ['layer.glass', `${m.glazing.thickness} mm · ${glazingLabel(t.locale, m.glazing)}`, '#a9c6d3'],
     ...(e.v === 'frame' ? [['layer.frame', m.C.system === 'ST52' ? 'COR-9982' : 'COR-9983', inside]] : []),
     ['layer.gasketInner', roles.mullionGasket || '—', '#1d1f21'],
     ['layer.transom', `${m.transom.id} · ${m.transom.depth} mm`, inside],
@@ -118,7 +118,7 @@ function setExploded(on, amount = Number($('#explodeAmount').value) || 1) {
 }
 
 async function copyBom() {
-  try { await navigator.clipboard.writeText(cortizoListText(M, S.qty)); $('#copyBom').textContent = '✓'; } catch { $('#copyBom').textContent = '!'; }
+  try { await navigator.clipboard.writeText(cortizoListText(M, S.qty, t.locale)); $('#copyBom').textContent = '✓'; } catch { $('#copyBom').textContent = '!'; }
   setTimeout(() => { const b = $('#copyBom'); if (b) b.textContent = t('bom.copy'); }, 1400);
 }
 

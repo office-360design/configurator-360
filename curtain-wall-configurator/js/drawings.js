@@ -1,6 +1,7 @@
 // Horizontal section through a mullion node as SVG markup. The parts come
 // from the model's section (sections.js, by the fixing of the system).
 import { GLASS_GAP } from './sections.js?v=cw-7';
+import { glazingLabel } from './cortizo.js?v=cortizo-i18n-1';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -26,7 +27,7 @@ export function nodeSvg(model, t) {
   const gaskets = `${t('cz.role.mullionGasket')} ${roles.mullionGasket || '—'}`;
   const labels = [
     [zMax, outer],
-    [(g0 + g1) / 2, t('node.glass', { t: glazing.thickness, build: glazing.label })],
+    [(g0 + g1) / 2, t('node.glass', { t: glazing.thickness, build: glazingLabel(t.locale, glazing) })],
     [g0 / 2, gaskets],
     [-mullion.depth / 2, t('node.profile', { id: mullion.id, depth: mullion.depth })],
   ].map(([z, text]) => `<line x1="${X(half)}" y1="${Z(z)}" x2="${lx - 4}" y2="${Z(z)}"/><text x="${lx}" y="${Z(z) + 4}">${esc(text)}</text>`).join('');

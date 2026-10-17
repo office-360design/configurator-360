@@ -32,7 +32,8 @@ npm test                    # 12 teste de regresie (node --test), fără depende
 npm run build               # dist/configurator.html: o singură pagină cu date + motor + UI
 npm run example             # rulează motorul pe exemplul fiecărui sistem
 node scripts/example.mjs SG52
-python3 scripts/make-map.py > web/map.html   # regenerează harta logică (SVG)
+python3 scripts/make-map.py > web/map.html   # harta logică (SVG) în română, pentru pagina de sine stătătoare
+for l in en es ro de fr it; do python3 scripts/make-map.py $l > web/map.$l.html; done   # harta pentru configurator, pe limbă
 ```
 
 Node ≥ 20, ES modules, **zero dependențe npm**. Scripturile de extracție din `scripts/extract/` sunt Python 3 și au nevoie de `pdftotext` (poppler) și de PDF-ul catalogului.
@@ -86,7 +87,13 @@ Exemple complete în `tests/examples.js`. Ieșirea are forma `{ system, geometry
 2. **Nu inventa valori.** Ce nu e în catalog se marchează explicit **ipoteză**, cu `_note` în JSON, și se adaugă în `docs/IPOTEZE.md`. Utilizatorul trebuie să le poată confirma cu Cortizo.
 3. **`data/catalog/` se regenerează, nu se editează.** Corecturile manuale merg în `data/rules/`.
 4. **Motorul rămâne o funcție pură**, fără DOM și fără I/O. UI-ul e în `web/app.js`. Build-ul concatenează modulele (vezi `scripts/build-web.mjs`). Nu folosi nume de funcții duplicate între module, pentru că bundle-ul le pune în același scope.
-5. **Limba:** interfața, documentația și mesajele motorului (checks, notes) sunt în **română**; identificatorii din cod sunt în engleză. Denumirile din catalog se afișează **doar în engleză** (`desc_en`); nu se preia niciun text în spaniolă (`desc_es`, `colour_es` rămân doar în date, pentru extracție). Numele sistemului de acoperiș e „Skylight – Veranda”; „Lucernario – Veranda” e doar cheia din tabelele extrase (`tableName`).
+5. **Limba:**
+   - **Mesajele motorului** (checks, notes, etichete de câmp, reguli de consum) pleacă din motor ca `{ key, params }`; textul se compune în limba interfeței cu `formatMessage(locale, mesaj)` din `src/format.js`. Șabloanele sunt în `src/messages.js`, în șase limbi (en, es, ro, de, fr, it), cu aceleași chei și aceiași parametri (`tests/messages.test.js`). Nu scrie text în motor; adaugă o cheie în toate cele șase limbi.
+   - **Engleza** folosește exact termenii și formulările catalogului (de ex. *pressure section*, *cover*, *mullion rubber*, *recessed reducer*, *wedge*, *glass support 4a/4b/4c*, *inclined mullion*, *blind spot*, *awning window*). **Spaniola** folosește termenii și frazele originale ale catalogului bilingv (*presor*, *tapeta*, *goma de montante*, *reductor de galce*, *calzo*, *apoyavidrios*, *grapa*, *montante inclinado*, *zona ciega*, *ventana proyectante*). **Româna, germana, franceza și italiana** sunt traduse din engleză. Glosarul folosit: `docs/GLOSAR_CATALOG.md`.
+   - **Textele din reguli** care ajung pe ecran (principiul sistemului, variantele de vitraj, capacele, îmbinările, colțurile ramei, rolurile profilelor de fereastră) rămân în JSON ca identificatori în română, ca proiectele salvate să nu se schimbe, și se traduc prin `DATA_TEXT` din `src/messages.js`. Un text nou în reguli are nevoie de rândul lui acolo (testul îl cere).
+   - **Denumirile pieselor din catalog** se afișează în engleză (`desc_en`); `desc_es`, `colour_es` rămân doar în date.
+   - Harta logică are textele în `scripts/map_text.py`, pe limbă; casetele au lățime fixă, deci textele noi se verifică în browser.
+   - Pagina de sine stătătoare (`web/`) rămâne în română; identificatorii din cod sunt în engleză. Numele sistemului de acoperiș e „Skylight – Veranda”; „Lucernario – Veranda” e doar cheia din tabelele extrase (`tableName`).
 6. **Orice schimbare de calcul primește un test** în `tests/engine.test.js`, cu valoarea așteptată și pagina sursă.
 7. **Rezultatul e predimensionare.** Mesajele nu trebuie să sugereze că înlocuiesc calculul static al proiectantului.
 

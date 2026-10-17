@@ -67,8 +67,9 @@ test('SG 52: profilul U cere camere de 16/18/20 mm', () => {
 
 test('TPH / TPV: cleme doar pe direcția corectă', () => {
   const h = engine.compute(EXAMPLES.TPH52), v = engine.compute(EXAMPLES.TPV52);
-  assert.ok(h.cuts.some((c) => c.notes.includes('presor orizontal')) && !h.cuts.some((c) => c.notes.includes('presor vertical')));
-  assert.ok(v.cuts.some((c) => c.notes.includes('presor vertical')) && !v.cuts.some((c) => c.notes.includes('presor orizontal')));
+  const has = (R, key) => R.cuts.some((c) => c.notes.some((n) => n.key === key));
+  assert.ok(has(h, 'bom.pressureHorizontal') && !has(h, 'bom.pressureVertical'));
+  assert.ok(has(v, 'bom.pressureVertical') && !has(v, 'bom.pressureHorizontal'));
 });
 
 test('ST 52: suportul după grosime (28 mm → 999196) și ramă la 45°', () => {
@@ -85,7 +86,7 @@ test('SST 52: sticla e L−60 × H−60', () => {
 test('Lucernar: panta în afara 7°–40° e semnalată, montantul e din gama 130–250', () => {
   const p = structuredClone(EXAMPLES.SKY); p.loads.slopeDeg = 5;
   const R = engine.compute(p);
-  assert.ok(R.checks.some((c) => c.title === 'Pantă' && c.level === 'bad'));
+  assert.ok(R.checks.some((c) => c.id === 'slope' && c.level === 'bad'));
   assert.ok(data.rules.skylight.mullion_range.includes(R.mullion.code));
 });
 

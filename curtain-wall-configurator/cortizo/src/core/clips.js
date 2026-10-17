@@ -18,11 +18,11 @@ function xOnLine(line, y) {
  * @param {number} suctionPa sucțiunea de CALCUL (nominală × 1,5) [Pa]
  * @param {number} areaM2 suprafața geamului [m²]
  * @param {object} chart common.clip_chart
- * @returns {{pitch:number|null, reason?:string}}
+ * @returns {{pitch:number|null, reason?:{key:string, params:object}}} motivul e un mesaj (src/messages.js)
  */
 export function clipPitch(suctionPa, areaM2, chart) {
-  if (suctionPa > chart.max_suction_Pa) return { pitch: null, reason: `sucțiune peste ${chart.max_suction_Pa} Pa – studiu specific` };
-  if (areaM2 > chart.max_area_m2) return { pitch: null, reason: `geam peste ${chart.max_area_m2} m²` };
+  if (suctionPa > chart.max_suction_Pa) return { pitch: null, reason: { key: 'clip.overSuction', params: { pa: chart.max_suction_Pa } } };
+  if (areaM2 > chart.max_area_m2) return { pitch: null, reason: { key: 'clip.overArea', params: { m2: chart.max_area_m2 } } };
   const y = Math.max(suctionPa, 0), x = areaM2;
   const L = chart.lines;
   if (y <= 1000 || x <= xOnLine(L.L1, y)) return { pitch: 500 };
@@ -30,7 +30,7 @@ export function clipPitch(suctionPa, areaM2, chart) {
   if (x <= xOnLine(L.L3, y)) return { pitch: y > 2000 ? 300 : 350 };
   if (x <= xOnLine(L.L4, y)) return { pitch: y < 1500 ? 300 : 250 };
   if (x <= xOnLine(L.L5, y)) return { pitch: 200 };
-  return { pitch: null, reason: 'zonă nepermisă în graficul de cleme' };
+  return { pitch: null, reason: { key: 'clip.outsideChart', params: {} } };
 }
 
 /** Numărul de cleme pe o latură: minim 2, distribuite egal, respectând pasul maxim. */
