@@ -1,15 +1,18 @@
 // Markup for the Cortizo systems: sidebar controls and the documentation
 // sheet (elevation with field status, checks, cutting list, accessories,
-// systems comparison and logic map). Catalogue names are the English ones (desc_en)
-// and engine messages are Romanian, as in cortizo/; labels around them follow the configurator locale.
+// systems comparison and logic map). Catalogue names are the English ones (desc_en);
+// engine messages and rule texts are composed in the configurator locale by cortizo/src/format.js.
 import { getNumberLocale } from './facade.js?v=locales-6';
-import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=locales-6';
+import { RULE_KEY, fieldTypes, isClipSystem, isFrameSystem, usesInnerPane } from './cortizo.js?v=cortizo-i18n-1';
+import { dataText, formatMessage } from '../cortizo/src/format.js?v=cortizo-i18n-1';
 
 const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (x, d = 0) => (x == null || Number.isNaN(Number(x)) ? '–' : Number(x).toLocaleString(getNumberLocale(), { minimumFractionDigits: d, maximumFractionDigits: d }));
 const LV = { ok: 'ok', warn: 'warn', bad: 'err' };
 const pill = (level, t) => `<span class="pill ${LV[level] || level}">${esc(t(`cz.level.${level}`))}</span>`;
 const page = (t, p) => (p ? ` <small class="cz-page">${esc(t('cz.page', { p }))}</small>` : '');
+const fm = (t, message) => formatMessage(t.locale, message);
+const dt = (t, text) => dataText(t.locale, text);
 const options = (list, value) => list.map(o => { const [v, label] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(label)}</option>`; }).join('');
 
 export function systemControls(t, cortizo, C) {
@@ -19,7 +22,7 @@ export function systemControls(t, cortizo, C) {
   const tests = R.tests ? `<span>${esc(t('cz.tests', { air: R.tests.air, water: R.tests.water, wind: R.tests.wind }))}</span>` : '';
   return `<div class="chip-row" role="group" aria-label="${esc(t('cz.system'))}">${chips}</div>
     <div class="info-card cz-principle"><strong>${esc(cortizo.engine.systems.find(s => s.id === C.system).name)} · ${esc(t('cz.pages', { p: R.pages }))}</strong>
-      <small>${esc(R.principle)}</small><div class="cz-edges">${edges}<span>${esc(t('cz.maxGlass', { mm: R.max_glass_mm }))}</span>${tests}</div></div>`;
+      <small>${esc(dt(t, R.principle))}</small><div class="cz-edges">${edges}<span>${esc(t('cz.maxGlass', { mm: R.max_glass_mm }))}</span>${tests}</div></div>`;
 }
 
 export function profileControls(t, cortizo, C, model) {
@@ -45,7 +48,7 @@ export function glazingControls(t, cortizo, C) {
   const num = (k, v, min, max, step) => `<input class="number-input" type="number" data-cz="${k}" min="${min}" max="${max}" step="${step}" value="${v}">`;
   const sel = (k, list, v) => `<select data-cz="${k}">${options(list, v)}</select>`;
   return `<div class="control-list">
-    ${opts.length > 1 ? label('cz.variant', sel('variant', opts.map(o => o.variant), C.variant)) : ''}
+    ${opts.length > 1 ? label('cz.variant', sel('variant', opts.map(o => [o.variant, dt(t, o.variant)]), C.variant)) : ''}
     <div class="select-pair">
       ${inner ? label('cz.innerPane', sel('innerPane', panes.map(p => p.inner), C.innerPane)) : ''}
       ${label('cz.total', sel('totalMm', thk.map(v => [v, `${v} mm`]), C.totalMm))}
@@ -55,8 +58,8 @@ export function glazingControls(t, cortizo, C) {
       ${label('glazing.ug', num('ug', C.ug, 0.3, 3, 0.1))}
     </div>
     ${clip && dry ? label('cz.drySilicone', sel('drySilicone', ['SG-500', 'SG-550', 'IG-25 HM Plus'], C.drySilicone)) : ''}
-    ${R.caps ? label('cz.cap', sel('cap', R.caps.filter(c => c.code).map(c => [c.code, `${c.code} · ${c.label}`]), C.cap)) : ''}
-    ${frame ? label('cz.cleats', sel('clipFix', R.glass_frame.cleats.map(c => [c.option, `${c.option} (pag. ${c.page})`]), C.clipFix)) : ''}
+    ${R.caps ? label('cz.cap', sel('cap', R.caps.filter(c => c.code).map(c => [c.code, `${c.code} · ${dt(t, c.label)}`]), C.cap)) : ''}
+    ${frame ? label('cz.cleats', sel('clipFix', R.glass_frame.cleats.map(c => [c.option, `${dt(t, c.option)} (${t('cz.page', { p: c.page })})`]), C.clipFix)) : ''}
     ${C.system === 'SKY' ? label('cz.skyJoint', sel('skyTransomJoint', [['silicone', t('cz.skyJoint.silicone')], ['inclined_cover', t('cz.skyJoint.inclined')]], C.skyTransomJoint)) : ''}
     <div class="select-pair">
       ${label('cz.bar', num('barMm', C.barMm, 3000, 12000, 100))}
@@ -82,7 +85,7 @@ export function elevationSvg(model, t) {
     const cx = x + cw / 2, cy = y + ch / 2;
     const type = p.window ? 'window' : p.spandrel ? 'panel' : 'glass';
     const vent = p.window ? `<polyline points="${x + 6},${y + 6} ${cx},${y + ch - 6} ${x + cw - 6},${y + 6}" class="cz-vent"/>` : '';
-    const text = cw > 64 && ch > 34 ? `<text x="${cx}" y="${cy - 2}">${fmt(p.kg)} kg</text><text x="${cx}" y="${cy + 11}" class="cz-sub">${esc(p.label)}</text>` : '';
+    const text = cw > 64 && ch > 34 ? `<text x="${cx}" y="${cy - 2}">${fmt(p.kg)} kg</text><text x="${cx}" y="${cy + 11}" class="cz-sub">${esc(fm(t, p.label))}</text>` : '';
     return `<g class="cz-cell" data-cell-row="${p.row}" data-cell-col="${p.bay}" tabindex="0" role="button" aria-label="${esc(t('cz.cellAria', { row: p.row + 1, col: p.bay + 1, type: t(`cz.field.${type}`) }))}">
       <rect x="${x}" y="${y}" width="${cw}" height="${ch}" class="${STATUS_CLASS[p.status] || 'cz-ok'} ${p.spandrel ? 'cw-spandrel' : ''}"/>${vent}${text}</g>`;
   }).join('');
@@ -91,7 +94,7 @@ export function elevationSvg(model, t) {
   const need = R.axes.map((a, i) => `<text x="${X(xs[i])}" y="${Y(H) - 16}" class="cz-need">M${i + 1} · ${fmt(a.need, 0)}</text>`).join('');
   const dimX = xs.slice(0, -1).map((x, i) => `<line x1="${X(x)}" y1="${Y(0) + 26}" x2="${X(xs[i + 1])}" y2="${Y(0) + 26}"/><text x="${(X(x) + X(xs[i + 1])) / 2}" y="${Y(0) + 22}">${xs[i + 1] - x}</text>`).join('');
   const dimY = ys.slice(0, -1).map((y, i) => `<line x1="${X(0) - 26}" y1="${Y(y)}" x2="${X(0) - 26}" y2="${Y(ys[i + 1])}"/><text x="${X(0) - 30}" y="${(Y(y) + Y(ys[i + 1])) / 2}" transform="rotate(-90 ${X(0) - 30} ${(Y(y) + Y(ys[i + 1])) / 2})">${ys[i + 1] - y}</text>`).join('');
-  const problems = panes.filter(p => p.notes.length).map(p => `<li><b>${esc(t('cz.cell', { row: p.row + 1, col: p.bay + 1 }))}</b> ${p.notes.map(esc).join(' ')}</li>`).join('');
+  const problems = panes.filter(p => p.notes.length).map(p => `<li><b>${esc(t('cz.cell', { row: p.row + 1, col: p.bay + 1 }))}</b> ${p.notes.map(n => esc(fm(t, n))).join(' ')}</li>`).join('');
   return `<svg class="cw-elevation cz-elevation" viewBox="0 0 ${vw} ${vh}" role="img" aria-label="${esc(t('drawing.elevation'))}">
     <g>${cells}${horizontals}${verticals}</g><g class="cz-needs">${need}</g>
     <g class="cw-dim">${dimX}${dimY}
@@ -108,7 +111,7 @@ const ROLE_NAMES = ['mullionGasket', 'transomGasket', 'reducer', 'supportStd', '
 export function checksPanel(model, t, cortizo) {
   const R = model.result;
   const describe = code => code.split(/[+/]/).map(c => c.trim()).map(c => cortizo.data.catalog.accessories.find(x => x.code === c)?.desc_en || cortizo.data.catalog.profiles.find(x => x.code === c)?.desc_en || '').filter(Boolean).join(' + ');
-  const checks = R.checks.map(c => `<li>${pill(c.level, t)}<span><b>${esc(c.title)}</b> ${esc(c.text)}${page(t, c.page)}</span></li>`).join('');
+  const checks = R.checks.map(c => `<li>${pill(c.level, t)}<span><b>${esc(fm(t, c.title))}</b> ${esc(fm(t, c.text))}${page(t, c.page)}</span></li>`).join('');
   const sky = R.system.id === 'SKY';
   const axes = R.axes.map((a, i) => `<tr><td>M${i + 1}</td><td class="n">${fmt(a.b)}</td><td class="n">${fmt(a.need, 1)}</td><td class="n">${fmt(a.Rv)}</td><td class="n">${fmt(a.Rh, 2)}</td><td>${sky ? pill('warn', t) : a.anchors ? `${a.anchors} × 999183` : pill('bad', t)}</td></tr>`).join('');
   const f0 = R.fields.find(f => f.type !== 'window') || R.fields[0];
@@ -125,16 +128,16 @@ export function checksPanel(model, t, cortizo) {
         </div></div></div>
     <h3 class="cz-h">${esc(t(sky ? 'cz.rafters' : 'cz.anchors'))}</h3>
     <div class="table-wrap"><table><thead><tr><th>${esc(t('cz.axis'))}</th><th class="n">b [mm]</th><th class="n">Ix nec. [cm⁴]</th><th class="n">${esc(t('cz.Rv'))}</th><th class="n">${esc(t('cz.Rh'))}</th><th>${esc(t('cz.anchorCol'))}</th></tr></thead><tbody>${axes}</tbody></table></div>
-    <h3 class="cz-h">${esc(t('cz.components', { variant: model.C.variant, inner: model.C.innerPane ? ` · ${model.C.innerPane}` : '', mm: model.C.totalMm }))}</h3>
+    <h3 class="cz-h">${esc(t('cz.components', { variant: dt(t, model.C.variant), inner: model.C.innerPane ? ` · ${model.C.innerPane}` : '', mm: model.C.totalMm }))}</h3>
     <div class="table-wrap"><table><thead><tr><th>${esc(t('cz.role'))}</th><th>${esc(t('bom.article'))}</th><th>${esc(t('bom.item'))}</th></tr></thead><tbody>${roles || `<tr><td colspan="3">${esc(t('cz.frameComponents'))}</td></tr>`}</tbody></table></div>
-    ${R.notes.length ? `<h3 class="cz-h">${esc(t('cz.notes'))}</h3>${R.notes.map(n => `<p class="note">${esc(n)}</p>`).join('')}` : ''}
+    ${R.notes.length ? `<h3 class="cz-h">${esc(t('cz.notes'))}</h3>${R.notes.map(n => `<p class="note">${esc(fm(t, n))}</p>`).join('')}` : ''}
     <p class="note">${esc(t('cz.disclaimer'))}</p>`;
 }
 
 export function bomPanel(model, t, qty = 1) {
   const R = model.result;
-  const cuts = R.cuts.map(c => `<tr><td class="code">${esc(c.code)}</td><td>${esc(c.desc)}<small class="cz-rule">${esc(c.notes.join('; '))}</small></td><td class="code">${c.lengths.map(l => fmt(l, l % 1 ? 1 : 0)).join(', ')}${c.overLength.length ? ` ${pill('bad', t)}` : ''}</td><td class="n">${c.n * qty}</td><td class="n">${fmt(c.m * qty, 2)}</td><td class="n">${c.bars * qty}</td><td class="n">${fmt(c.waste * 100)}%</td><td class="n">${c.kg == null ? '–' : fmt(c.kg * qty, 1)}</td></tr>`).join('');
-  const accessories = R.accessories.map(a => `<tr><td class="code">${esc(a.code)}</td><td>${esc(a.desc)}<small class="cz-rule">${esc(a.rules.join('; '))}</small></td><td class="n">${a.unit === 'm' ? `${fmt(a.qty * qty, 1)} m` : `${fmt(a.qty * qty)} ${esc(t('unit.pcs'))}`}</td></tr>`).join('');
+  const cuts = R.cuts.map(c => `<tr><td class="code">${esc(c.code)}</td><td>${esc(fm(t, c.desc))}<small class="cz-rule">${esc(c.notes.map(n => fm(t, n)).join('; '))}</small></td><td class="code">${c.lengths.map(l => fmt(l, l % 1 ? 1 : 0)).join(', ')}${c.overLength.length ? ` ${pill('bad', t)}` : ''}</td><td class="n">${c.n * qty}</td><td class="n">${fmt(c.m * qty, 2)}</td><td class="n">${c.bars * qty}</td><td class="n">${fmt(c.waste * 100)}%</td><td class="n">${c.kg == null ? '–' : fmt(c.kg * qty, 1)}</td></tr>`).join('');
+  const accessories = R.accessories.map(a => `<tr><td class="code">${esc(a.code)}</td><td>${esc(fm(t, a.desc))}<small class="cz-rule">${esc(a.rules.map(r => fm(t, r)).join('; '))}</small></td><td class="n">${a.unit === 'm' ? `${fmt(a.qty * qty, 1)} m` : `${fmt(a.qty * qty)} ${esc(t('unit.pcs'))}`}</td></tr>`).join('');
   return `<div class="bom-head"><strong>${esc(qty > 1 ? t('totals.order', { qty }) : t('cz.cutting', { bar: fmt(model.C.barMm) }))}</strong><button type="button" class="copy" id="copyBom">${esc(t('bom.copy'))}</button></div>
     <div class="table-wrap"><table><thead><tr><th>${esc(t('bom.article'))}</th><th>${esc(t('bom.item'))}</th><th>${esc(t('cz.lengths'))}</th><th class="n">${esc(t('unit.pcs'))}</th><th class="n">m</th><th class="n">${esc(t('cz.bars'))}</th><th class="n">${esc(t('cz.waste'))}</th><th class="n">kg</th></tr></thead><tbody>${cuts}</tbody></table></div>
     <h3 class="cz-h">${esc(t('cz.accessories'))}</h3>
@@ -142,46 +145,37 @@ export function bomPanel(model, t, qty = 1) {
     <p class="note">${esc(t('cz.bomNote'))}</p>`;
 }
 
-// Systems comparison and methodology cards (cortizo/docs/METODOLOGIE.md).
-const CMP = {
-  vert: { TP52: 'presor + capac', SG52: 'cleme + profil U', TPH52: 'cleme + profil U', TPV52: 'presor + capac', ST52: 'ramă lipită', SST52: 'ramă cu ornament', SKY: 'presor + capac (căpriori)' },
-  hor: { TP52: 'presor + capac', SG52: 'cleme + profil U', TPH52: 'presor + capac', TPV52: 'cleme + profil U', ST52: 'ramă lipită', SST52: 'ramă cu ornament', SKY: 'silicon pe garnitură K' },
-  glass: { TP52: 'L−22 × H−22', SG52: 'L−22 × H−22', TPH52: 'L−22 × H−22', TPV52: 'L−22 × H−22', ST52: 'L−22 × H−22', SST52: 'L−60 × H−60', SKY: 'L−22 × H−22' },
-  table: { TP52: 'TP (pag. 305–315)', SG52: 'SG pe foaie interioară (582–601)', TPH52: 'TPH + TP (777–801)', TPV52: 'TPV + SG (785–787)', ST52: 'suport după grosime (1029)', SST52: 'garnitură + reductor (1113)', SKY: 'acoperiș (1233–1235)' },
-  spec: { TP52: 'fereastră pag. 393 · zonă oarbă pag. 388', SG52: 'pas cleme · profil U în geam · limite geam (671–674)', TPH52: 'cleme doar pe verticală', TPV52: 'cleme doar pe orizontală', ST52: 'silicon structural · cuplaj COR-9971', SST52: 'fără silicon structural · vânt 1200 Pa', SKY: 'zăpadă + pantă · streașină COR-9912' },
-};
-const CARDS = [
-  ['TP 52', 'Presorul preia vântul pe toate laturile, deci nu există verificare de cleme.', ['Debitare: traversă L−22, presor L−58, capac L−53 (pag. 379).', 'Componente din tabelul TP după grosimea pachetului; suport 4a/4b/4c.', 'Șuruburi de presor la 30 mm de capăt, apoi la max. 250 mm.', 'Variante: nivel 1, nivel 2, High Insulation, RC3 (sticlă P5A).']],
-  ['SG 52', 'Vântul e preluat de cleme, deci pasul clemelor și dimensiunea geamului devin verificări de sine stătătoare.', ['Pas cleme din graficul pag. 678, la vânt × 1,5.', 'Clemă dublă pe rosturi interioare, simplă pe margine; mărimea după foaia interioară.', 'Profil U COR-9956 în camera de 16/18/20 mm, 1 bucată ≤ 1800 mm, altfel 2.', 'Limite geam: 4,5 m pe latură, L + H ≤ 6,5 m; la garnitură uscată lățimea după silicon.']],
-  ['TPH 52', 'Combină TP pe orizontală cu SG pe verticală; folosește două tabele de vitraj.', ['Presor + capac pe traverse, cu deducerile TP.', 'Cleme și profil U doar pe laturile verticale.', 'Suporții și calele vin din tabelul TP, pentru că geamul stă pe presor.']],
-  ['TPV 52', 'Inversul TPH: presor pe montanți, cleme pe orizontală, deci suportul și clemele sunt pe aceeași latură.', ['Presor vertical COR-9914 cu prelucrare TPV (pag. 897).', 'Cleme, suporți și garnitura de fund din tabelul SG cu aceeași foaie interioară.', 'Pipete la traversa de jos, ca la TP.']],
-  ['ST 52', 'Sticla nu atinge structura: e lipită în atelier pe o ramă care se agață pe cleme și suporți.', ['Ramă COR-9982 L−22 × H−22 la 45°, cu platbandă COR-7298 pentru siliconul structural.', 'Suport de sticlă după grosimea geamului (999204…999191), 2 bucăți la L/10.', 'Cuplaj COR-9971 L−28,5, șuruburi la max. 250 mm; cleme 999030 pe 3 laturi.', 'Sticlă max. 38 mm.']],
-  ['SST 52', 'Ca ST, dar geamul e ținut mecanic de ornamentul ramei, fără silicon structural.', ['Ramă COR-9983 L−22 × H−22; sticla e L−60 × H−60.', 'Garnitură și reductor după grosime (pag. 1113); sticlă max. 28 mm.', 'Capacitatea suportului COR-9942 nu e în catalog: câmpurile rămân cu atenționare.', 'Vânt testat 1200 Pa.']],
-  ['Skylight – Veranda', 'Singurul sistem cu zăpadă, pantă și etanșare diferită pe orizontală, ca apa să curgă liber.', ['q⊥ = vânt + zăpadă·cos²α + sticlă·cosα pentru căpriori și traverse.', 'Tăvițele de sprijin preiau doar componenta în lungul pantei.', 'Căpriori COR-9804…9810, pantă 7°–40°.', 'Îmbinare streașină cu cămașa COR-9912: L1 = A/cos(β/2), L2 = L1 + 200/tan(90° − β/2).']],
-];
+// Systems comparison and methodology cards (cortizo/docs/METODOLOGIE.md); the texts
+// are engine messages (cmp.<row>.<system>, card.<system>.lead / .1…n).
+const CARD_ITEMS = { TP52: 4, SG52: 4, TPH52: 3, TPV52: 3, ST52: 4, SST52: 4, SKY: 4 };
 
 export function systemsPanel(t, cortizo) {
   const ids = Object.keys(RULE_KEY);
   const name = id => cortizo.engine.systems.find(s => s.id === id).name;
   const row = (label, f) => `<tr><th>${esc(label)}</th>${ids.map(id => `<td>${esc(f(id))}</td>`).join('')}</tr>`;
   const rules = id => cortizo.rules[RULE_KEY[id]];
+  const cmp = (rowKey, id) => fm(t, { key: `cmp.${rowKey}.${id}` });
   return `<p class="note">${esc(t('cz.systemsIntro'))}</p>
     <div class="table-wrap"><table class="cz-cmp"><thead><tr><th></th>${ids.map(id => `<th>${esc(name(id))}</th>`).join('')}</tr></thead><tbody>
-      ${row(t('cz.edgeDir.vertical'), id => CMP.vert[id])}${row(t('cz.edgeDir.horizontal'), id => CMP.hor[id])}
-      ${row(t('cz.maxGlassRow'), id => `${rules(id).max_glass_mm} mm`)}${row(t('cz.glassSize'), id => CMP.glass[id])}${row(t('cz.glazingTable'), id => CMP.table[id])}
-      ${row(t('cz.waterWind'), id => `${rules(id).tests.water} / ${rules(id).tests.wind}`)}${row(t('cz.specific'), id => CMP.spec[id])}
+      ${row(t('cz.edgeDir.vertical'), id => cmp('vert', id))}${row(t('cz.edgeDir.horizontal'), id => cmp('hor', id))}
+      ${row(t('cz.maxGlassRow'), id => `${rules(id).max_glass_mm} mm`)}${row(t('cz.glassSize'), id => cmp('glass', id))}${row(t('cz.glazingTable'), id => cmp('table', id))}
+      ${row(t('cz.waterWind'), id => `${rules(id).tests.water} / ${rules(id).tests.wind}`)}${row(t('cz.specific'), id => cmp('spec', id))}
     </tbody></table></div>
-    <div class="cz-cards">${CARDS.map(([title, lead, items]) => `<article><h3>${esc(title)}</h3><p>${esc(lead)}</p><ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></article>`).join('')}</div>`;
+    <div class="cz-cards">${ids.map(id => `<article><h3>${esc(name(id))}</h3><p>${esc(fm(t, { key: `card.${id}.lead` }))}</p><ul>${Array.from({ length: CARD_ITEMS[id] }, (_, i) => `<li>${esc(fm(t, { key: `card.${id}.${i + 1}` }))}</li>`).join('')}</ul></article>`).join('')}</div>`;
 }
 
-// The logic map is generated by cortizo/scripts/make-map.py (cortizo/web/map.html).
-let mapMarkup = null;
+// The logic map is generated by cortizo/scripts/make-map.py, one file per language
+// (cortizo/web/map.<language>.html); the markup is cached per language.
+const MAP_LANGUAGES = ['en', 'es', 'ro', 'de', 'fr', 'it'];
+const mapLanguage = locale => (MAP_LANGUAGES.includes(String(locale).slice(0, 2)) ? String(locale).slice(0, 2) : 'en');
+const mapMarkup = new Map();
 export async function mapPanel(t) {
-  if (mapMarkup == null) {
+  const language = mapLanguage(t.locale);
+  if (!mapMarkup.has(language)) {
     try {
-      const response = await fetch(new URL('../cortizo/web/map.html?v=cw-7', import.meta.url));
-      mapMarkup = response.ok ? await response.text() : '';
-    } catch { mapMarkup = ''; }
+      const response = await fetch(new URL(`../cortizo/web/map.${language}.html?v=cortizo-i18n-1`, import.meta.url));
+      mapMarkup.set(language, response.ok ? await response.text() : '');
+    } catch { mapMarkup.set(language, ''); }
   }
-  return `<p class="note">${esc(t('cz.mapIntro'))}</p><div class="cz-map">${mapMarkup || esc(t('cz.mapMissing'))}</div>`;
+  return `<p class="note">${esc(t('cz.mapIntro'))}</p><div class="cz-map">${mapMarkup.get(language) || esc(t('cz.mapMissing'))}</div>`;
 }

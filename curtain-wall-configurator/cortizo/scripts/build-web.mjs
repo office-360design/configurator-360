@@ -10,7 +10,7 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 
 // modulele motorului, în ordinea dependențelor; importurile și cuvântul export se elimină
 const modules = ['src/core/util.js', 'src/core/statics.js', 'src/core/clips.js', 'src/core/packing.js', 'src/core/glazing.js',
-  'src/core/supports.js', 'src/core/roles.js', 'src/systems/index.js', 'src/engine.js'];
+  'src/core/supports.js', 'src/core/roles.js', 'src/systems/index.js', 'src/engine.js', 'src/messages.js', 'src/format.js'];
 const engine = modules.map((m) => `// ── ${m}\n` + read(m)
   .replace(/^import[^;]*;\s*$/gm, '')
   .replace(/^export\s+(const|function|class|let)/gm, '$1')).join('\n');

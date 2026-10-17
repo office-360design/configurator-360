@@ -2,6 +2,8 @@
 const DATA = JSON.parse(document.getElementById('data').textContent);
 const engine = createEngine(DATA);
 const $ = (id) => document.getElementById(id);
+// Pagina de sine stătătoare rămâne în română; mesajele motorului se compun cu formatMessage (src/format.js).
+const TX = (m) => formatMessage('ro-RO', m);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (x, d = 0) => (x == null || isNaN(x) ? '–' : Number(x).toLocaleString('ro-RO', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const nums = (s) => String(s).split(/[;\s]+|,(?=\s)|,(?=\d{3,})/).map((x) => parseFloat(String(x).replace(',', '.'))).filter((x) => x > 0);
@@ -122,7 +124,7 @@ function elev(R) {
     o += `<g class="cell" data-i="${i}" data-j="${j}" tabindex="0" role="button" aria-label="Câmp rând ${i + 1}, coloana ${j + 1}: ${f.type}"><rect x="${x + 3}" y="${y + 3}" width="${w * sc - 6}" height="${h * sc - 6}" fill="${fill}" stroke="none"/>`;
     if (f.type === 'window') o += `<polyline points="${x + 10},${y + 10} ${cx},${y + h * sc - 10} ${x + w * sc - 10},${y + 10}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 3"/>`;
     if (f.type === 'panel') o += `<rect x="${x + 8}" y="${y + 8}" width="${w * sc - 16}" height="${h * sc - 16}" fill="var(--alu)" opacity=".35"/>`;
-    if (w * sc > 60 && h * sc > 34) o += `<text x="${cx}" y="${cy - 3}" font-size="11" text-anchor="middle" fill="currentColor">${fmt(f.kg)} kg</text><text x="${cx}" y="${cy + 11}" font-size="10" text-anchor="middle" fill="var(--muted)">${esc(f.label)}</text>`;
+    if (w * sc > 60 && h * sc > 34) o += `<text x="${cx}" y="${cy - 3}" font-size="11" text-anchor="middle" fill="currentColor">${fmt(f.kg)} kg</text><text x="${cx}" y="${cy + 11}" font-size="10" text-anchor="middle" fill="var(--muted)">${esc(TX(f.label))}</text>`;
     o += '</g>'; x += w * sc; });
     o += `<text x="${pad.l - 8}" y="${y + h * sc / 2 + 4}" font-size="10.5" text-anchor="end" fill="var(--muted)">${h}</text>`; y += h * sc; });
   y = pad.t;
@@ -147,19 +149,19 @@ function render(R) {
     <div class="kpi"><div class="l">Aluminiu</div><div class="v">${fmt(R.totals.kgAluminium)} kg</div><div class="s">${fmt(R.totals.kgAluminium / R.totals.facadeM2, 1)} kg/m² · vopsire ${fmt(R.totals.paintM2, 1)} m²</div></div>
     ${R.ucw ? `<div class="kpi"><div class="l">Ucw</div><div class="v">${fmt(R.ucw.ucw, 1)}</div><div class="s">W/m²K la Ug ${fmt(R.ucw.ug, 1)} (pag. 12)</div></div>` : ''}
   </div>`;
-  h += `<div class="panel"><h3>Verificări</h3><div class="tbl"><table><tbody>${R.checks.map((c) => `<tr><td>${pill(c.level, LVL[c.level])}</td><td><b>${esc(c.title)}</b></td><td>${esc(c.text)}${c.page ? ` <span class="hint-inline">pag. ${c.page}</span>` : ''}</td></tr>`).join('')}</tbody></table></div></div>`;
+  h += `<div class="panel"><h3>Verificări</h3><div class="tbl"><table><tbody>${R.checks.map((c) => `<tr><td>${pill(c.level, LVL[c.level])}</td><td><b>${esc(TX(c.title))}</b></td><td>${esc(TX(c.text))}${c.page ? ` <span class="hint-inline">pag. ${c.page}</span>` : ''}</td></tr>`).join('')}</tbody></table></div></div>`;
   const problems = R.fields.filter((f) => f.notes.length);
   h += `<div class="panel"><h3>${sky ? 'Plan acoperiș' : 'Elevație'} · Ix necesar pe fiecare ${sky ? 'căprior' : 'montant'} [cm⁴]</h3>${elev(R)}
     <div class="legend-row"><span><i class="sw" style="background:var(--glass);border-color:var(--glass)"></i>OK</span><span><i class="sw" style="background:var(--warn-soft);border-color:var(--warn)"></i>atenție</span><span><i class="sw" style="background:var(--bad-soft);border-color:var(--bad)"></i>nu trece</span><span>linie groasă = presor · linie subțire = rost cu cleme / silicon / ramă</span></div>
-    ${problems.length ? `<div class="tbl" style="margin-top:10px"><table><tbody>${problems.map((f) => `<tr><td class="code">R${f.i + 1}·C${f.j + 1}</td><td>${f.notes.map(esc).join('<br>')}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`;
+    ${problems.length ? `<div class="tbl" style="margin-top:10px"><table><tbody>${problems.map((f) => `<tr><td class="code">R${f.i + 1}·C${f.j + 1}</td><td>${f.notes.map((n) => esc(TX(n))).join('<br>')}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`;
   h += `<div class="panel"><h3>${sky ? 'Căpriori' : 'Montanți și ancoraje'}</h3><div class="tbl"><table><thead><tr><th>Ax</th><th class="n">b [mm]</th><th class="n">Ix nec. [cm⁴]</th><th class="n">Greutate / deschidere [kg]</th><th class="n">Orizontal [kN]</th><th>Ancoraje</th></tr></thead><tbody>${R.axes.map((a, i) => `<tr><td>M${i + 1}</td><td class="n">${fmt(a.b)}</td><td class="n">${fmt(a.need, 1)}</td><td class="n">${fmt(a.Rv)}</td><td class="n">${fmt(a.Rh, 2)}</td><td>${sky ? pill('warn', 'ghidaj perete') : a.anchors ? pill('ok', a.anchors + ' × 999183') : pill('bad', 'peste 3')}</td></tr>`).join('')}</tbody></table></div></div>`;
   const f0 = R.fields.find((f) => f.type !== 'window') || R.fields[0];
   const roleNames = { mullionGasket: 'Garnitură montant', transomGasket: 'Garnitură traversă', reducer: 'Reductor falț', supportStd: sky ? 'Tăviță sprijin (M1)' : 'Suport standard', supportHeavy: 'Suport sarcini mari', supportCross: 'Suport în cruce', block: 'Cală', rpt: 'Izolator RPT', rptTransom: 'Izolator traversă', pressureScrew: 'Șurub presor', pressureGasket: 'Garnitură presor', pipette: 'Pipetă', clipDouble: 'Clemă dublă', clipSingle: 'Clemă simplă', clipScrew: 'Șurub clemă', backer: 'Garnitură fund (silicon)', dryGasket: 'Garnitură uscată', sashGasket: 'Garnitură geam' };
   const rows = Object.entries(f0.roles).filter(([k, v]) => roleNames[k] && v && (!Array.isArray(v) || v.length)).map(([k, v]) => [roleNames[k], Array.isArray(v) ? v.join(' / ') : v]);
   h += `<div class="panel"><h3>Componente de vitraj · ${esc(P.glass.variant)}${P.glass.innerPane ? ' · ' + esc(P.glass.innerPane) : ''} · ${P.glass.totalMm} mm</h3><div class="tbl"><table><thead><tr><th>Rol</th><th>Referință</th><th>Descriere</th></tr></thead><tbody>${rows.map(([a, b]) => `<tr><td>${esc(a)}</td><td class="code">${esc(b)}</td><td>${esc(b.split(/[+/]/).map((c) => c.trim()).map((c) => DATA.catalog.accessories.find((x) => x.code === c)?.desc_es || DATA.catalog.profiles.find((x) => x.code === c)?.desc_es || '').filter(Boolean).join(' + '))}</td></tr>`).join('') || '<tr><td colspan="3">Componentele acestui sistem vin din regulile ramei (vezi lista de accesorii).</td></tr>'}</tbody></table></div></div>`;
-  h += `<div class="panel"><h3>Debitare · bare de ${fmt(R.input.options?.barMm ?? 6500)} mm</h3><div class="tbl"><table><thead><tr><th>Cod</th><th>Descriere</th><th>Rol</th><th>Lungimi [mm]</th><th class="n">Buc.</th><th class="n">m</th><th class="n">Bare</th><th class="n">Pierdere</th><th class="n">kg</th></tr></thead><tbody>${R.cuts.map((c) => `<tr><td class="code">${esc(c.code)}</td><td>${esc(c.desc)}</td><td>${esc(c.notes.join('; '))}</td><td class="code">${c.lengths.map((l) => fmt(l, l % 1 ? 1 : 0)).join(', ')}${c.overLength.length ? ' ' + pill('bad', 'peste bară') : ''}</td><td class="n">${c.n}</td><td class="n">${fmt(c.m, 2)}</td><td class="n">${c.bars}</td><td class="n">${fmt(c.waste * 100)} %</td><td class="n">${c.kg == null ? '–' : fmt(c.kg, 1)}</td></tr>`).join('')}</tbody></table></div></div>`;
-  h += `<div class="panel"><h3>Accesorii</h3><div class="tbl"><table><thead><tr><th>Cod</th><th>Descriere</th><th class="n">Cantitate</th><th>Regulă de consum</th></tr></thead><tbody>${R.accessories.map((a) => `<tr><td class="code">${esc(a.code)}</td><td>${esc(a.desc)}</td><td class="n">${a.unit === 'm' ? fmt(a.qty, 1) + ' m' : fmt(a.qty) + ' buc'}</td><td>${esc(a.rules.join('; '))}</td></tr>`).join('')}</tbody></table></div></div>`;
-  if (R.notes.length) h += `<div class="panel"><h3>Note</h3>${R.notes.map((n) => `<p class="note">${esc(n)}</p>`).join('')}</div>`;
+  h += `<div class="panel"><h3>Debitare · bare de ${fmt(R.input.options?.barMm ?? 6500)} mm</h3><div class="tbl"><table><thead><tr><th>Cod</th><th>Descriere</th><th>Rol</th><th>Lungimi [mm]</th><th class="n">Buc.</th><th class="n">m</th><th class="n">Bare</th><th class="n">Pierdere</th><th class="n">kg</th></tr></thead><tbody>${R.cuts.map((c) => `<tr><td class="code">${esc(c.code)}</td><td>${esc(TX(c.desc))}</td><td>${esc(c.notes.map(TX).join('; '))}</td><td class="code">${c.lengths.map((l) => fmt(l, l % 1 ? 1 : 0)).join(', ')}${c.overLength.length ? ' ' + pill('bad', 'peste bară') : ''}</td><td class="n">${c.n}</td><td class="n">${fmt(c.m, 2)}</td><td class="n">${c.bars}</td><td class="n">${fmt(c.waste * 100)} %</td><td class="n">${c.kg == null ? '–' : fmt(c.kg, 1)}</td></tr>`).join('')}</tbody></table></div></div>`;
+  h += `<div class="panel"><h3>Accesorii</h3><div class="tbl"><table><thead><tr><th>Cod</th><th>Descriere</th><th class="n">Cantitate</th><th>Regulă de consum</th></tr></thead><tbody>${R.accessories.map((a) => `<tr><td class="code">${esc(a.code)}</td><td>${esc(TX(a.desc))}</td><td class="n">${a.unit === 'm' ? fmt(a.qty, 1) + ' m' : fmt(a.qty) + ' buc'}</td><td>${esc(a.rules.map(TX).join('; '))}</td></tr>`).join('')}</tbody></table></div></div>`;
+  if (R.notes.length) h += `<div class="panel"><h3>Note</h3>${R.notes.map((n) => `<p class="note">${esc(TX(n))}</p>`).join('')}</div>`;
   h += `<p class="note">Predimensionare cu valorile de serviciu din catalog (grindă simplu rezemată, E = 70.000 N/mm², săgeată L/200 max. 15 mm). Consumurile de garnituri, cale și pipete sunt reguli de lucru. Nu înlocuiește calculul static al proiectantului. Catalogul nu conține prețuri.</p>`;
   $('out').innerHTML = h;
   $('out').querySelectorAll('.cell').forEach((g) => {
@@ -183,8 +185,8 @@ function toCSV(R) {
   if (!R) return '';
   const q = (s) => `"${String(s ?? '').replace(/"/g, '""')}"`;
   const lines = [['tip', 'cod', 'descriere', 'cantitate', 'unitate', 'bare', 'kg', 'lungimi_mm'].join(';')];
-  R.cuts.forEach((c) => lines.push(['profil', c.code, q(c.desc), c.m.toFixed(2), 'm', c.bars, c.kg?.toFixed(1) ?? '', q(c.lengths.join(' '))].join(';')));
-  R.accessories.forEach((a) => lines.push(['accesoriu', a.code, q(a.desc), a.qty, a.unit, '', '', ''].join(';')));
+  R.cuts.forEach((c) => lines.push(['profil', c.code, q(TX(c.desc)), c.m.toFixed(2), 'm', c.bars, c.kg?.toFixed(1) ?? '', q(c.lengths.join(' '))].join(';')));
+  R.accessories.forEach((a) => lines.push(['accesoriu', a.code, q(TX(a.desc)), a.qty, a.unit, '', '', ''].join(';')));
   return lines.join('\n');
 }
 

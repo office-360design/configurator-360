@@ -75,15 +75,19 @@ test('skylight carries slope and snow into the engine', () => {
   assert.equal(m.project.loads.snowKPa, 2);
   assert.ok(m.result.loads.qPerpKPa > m.project.loads.windKPa, 'snow and glass weight add to the perpendicular load');
   const steep = cortizoModel(state({ system: 'SKY', slopeDeg: 55 }), cz);
-  assert.ok(steep.result.checks.some(c => c.level === 'bad' && c.title === 'Pantă'), 'slope outside 7–40° is reported');
+  assert.ok(steep.result.checks.some(c => c.level === 'bad' && c.id === 'slope'), 'slope outside 7–40° is reported');
 });
 
 test('cutting and accessory list text scales with the order quantity', () => {
   const m = cortizoModel(state({ system: 'TP52' }), cz);
-  const one = cortizoListText(m, 1), two = cortizoListText(m, 2);
+  const one = cortizoListText(m, 1, 'ro-RO'), two = cortizoListText(m, 2, 'ro-RO');
   assert.match(one, /^Cortizo TP 52 · 6000 × 6600 mm × 1/);
-  const bars = text => Number(text.split('\n').find(l => l.includes(m.mullion.id)).match(/(\d+) bare/)[1]);
+  const bars = (text, word = 'bare') => Number(text.split('\n').find(l => l.includes(m.mullion.id)).match(new RegExp(`(\\d+) ${word}`))[1]);
   assert.equal(bars(two), 2 * bars(one));
+  // The list follows the configurator language.
+  assert.equal(bars(cortizoListText(m, 1, 'en-US'), 'bars'), bars(one));
+  assert.equal(bars(cortizoListText(m, 1, 'es-ES'), 'barras'), bars(one));
+  assert.match(cortizoListText(m, 1, 'es-ES'), /^perfil\t/m);
 });
 
 test('catalogue names are the English ones, never the Spanish ones', () => {

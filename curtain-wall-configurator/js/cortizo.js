@@ -3,7 +3,8 @@
 // unchanged in ../cortizo (see cortizo/CLAUDE.md); this module only maps the
 // configurator state to an engine project and the engine result to the model
 // the 3D scene and the drawings use.
-import { createEngine } from '../cortizo/src/engine.js?v=cortizo-2';
+import { createEngine } from '../cortizo/src/engine.js?v=cortizo-i18n-1';
+import { dataText, formatMessage } from '../cortizo/src/format.js?v=cortizo-i18n-1';
 import { cortizoNodeParts } from './sections.js?v=cw-7';
 
 export const CORTIZO_DATA_VERSION = 'cortizo-2';
@@ -142,7 +143,7 @@ export function cortizoModel(S, cortizo) {
   const R = cortizo.engine.compute(project);
   const xs = cumulative(S.widths), ys = cumulative(S.heights);
   const W = xs.at(-1), H = ys.at(-1), rows = S.heights.length, half = FACE_WIDTH / 2;
-  const glazing = { id: 'cortizo', label: [C.variant, C.innerPane].filter(Boolean).join(' · '), thickness: C.totalMm, glass: C.panesMm, Ug: C.ug };
+  const glazing = { id: 'cortizo', variant: C.variant, innerPane: C.innerPane, thickness: C.totalMm, glass: C.panesMm, Ug: C.ug };
   const panes = R.fields.map(f => {
     const row = rows - 1 - f.i;
     return { bay: f.j, row, x0: xs[f.j], x1: xs[f.j + 1], y0: ys[row], y1: ys[row + 1], width: f.gw, height: f.gh,
@@ -162,11 +163,15 @@ export function cortizoModel(S, cortizo) {
   };
 }
 
-// Plain-text cutting and accessory list (tab separated, for the clipboard).
-export function cortizoListText(model, qty = 1) {
+/** Glazing build in the given locale: catalogue variant and inner pane. */
+export const glazingLabel = (locale, glazing) => [dataText(locale, glazing.variant), glazing.innerPane].filter(Boolean).join(' · ');
+
+// Plain-text cutting and accessory list (tab separated, for the clipboard), in the given locale.
+export function cortizoListText(model, qty = 1, locale = 'en-US') {
   const R = model.result;
+  const m = (key, params) => formatMessage(locale, { key, params });
   const head = `Cortizo ${R.system.name} · ${model.W} × ${model.H} mm × ${qty}`;
-  const cuts = R.cuts.map(c => ['profil', c.code, c.desc, `${(c.m * qty).toFixed(2)} m`, `${c.bars * qty} bare`, c.kg == null ? '' : `${(c.kg * qty).toFixed(1)} kg`].join('\t'));
-  const accessories = R.accessories.map(a => ['accesoriu', a.code, a.desc, a.unit === 'm' ? `${(a.qty * qty).toFixed(1)} m` : `${a.qty * qty} buc`].join('\t'));
+  const cuts = R.cuts.map(c => [m('list.profile'), c.code, formatMessage(locale, c.desc), m('list.metres', { m: c.m * qty }), m('list.bars', { n: c.bars * qty }), c.kg == null ? '' : m('list.kg', { kg: c.kg * qty })].join('\t'));
+  const accessories = R.accessories.map(a => [m('list.accessory'), a.code, formatMessage(locale, a.desc), a.unit === 'm' ? m('list.metres1', { m: a.qty * qty }) : m('list.pieces', { n: a.qty * qty })].join('\t'));
   return [head, ...cuts, ...accessories].join('\n');
 }
