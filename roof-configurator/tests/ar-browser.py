@@ -126,7 +126,7 @@ with sync_playwright() as p:
   count=page.evaluate('__uploads.length');dialog.locator('[value="android"]').check();page.wait_for_function("document.querySelector('#roofARDialog [data-open]')?.href?.includes('mode=android')")
   assert page.evaluate('__uploads.length')==count
   page.set_viewport_size({'width':390,'height':844});page.screenshot(path=str(W/'roof-ar-dialog-mobile.png'));assert dialog.bounding_box()['width']<=390
-  for locale in ['ro-RO','de-DE','en-US']:
+  for locale in ['ro-RO','de-DE','es-ES','fr-FR','it-IT','en-US']:
    dialog.locator('[data-close]').click();page.evaluate('locale=>{ROOF_CONFIGURATOR_SHARED_SHELL.state.locale=locale;}',locale);page.locator('[data-action="view-ar"]').click()
    page.wait_for_function("!!document.querySelector('#roofARDialog [data-open]')?.href",timeout=45000)
    assert not re.search('Firebase|Supabase|GLB files',dialog.inner_text())

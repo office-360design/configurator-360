@@ -23,6 +23,12 @@ const PUBLIC_ORIGINS = new Set([
   'https://www.360configurator.ro',
   'https://360konfigurator.de',
   'https://www.360konfigurator.de',
+  'https://360configurador.es',
+  'https://www.360configurador.es',
+  'https://360configurateur.fr',
+  'https://www.360configurateur.fr',
+  'https://360configuratore.it',
+  'https://www.360configuratore.it',
   'https://aks.360configurator.com',
 ]);
 const DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
@@ -70,6 +76,7 @@ const CUSTOMER_COPY = Object.freeze({
     modules: 'Configured modules',
     name: 'Name', company: 'Company', phone: 'Phone number', email: 'Email', address: 'Shipping address', quantity: 'Number of bookcases',
     link: 'To view the configuration of the bookcase ordered, access this link:',
+    quotationReceived: 'We received your quotation request.',
   }),
   'ro-RO': Object.freeze({
     subject: 'Solicitarea pentru bibliotecă a fost înregistrată',
@@ -78,6 +85,7 @@ const CUSTOMER_COPY = Object.freeze({
     modules: 'Module configurate',
     name: 'Nume', company: 'Companie', phone: 'Număr de telefon', email: 'E-mail', address: 'Adresa de livrare', quantity: 'Număr de biblioteci',
     link: 'Pentru a vedea configurația bibliotecii comandate, accesați acest link:',
+    quotationReceived: 'Am primit solicitarea de ofertă.',
   }),
   'de-DE': Object.freeze({
     subject: 'Ihre Bücherregal-Anfrage wurde registriert',
@@ -86,6 +94,34 @@ const CUSTOMER_COPY = Object.freeze({
     modules: 'Konfigurierte Module',
     name: 'Name', company: 'Firma', phone: 'Telefonnummer', email: 'E-Mail', address: 'Lieferadresse', quantity: 'Anzahl Bücherregale',
     link: 'Um die Konfiguration des bestellten Bücherregals anzusehen, öffnen Sie diesen Link:',
+    quotationReceived: 'Wir haben Ihre Angebotsanfrage erhalten.',
+  }),
+  'es-ES': Object.freeze({
+    subject: 'Su solicitud de estantería se ha registrado',
+    opening: '¡Su pedido se ha registrado correctamente!\n¡Le responderemos lo antes posible!\nA continuación encontrará los detalles de su pedido:',
+    details: 'Datos del cliente',
+    modules: 'Módulos configurados',
+    name: 'Nombre', company: 'Empresa', phone: 'Teléfono', email: 'Correo electrónico', address: 'Dirección de entrega', quantity: 'Número de estanterías',
+    link: 'Para ver la configuración de la estantería solicitada, acceda a este enlace:',
+    quotationReceived: 'Hemos recibido su solicitud de presupuesto.',
+  }),
+  'fr-FR': Object.freeze({
+    subject: 'Votre demande de bibliothèque a été enregistrée',
+    opening: 'Votre commande a bien été enregistrée !\nNous vous répondrons dans les meilleurs délais !\nVoici le détail de votre commande :',
+    details: 'Coordonnées du client',
+    modules: 'Modules configurés',
+    name: 'Nom', company: 'Société', phone: 'Téléphone', email: 'E-mail', address: 'Adresse de livraison', quantity: 'Nombre de bibliothèques',
+    link: 'Pour consulter la configuration de la bibliothèque commandée, ouvrez ce lien :',
+    quotationReceived: 'Nous avons bien reçu votre demande de devis.',
+  }),
+  'it-IT': Object.freeze({
+    subject: 'La Sua richiesta di libreria è stata registrata',
+    opening: 'Il Suo ordine è stato registrato correttamente!\nLe risponderemo il prima possibile!\nEcco i dettagli del Suo ordine:',
+    details: 'Dati del cliente',
+    modules: 'Moduli configurati',
+    name: 'Nome', company: 'Azienda', phone: 'Telefono', email: 'E-mail', address: 'Indirizzo di consegna', quantity: 'Numero di librerie',
+    link: 'Per visualizzare la configurazione della libreria ordinata, apra questo link:',
+    quotationReceived: 'Abbiamo ricevuto la Sua richiesta di preventivo.',
   }),
 });
 
@@ -507,7 +543,7 @@ exports.requestConfigurationQuotation = onCall({
     const attachment=JSON.stringify({productId,configuration:data.configuration},null,2);
     await sendEmail({to:'office@360configurator.com',replyTo:customer.email,subject:`[${productId} quotation] ${customer.name}`,text:details,attachment,eventName:'configuration-quotation-team-email-error'});
     await record.update({status:'sent',sentAtMs:Date.now()});
-    const confirmation=locale==='ro-RO'?'Am primit solicitarea de ofertă.':locale==='de-DE'?'Wir haben Ihre Angebotsanfrage erhalten.':'We received your quotation request.';
+    const confirmation=(CUSTOMER_COPY[locale]||CUSTOMER_COPY['en-US']).quotationReceived;
     // A confirmation failure must not cause a duplicate request to the team.
     try{await sendEmail({to:customer.email,replyTo:'office@360configurator.com',subject:confirmation,text:confirmation+'\n\n'+details,attachment,eventName:'configuration-quotation-confirmation-error'});}catch{logger.warn('Configuration quotation confirmation failed.',{requestId:record.id});}
     return {success:true,requestId:record.id};

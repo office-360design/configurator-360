@@ -1,4 +1,4 @@
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
 import {
   DIMENSION_LIMITS,
   POLE_FACES as LAYOUT_POLE_FACES,
@@ -228,6 +228,9 @@ function normalizePreferences(state, incoming = {}, options = {}) {
     'en-US': { units: 'imperial', currency: 'USD' },
     'ro-RO': { units: 'metric', currency: 'RON' },
     'de-DE': { units: 'metric', currency: 'EUR' },
+    'es-ES': { units: 'metric', currency: 'EUR' },
+    'fr-FR': { units: 'metric', currency: 'EUR' },
+    'it-IT': { units: 'metric', currency: 'EUR' },
   };
 
   const incomingLocale = typeof incoming.locale === 'string' && profiles[incoming.locale]

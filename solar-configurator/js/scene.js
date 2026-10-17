@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildRoofModel } from './roofFactory.js?v=platform-18';
-import { buildSolarArray } from './solarFactory.js?v=platform-18';
-import { createDimensions } from './dimensions.js?v=platform-18';
-import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=platform-18';
-import { horizonElevationAtAzimuth } from './energyModel.js?v=platform-18';
-import { solarCompassLabels, resolveSolarLocale } from './i18n.js?v=platform-18';
+import { buildSolarArray } from './solarFactory.js?v=locales-6';
+import { createDimensions } from './dimensions.js?v=locales-6';
+import { getSolarContext, getSunPathSamples } from './solarPosition.js?v=locales-6';
+import { horizonElevationAtAzimuth } from './energyModel.js?v=locales-6';
+import { solarCompassLabels, resolveSolarLocale } from './i18n.js?v=locales-6';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const DEG = Math.PI / 180;

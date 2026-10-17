@@ -1,12 +1,12 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=drainage-49';
-import { SheetPlannerUI } from './sheetPlannerUI.js?v=sketch-47';
-import { RoofLayoutEditor } from './layoutEditor.js?v=drainage-49';
-import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=sketch-1';
+import { localizeFeature, featureText } from './featureI18n.js?v=locales-6';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=locales-6';
+import { RoofLayoutEditor } from './layoutEditor.js?v=locales-6';
+import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=locales-6';
 import { defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=drainage-48';
-import { bomToCsv, calculateBom } from './bom.js?v=restore-1';
+import { bomToCsv, calculateBom } from './bom.js?v=locales-6';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -15,9 +15,9 @@ import {
   fromDisplayLength,
   normalizeUnits,
   toDisplayLength,
-} from './preferences.js?v=platform-18';
+} from './preferences.js?v=locales-6';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=restore-1';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=locales-6';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -470,10 +470,10 @@ export class RoofUI {
     }
 
     document.querySelector('#bomExportButton').disabled = false;
-    document.querySelector('#headerEstimateTotal').textContent = formatCurrency(bom.total, bom.currency);
-    document.querySelector('#bomSubtotal').textContent = formatCurrency(bom.subtotal, bom.currency);
-    document.querySelector('#bomVat').textContent = formatCurrency(bom.vat, bom.currency);
-    document.querySelector('#bomTotal').textContent = formatCurrency(bom.total, bom.currency);
+    document.querySelector('#headerEstimateTotal').textContent = formatCurrency(bom.total, bom.currency, this.state.locale);
+    document.querySelector('#bomSubtotal').textContent = formatCurrency(bom.subtotal, bom.currency, this.state.locale);
+    document.querySelector('#bomVat').textContent = formatCurrency(bom.vat, bom.currency, this.state.locale);
+    document.querySelector('#bomTotal').textContent = formatCurrency(bom.total, bom.currency, this.state.locale);
 
     const body = document.querySelector('#bomTableBody');
     body.replaceChildren(...bom.lines.map((line, index) => {
@@ -492,8 +492,8 @@ export class RoofUI {
         <td><strong>${line.name}</strong>${line.note ? `<small>${line.note}</small>` : ''}</td>
         <td>${line.unit}</td>
         <td>${line.quantity}</td>
-        <td>${formatCurrency(line.unitPrice, bom.currency)}</td>
-        <td>${formatCurrency(line.value, bom.currency)}</td>
+        <td>${formatCurrency(line.unitPrice, bom.currency, this.state.locale)}</td>
+        <td>${formatCurrency(line.value, bom.currency, this.state.locale)}</td>
       `;
       return row;
     }));

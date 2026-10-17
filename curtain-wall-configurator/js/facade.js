@@ -71,4 +71,8 @@ export function normalizeState(input = {}) {
   return S;
 }
 
-export const fmt = (x, d = 0) => Number(x).toLocaleString('ro-RO', { minimumFractionDigits: d, maximumFractionDigits: d });
+// Numbers follow the active UI locale; app.js sets it when the locale is resolved.
+let numberLocale = 'ro-RO';
+export function setNumberLocale(locale) { numberLocale = locale; }
+export const getNumberLocale = () => numberLocale;
+export const fmt = (x, d = 0) => Number(x).toLocaleString(numberLocale, { minimumFractionDigits: d, maximumFractionDigits: d });

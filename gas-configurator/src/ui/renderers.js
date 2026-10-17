@@ -16,7 +16,7 @@ import {
   interpolatePipeProfileAtChainage,
   routeEventDepthZoneStatus,
 } from '../domain/depthProfile.js?v=platform-18';
-import { gasT } from '../i18n.js?v=platform-18';
+import { gasT } from '../i18n.js?v=locales-6';
 import {
   getRouteEvents,
   isUtilityCrossingEvent,

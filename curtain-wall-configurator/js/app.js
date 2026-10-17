@@ -1,11 +1,12 @@
-import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
-import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, TINTS, fmt, normalizeState } from './facade.js?v=cw-6';
-import { nodeSvg } from './drawings.js?v=cw-6';
-import { applyTranslations, translator } from './i18n.js?v=cw-6';
-import { FacadeScene } from './scene.js?v=cw-6';
-import { createCortizo, cortizoListText, cortizoModel, fieldTypes, loadCortizoData, normalizeCortizo } from './cortizo.js?v=cw-6';
-import * as czUi from './cortizoUi.js?v=cw-6';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=locales-6';
+import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, TINTS, fmt, normalizeState, setNumberLocale } from './facade.js?v=locales-6';
+import { nodeSvg } from './drawings.js?v=locales-6';
+import { applyTranslations, resolveLocale, translator } from './i18n.js?v=locales-6';
+import { FacadeScene } from './scene.js?v=locales-6';
+import { createCortizo, cortizoListText, cortizoModel, fieldTypes, loadCortizoData, normalizeCortizo } from './cortizo.js?v=locales-6';
+import * as czUi from './cortizoUi.js?v=locales-6';
 
 await requireTenantConfiguratorAccess('curtainwall');
 
@@ -14,7 +15,7 @@ const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const shared = await readShareState({ productType: 'curtainwall' });
 let S = normalizeState(shared && typeof shared === 'object' ? shared : DEFAULT_STATE);
 let M = null;
-let locale = window.CURTAIN_WALL_PREFERENCES?.locale || 'ro-RO';
+let locale = resolveLocale(window.CURTAIN_WALL_PREFERENCES?.locale || getLocaleForHostname(window.location.hostname));
 let t = translator(locale);
 let tab = 'elevation';
 const view = new FacadeScene($('#canvasHost'));
@@ -221,7 +222,8 @@ document.addEventListener('keydown', event => {
 });
 
 function applyLocale(next) {
-  locale = next || locale;
+  locale = resolveLocale(next || locale);
+  setNumberLocale(locale);
   t = translator(locale);
   document.documentElement.lang = locale.slice(0, 2);
   applyTranslations(document, t);

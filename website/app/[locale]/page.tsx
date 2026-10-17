@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LocalizedHome } from "../../components/localized-home";
-import { isLocale } from "../../lib/i18n";
+import { isLocale, localeStaticParams } from "../../lib/i18n";
 import { pageMetadata } from "../../lib/seo";
 import { homeMetadata } from "../../lib/commercial-content";
 
 type Props = { params: Promise<{ locale: string }> };
-export function generateStaticParams() { return [{ locale: "ro" }, { locale: "de" }]; }
+export function generateStaticParams() { return localeStaticParams(); }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale) || locale === "en") return {};

@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { metadataRoutes, pageRoutes, routeOutputPath } from "./static-routes.mjs";
+import { locales, metadataRoutes, pageRoutes, routeOutputPath } from "./static-routes.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const websiteRoot = path.resolve(scriptDirectory, "..");
@@ -133,14 +133,15 @@ async function renderRoute(route, { allowNotFound = false } = {}) {
   );
 }
 
+const prefixedLocales = locales.filter((locale) => locale !== "en");
+
 function languageForRoute(route) {
-  if (route === "/ro" || route.startsWith("/ro/")) return "ro";
-  if (route === "/de" || route.startsWith("/de/")) return "de";
-  return "en";
+  return prefixedLocales.find((locale) => route === `/${locale}` || route.startsWith(`/${locale}/`)) ?? "en";
 }
 
-const legacyLocalePrefixedUrlPattern =
-  /https:\/\/(?:www\.)?360configurator\.com\/(?:ro|de)(?![A-Za-z0-9_-])/;
+const legacyLocalePrefixedUrlPattern = new RegExp(
+  String.raw`https:\/\/(?:www\.)?360configurator\.com\/(?:${prefixedLocales.join("|")})(?![A-Za-z0-9_-])`,
+);
 
 function assertNoLegacyLocalePrefixedUrls(html, route) {
   const match = html.match(legacyLocalePrefixedUrlPattern);

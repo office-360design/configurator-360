@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=hall-production-1';
-import { createHallTemplate, AGRICULTURAL_TEMPLATE_ID } from '../js/templates.js?v=hall-production-1';
-import { normalizeOpening, validateOpenings, openingCounts } from '../js/openings.js?v=hall-production-1';
-import { getHallMessages } from '../js/i18n.js?v=hall-production-1';
+import { state, deriveHallMetrics } from '../js/state.js?v=locales-6';
+import { createHallTemplate, AGRICULTURAL_TEMPLATE_ID } from '../js/templates.js?v=locales-6';
+import { normalizeOpening, validateOpenings, openingCounts } from '../js/openings.js?v=locales-6';
+import { getHallMessages } from '../js/i18n.js?v=locales-6';
 
 const before = structuredClone(state);
 const first = createHallTemplate(AGRICULTURAL_TEMPLATE_ID, state);
@@ -41,8 +41,8 @@ assert.equal(metrics.highBayFixtureCount, 10);
 assert.equal(metrics.skylightArea, 12.42);
 assert(metrics.netRoofArea < metrics.roofArea);
 assert.throws(() => createHallTemplate('unknown', state), /Unknown hall template/);
-for (const locale of ['en-US', 'ro-RO', 'de-DE']) {
+for (const locale of ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']) {
  const messages = getHallMessages(locale);
  for (const key of ['templates.agricultural.name', 'templates.apply', 'templates.designNote', 'opening.vent', 'window.daylightBand', 'summary.metric.openings', 'bom.line.openingFraming']) assert(messages[key], `${locale}: ${key}`);
 }
-console.log('Agricultural template validated: dimensions, 18 openings, clearances, independent copies, JSON round-trip, services, and EN/RO/DE copy.');
+console.log('Agricultural template validated: dimensions, 18 openings, clearances, independent copies, JSON round-trip, services, and EN/RO/DE/ES/FR/IT copy.');

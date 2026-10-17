@@ -206,6 +206,12 @@ const ALLOWED_CONFIGURATOR_ORIGINS = new Set([
   'https://www.360configurator.ro',
   'https://360konfigurator.de',
   'https://www.360konfigurator.de',
+  'https://360configurador.es',
+  'https://www.360configurador.es',
+  'https://360configurateur.fr',
+  'https://www.360configurateur.fr',
+  'https://360configuratore.it',
+  'https://www.360configuratore.it',
   'https://aks.360configurator.com',
 ]);
 const USER_CONFIGURATION_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
@@ -223,14 +229,23 @@ const CONTACT_ALLOWED_ORIGINS = Object.freeze([
   'https://www.360configurator.ro',
   'https://360konfigurator.de',
   'https://www.360konfigurator.de',
+  'https://360configurador.es',
+  'https://www.360configurador.es',
+  'https://360configurateur.fr',
+  'https://www.360configurateur.fr',
+  'https://360configuratore.it',
+  'https://www.360configuratore.it',
   'https://aks.360configurator.com',
 ]);
 const CONTACT_DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
-const CONTACT_ALLOWED_LANGUAGES = new Set(['en', 'ro', 'de']);
+const CONTACT_ALLOWED_LANGUAGES = new Set(['en', 'ro', 'de', 'es', 'fr', 'it']);
 const CONTACT_DESTINATIONS = Object.freeze({
   ro: 'office@360configurator.ro',
   en: 'office@360configurator.com',
   de: 'office@360configurator.com',
+  es: 'office@360configurator.com',
+  fr: 'office@360configurator.com',
+  it: 'office@360configurator.com',
 });
 const DEMO_REQUESTS_COLLECTION = 'demoRequests';
 const DEMO_REQUEST_DESTINATION = 'matei.belciug.work@gmail.com';
@@ -917,6 +932,9 @@ function contactEmailText(contact) {
     en: 'English',
     ro: 'Romanian',
     de: 'German',
+    es: 'Spanish',
+    fr: 'French',
+    it: 'Italian',
   };
   const optionalPhone = contact.phone || 'Not provided';
   const optionalInterest = contact.configuratorInterest || 'Not provided';

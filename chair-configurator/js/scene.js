@@ -3,7 +3,7 @@ import { captureChairARSnapshot } from './ar/exportChair.js?v=chair-ar-1';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createSurfaceSystem } from '../../shared-3d/src/index.js?v=platform-19';
 import { createChairModel } from './chairGeometry.js?v=chair-joint-25';
-import { registerChairMaterials } from './materials.js?v=chair-28';
+import { registerChairMaterials } from './materials.js?v=locales-6';
 
 export class ChairScene {
   constructor(container, { state, onCameraChange = () => {} } = {}) {

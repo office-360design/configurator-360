@@ -1,4 +1,4 @@
-import { TENANT_DOMAIN_ROOTS, tenantDomainContext } from './tenantDomains.js?v=tenant-domains-1';
+import { TENANT_DOMAIN_ROOTS, tenantDomainContext } from './tenantDomains.js?v=locales-6';
 
 export const LANGUAGE_PROFILES = Object.freeze({
   'en-US': {
@@ -25,12 +25,39 @@ export const LANGUAGE_PROFILES = Object.freeze({
     units: 'metric',
     currency: 'EUR',
   },
+  'es-ES': {
+    label: 'Spanish',
+    nativeName: 'Español',
+    flag: '🇪🇸',
+    searchTerms: 'español espana españa spanish spain',
+    units: 'metric',
+    currency: 'EUR',
+  },
+  'fr-FR': {
+    label: 'French',
+    nativeName: 'Français',
+    flag: '🇫🇷',
+    searchTerms: 'français francais france french',
+    units: 'metric',
+    currency: 'EUR',
+  },
+  'it-IT': {
+    label: 'Italian',
+    nativeName: 'Italiano',
+    flag: '🇮🇹',
+    searchTerms: 'italiano italia italian italy',
+    units: 'metric',
+    currency: 'EUR',
+  },
 });
 
 export const LOCALE_HOSTS = Object.freeze({
   'en-US': 'www.360configurator.com',
   'ro-RO': 'www.360configurator.ro',
   'de-DE': 'www.360konfigurator.de',
+  'es-ES': 'www.360configurador.es',
+  'fr-FR': 'www.360configurateur.fr',
+  'it-IT': 'www.360configuratore.it',
 });
 
 export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
@@ -70,6 +97,42 @@ export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
     tiles: '/tiles-configurator/',
     chair: '/stuhl-konfigurator/',
   }),
+  'es-ES': Object.freeze({
+    pergola: '/configurador-pergolas/',
+    roof: '/configurador-tejados/',
+    window: '/configurador-ventanas/',
+    hall: '/configurador-naves/',
+    solar: '/configurador-solar/',
+    fence: '/configurador-vallas/',
+    cardbox: '/configurador-cajas-carton/',
+    bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
+    chair: '/configurador-sillas/',
+  }),
+  'fr-FR': Object.freeze({
+    pergola: '/configurateur-pergola/',
+    roof: '/configurateur-toiture/',
+    window: '/configurateur-fenetres/',
+    hall: '/configurateur-hangar/',
+    solar: '/configurateur-solaire/',
+    fence: '/configurateur-cloture/',
+    cardbox: '/configurateur-cartons/',
+    bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
+    chair: '/configurateur-chaises/',
+  }),
+  'it-IT': Object.freeze({
+    pergola: '/configuratore-pergola/',
+    roof: '/configuratore-tetto/',
+    window: '/configuratore-finestre/',
+    hall: '/configuratore-capannone/',
+    solar: '/configuratore-fotovoltaico/',
+    fence: '/configuratore-recinzioni/',
+    cardbox: '/configuratore-scatole/',
+    bookshelf: '/bookshelf-configurator/',
+    tiles: '/tiles-configurator/',
+    chair: '/configuratore-sedie/',
+  }),
 });
 
 export const UNIT_OPTIONS = Object.freeze([
@@ -102,8 +165,9 @@ export function getLocaleForHostname(hostname = '') {
   const tenant = tenantDomainContext(hostname);
   if (tenant) return tenant.locale;
   const normalized = String(hostname).toLowerCase().replace(/\.$/, '');
-  if (normalized === '360configurator.ro' || normalized === 'www.360configurator.ro') return 'ro-RO';
-  if (normalized === '360konfigurator.de' || normalized === 'www.360konfigurator.de') return 'de-DE';
+  for (const [locale, host] of Object.entries(LOCALE_HOSTS)) {
+    if (normalized === host || normalized === host.replace(/^www\./, '')) return locale;
+  }
   return 'en-US';
 }
 
@@ -115,10 +179,11 @@ function normalizeProductType(productType = '') {
   if (value.includes('window')) return 'window';
   if (value.includes('hall')) return 'hall';
   if (value.includes('solar')) return 'solar';
-  if (value.includes('fence') || value.includes('gard') || value.includes('zaun')) return 'fence';
-  if (value.includes('cardbox') || value.includes('cardboard') || value.includes('carton') || value.includes('karton')) return 'cardbox';
-  if (value.includes('bookshelf') || value.includes('bibliotec') || value.includes('bücherregal') || value.includes('buecherregal')) return 'bookshelf';
-  if (value.includes('chair') || value.includes('scaun') || value.includes('stuhl')) return 'chair';
+  const has = (...words) => words.some((word) => value.includes(word));
+  if (has('fence', 'gard', 'zaun', 'valla', 'clôture', 'cloture', 'recinzion')) return 'fence';
+  if (has('cardbox', 'cardboard', 'carton', 'karton', 'caja', 'cartón', 'scatol')) return 'cardbox';
+  if (has('bookshelf', 'bibliotec', 'bücherregal', 'buecherregal', 'estanter', 'bibliothèque', 'bibliotheque', 'librer')) return 'bookshelf';
+  if (has('chair', 'scaun', 'stuhl', 'silla', 'chaise', 'sedi')) return 'chair';
   return null;
 }
 

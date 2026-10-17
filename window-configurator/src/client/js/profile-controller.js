@@ -30,7 +30,7 @@ import {
     SASH_WINDOW_TYPE,
     getDividerConnectionVariantKey,
 } from './window-layout-state.js?v=platform-18';
-import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=locales-6';
 import {
     finishCadLoadingTrace,
     markCadLoading,
@@ -670,7 +670,7 @@ export function createProfileController({
                     && ['sash', 'bead'].includes(getProfileGroup(profile)),
             },
             {
-                name: 'Seals',
+                name: windowT(getWindowLocale(), 'profile.filter.seals'),
                 match: profile => isSealProfile(profile),
             },
             {
@@ -699,7 +699,7 @@ export function createProfileController({
                 match: profile => getAccessoryType(profile) === 'locking-bar',
             },
             {
-                name: 'Gaskets',
+                name: windowT(getWindowLocale(), 'profile.filter.gasketsOnly'),
                 match: profile => isGasketProfile(profile),
             },
         ];

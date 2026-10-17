@@ -8,7 +8,7 @@ import {
 import { getHouseDimensions } from './house-config.js?v=platform-18';
 import { getProfileCatalogEntry, isDrainageCapProfile } from './profile-catalog.js?v=platform-18';
 import { translateCadTransformSource } from './profile-coordinate-transform.js?v=platform-18';
-import { createHouseBuilder } from './house-builder.js?v=platform-18';
+import { createHouseBuilder } from './house-builder.js?v=locales-6';
 import {
     getDividerSegmentAlongCoordinate,
     getDividerCrossSectionMetrics,

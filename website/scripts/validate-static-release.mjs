@@ -51,10 +51,32 @@ await requireFile("release-manifest.json");
 await requireFile("sitemap-en.xml");
 await requireFile("sitemap-ro.xml");
 await requireFile("sitemap-de.xml");
+await requireFile("sitemap-es.xml");
+await requireFile("sitemap-fr.xml");
+await requireFile("sitemap-it.xml");
+for (const suffix of ["", "-ro", "-de", "-es", "-fr", "-it"]) {
+  await requireFile(`llms${suffix}.txt`);
+  await requireFile(`llms-full${suffix}.txt`);
+}
 await requireFile("favicon-32x32.png");
 await requireFile("favicon-192x192.png");
 await requireFile("favicon-512x512.png");
 await requireFile("apple-touch-icon.png");
+
+// Independent copy of the public locale contract (docs/deployment/NEW_LOCALES_ES_FR_IT.md),
+// in the required order. Keep it hand-written so the validator does not trust the build.
+const localeContract = [
+  { locale: "en", hreflang: "en", origin: "https://www.360configurator.com" },
+  { locale: "ro", hreflang: "ro-RO", origin: "https://www.360configurator.ro" },
+  { locale: "de", hreflang: "de-DE", origin: "https://www.360konfigurator.de" },
+  { locale: "es", hreflang: "es-ES", origin: "https://www.360configurador.es" },
+  { locale: "fr", hreflang: "fr-FR", origin: "https://www.360configurateur.fr" },
+  { locale: "it", hreflang: "it-IT", origin: "https://www.360configuratore.it" },
+];
+const prefixedLocales = localeContract.map(({ locale }) => locale).filter((locale) => locale !== "en");
+const originByLocale = Object.fromEntries(localeContract.map(({ locale, origin }) => [locale, origin]));
+const localePrefixPattern = new RegExp(`^\\/(${prefixedLocales.join("|")})(?=\\/|$)`);
+const legacyLocalePrefixedUrlPattern = new RegExp(`https:\\/\\/(?:www\\.)?360configurator\\.com\\/(?:${prefixedLocales.join("|")})(?![A-Za-z0-9_-])`);
 
 const htmlFiles = [];
 async function collectHtml(directory) {
@@ -136,13 +158,9 @@ for (const route of pageRoutes) {
   if (route.includes("/configurators/") && !html.includes("detail-page")) {
     failures.push(`${route} is missing the configurator detail-page shell`);
   }
-  const expectedLanguage = route === "/ro" || route.startsWith("/ro/") ? "ro" : route === "/de" || route.startsWith("/de/") ? "de" : "en";
-  const expectedOrigin = expectedLanguage === "ro"
-    ? "https://www.360configurator.ro"
-    : expectedLanguage === "de"
-      ? "https://www.360konfigurator.de"
-      : "https://www.360configurator.com";
-  const publicPath = route.replace(/^\/(ro|de)(?=\/|$)/, "") || "/";
+  const expectedLanguage = route.match(localePrefixPattern)?.[1] ?? "en";
+  const expectedOrigin = originByLocale[expectedLanguage];
+  const publicPath = route.replace(localePrefixPattern, "") || "/";
   const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || "";
   const canonicalTags = [...head.matchAll(/<link\b[^>]*rel=["']canonical["'][^>]*>/gi)];
   const tagUrl = tag => tag.match(/\bhref=["']([^"']+)["']/i)?.[1];
@@ -152,7 +170,7 @@ for (const route of pageRoutes) {
   if (canonicalTags.length !== 1 || !matchesUrl(canonicalTags[0]?.[0] || "", `${expectedOrigin}${publicPath}`)) {
     failures.push(`${route} must have exactly one self-canonical in the initial HTML head`);
   }
-  for (const [language, alternateOrigin] of [["en", "https://www.360configurator.com"], ["ro-RO", "https://www.360configurator.ro"], ["de-DE", "https://www.360konfigurator.de"], ["x-default", "https://www.360configurator.com"]]) {
+  for (const [language, alternateOrigin] of [...localeContract.map(({ hreflang, origin }) => [hreflang, origin]), ["x-default", "https://www.360configurator.com"]]) {
     const alternates = [...head.matchAll(/<link\b[^>]*rel=["']alternate["'][^>]*>/gi)].map(match => match[0]);
     if (!alternates.some(tag => new RegExp(`hreflang=["']${language}["']`, "i").test(tag) && matchesUrl(tag, `${alternateOrigin}${publicPath}`))) {
       failures.push(`${route} lacks reciprocal ${language} hreflang in the initial HTML head`);
@@ -162,7 +180,6 @@ for (const route of pageRoutes) {
     failures.push(`${route} lacks indexable robots metadata in the initial HTML head`);
   }
   if (!html.includes(expectedOrigin)) failures.push(`${route} lacks its localized canonical origin ${expectedOrigin}`);
-  const legacyLocalePrefixedUrlPattern = /https:\/\/(?:www\.)?360configurator\.com\/(?:ro|de)(?![A-Za-z0-9_-])/;
   if (legacyLocalePrefixedUrlPattern.test(html)) failures.push(`${route} contains a legacy locale-prefixed .com URL`);
   if (html.includes("https://www.360configurator.roof-configurator/")) {
     failures.push(`${route} contains the corrupted English roof configurator URL`);
@@ -174,7 +191,7 @@ for (const route of pageRoutes) {
     failures.push(`${route} is missing the correct English roof configurator URL`);
   }
   if (!html.includes(`<html lang="${expectedLanguage}"`)) failures.push(`${route} has an incorrect document language; expected ${expectedLanguage}`);
-  if (route === "/" || route === "/ro" || route === "/de") {
+  if (route === "/" || prefixedLocales.some((locale) => route === `/${locale}`)) {
     for (const slug of ["pergola", "roof", "window", "hall", "solar", "fence", "chair", "cardbox", "bookshelf", "tiles"]) {
       if (!html.includes(`href="/configurators/${slug}"`)) failures.push(`${route} lacks crawlable product link for ${slug}`);
     }
@@ -193,6 +210,18 @@ const sitemapExpectations = {
   de: {
     origin: "https://www.360konfigurator.de",
     apps: ["/pergola-konfigurator/", "/dach-konfigurator/", "/fenster-konfigurator/", "/hallen-konfigurator/", "/solar-konfigurator/", "/zaun-konfigurator/", "/karton-konfigurator/", "/stuhl-konfigurator/"],
+  },
+  es: {
+    origin: "https://www.360configurador.es",
+    apps: ["/configurador-pergolas/", "/configurador-tejados/", "/configurador-ventanas/", "/configurador-naves/", "/configurador-solar/", "/configurador-vallas/", "/configurador-cajas-carton/", "/configurador-sillas/"],
+  },
+  fr: {
+    origin: "https://www.360configurateur.fr",
+    apps: ["/configurateur-pergola/", "/configurateur-toiture/", "/configurateur-fenetres/", "/configurateur-hangar/", "/configurateur-solaire/", "/configurateur-cloture/", "/configurateur-cartons/", "/configurateur-chaises/"],
+  },
+  it: {
+    origin: "https://www.360configuratore.it",
+    apps: ["/configuratore-pergola/", "/configuratore-tetto/", "/configuratore-finestre/", "/configuratore-capannone/", "/configuratore-fotovoltaico/", "/configuratore-recinzioni/", "/configuratore-scatole/", "/configuratore-sedie/"],
   },
 };
 const marketingSlugs = ["pergola", "roof", "window", "hall", "solar", "fence", "chair", "cardbox", "bookshelf", "tiles"];

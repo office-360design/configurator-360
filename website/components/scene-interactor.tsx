@@ -5,16 +5,21 @@ import type { ConfiguratorSlug } from "../lib/configurators";
 import type { Locale } from "../lib/i18n";
 import { MobileSceneActions } from "./mobile-scene-actions";
 
+const sceneInteractorCopy: Record<Locale, { surface: string; hint: string }> = {
+  en: { surface: "Interactive 3D surface", hint: "Drag to orbit · Shift to pan · Wheel to zoom" },
+  ro: { surface: "Suprafață interactivă 3D", hint: "Trage pentru rotire · Shift pentru deplasare · Rotița pentru zoom" },
+  de: { surface: "Interaktive 3D-Ansicht", hint: "Ziehen zum Drehen · Shift zum Verschieben · Mausrad zum Zoomen" },
+  es: { surface: "Superficie 3D interactiva", hint: "Arrastre para girar · Shift para desplazar · Rueda para zoom" },
+  fr: { surface: "Surface 3D interactive", hint: "Glisser pour pivoter · Shift pour déplacer · Molette pour zoomer" },
+  it: { surface: "Superficie 3D interattiva", hint: "Trascini per ruotare · Shift per spostare · Rotella per lo zoom" },
+};
+
 export function SceneInteractor({ scene, locale = "en" }: { scene: ConfiguratorSlug; locale?: Locale }) {
   const [enabled, setEnabled] = useState(false);
   const [mobileActions, setMobileActions] = useState(true);
   const surface = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; pointer: number; pan: boolean } | null>(null);
-  const text = locale === "ro"
-    ? { surface: "Suprafață interactivă 3D", hint: "Trage pentru rotire · Shift pentru deplasare · Rotița pentru zoom" }
-    : locale === "de"
-      ? { surface: "Interaktive 3D-Ansicht", hint: "Ziehen zum Drehen · Shift zum Verschieben · Mausrad zum Zoomen" }
-      : { surface: "Interactive 3D surface", hint: "Drag to orbit · Shift to pan · Wheel to zoom" };
+  const text = sceneInteractorCopy[locale];
 
   useEffect(() => {
     const syncInputMode = () => {

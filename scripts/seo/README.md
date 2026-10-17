@@ -1,10 +1,10 @@
 # Production SEO audit
 
-This audit checks the live EN, RO and DE production sites after deployment.
+This audit checks the live EN, RO, DE, ES, FR and IT production sites after deployment (`www.360configurator.com`, `www.360configurator.ro`, `www.360konfigurator.de`, `www.360configurador.es`, `www.360configurateur.fr`, `www.360configuratore.it`).
 
 It covers:
 
-- all three home/about/contact/pricing/demo pages;
+- the home/about/contact/pricing/demo pages on all six domains;
 - all ten `/configurators/{product}` marketing pages on each domain;
 - all eight indexable standalone configurator applications on each domain (bookshelf/tiles apps remain intentionally noindex);
 - HTTP status and redirect chains;
@@ -13,7 +13,7 @@ It covers:
 - `index` / `noindex`;
 - self-canonical;
 - marketing self-canonical in the initial HTTP HTML head, without JavaScript hoisting;
-- reciprocal EN / RO / DE `hreflang` plus `x-default`;
+- reciprocal EN / RO / DE / ES / FR / IT `hreflang` plus `x-default`;
 - H1 presence on the marketing pages;
 - duplicate rendered titles;
 - `robots.txt`;

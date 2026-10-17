@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=hall-production-1';
-import { HALL_TEMPLATES, AGRICULTURAL_TEMPLATE_ID, COMMERCIAL_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=hall-production-1';
-import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=hall-production-1';
+import { state, deriveHallMetrics } from '../js/state.js?v=locales-6';
+import { HALL_TEMPLATES, AGRICULTURAL_TEMPLATE_ID, COMMERCIAL_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=locales-6';
+import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=locales-6';
 import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from '../js/commercial.js?v=hall-production-1';
-import { getHallMessages } from '../js/i18n.js?v=hall-production-1';
-import { estimateHallPrice } from '../js/pricing.js?v=hall-production-1';
+import { getHallMessages } from '../js/i18n.js?v=locales-6';
+import { estimateHallPrice } from '../js/pricing.js?v=locales-6';
 
 const initial = structuredClone(state);
 const a = createHallTemplate(COMMERCIAL_TEMPLATE_ID, state);
@@ -44,7 +44,7 @@ const agri = createHallTemplate(AGRICULTURAL_TEMPLATE_ID, b);
 for (const key of ['entranceCanopy', 'facadeSign', 'customerApron', 'retailDisplays']) assert.equal(agri[key], false, `${key} leaked from commercial to agricultural`);
 assert.equal(agri.wallBracingLayout, 'end-bays'); assert.equal(agri.lightingStyle, 'high-bay');
 assert.equal(agri.openings.length, 18); assert.equal('buildingUse' in b, false);
-for (const locale of ['en-US','ro-RO','de-DE']) {
+for (const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']) {
   const messages=getHallMessages(locale);
   for(const template of HALL_TEMPLATES) for(const suffix of ['name','intro','previewAlt',...template.features]) assert(messages[`${template.copyPrefix}.${suffix}`]);
   const price=estimateHallPrice(structuredClone(b), null, locale);

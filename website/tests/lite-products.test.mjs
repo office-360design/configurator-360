@@ -149,7 +149,7 @@ test('bookshelf native shelf layouts and door hardware build in both door positi
 });
 
 test('all new localized pages expose correct SEO, visible FAQs, full-app links and no eager renderers', async () => {
-  const origins = {en:'https://www.360configurator.com',ro:'https://www.360configurator.ro',de:'https://www.360konfigurator.de'};
+  const origins = {en:'https://www.360configurator.com',ro:'https://www.360configurator.ro',de:'https://www.360konfigurator.de',es:'https://www.360configurador.es',fr:'https://www.360configurateur.fr',it:'https://www.360configuratore.it'};
   const slugs = ['chair','cardbox','bookshelf','tiles'];
   for (const [locale,origin] of Object.entries(origins)) {
     const prefix = locale === 'en' ? '' : `${locale}/`;

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=hall-production-1';
-import { HALL_TEMPLATES, PRODUCTION_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=hall-production-1';
+import { state, deriveHallMetrics } from '../js/state.js?v=locales-6';
+import { HALL_TEMPLATES, PRODUCTION_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=locales-6';
 import { PRODUCTION_DEFAULTS, normalizeProduction, productionLayout, footprint, footprintsOverlap, productionOpeningClearances } from '../js/production.js?v=hall-production-1';
-import { normalizeOpening, normalizeOpenings, validateOpenings } from '../js/openings.js?v=hall-production-1';
+import { normalizeOpening, normalizeOpenings, validateOpenings } from '../js/openings.js?v=locales-6';
 import { loadingLayout } from '../js/logistics.js?v=hall-production-1';
-import { getHallMessages } from '../js/i18n.js?v=hall-production-1';
-import { estimateHallPrice } from '../js/pricing.js?v=hall-production-1';
+import { getHallMessages } from '../js/i18n.js?v=locales-6';
+import { estimateHallPrice } from '../js/pricing.js?v=locales-6';
 const original = structuredClone(state), t = createHallTemplate(PRODUCTION_TEMPLATE_ID, state);
 assert.deepEqual(state, original);assert.equal(HALL_TEMPLATES.length,4);
 assert.equal(new Set(HALL_TEMPLATES.map(t=>t.id)).size,4);
@@ -53,7 +53,7 @@ for(const template of HALL_TEMPLATES){const next=createHallTemplate(template.id,
 const legacy={};normalizeProduction(legacy);assert.deepEqual(legacy,PRODUCTION_DEFAULTS);
 const both={...structuredClone(t),retailDisplays:true,warehouseRacking:true,forkliftClearance:true};normalizeProduction(both);assert.equal(both.retailDisplays,false);assert.equal(both.warehouseRacking,false);assert.equal(both.forkliftClearance,false);
 assert.deepEqual(JSON.parse(JSON.stringify(t)),t);const independent=createHallTemplate(PRODUCTION_TEMPLATE_ID,state);independent.openings[0].width=1;assert.equal(t.openings[0].width,4.6);
-for(const locale of ['en-US','ro-RO','de-DE']){
+for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']){
  const strings=getHallMessages(locale);for(const item of HALL_TEMPLATES)for(const suffix of ['name','intro','previewAlt',...item.features])assert(strings[`${item.copyPrefix}.${suffix}`]);
  const quote=estimateHallPrice(structuredClone(t),null,locale);assert(Number.isFinite(quote.total));assert.equal(quote.total,estimateHallPrice(structuredClone(off),null,locale).total,'Planning equipment must not be priced');
 }

@@ -28,6 +28,9 @@
 - [English](https://www.360configurator.com/)
 - [Română](https://www.360configurator.ro/)
 - [Deutsch](https://www.360konfigurator.de/)
+- [Español](https://www.360configurador.es/)
+- [Français](https://www.360configurateur.fr/)
+- [Italiano](https://www.360configuratore.it/)
 
 The same /configurators/{slug} page paths exist on each language domain. Website previews expose selected controls; the full applications open separately. Capabilities, pricing and outputs vary by product.
 

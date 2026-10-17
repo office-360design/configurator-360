@@ -4,7 +4,7 @@
 // configurator state to an engine project and the engine result to the model
 // the 3D scene and the drawings use.
 import { createEngine } from '../cortizo/src/engine.js?v=cortizo-2';
-import { cortizoNodeParts } from './sections.js?v=cw-6';
+import { cortizoNodeParts } from './sections.js?v=cw-7';
 
 export const CORTIZO_DATA_VERSION = 'cortizo-2';
 const CATALOG = ['accessories', 'glass_supports', 'glazing_tables', 'mullions', 'profiles', 'transoms', 'ucw'];

@@ -26,7 +26,11 @@ domains = {
     'en-US': '360configurator.com',
     'ro-RO': '360configurator.ro',
     'de-DE': '360konfigurator.de',
+    'es-ES': '360configurador.es',
+    'fr-FR': '360configurateur.fr',
+    'it-IT': '360configuratore.it',
 }
+locale_prefixes = [locale.split('-')[0] for locale in domains if locale != 'en-US']
 nginx = shutil.which('nginx') or '/usr/sbin/nginx'
 if not Path(nginx).exists():
     raise SystemExit('nginx is required for route tests (install nginx, then rerun).')
@@ -35,23 +39,26 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
     work.chmod(0o755)
     site = work / 'site'
     fixtures = {
-        'index.html': 'PUBLIC EN', 'ro/index.html': 'PUBLIC RO', 'de/index.html': 'PUBLIC DE',
+        'index.html': 'PUBLIC EN',
+        **{f'{prefix}/index.html': f'PUBLIC {prefix.upper()}' for prefix in locale_prefixes},
         'shared-ui/tenant/index.html': 'TENANT LAUNCHER',
         'shared-ui/tenant-dashboard/index.html': 'TENANT DASHBOARD',
         'shared-ui/admin/tenant-provisioning/index.html': 'INTERNAL ADMIN',
         'shared-ui/admin/sales-dashboard/index.html': 'SALES DASHBOARD',
-        'sitemap-en.xml': 'SITEMAP EN', 'sitemap-ro.xml': 'SITEMAP RO', 'sitemap-de.xml': 'SITEMAP DE',
+        'sitemap-en.xml': 'SITEMAP EN',
+        **{f'sitemap-{prefix}.xml': f'SITEMAP {prefix.upper()}' for prefix in locale_prefixes},
         '_next/static/chunks/test-AbCd1234.js': 'const payload = "website";\n' * 150,
         'styles/homepage-polish.css': 'body { color: black; }\n' * 150,
         'lite-assets/tiles/yard-4.jpg': 'WEBSITE PHOTO',
-        'llms.txt': 'CONTEXT EN', 'llms-ro.txt': 'CONTEXT RO', 'llms-de.txt': 'CONTEXT DE',
-        'llms-full.txt': 'FULL EN', 'llms-full-ro.txt': 'FULL RO', 'llms-full-de.txt': 'FULL DE',
+        'llms.txt': 'CONTEXT EN', 'llms-full.txt': 'FULL EN',
+        **{f'llms-{prefix}.txt': f'CONTEXT {prefix.upper()}' for prefix in locale_prefixes},
+        **{f'llms-full-{prefix}.txt': f'FULL {prefix.upper()}' for prefix in locale_prefixes},
     }
     marketing_paths = ['about', 'contact', 'pricing', 'book-a-demo'] + [
         f'configurators/{product}' for product in
         ['pergola', 'roof', 'window', 'hall', 'solar', 'fence', 'chair', 'cardbox', 'bookshelf', 'tiles']
     ]
-    for locale_prefix in ['', 'ro/', 'de/']:
+    for locale_prefix in [''] + [f'{prefix}/' for prefix in locale_prefixes]:
         for marketing_path in marketing_paths:
             fixtures[f'{locale_prefix}{marketing_path}/index.html'] = f'MARKETING {locale_prefix}{marketing_path}'
     for product in ['window', 'pergola', 'roof', 'solar', 'hall', 'fence', 'cardbox', 'tiles', 'chair', 'bookshelf']:
@@ -151,7 +158,7 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
                         assert status == 200 and body == f'{marker} {product}', (host, alias, file, status, headers, body)
                         assert 'Location' not in headers
                         tested += 1
-            for prefix, target_domain in [('ro', '360configurator.ro'), ('de', '360konfigurator.de')]:
+            for prefix, target_domain in [(loc.split('-')[0], dom) for loc, dom in domains.items() if loc != 'en-US']:
                 status, headers, _ = get(host, f'/{prefix}/roof-configurator/?test=1')
                 assert headers.get('Location') == f'https://acme.{target_domain}/roof-configurator/?test=1', headers
                 tested += 1
@@ -165,7 +172,7 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
                 response = get(f'www.{suffix}', canonical)
                 assert response[0] == 200 and response[2] == f'APP {product}', (suffix, canonical, response)
                 tested += 1
-        for host, marker in [('www.360configurator.com', 'PUBLIC EN'), ('www.360configurator.ro', 'PUBLIC RO'), ('www.360konfigurator.de', 'PUBLIC DE')]:
+        for host, marker in [(f'www.{dom}', f'PUBLIC {loc.split("-")[0].upper()}') for loc, dom in domains.items()]:
             status, headers, body = get(host, '/')
             assert status == 200 and marker in body, (host, status, body)
             assert 'TENANT' not in body
@@ -173,7 +180,7 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
             tested += 2
         # Public SEO normalization must preserve transport/query parameters and
         # never catch tenant pages, app files or unknown marketing slugs.
-        for prefix, suffix in [('', '360configurator.com'), ('ro/', '360configurator.ro'), ('de/', '360konfigurator.de')]:
+        for prefix, suffix in [('' if loc == 'en-US' else f'{loc.split("-")[0]}/', dom) for loc, dom in domains.items()]:
             host = f'www.{suffix}'
             for marketing_path in marketing_paths:
                 for query in ['', '?project=existing-system&encoded=a%2Fb%20c']:
@@ -196,7 +203,7 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
             for invalid in ['/configurators/unknown/', '/[locale]/contact/page', '/kitchen-configurator/', '/&']:
                 assert get(host, invalid)[0] == 404, (host, invalid)
                 tested += 1
-        for locale, domain in [('ro', '360configurator.ro'), ('de', '360konfigurator.de')]:
+        for locale, domain in [(loc.split('-')[0], dom) for loc, dom in domains.items() if loc != 'en-US']:
             for old, target in [(f'/{locale}', '/'), (f'/{locale}/', '/'), (f'/{locale}/contact', '/contact')]:
                 status, headers, _ = get('www.360configurator.com', old + '?encoded=a%2Fb%20c')
                 assert status == 301 and headers.get('Location') == f'https://www.{domain}{target}?encoded=a%2Fb%20c', (old, headers)
@@ -204,8 +211,23 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
         assert get('www.360configurator.com', '/dashboard/')[2] == 'SALES DASHBOARD'
         assert 'www.360configurator.ro/configurator-acoperis/' in get('www.360configurator.ro', '/roof-configurator/')[1]['Location']
         assert 'www.360konfigurator.de/dach-konfigurator/' in get('www.360konfigurator.de', '/roof-configurator/')[1]['Location']
+        for locale, suffix in domains.items():
+            if locale == 'en-US':
+                continue
+            for product, canonical in route_catalogue[locale].items():
+                english = route_catalogue['en-US'][product]
+                if canonical == english:
+                    continue
+                status, headers, _ = get(f'www.{suffix}', english)
+                assert status == 301 and headers.get('Location') == f'https://www.{suffix}{canonical}', (suffix, english, headers)
+                status, headers, _ = get('www.360configurator.com', canonical + 'index.html')
+                assert status == 301 and headers.get('Location') == f'https://www.{suffix}{canonical}index.html', (suffix, canonical, headers)
+                tested += 2
+            status, headers, _ = get(suffix, '/contact?x=1')
+            assert status == 301 and headers.get('Location') == f'https://www.{suffix}/contact?x=1', (suffix, headers)
+            tested += 1
         for reserved in ['aks', 'admin', 'www', 'api']:
-            for root_domain in ['360configurator.com', '360configurator.ro', '360konfigurator.de']:
+            for root_domain in domains.values():
                 assert 'TENANT' not in get(f'{reserved}.{root_domain}', '/')[2]
                 tested += 1
         for reserved in ['aks', 'admin', 'api']:

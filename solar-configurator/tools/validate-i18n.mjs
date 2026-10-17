@@ -5,21 +5,23 @@ import {
   getSolarAttributeTranslations,
   getSolarMessages,
   getSolarStaticTranslations,
+  SOLAR_TRANSLATION_COLUMNS,
   solarCompassLabels,
   solarModuleLabel,
   solarRegionCity,
   solarRoofName,
   solarT,
-} from '../js/i18n.js?v=platform-18';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js?v=platform-18';
-import { calculateSolarEstimate, estimateToCsv } from '../js/estimate.js?v=platform-18';
-import { state as baseState } from '../js/state.js?v=platform-18';
+} from '../js/i18n.js?v=locales-6';
+import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js?v=locales-6';
+import { calculateSolarEstimate, estimateToCsv } from '../js/estimate.js?v=locales-6';
+import { state as baseState } from '../js/state.js?v=locales-6';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
-const locales = ['en-US', 'ro-RO', 'de-DE'];
+const locales = ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT'];
 const failures = [];
 
+const placeholders = (text) => [...String(text ?? '').matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]).sort().join(',');
 const messageSets = Object.fromEntries(locales.map((locale) => [locale, getSolarMessages(locale)]));
 const baseKeys = Object.keys(messageSets['en-US']).sort();
 for (const locale of locales) {
@@ -28,8 +30,10 @@ for (const locale of locales) {
   const extra = keys.filter((key) => !baseKeys.includes(key));
   if (missing.length) failures.push(`${locale} missing message keys: ${missing.join(', ')}`);
   if (extra.length) failures.push(`${locale} has extra message keys: ${extra.join(', ')}`);
+  if (locale !== 'en-US' && messageSets[locale] === messageSets['en-US']) failures.push(`${locale} has no message catalogue (falls back to English)`);
   for (const key of baseKeys) {
     if (!String(messageSets[locale][key] ?? '').trim()) failures.push(`${locale} has empty message: ${key}`);
+    if (placeholders(messageSets[locale][key]) !== placeholders(messageSets['en-US'][key])) failures.push(`${locale} placeholder mismatch: ${key}`);
   }
 }
 
@@ -37,13 +41,15 @@ const staticTranslations = getSolarStaticTranslations();
 const attributeTranslations = getSolarAttributeTranslations();
 if (Object.keys(staticTranslations).length < 190) failures.push('Static Solar UI translation coverage unexpectedly dropped below 190 strings.');
 if (Object.keys(attributeTranslations).length < 25) failures.push('Solar accessibility/attribute translation coverage unexpectedly dropped below 25 strings.');
+const expectedColumns = locales.filter((locale) => locale !== 'en-US');
+if (JSON.stringify(SOLAR_TRANSLATION_COLUMNS) !== JSON.stringify(expectedColumns)) failures.push(`Static translation columns ${SOLAR_TRANSLATION_COLUMNS.join(', ')} do not match ${expectedColumns.join(', ')}.`);
 for (const [english, translations] of Object.entries(staticTranslations)) {
-  if (!Array.isArray(translations) || translations.length !== 2 || translations.some((value) => !String(value).trim())) {
+  if (!Array.isArray(translations) || translations.length !== expectedColumns.length || translations.some((value) => !String(value).trim())) {
     failures.push(`Invalid static translation entry: ${english}`);
   }
 }
 for (const [english, translations] of Object.entries(attributeTranslations)) {
-  if (!Array.isArray(translations) || translations.length !== 2 || translations.some((value) => !String(value).trim())) {
+  if (!Array.isArray(translations) || translations.length !== expectedColumns.length || translations.some((value) => !String(value).trim())) {
     failures.push(`Invalid attribute translation entry: ${english}`);
   }
 }
@@ -52,6 +58,9 @@ const expectedUrls = {
   'en-US': 'https://www.360configurator.com/solar-configurator/',
   'ro-RO': 'https://www.360configurator.ro/configurator-solar/',
   'de-DE': 'https://www.360konfigurator.de/solar-konfigurator/',
+  'es-ES': 'https://www.360configurador.es/configurador-solar/',
+  'fr-FR': 'https://www.360configurateur.fr/configurateur-solaire/',
+  'it-IT': 'https://www.360configuratore.it/configuratore-fotovoltaico/',
 };
 for (const locale of locales) {
   const actual = getLocalizedConfiguratorUrl(locale, 'solar', { pathname: '/', search: '', hash: '' });
@@ -62,6 +71,9 @@ const expectedCompass = {
   'en-US': { north: 'N', east: 'E', south: 'S', west: 'W' },
   'ro-RO': { north: 'N', east: 'E', south: 'S', west: 'V' },
   'de-DE': { north: 'N', east: 'O', south: 'S', west: 'W' },
+  'es-ES': { north: 'N', east: 'E', south: 'S', west: 'O' },
+  'fr-FR': { north: 'N', east: 'E', south: 'S', west: 'O' },
+  'it-IT': { north: 'N', east: 'E', south: 'S', west: 'O' },
 };
 for (const locale of locales) {
   const actual = solarCompassLabels(locale);
@@ -77,7 +89,7 @@ for (const locale of locales) {
 const metrics = { placedPanels: 12, systemKwp: 5.7, arrayAreaM2: 23.9 };
 const simulation = { batteryCapacity: 5 };
 for (const locale of locales) {
-  const snapshot = { ...baseState, modulePreset: 'standard475', gridConnection: 'three', currency: locale === 'ro-RO' ? 'RON' : locale === 'de-DE' ? 'EUR' : 'USD', currencyRate: 1 };
+  const snapshot = { ...baseState, modulePreset: 'standard475', gridConnection: 'three', currency: { 'en-US': 'USD', 'ro-RO': 'RON', 'de-DE': 'EUR', 'es-ES': 'EUR', 'fr-FR': 'EUR', 'it-IT': 'EUR' }[locale], currencyRate: 1 };
   const estimate = calculateSolarEstimate(snapshot, metrics, simulation, locale);
   const csv = estimateToCsv(estimate, locale);
   if (!estimate.lines.length) failures.push(`${locale} estimate produced no lines.`);
@@ -92,6 +104,10 @@ const sourceGuards = [
   ['solar-configurator/js/estimate.js', "t('estimate.line.mounting')"],
   ['solar-configurator/js/scene.js', 'solarCompassLabels(resolveSolarLocale())'],
   ['solar-configurator/js/app.js', "t('pvgis.ready'"],
+  ['solar-configurator/js/ui.js', "this.t('estimate.assumption.grid')"],
+  ['solar-configurator/js/ui.js', 'formatCurrency(estimate.total, estimate.currency, this.locale)'],
+  ['solar-configurator/js/sharedShell.js', "front: t('view.front'), top: t('view.top')"],
+  ['solar-configurator/js/sharedShell.js', 'LOCATION_SEARCH_REGIONS[resolveSolarLocale('],
 ];
 const sharedShellSource = fs.readFileSync(path.join(root, 'shared-ui/src/standaloneShell.js'), 'utf8');
 if (sharedShellSource.includes('getLanguageSwitchTarget(')) failures.push('Shared UI still contains legacy cross-domain language switching.');

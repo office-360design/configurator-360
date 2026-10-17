@@ -28,7 +28,7 @@ test('published technical example is reproduced by the unchanged native roof mod
 });
 
 test('technical proof is server-rendered in all locales with unchanged canonical URLs', async () => {
-  for (const [prefix,host,title] of [['','www.360configurator.com','From a configured roof'],['ro/','www.360configurator.ro','De la acoperișul configurat'],['de/','www.360konfigurator.de','Vom konfigurierten Dach']]) {
+  for (const [prefix,host,title] of [['','www.360configurator.com','From a configured roof'],['ro/','www.360configurator.ro','De la acoperișul configurat'],['de/','www.360konfigurator.de','Vom konfigurierten Dach'],['es/','www.360configurador.es','De un tejado configurado'],['fr/','www.360configurateur.fr','D’une toiture configurée'],['it/','www.360configuratore.it','Da un tetto configurato']]) {
     const html=await readFile(new URL(`../outputs/release-site/${prefix}configurators/roof/index.html`,import.meta.url),'utf8');
     assert.match(html,/id="roof-technical-example"/);
     assert.ok(html.includes(title));
@@ -45,10 +45,10 @@ test('technical proof is server-rendered in all locales with unchanged canonical
 });
 
 test('paving copy describes the active photo preview instead of its unused native builder', async () => {
-  for (const prefix of ['','ro/','de/']) {
+  for (const prefix of ['','ro/','de/','es/','fr/','it/']) {
     const html=await readFile(new URL(`../outputs/release-site/${prefix}configurators/tiles/index.html`,import.meta.url),'utf8');
     assert.match(html,/photo\/2D|foto\/2D|Foto\/2D/);
-    assert.match(html,/full 3D prototype|prototipul 3D complet|vollständige 3D-Prototyp/);
+    assert.match(html,/full 3D prototype|prototipul 3D complet|vollständige 3D-Prototyp|prototipo 3D completo|prototype 3D complet/);
   }
   const runtime=await readFile(new URL('../components/lite-preview.tsx',import.meta.url),'utf8');
   assert.match(runtime,/isTiles \? <TilesPhotoPreview/);

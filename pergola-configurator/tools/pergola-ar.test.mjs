@@ -30,7 +30,7 @@ test('AR policy enables only Hall, Window and Pergola, always with explicit opt-
 });
 test('Pergola phone URLs resolve canonical, localized and tenant routes', () => {
   const id = '0123456789abcdef0123456789abcdef';
-  for (const [host, path] of [['www.360configurator.com','pergola-configurator'],['www.360configurator.ro','configurator-pergola'],['www.360konfigurator.de','pergola-konfigurator'],['tenant.360configurator.ro','pergola-configurator']]) {
+  for (const [host, path] of [['www.360configurator.com','pergola-configurator'],['www.360configurator.ro','configurator-pergola'],['www.360konfigurator.de','pergola-konfigurator'],['www.360configurador.es','configurador-pergolas'],['www.360configurateur.fr','configurateur-pergola'],['www.360configuratore.it','configuratore-pergola'],['tenant.360configurator.ro','pergola-configurator']]) {
     for (const mode of ['android','ios']) {
       const url = new URL(arPhoneUrl(id, mode, 'ro-RO', `https://${host}`, 'pergola'));
       assert.equal(url.pathname, `/${path}/ar.html`); assert.equal(url.searchParams.get('mode'), mode);
@@ -40,7 +40,7 @@ test('Pergola phone URLs resolve canonical, localized and tenant routes', () => 
   assert.match(sceneViewerIntent(arModelUrl(id,'glb','pergola'),'https://example.test','Pergola'), /ar_preferred/);
 });
 test('Translations are complete for all products without falling back to Hall nouns', () => {
-  for (const locale of ['en-US','ro-RO','de-DE']) {
+  for (const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']) {
     assert.deepEqual(Object.keys(AR_COPY.pergola[locale]).sort(), Object.keys(AR_COPY.hall[locale]).sort());
     assert.notEqual(AR_COPY.pergola[locale].title, AR_COPY.hall[locale].title);
     assert.notEqual(AR_COPY.pergola[locale].title, AR_COPY.window[locale].title);

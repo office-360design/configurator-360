@@ -32,14 +32,14 @@ test('Seven opted-in products; Pavement phone links stay on canonical/localized/
   assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);
  }
  const id='a'.repeat(32);
- for(const host of ['www.360configurator.com','www.360configurator.ro','www.360konfigurator.de','customer.360configurator.ro'])for(const mode of ['android','ios']){
+ for(const host of ['www.360configurator.com','www.360configurator.ro','www.360konfigurator.de','www.360configurador.es','www.360configurateur.fr','www.360configuratore.it','customer.360configurator.ro'])for(const mode of ['android','ios']){
   const u=new URL(arPhoneUrl(id,mode,'ro-RO',`https://${host}`,'tiles'));
   assert.equal(u.hostname,host);assert.equal(u.pathname,'/tiles-configurator/ar.html');assert.equal(u.searchParams.get('mode'),mode);
  }
  assert.match(arModelUrl(id,'usdz','tiles'),/\/tiles\.usdz\?/);
 });
-test('Shared AR messages are complete in EN/RO/DE and contain no removed paragraphs or infrastructure prose',()=>{
- for(const product of AR_PRODUCTS)for(const locale of ['en-US','ro-RO','de-DE']){
+test('Shared AR messages are complete in EN/RO/DE/ES/FR/IT and contain no removed paragraphs or infrastructure prose',()=>{
+ for(const product of AR_PRODUCTS)for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']){
   const copy=AR_COPY[product][locale];
   // All products require the shared dialog vocabulary, but adapters may add
   // localized product-specific errors (e.g. uncommitted Cardbox artwork).

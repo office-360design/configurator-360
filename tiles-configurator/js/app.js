@@ -3,13 +3,13 @@ import { mountProjectPanel } from './projectPanel.js';
 import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
 import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-cloud-api-1';
 import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-cloud-api-1';
-import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-menu-2';
+import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=locales-6';
 import { prepareModelImport } from './segmentationAdapter.js';
 import { failImport } from './modelCamera.js';
 import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
 import { PavingHistory } from './pavingHistory.js';
-import { createTilesARController } from './ar/controller.js?v=tiles-ar-1';
+import { createTilesARController } from './ar/controller.js?v=locales-6';
 import { mountLocationPicker } from './locationPicker.js';
 import { patternPreview } from './patternPreview.js';
 import { houseGeometry } from './house.js';
@@ -25,11 +25,11 @@ import {
   areaGeometry,
 } from './model.js';
 import { translator } from './i18n.js';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=locales-6';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 const tenant = await requireTenantConfiguratorAccess('tiles');
 const $ = (id) => document.getElementById(id);
@@ -147,6 +147,75 @@ const PHOTO_FLOW_COPY = {
     photoOnly: 'Eine Bilddatei auswählen (JPG, PNG oder WebP).',
     freeCamera: 'Freie Kamera',
     photoView: 'Fotoansicht',
+  },
+  es: {
+    stepUpload: '1 · Añada una foto del terreno',
+    uploadTitle: 'Empiece con una foto de su patio',
+    uploadHelp: 'Use una foto nítida que muestre el suelo donde irá el pavimento. El análisis automático envía una copia redimensionada al servicio de análisis configurado. La calibración manual sigue disponible. La foto original se guarda en la caché de este navegador para guardar y reabrir.',
+    upload: 'Elegir foto del patio',
+    sampleLabel: 'O elija un patio de ejemplo',
+    sampleAlt: 'Patio de ejemplo',
+    stepCalibrate: '2 · Ajuste la escala y la perspectiva',
+    calibrateTitle: 'Ajuste el cuadrado de referencia de 1 m',
+    calibrateHelp: 'Arrastre las cuatro esquinas azules para que el cuadrado de 1 m × 1 m siga la perspectiva de un cuadrado de un metro en el suelo. Esto fija la escala y el ángulo de la cámara.',
+    calibrate: 'Usar este cuadrado de 1 m',
+    changePhoto: 'Elegir otra foto',
+    stepDraw: '3 · Dibuje la superficie de pavimento',
+    drawTitle: 'Coloque las esquinas del pavimento en la foto',
+    drawHelp: 'Haga clic o toque la foto para añadir esquinas. Arrastre una esquina colocada para moverla. Haga clic en la primera esquina verde o use Finalizar cuando el contorno esté completo.',
+    undo: 'Deshacer punto',
+    finish: 'Finalizar superficie',
+    calibrationInvalid: 'El cuadrado de referencia es demasiado pequeño o está cruzado. Mantenga las cuatro esquinas en orden alrededor de un cuadrado visible de 1 m.',
+    photoFailed: 'No se pudo abrir esa imagen. Pruebe con otra imagen JPG, PNG o WebP.',
+    photoOnly: 'Elija un archivo de imagen (JPG, PNG o WebP).',
+    freeCamera: 'Cámara libre',
+    photoView: 'Vista de foto',
+  },
+  fr: {
+    stepUpload: '1 · Ajoutez une photo du terrain',
+    uploadTitle: 'Commencez par une photo de votre cour',
+    uploadHelp: 'Utilisez une photo nette montrant le sol où sera posé le pavage. L\'analyse automatique envoie une copie redimensionnée au service d\'analyse configuré. Le calibrage manuel reste disponible. La photo originale est mise en cache dans ce navigateur pour l\'enregistrement et la réouverture.',
+    upload: 'Choisir une photo de la cour',
+    sampleLabel: 'Ou choisissez une cour d\'exemple',
+    sampleAlt: 'Cour d\'exemple',
+    stepCalibrate: '2 · Réglez l\'échelle et la perspective',
+    calibrateTitle: 'Ajustez le carré de référence de 1 m',
+    calibrateHelp: 'Faites glisser les quatre coins bleus pour que le carré de 1 m × 1 m suive la perspective d\'un carré d\'un mètre au sol. Cela fixe l\'échelle et l\'angle de la caméra.',
+    calibrate: 'Utiliser ce carré de 1 m',
+    changePhoto: 'Choisir une autre photo',
+    stepDraw: '3 · Dessinez la surface à paver',
+    drawTitle: 'Placez les coins du pavage sur la photo',
+    drawHelp: 'Cliquez ou touchez la photo pour ajouter des coins. Faites glisser un coin placé pour le déplacer. Cliquez sur le premier coin vert ou utilisez Terminer lorsque le contour est complet.',
+    undo: 'Annuler le point',
+    finish: 'Terminer la surface',
+    calibrationInvalid: 'Le carré de référence est trop petit ou croisé. Gardez les quatre coins dans l\'ordre autour d\'un carré visible de 1 m.',
+    photoFailed: 'Impossible d\'ouvrir cette image. Essayez une autre image JPG, PNG ou WebP.',
+    photoOnly: 'Choisissez un fichier image (JPG, PNG ou WebP).',
+    freeCamera: 'Caméra libre',
+    photoView: 'Vue photo',
+  },
+  it: {
+    stepUpload: '1 · Aggiunga una foto del sito',
+    uploadTitle: 'Inizi con una foto del Suo cortile',
+    uploadHelp: 'Usi una foto nitida che mostri il terreno dove andrà la pavimentazione. L\'analisi automatica invia una copia ridimensionata al servizio di analisi configurato. La calibrazione manuale resta disponibile. La foto originale viene memorizzata in questo browser per il salvataggio e la riapertura.',
+    upload: 'Scegli foto del cortile',
+    sampleLabel: 'Oppure scelga un cortile di esempio',
+    sampleAlt: 'Cortile di esempio',
+    stepCalibrate: '2 · Imposti scala e prospettiva',
+    calibrateTitle: 'Allinei il quadrato di riferimento di 1 m',
+    calibrateHelp: 'Trascini i quattro angoli blu in modo che il quadrato di 1 m × 1 m segua la prospettiva di un quadrato di un metro sul terreno. Così si impostano scala e angolo della fotocamera.',
+    calibrate: 'Usa questo quadrato di 1 m',
+    changePhoto: 'Scegli un\'altra foto',
+    stepDraw: '3 · Disegni la superficie da pavimentare',
+    drawTitle: 'Posizioni gli angoli della pavimentazione sulla foto',
+    drawHelp: 'Faccia clic o tocchi la foto per aggiungere angoli. Trascini un angolo posizionato per spostarlo. Faccia clic sul primo angolo verde o usi Completa quando il contorno è chiuso.',
+    undo: 'Annulla punto',
+    finish: 'Completa superficie',
+    calibrationInvalid: 'Il quadrato di riferimento è troppo piccolo o incrociato. Mantenga i quattro angoli in ordine attorno a un quadrato visibile di 1 m.',
+    photoFailed: 'Impossibile aprire l\'immagine. Provi un\'altra immagine JPG, PNG o WebP.',
+    photoOnly: 'Scelga un file immagine (JPG, PNG o WebP).',
+    freeCamera: 'Camera libera',
+    photoView: 'Vista foto',
   },
 };
 const photoText = () => PHOTO_FLOW_COPY[locale.split('-')[0]] || PHOTO_FLOW_COPY.en;
@@ -320,6 +389,42 @@ const AREA_EDITOR_COPY = {
     complex: 'Die Fläche ist zu groß oder zu detailliert. Ausdehnung oder Eckpunktzahl reduzieren oder größere Pflastersteine wählen.',
     dense: 'Bei dichten Konturen werden nur einige Griffe angezeigt. Jeden Eckpunkt über seine Nummer auswählen; die Geometrie behält alle Eckpunkte.',
   },
+  es: {
+    draw: 'Añadir superficie', remove: 'Quitar superficie', clear: 'Empezar de cero',
+    undo: 'Deshacer punto', finish: 'Aplicar superficie', cancel: 'Cancelar',
+    undoEdit: 'Deshacer edición', redoEdit: 'Rehacer edición', boundary: 'Editar contorno',
+    none: 'Sin tiradores', region: 'Región', outer: 'Contorno exterior',
+    hole: 'Hueco', vertex: 'Vértice', insert: 'Insertar después',
+    delete: 'Eliminar vértice', help: 'Añadir superficie amplía o une el pavimento. Quitar superficie recorta huecos o lo divide. Seleccione un contorno para editarlo con precisión. Los huecos nuevos no tienen bordillos hasta que se activen abajo.', drawing: 'Coloque un polígono de corrección sobre el suelo. Arrastre las esquinas para ajustarlo y pulse Aplicar. Cancelar deja el pavimento sin cambios. Haga clic en la primera esquina verde para terminar.',
+    freeform: 'Zonas de pavimento', invalid: 'Use un contorno sin cruces con al menos 3 esquinas distintas. Los huecos deben quedar estrictamente dentro de su región y no tocar otro contorno.', complex: 'Esta superficie es demasiado grande o detallada para la vista previa. Reduzca su extensión o el número de vértices, o elija un formato de baldosa mayor.',
+    dense: 'En los contornos densos solo se muestra una muestra de tiradores. Seleccione cualquier vértice por su número; todos los vértices permanecen en la geometría.',
+    status: (n) => `${n} esquinas colocadas · máximo 4096`,
+    saved: (regions, holes, points) => `${regions} regiones · ${holes} huecos · ${points} vértices`,
+  },
+  fr: {
+    draw: 'Ajouter une surface', remove: 'Retirer une surface', clear: 'Repartir de zéro',
+    undo: 'Annuler le point', finish: 'Appliquer la surface', cancel: 'Annuler',
+    undoEdit: 'Annuler la modification', redoEdit: 'Rétablir la modification', boundary: 'Modifier le contour',
+    none: 'Aucune poignée', region: 'Zone', outer: 'Contour extérieur',
+    hole: 'Trou', vertex: 'Sommet', insert: 'Insérer après',
+    delete: 'Supprimer le sommet', help: 'Ajouter une surface étend ou relie le pavage. Retirer une surface découpe des trous ou le scinde. Sélectionnez un contour pour une modification précise. Les nouveaux trous n\'ont pas de bordures tant qu\'elles ne sont pas activées ci-dessous.', drawing: 'Placez un polygone de correction au sol. Faites glisser les coins pour l\'ajuster, puis Appliquer. Annuler laisse le pavage inchangé. Cliquez sur le premier coin vert pour terminer.',
+    freeform: 'Zones de pavage', invalid: 'Utilisez un contour sans croisement avec au moins 3 coins distincts. Les trous doivent rester strictement à l\'intérieur de leur zone et ne toucher aucun autre contour.', complex: 'Cette surface est trop grande ou détaillée pour l\'aperçu. Réduisez son étendue ou le nombre de sommets, ou choisissez un format de dalle plus grand.',
+    dense: 'Sur les contours denses, seul un échantillon de poignées est affiché. Sélectionnez un sommet par son numéro ; tous les sommets restent dans la géométrie.',
+    status: (n) => `${n} coins placés · maximum 4096`,
+    saved: (regions, holes, points) => `${regions} zones · ${holes} trous · ${points} sommets`,
+  },
+  it: {
+    draw: 'Aggiungi superficie', remove: 'Rimuovi superficie', clear: 'Ricomincia da zero',
+    undo: 'Annulla punto', finish: 'Applica superficie', cancel: 'Annulla',
+    undoEdit: 'Annulla modifica', redoEdit: 'Ripeti modifica', boundary: 'Modifica contorno',
+    none: 'Nessuna maniglia', region: 'Zona', outer: 'Contorno esterno',
+    hole: 'Foro', vertex: 'Vertice', insert: 'Inserisci dopo',
+    delete: 'Elimina vertice', help: 'Aggiungi superficie estende o unisce la pavimentazione. Rimuovi superficie ritaglia fori o la divide. Selezioni un contorno per modifiche precise. I nuovi fori non hanno cordoli finché non vengono attivati sotto.', drawing: 'Posizioni un poligono di correzione sul terreno. Trascini gli angoli per regolarlo, poi Applica. Annulla lascia invariata la pavimentazione. Faccia clic sul primo angolo verde per terminare.',
+    freeform: 'Zone di pavimentazione', invalid: 'Usi un contorno senza incroci con almeno 3 angoli distinti. I fori devono restare strettamente all\'interno della loro zona e non toccare un altro contorno.', complex: 'Questa superficie è troppo grande o dettagliata per l\'anteprima. Riduca l\'estensione o il numero di vertici, oppure scelga un formato di piastrella più grande.',
+    dense: 'Sui contorni densi viene mostrato solo un campione di maniglie. Selezioni un vertice per numero; tutti i vertici restano nella geometria.',
+    status: (n) => `${n} angoli posizionati · massimo 4096`,
+    saved: (regions, holes, points) => `${regions} zone · ${holes} fori · ${points} vertici`,
+  },
 };
 const vertexLabel = (index) => {
   let value = index + 1,
@@ -332,6 +437,19 @@ const vertexLabel = (index) => {
   return label;
 };
 const areaText = () => AREA_EDITOR_COPY[locale.split('-')[0]] || AREA_EDITOR_COPY.en;
+const SCALE_BADGE_COPY = {
+  en: 'Estimated scale', ro: 'Scară estimată', de: 'Geschätzter Maßstab',
+  es: 'Escala estimada', fr: 'Échelle estimée', it: 'Scala stimata',
+};
+const SHARE_GEOMETRY_COPY = {
+  en: 'This link shares only the edited pavement and holes, not the photo or camera. Use Project → Download full project to share everything. Continue?',
+  ro: 'Acest link distribuie numai pavajul și golurile, fără fotografie sau cameră. Pentru proiectul complet folosește Proiect → Descarcă. Continui?',
+  de: 'Dieser Link teilt nur Pflaster und Aussparungen, ohne Foto oder Kamera. Für das vollständige Projekt die Projektdatei herunterladen. Fortfahren?',
+  es: 'Este enlace comparte solo el pavimento editado y los huecos, sin la foto ni la cámara. Use Proyecto → Descargar proyecto completo para compartirlo todo. ¿Continuar?',
+  fr: "Ce lien partage uniquement le pavage modifié et les trous, sans la photo ni la caméra. Utilisez Projet → Télécharger le projet complet pour tout partager. Continuer ?",
+  it: 'Questo link condivide solo la pavimentazione modificata e i fori, senza foto né fotocamera. Usi Progetto → Scarica progetto completo per condividere tutto. Continuare?',
+};
+const localeLanguage = () => locale.split('-')[0];
 
 function installAreaEditor() {
   const panel = $('areaPlan')?.closest('.accordion-panel');
@@ -978,7 +1096,7 @@ function render(prepared = null) {
   $('areaBadge').textContent =
     `${f(bom.area)} m² · ${custom ? `${t('perimeter')}: ${f(bom.perimeter)} m` : `${f(state.length)} × ${f(state.width)} m`}`;
   if (viewer?.getModelCalibration()) {
-    const label = { en: 'Estimated scale', ro: 'Scară estimată', de: 'Geschätzter Maßstab' }[locale.split('-')[0]] || 'Estimated scale';
+    const label = SCALE_BADGE_COPY[localeLanguage()] || SCALE_BADGE_COPY.en;
     $('areaBadge').textContent += ` · ${label}`;
   }
   $('metrics').innerHTML = [
@@ -1521,10 +1639,7 @@ shell = mountStandaloneConfiguratorShell({
     captureState: api.captureSavedState,
     restoreState: restore,
     getShareUrl() {
-      const message = locale.startsWith('ro')
-        ? 'Acest link distribuie numai pavajul și golurile, fără fotografie sau cameră. Pentru proiectul complet folosește Proiect → Descarcă. Continui?'
-        : locale.startsWith('de') ? 'Dieser Link teilt nur Pflaster und Aussparungen, ohne Foto oder Kamera. Für das vollständige Projekt die Projektdatei herunterladen. Fortfahren?'
-        : 'This link shares only the edited pavement and holes, not the photo or camera. Use Project → Download full project to share everything. Continue?';
+      const message = SHARE_GEOMETRY_COPY[localeLanguage()] || SHARE_GEOMETRY_COPY.en;
       if (!window.confirm(message)) throw new Error('Sharing cancelled.');
       if (drawingArea) throw new Error('Finish or cancel the current outline before sharing.');
       return createShareUrl({ productType: 'tiles', state: geometryShareState(state) });

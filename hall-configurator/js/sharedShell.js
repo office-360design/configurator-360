@@ -1,16 +1,24 @@
-import { HALL_TEMPLATES } from './templates.js?v=hall-production-1';
-import { createHallTemplateDialog } from './templateDialog.js?v=hall-production-1';
+import { HALL_TEMPLATES } from './templates.js?v=locales-6';
+import { createHallTemplateDialog } from './templateDialog.js?v=locales-6';
 import { mountTemplatesMenu } from '../../shared-ui/src/components/templatesMenu.js?v=templates-1';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-5';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=locales-6';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=hall-production-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('hall');
 
 const initialLocale = resolveHallLocale();
+const HALL_AR_LOAD_ERROR = Object.freeze({
+  'en-US': 'AR could not load. Please try again.',
+  'ro-RO': 'AR nu s-a putut încărca. Încearcă din nou.',
+  'de-DE': 'AR konnte nicht geladen werden. Bitte erneut versuchen.',
+  'es-ES': 'No se pudo cargar la RA. Inténtelo de nuevo.',
+  'fr-FR': 'Impossible de charger la RA. Veuillez réessayer.',
+  'it-IT': 'Impossibile caricare la RA. Riprovi.',
+});
 applyHallTranslations(initialLocale);
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 const t = (key, variables = {}, locale = null) => hallT(locale ?? window.HALL_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
@@ -41,7 +49,7 @@ async function openHallAR() {
   templatesMenu?.close();
   window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
   if (!arDialogLoading) {
-    arDialogLoading = import('./ar/dialog.js?v=firebase-ar-5').then(({ createHallARDialog }) => {
+    arDialogLoading = import('./ar/dialog.js?v=locales-6').then(({ createHallARDialog }) => {
       arDialog = createHallARDialog({
         getSnapshot: () => window.HALL_CONFIGURATOR_API?.captureState?.(),
         getLocale: () => shell?.state.locale ?? initialLocale,
@@ -53,7 +61,7 @@ async function openHallAR() {
   try { (await arDialogLoading).open(); } catch(error) {
     console.error('Hall AR dialog could not load:', error);
     const locale = shell?.state.locale ?? initialLocale;
-    shell?.showFeedback?.(locale === 'ro-RO' ? 'AR nu s-a putut încărca. Încearcă din nou.' : locale === 'de-DE' ? 'AR konnte nicht geladen werden. Bitte erneut versuchen.' : 'AR could not load. Please try again.', 'error', 5000);
+    shell?.showFeedback?.(HALL_AR_LOAD_ERROR[locale] ?? HALL_AR_LOAD_ERROR['en-US'], 'error', 5000);
   }
 }
 

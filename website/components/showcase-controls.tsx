@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { ConfiguratorSlug } from "../lib/configurators";
-import type { Locale } from "../lib/i18n";
+import { localeLanguageTags, type Locale } from "../lib/i18n";
 import { useMobileDeckSwipe } from "./use-mobile-deck-swipe";
 import { buildPoleGrid } from "../lib/scenes/pergola-layout.js";
 import { bomToCsv } from "../../roof-configurator/js/bom.js";
@@ -51,14 +51,37 @@ function emit(scene: ConfiguratorSlug, control: string, value: ControlValue) {
   window.dispatchEvent(new CustomEvent("configurator-control", { detail: { scene, control, value } }));
 }
 
+type RoofBomCopy = Record<"eyebrow" | "title" | "close" | "item" | "qty" | "unit" | "value" | "area" | "subtotal" | "vat" | "total" | "download", string>;
+
+const previewControlsLabels: Record<Locale, { roof: string; pergola: string; shape: string }> = {
+  en: { roof: "Roof preview controls", pergola: "Pergola preview controls", shape: "Roof shape" },
+  ro: { roof: "Comenzi previzualizare acoperiș", pergola: "Comenzi previzualizare pergolă", shape: "Forma acoperișului" },
+  de: { roof: "Steuerung der Dachvorschau", pergola: "Steuerung der Pergola-Vorschau", shape: "Dachform" },
+  es: { roof: "Controles de la vista previa del tejado", pergola: "Controles de la vista previa de la pérgola", shape: "Forma del tejado" },
+  fr: { roof: "Commandes de l'aperçu de la toiture", pergola: "Commandes de l'aperçu de la pergola", shape: "Forme de la toiture" },
+  it: { roof: "Comandi dell'anteprima del tetto", pergola: "Comandi dell'anteprima della pergola", shape: "Forma del tetto" },
+};
+
+const roofBomCopy: Record<Locale, RoofBomCopy> = {
+  en: { eyebrow: "MATERIALS / LIVE", title: "Bill of materials", close: "Close", item: "Item", qty: "Qty.", unit: "Unit", value: "Value", area: "Roof area", subtotal: "Subtotal", vat: "VAT", total: "Total", download: "Download CSV" },
+  ro: { eyebrow: "MATERIALE / LIVE", title: "Necesar de materiale", close: "Închide", item: "Element", qty: "Cant.", unit: "U.M.", value: "Valoare", area: "Suprafață acoperiș", subtotal: "Subtotal", vat: "TVA", total: "Total", download: "Descarcă CSV" },
+  de: { eyebrow: "MATERIAL / LIVE", title: "Materialliste", close: "Schließen", item: "Position", qty: "Menge", unit: "Einheit", value: "Wert", area: "Dachfläche", subtotal: "Zwischensumme", vat: "MwSt.", total: "Gesamt", download: "CSV laden" },
+  es: { eyebrow: "MATERIALES / LIVE", title: "Lista de materiales", close: "Cerrar", item: "Elemento", qty: "Cant.", unit: "Ud.", value: "Valor", area: "Superficie del tejado", subtotal: "Subtotal", vat: "IVA", total: "Total", download: "Descargar CSV" },
+  fr: { eyebrow: "MATÉRIAUX / LIVE", title: "Nomenclature", close: "Fermer", item: "Article", qty: "Qté", unit: "Unité", value: "Valeur", area: "Surface de toiture", subtotal: "Sous-total", vat: "TVA", total: "Total", download: "Télécharger CSV" },
+  it: { eyebrow: "MATERIALI / LIVE", title: "Distinta materiali", close: "Chiudi", item: "Voce", qty: "Q.tà", unit: "U.M.", value: "Valore", area: "Superficie tetto", subtotal: "Subtotale", vat: "IVA", total: "Totale", download: "Scarica CSV" },
+};
+
+const roofBomButton: Record<Locale, { label: string; top: string; bottom: string }> = {
+  en: { label: "Open bill of materials", top: "LIVE", bottom: "MATERIALS" },
+  ro: { label: "Deschide necesarul de materiale", top: "MATERIALE", bottom: "LIVE" },
+  de: { label: "Materialliste öffnen", top: "MATERIAL", bottom: "LIVE" },
+  es: { label: "Abrir lista de materiales", top: "MATERIALES", bottom: "LIVE" },
+  fr: { label: "Ouvrir la nomenclature", top: "MATÉRIAUX", bottom: "LIVE" },
+  it: { label: "Apri distinta materiali", top: "MATERIALI", bottom: "LIVE" },
+};
+
 function RoofBomModal({ bom, locale, onClose }: { bom: RoofBom; locale: Locale; onClose: () => void }) {
-  const text = locale === "ro" ? {
-    eyebrow: "MATERIALE / LIVE", title: "Necesar de materiale", close: "Închide", item: "Element", qty: "Cant.", unit: "U.M.", value: "Valoare", area: "Suprafață acoperiș", subtotal: "Subtotal", vat: "TVA", total: "Total", download: "Descarcă CSV",
-  } : locale === "de" ? {
-    eyebrow: "MATERIAL / LIVE", title: "Materialliste", close: "Schließen", item: "Position", qty: "Menge", unit: "Einheit", value: "Wert", area: "Dachfläche", subtotal: "Zwischensumme", vat: "MwSt.", total: "Gesamt", download: "CSV laden",
-  } : {
-    eyebrow: "MATERIALS / LIVE", title: "Bill of materials", close: "Close", item: "Item", qty: "Qty.", unit: "Unit", value: "Value", area: "Roof area", subtotal: "Subtotal", vat: "VAT", total: "Total", download: "Download CSV",
-  };
+  const text = roofBomCopy[locale];
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
@@ -96,23 +119,47 @@ function RoofBomModal({ bom, locale, onClose }: { bom: RoofBom; locale: Locale; 
   );
 }
 
-function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorSlug; controls?: string[]; locale?: Locale }) {
-  const text = locale === "ro" ? {
-    resolving: "Se calculează…", structure: "STRUCTURĂ / LIVE", roof: "ACOPERIȘ PARAMETRIC", environment: "MEDIU / LIVE", controls: "Personalizează", hide: "Vezi modelul",
-    length: "Lungime", depth: "Adâncime", wall: "Înălțime pereți", pitch: "Pantă", eaves: "Streașină", graphite: "Grafit", slate: "Ardezie", oxide: "Oxid",
-    slopes2: "2 ape", slopes4: "4 ape", slope1: "1 apă", lshape: "Formă L", dormer: "Lucarnă", louver: "Unghi lamele", width: "Lățime",
-    open: "Deschis", screen: "Rulou manual", motorized: "Rulou ZIP motorizat", privacy: "Perete cu lamele", glass: "Sticlă", day: "Mod zi", night: "Mod noapte", perimeter: "LED perimetral", spots: "Spoturi integrate", cool: "Rece", ice: "Albastru glaciar", sunset: "Apus", closings: "Închideri laterale", chooseSegment: "Alege segmentul", segment: "Segment", covering: "Învelitoare", materialPreset: "Tip de învelitoare", roofColour: "Culoare acoperiș", genericTile: "Țiglă metalică", mineralTile: "Țiglă cu granule minerale", slateTile: "Țiglă minerală tip ardezie", burgundy: "Bordo", brown: "Maro", terracotta: "Teracotă", forestGreen: "Verde pădure",
-  } : locale === "de" ? {
-    resolving: "Wird berechnet…", structure: "STRUKTUR / LIVE", roof: "PARAMETRISCHES DACH", environment: "UMGEBUNG / LIVE", controls: "Konfigurieren", hide: "Modell ansehen",
-    length: "Länge", depth: "Tiefe", wall: "Wandhöhe", pitch: "Dachneigung", eaves: "Traufe", graphite: "Graphit", slate: "Schiefer", oxide: "Oxid",
-    slopes2: "2 Flächen", slopes4: "4 Flächen", slope1: "1 Fläche", lshape: "L-Form", dormer: "Gaube", louver: "Lamellenwinkel", width: "Breite",
-    open: "Offen", screen: "Screen", motorized: "Motor-Screen", privacy: "Sichtschutz", glass: "Glas", day: "Tagmodus", night: "Nachtmodus", perimeter: "Umlaufende LED", spots: "Integrierte Spots", cool: "Kaltweiß", ice: "Eisblau", sunset: "Sonnenuntergang", closings: "Seitenabschlüsse", chooseSegment: "Segment wählen", segment: "Segment", covering: "Dacheindeckung", materialPreset: "Materialvorgabe", roofColour: "Dachfarbe", genericTile: "Metalldachpfanne", mineralTile: "Mineralgranulat-Metalldachpfanne", slateTile: "Schieferartige Mineralpfanne", burgundy: "Burgunderrot", brown: "Braun", terracotta: "Terrakotta", forestGreen: "Waldgrün",
-  } : {
+const legacyShowcaseCopy = {
+  en: {
     resolving: "Resolving…", structure: "STRUCTURE / LIVE", roof: "PARAMETRIC ROOF", environment: "ENVIRONMENT / LIVE", controls: "Customize", hide: "View model",
     length: "Length", depth: "Depth", wall: "Wall height", pitch: "Roof pitch", eaves: "Eaves", graphite: "Graphite", slate: "Slate", oxide: "Oxide",
     slopes2: "2 slope", slopes4: "4 slope", slope1: "1 slope", lshape: "L shape", dormer: "Dormer", louver: "Louver tilt", width: "Width",
     open: "Open", screen: "Pull-down", motorized: "Motorized", privacy: "Privacy", glass: "Glass", day: "Day mode", night: "Night mode", perimeter: "Perimeter LED", spots: "Integrated spots", cool: "Cool", ice: "Ice blue", sunset: "Sunset", closings: "Side closings", chooseSegment: "Choose segment", segment: "Segment", covering: "Roof covering", materialPreset: "Material preset", roofColour: "Roof colour", genericTile: "Generic metal tile", mineralTile: "Mineral-granule metal tile", slateTile: "Slate-style mineral tile", burgundy: "Burgundy", brown: "Brown", terracotta: "Terracotta", forestGreen: "Forest green",
-  };
+  },
+  ro: {
+    resolving: "Se calculează…", structure: "STRUCTURĂ / LIVE", roof: "ACOPERIȘ PARAMETRIC", environment: "MEDIU / LIVE", controls: "Personalizează", hide: "Vezi modelul",
+    length: "Lungime", depth: "Adâncime", wall: "Înălțime pereți", pitch: "Pantă", eaves: "Streașină", graphite: "Grafit", slate: "Ardezie", oxide: "Oxid",
+    slopes2: "2 ape", slopes4: "4 ape", slope1: "1 apă", lshape: "Formă L", dormer: "Lucarnă", louver: "Unghi lamele", width: "Lățime",
+    open: "Deschis", screen: "Rulou manual", motorized: "Rulou ZIP motorizat", privacy: "Perete cu lamele", glass: "Sticlă", day: "Mod zi", night: "Mod noapte", perimeter: "LED perimetral", spots: "Spoturi integrate", cool: "Rece", ice: "Albastru glaciar", sunset: "Apus", closings: "Închideri laterale", chooseSegment: "Alege segmentul", segment: "Segment", covering: "Învelitoare", materialPreset: "Tip de învelitoare", roofColour: "Culoare acoperiș", genericTile: "Țiglă metalică", mineralTile: "Țiglă cu granule minerale", slateTile: "Țiglă minerală tip ardezie", burgundy: "Bordo", brown: "Maro", terracotta: "Teracotă", forestGreen: "Verde pădure",
+  },
+  de: {
+    resolving: "Wird berechnet…", structure: "STRUKTUR / LIVE", roof: "PARAMETRISCHES DACH", environment: "UMGEBUNG / LIVE", controls: "Konfigurieren", hide: "Modell ansehen",
+    length: "Länge", depth: "Tiefe", wall: "Wandhöhe", pitch: "Dachneigung", eaves: "Traufe", graphite: "Graphit", slate: "Schiefer", oxide: "Oxid",
+    slopes2: "2 Flächen", slopes4: "4 Flächen", slope1: "1 Fläche", lshape: "L-Form", dormer: "Gaube", louver: "Lamellenwinkel", width: "Breite",
+    open: "Offen", screen: "Screen", motorized: "Motor-Screen", privacy: "Sichtschutz", glass: "Glas", day: "Tagmodus", night: "Nachtmodus", perimeter: "Umlaufende LED", spots: "Integrierte Spots", cool: "Kaltweiß", ice: "Eisblau", sunset: "Sonnenuntergang", closings: "Seitenabschlüsse", chooseSegment: "Segment wählen", segment: "Segment", covering: "Dacheindeckung", materialPreset: "Materialvorgabe", roofColour: "Dachfarbe", genericTile: "Metalldachpfanne", mineralTile: "Mineralgranulat-Metalldachpfanne", slateTile: "Schieferartige Mineralpfanne", burgundy: "Burgunderrot", brown: "Braun", terracotta: "Terrakotta", forestGreen: "Waldgrün",
+  },
+  es: {
+    resolving: "Calculando…", structure: "ESTRUCTURA / LIVE", roof: "TEJADO PARAMÉTRICO", environment: "ENTORNO / LIVE", controls: "Personalizar", hide: "Ver modelo",
+    length: "Longitud", depth: "Fondo", wall: "Altura de muro", pitch: "Pendiente", eaves: "Alero", graphite: "Grafito", slate: "Pizarra", oxide: "Óxido",
+    slopes2: "2 aguas", slopes4: "4 aguas", slope1: "1 agua", lshape: "Forma L", dormer: "Buhardilla", louver: "Ángulo de lamas", width: "Ancho",
+    open: "Abierto", screen: "Estor manual", motorized: "Estor motorizado", privacy: "Privacidad", glass: "Vidrio", day: "Modo día", night: "Modo noche", perimeter: "LED perimetral", spots: "Focos integrados", cool: "Frío", ice: "Azul hielo", sunset: "Atardecer", closings: "Cierres laterales", chooseSegment: "Elegir segmento", segment: "Segmento", covering: "Cubierta", materialPreset: "Tipo de cubierta", roofColour: "Color del tejado", genericTile: "Teja metálica genérica", mineralTile: "Teja metálica con granulado mineral", slateTile: "Teja mineral tipo pizarra", burgundy: "Burdeos", brown: "Marrón", terracotta: "Terracota", forestGreen: "Verde bosque",
+  },
+  fr: {
+    resolving: "Calcul…", structure: "STRUCTURE / LIVE", roof: "TOITURE PARAMÉTRIQUE", environment: "ENVIRONNEMENT / LIVE", controls: "Personnaliser", hide: "Voir le modèle",
+    length: "Longueur", depth: "Profondeur", wall: "Hauteur de mur", pitch: "Pente", eaves: "Débord", graphite: "Graphite", slate: "Ardoise", oxide: "Oxyde",
+    slopes2: "2 pans", slopes4: "4 pans", slope1: "1 pan", lshape: "Forme en L", dormer: "Lucarne", louver: "Inclinaison des lames", width: "Largeur",
+    open: "Ouvert", screen: "Store manuel", motorized: "Store motorisé", privacy: "Brise-vue", glass: "Vitrage", day: "Mode jour", night: "Mode nuit", perimeter: "LED périmétrique", spots: "Spots intégrés", cool: "Froid", ice: "Bleu glacier", sunset: "Coucher de soleil", closings: "Fermetures latérales", chooseSegment: "Choisir le segment", segment: "Segment", covering: "Couverture", materialPreset: "Type de couverture", roofColour: "Couleur de toiture", genericTile: "Tuile métallique générique", mineralTile: "Tuile métallique à granulés minéraux", slateTile: "Tuile minérale aspect ardoise", burgundy: "Bordeaux", brown: "Brun", terracotta: "Terre cuite", forestGreen: "Vert forêt",
+  },
+  it: {
+    resolving: "Calcolo…", structure: "STRUTTURA / LIVE", roof: "TETTO PARAMETRICO", environment: "AMBIENTE / LIVE", controls: "Personalizza", hide: "Vedi modello",
+    length: "Lunghezza", depth: "Profondità", wall: "Altezza pareti", pitch: "Pendenza", eaves: "Gronda", graphite: "Grafite", slate: "Ardesia", oxide: "Ossido",
+    slopes2: "2 falde", slopes4: "4 falde", slope1: "1 falda", lshape: "Forma a L", dormer: "Abbaino", louver: "Inclinazione lamelle", width: "Larghezza",
+    open: "Aperto", screen: "Tenda manuale", motorized: "Tenda motorizzata", privacy: "Frangivista", glass: "Vetro", day: "Modalità giorno", night: "Modalità notte", perimeter: "LED perimetrale", spots: "Faretti integrati", cool: "Freddo", ice: "Blu ghiaccio", sunset: "Tramonto", closings: "Chiusure laterali", chooseSegment: "Scegli segmento", segment: "Segmento", covering: "Manto di copertura", materialPreset: "Tipo di manto", roofColour: "Colore del tetto", genericTile: "Tegola metallica generica", mineralTile: "Tegola metallica con granuli minerali", slateTile: "Tegola minerale effetto ardesia", burgundy: "Bordeaux", brown: "Marrone", terracotta: "Terracotta", forestGreen: "Verde bosco",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorSlug; controls?: string[]; locale?: Locale }) {
+  const text = legacyShowcaseCopy[locale];
   const [collapsed, setCollapsed] = useState(false);
   const deckSwipe = useMobileDeckSwipe(setCollapsed);
   const [tilt, setTilt] = useState(0);
@@ -181,7 +228,7 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
     emit(scene, "sideClosings", nextClosings);
   };
 
-  const formattedPrice = price ? new Intl.NumberFormat(price.currency === "RON" ? "ro-RO" : "en-US", {
+  const formattedPrice = price ? new Intl.NumberFormat(localeLanguageTags[locale], {
     style: "currency", currency: price.currency, maximumFractionDigits: 0,
   }).format(price.total) : text.resolving;
 
@@ -215,7 +262,7 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
     };
     return (
       <>
-      <div className={`scene-controls scene-controls-panel instrument-console roof-controls ${collapsed ? "is-collapsed" : ""}`} aria-label="Roof preview controls">
+      <div className={`scene-controls scene-controls-panel instrument-console roof-controls ${collapsed ? "is-collapsed" : ""}`} aria-label={previewControlsLabels[locale].roof}>
         <div className="console-header" {...deckSwipe}><span>{text.structure}</span><b>{text.roof}</b><strong className="live-price">LIVE {formattedPrice}</strong><button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button></div>
         <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
         <div className="scene-control-grid">
@@ -225,7 +272,7 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
           <RangeControl label={text.pitch} value={roofPitch} min={10} max={55} step={1} unit="°" onChange={(value) => { setRoofPitch(value); emit(scene, "pitch", value); }} />
           <RangeControl label={text.eaves} value={overhang} min={0.1} max={1} step={0.05} unit=" m" onChange={(value) => { setOverhang(value); emit(scene, "overhang", value); }} />
         </div>
-        <div className="scene-preset-row shape-row" aria-label="Roof shape">
+        <div className="scene-preset-row shape-row" aria-label={previewControlsLabels[locale].shape}>
           {shapes.map(([value, label]) => <button key={value} className={roofShape === value ? "active" : ""} onClick={() => { setRoofShape(value); emit(scene, "shape", value); }}>{label}</button>)}
         </div>
         <div className="roof-covering-toolbar">
@@ -237,8 +284,8 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
         </div>}
         </div>
       </div>
-      <button className="analytics-bubble roof-bom-bubble" type="button" onClick={() => { setRoofBomOpen(true); emit(scene, "requestBom", true); }} aria-label={locale === "ro" ? "Deschide necesarul de materiale" : locale === "de" ? "Materialliste öffnen" : "Open bill of materials"}>
-        <span>BOM</span><b>{locale === "ro" ? <>MATERIALE<br />LIVE</> : locale === "de" ? <>MATERIAL<br />LIVE</> : <>LIVE<br />MATERIALS</>}</b><i>↗</i>
+      <button className="analytics-bubble roof-bom-bubble" type="button" onClick={() => { setRoofBomOpen(true); emit(scene, "requestBom", true); }} aria-label={roofBomButton[locale].label}>
+        <span>BOM</span><b>{roofBomButton[locale].top}<br />{roofBomButton[locale].bottom}</b><i>↗</i>
       </button>
       {roofBomOpen && roofBom && <RoofBomModal bom={roofBom} locale={locale} onClose={() => setRoofBomOpen(false)} />}
       </>
@@ -257,7 +304,7 @@ function LegacyShowcaseControls({ scene, locale = "en" }: { scene: ConfiguratorS
     ["#dbeeff", text.cool], ["#86b8ff", text.ice], ["#ff8f77", text.sunset],
   ];
   return (
-    <div className={`scene-controls scene-controls-panel instrument-console pergola-controls ${collapsed ? "is-collapsed" : ""}`} aria-label="Pergola preview controls">
+    <div className={`scene-controls scene-controls-panel instrument-console pergola-controls ${collapsed ? "is-collapsed" : ""}`} aria-label={previewControlsLabels[locale].pergola}>
       <div className="console-header" {...deckSwipe}><span>{text.environment}</span><b>PERGOLA 6 × 4 M</b><strong className="live-price">LIVE {formattedPrice}</strong><button className="console-collapse" type="button" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}>{collapsed ? text.controls : text.hide}</button></div>
       <div className="console-body" aria-hidden={collapsed} inert={collapsed || undefined}>
       <div className="scene-control-grid">

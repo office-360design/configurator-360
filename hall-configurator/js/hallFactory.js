@@ -1,13 +1,13 @@
 import { normalizeProduction } from './production.js?v=hall-production-1';
-import { createProductionDetails } from './productionGeometry.js?v=hall-production-1';
+import { createProductionDetails } from './productionGeometry.js?v=locales-6';
 import { normalizeLogistics } from './logistics.js?v=hall-production-1';
 import { createSectionalDoorAssembly, createLoadingDetails, populateStoragePlanning } from './loadingGeometry.js?v=hall-production-1';
 import { createShopfrontAssembly, createGlazedEntranceAssembly, createCommercialDetails, createLinearRetailLight } from './retailGeometry.js?v=hall-production-1';
 import { normalizeCommercialFeatures } from './commercial.js?v=hall-production-1';
 import { rectangularPanelGeometry, subtractIntervals } from './panelGeometry.js?v=hall-production-1';
 import * as THREE from 'three';
-import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=hall-production-1';
-import { normalizeOpenings, validateOpenings } from './openings.js?v=hall-production-1';
+import { deriveHallMetrics, structurePresets, roofSkylightLayout } from './state.js?v=locales-6';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=locales-6';
 
 const AXIS_Z = new THREE.Vector3(0, 0, 1);
 const AXIS_Y = new THREE.Vector3(0, 1, 0);

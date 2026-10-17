@@ -1,7 +1,9 @@
 import sample from '../lib/roof-example-data.json';
-import {localizedPath, type Locale} from '../lib/i18n';
+import {localeLanguageTags, localizedPath, type Locale} from '../lib/i18n';
 
-const copy = {
+type RoofExampleCopy = {title:string;intro:string;input:string;recipe:string;steps:[string,string][];caption:string;columns:string[];rows:string[];pieces:string;limits:string;next:string;action:string;open:string;pricing:string};
+
+const copy: Record<Locale, RoofExampleCopy> = {
   en: {
     title:'From a configured roof to a bill of materials.',
     intro:'A roof manufacturer needs more than a 3D view: dimensions and covering choices must produce inspectable quantities. This technical example uses the existing roof model and bill-of-materials functions. It is a software demonstration, not a customer case study or a roofing quotation.',
@@ -53,11 +55,62 @@ const copy = {
     next:'Senden Sie für ein Softwareprojekt vorhandene Zeichnungen, Maße, Variantenregeln und eine Beispielstückliste. Wir prüfen die benötigten Ausgaben und Schnittstellen, bevor Umfang und Preis festgelegt werden.',
     action:'Dachkonfigurator-Projekt besprechen', open:'Im vollständigen Konfigurator nachvollziehen', pricing:'Implementierungskosten verstehen',
   },
+  es: {
+    title:'De un tejado configurado a una lista de materiales.',
+    intro:'Un fabricante de tejados necesita algo más que una vista 3D: las dimensiones y la cubierta elegidas deben producir cantidades verificables. Este ejemplo técnico utiliza el modelo de tejado y las funciones de lista de materiales existentes. Es una demostración de software, no un caso de cliente ni una oferta de cubierta.',
+    input:'Reproduzca el ejemplo',
+    recipe:'En el configurador completo, elija el tejado a dos aguas y la cubierta metálica genérica. Ajuste la longitud a 10 m, el fondo a 7 m, la altura de muro a 3 m, la pendiente a 30° y el alero a 0,4 m. Son datos de prueba explícitos, no un diseño de edificio recomendado.',
+    steps:[
+      ['Definir el producto','El tipo de tejado, las dimensiones y la cubierta forman la configuración de entrada. Para su catálogo, esto empieza por las formas admitidas, los datos de componentes y las opciones que pueden elegir sus clientes.'],
+      ['Aplicar las reglas','El modelo calcula la superficie inclinada del tejado y la lista de materiales aplica las longitudes de los componentes y la cobertura útil. Este ejemplo usa 0,47 m² por panel y un 5% de merma, no una regla universal de proveedor.'],
+      ['Revisar las cantidades','La tabla muestra resultados reales de las funciones del repositorio. Cambiar una dimensión cambia la geometría y las cantidades. La huella del edificio de 70 m² no es la superficie inclinada del tejado.'],
+      ['Exportar la lista de materiales','El configurador completo exporta filas CSV con descripción, unidad, cantidad y campos de precio de referencia. Estos campos describen la salida del software; los precios de demostración no son una oferta de proveedor.'],
+      ['Planificar la conexión con los sistemas de negocio','El CSV es un punto de partida para la transferencia de datos. Asignar componentes a su catálogo, validar precios y conectar ERP o CRM requiere una revisión técnica aparte. Este ejemplo no demuestra una integración ERP en producción.'],
+    ],
+    caption:'Resultados de este tejado a dos aguas', columns:['Resultado','Valor'], rows:['Huella del edificio','Superficie inclinada','Longitud de cumbrera','Longitud de aleros','Paneles de cubierta','Piezas de cumbrera','Piezas de canalón'], pieces:'piezas',
+    limits:'La cobertura útil del panel, la merma, la longitud útil de cumbrera (0,37 m) y la longitud del canalón (3 m) son hipótesis de este ejemplo de demostración. Otros productos y los modos de tejado dibujado pueden usar cálculos distintos. Valide el catálogo, la construcción y las cantidades de compra antes de la producción.',
+    next:'Para un proyecto de software, envíe los planos disponibles, las dimensiones, las reglas de compatibilidad y una lista de materiales de ejemplo. Revisamos los resultados y las interfaces necesarias antes de acordar el alcance o el precio.',
+    action:'Hablemos de su configurador de tejados', open:'Reproducir en el configurador completo', pricing:'Conocer los costes de implantación',
+  },
+  fr: {
+    title:'D’une toiture configurée à une nomenclature.',
+    intro:'Un fabricant de toitures a besoin de plus qu’une vue 3D : les dimensions et la couverture choisies doivent produire des quantités vérifiables. Cet exemple technique utilise le modèle de toiture et les fonctions de nomenclature existants. Il s’agit d’une démonstration logicielle, ni d’un cas client ni d’un devis de toiture.',
+    input:'Reproduire l’exemple',
+    recipe:'Dans le configurateur complet, choisissez la toiture à deux pans et la couverture métallique générique. Réglez la longueur à 10 m, la profondeur à 7 m, la hauteur de mur à 3 m, la pente à 30° et le débord de toit à 0,4 m. Ce sont des valeurs de test explicites, pas une conception de bâtiment recommandée.',
+    steps:[
+      ['Définir le produit','Le type de toiture, les dimensions et la couverture forment la configuration d’entrée. Pour votre catalogue, tout commence par les formes prises en charge, les données des composants et les choix proposés à vos clients.'],
+      ['Appliquer les règles','Le modèle calcule la surface de toiture inclinée, et la nomenclature applique les longueurs des composants et le recouvrement utile. Cet exemple utilise 0,47 m² par panneau et 5% de chute, pas une règle universelle de fournisseur.'],
+      ['Vérifier les quantités','Le tableau présente les résultats réels des fonctions du dépôt. Modifier une dimension modifie la géométrie et les quantités. L’emprise du bâtiment de 70 m² n’est pas la surface de toiture inclinée.'],
+      ['Exporter la nomenclature','Le configurateur complet exporte des lignes CSV avec désignation, unité, quantité et champs de prix de référence. Ces champs décrivent la sortie du logiciel ; les tarifs de démonstration ne constituent pas une offre fournisseur.'],
+      ['Préparer la connexion aux systèmes','Le CSV est un point de départ pour la transmission des données. L’association des composants à votre catalogue, la validation des prix et la connexion à l’ERP ou au CRM nécessitent une revue technique distincte. Cet exemple ne montre pas d’intégration ERP en production.'],
+    ],
+    caption:'Résultats pour cette toiture à deux pans', columns:['Résultat','Valeur'], rows:['Emprise du bâtiment','Surface de toiture inclinée','Longueur de faîtage','Longueur d’égout','Panneaux de couverture','Pièces de faîtage','Pièces de gouttière'], pieces:'pièces',
+    limits:'Le recouvrement utile des panneaux, la chute, la longueur utile de faîtage (0,37 m) et la longueur de gouttière (3 m) sont des hypothèses de cet exemple de démonstration. D’autres produits et les modes de toiture dessinée peuvent utiliser d’autres calculs. Validez le catalogue, la construction et les quantités d’achat avant production.',
+    next:'Pour un projet logiciel, envoyez vos plans disponibles, vos dimensions, vos règles de compatibilité et un exemple de nomenclature. Nous examinons les livrables et interfaces nécessaires avant de convenir du périmètre ou du prix.',
+    action:'Parler de votre configurateur de toiture', open:'Reproduire dans le configurateur complet', pricing:'Comprendre les coûts de mise en œuvre',
+  },
+  it: {
+    title:'Da un tetto configurato a una distinta materiali.',
+    intro:'Un produttore di coperture ha bisogno di più di una vista 3D: dimensioni e manto scelti devono produrre quantità verificabili. Questo esempio tecnico usa il modello di tetto e le funzioni di distinta materiali esistenti. È una dimostrazione software, non un caso cliente né un’offerta per una copertura.',
+    input:'Riproduca l’esempio',
+    recipe:'Nel configuratore completo, scelga il tetto a due falde e il manto metallico generico. Imposti lunghezza 10 m, profondità 7 m, altezza delle pareti 3 m, pendenza 30° e sporto di gronda 0,4 m. Sono valori di prova espliciti, non un progetto edilizio consigliato.',
+    steps:[
+      ['Definire il prodotto','Tipo di tetto, dimensioni e manto formano la configurazione di input. Per il Suo catalogo, si parte dalle forme supportate, dai dati dei componenti e dalle scelte disponibili per i clienti.'],
+      ['Applicare le regole','Il modello calcola la superficie inclinata del tetto, mentre la distinta applica le lunghezze dei componenti e la copertura utile. Questo esempio usa 0,47 m² per pannello e il 5% di sfrido, non una regola universale del fornitore.'],
+      ['Verificare le quantità','La tabella mostra i risultati reali delle funzioni del repository. Modificare una dimensione cambia geometria e quantità. L’impronta dell’edificio di 70 m² non è la superficie inclinata del tetto.'],
+      ['Esportare la distinta materiali','Il configuratore completo esporta righe CSV con descrizione, unità, quantità e campi di prezzo di riferimento. Questi campi descrivono l’output del software; i prezzi demo non sono un’offerta del fornitore.'],
+      ['Pianificare il collegamento ai sistemi aziendali','Il CSV è un punto di partenza per il passaggio dei dati. Associare i componenti al Suo catalogo, validare i prezzi e collegare ERP o CRM richiede una revisione tecnica separata. Questo esempio non mostra un’integrazione ERP in produzione.'],
+    ],
+    caption:'Risultati per questo tetto a due falde', columns:['Risultato','Valore'], rows:['Impronta dell’edificio','Superficie inclinata','Lunghezza del colmo','Lunghezza della gronda','Pannelli di copertura','Elementi di colmo','Elementi di grondaia'], pieces:'pezzi',
+    limits:'Copertura utile dei pannelli, sfrido, lunghezza utile del colmo (0,37 m) e lunghezza della grondaia (3 m) sono ipotesi di questo esempio demo. Altri prodotti e le modalità con tetto disegnato possono usare calcoli diversi. Verifichi catalogo, costruzione e quantità d’acquisto prima della produzione.',
+    next:'Per un progetto software, invii i disegni disponibili, le dimensioni, le regole di compatibilità e una distinta materiali di esempio. Esaminiamo output e interfacce necessari prima di concordare perimetro o prezzo.',
+    action:'Parliamo del Suo configuratore di tetti', open:'Riproduci nel configuratore completo', pricing:'Capire i costi di implementazione',
+  },
 };
 
 export function RoofTechnicalExample({locale,launchUrl}: {locale:Locale;launchUrl:string}) {
   const text=copy[locale];
-  const number=new Intl.NumberFormat(locale,{maximumFractionDigits:2});
+  const number=new Intl.NumberFormat(localeLanguageTags[locale],{maximumFractionDigits:2});
   const values=[`${number.format(sample.output.footprint)} m²`,`${number.format(sample.output.roofArea)} m²`,`${number.format(sample.output.ridgeLength)} m`,`${number.format(sample.output.eavesLength)} m`,...[sample.output.panels,sample.output.ridgePieces,sample.output.gutterPieces].map(value=>`${number.format(value)} ${text.pieces}`)];
   return <section className="implementation-evidence roof-technical-example solid-section" id="roof-technical-example" aria-labelledby="roof-example-title" data-machine-section="technical-example">
     <div className="page-frame">

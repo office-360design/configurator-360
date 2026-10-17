@@ -1,6 +1,6 @@
 // Horizontal section through a mullion node as SVG markup. The parts come
 // from the model's section (sections.js, by the fixing of the system).
-import { GLASS_GAP } from './sections.js?v=cw-6';
+import { GLASS_GAP } from './sections.js?v=cw-7';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 

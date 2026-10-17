@@ -1,5 +1,5 @@
-import { LANGUAGE_PROFILES } from '../config.js?v=tenant-domains-1';
-import { sharedT } from '../i18n.js?v=platform-18';
+import { LANGUAGE_PROFILES } from '../config.js?v=locales-6';
+import { sharedT } from '../i18n.js?v=locales-6';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 export function renderLanguageMenu(currentLocale) {

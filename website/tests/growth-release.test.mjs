@@ -38,7 +38,7 @@ test('form product context is strictly enumerated, never free text', () => {
 });
 
 test('exported locales contain early consent, factual examples and contact paths', async () => {
-  const variants=[['','Website analytics','Discuss your configurator'],['ro/','Analiza utilizării site-ului','Solicită evaluarea proiectului'],['de/','Website-Analyse','Konfigurator-Projekt besprechen']];
+  const variants=[['','Website analytics','Discuss your configurator'],['ro/','Analiza utilizării site-ului','Solicită evaluarea proiectului'],['de/','Website-Analyse','Konfigurator-Projekt besprechen'],['es/','Analítica del sitio web','Hablemos de su configurador'],['fr/','Mesure d’audience','Parler de votre configurateur'],['it/','Analisi del sito web','Parliamo del Suo configuratore']];
   for (const [prefix,title,action] of variants) {
     const html=await readFile(new URL(`../outputs/exported-pages/${prefix}index.html`,import.meta.url),'utf8');
     assert.equal((html.match(/id="analytics-preferences-title"/g) || []).length,1);

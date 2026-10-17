@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { gasT } from '../src/i18n.js';
+import { GAS_DICTIONARIES, gasT } from '../src/i18n.js';
+import { normalizeState } from '../src/state.js';
 import { renderGasLayout } from '../src/ui/layout.js';
 
-const LOCALES = ['en-US', 'ro-RO', 'de-DE'];
+const LOCALES = ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT'];
 
 function layoutTranslationKeys() {
   const root = { innerHTML: '' };
@@ -70,4 +71,26 @@ test('dynamic catalogue, obstacle and route-event labels exist in every supporte
     const missing = keys.filter((key) => gasT(locale, key) === key);
     assert.deepEqual(missing, [], `${locale} is missing: ${missing.join(', ')}`);
   });
+});
+
+test('every supported locale has exact key parity, non-empty values and the English placeholders', () => {
+  const placeholders = (value) => [...String(value).matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]).sort().join(',');
+  const english = GAS_DICTIONARIES['en-US'];
+  const englishKeys = Object.keys(english).sort();
+  assert.deepEqual(Object.keys(GAS_DICTIONARIES), LOCALES);
+  LOCALES.forEach((locale) => {
+    const dictionary = GAS_DICTIONARIES[locale];
+    assert.deepEqual(Object.keys(dictionary).sort(), englishKeys, `${locale} key parity`);
+    englishKeys.forEach((key) => {
+      assert.ok(String(dictionary[key]).trim(), `${locale} has an empty value for ${key}`);
+      assert.equal(placeholders(dictionary[key]), placeholders(english[key]), `${locale} placeholders for ${key}`);
+    });
+  });
+});
+
+test('saved state keeps every supported locale and falls back to en-US otherwise', () => {
+  LOCALES.forEach((locale) => {
+    assert.equal(normalizeState({ preferences: { locale } }).preferences.locale, locale);
+  });
+  assert.equal(normalizeState({ preferences: { locale: 'pt-PT' } }).preferences.locale, 'en-US');
 });
