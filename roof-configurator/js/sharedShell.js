@@ -1,10 +1,10 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-9';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=locales-6';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=restore-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
-import { createRoofARController } from './ar/controller.js?v=roof-ar-1';
+import { createRoofARController } from './ar/controller.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('roof');
 

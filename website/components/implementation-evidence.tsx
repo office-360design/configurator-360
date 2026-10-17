@@ -1,7 +1,9 @@
 import { localizedPath, type Locale } from '../lib/i18n';
 import { SpotlightReference } from './spotlight-reference';
 
-const evidence = {
+type EvidenceCopy = {title:string;intro:string;examples:{product:string;title:string;body:string;link:string}[];next:string;action:string;pricing:string};
+
+const evidence: Record<Locale, EvidenceCopy> = {
   en: {
     title: 'Inspect the rules and outputs before planning your build.',
     intro: 'These working examples show product logic you can inspect. They are not customer revenue results or quotations for physical products.',
@@ -35,12 +37,48 @@ const evidence = {
     action:'Konfigurator-Projekt besprechen',
     pricing:'Implementierungskosten vergleichen',
   },
+  es: {
+    title: 'Revise las reglas y los resultados antes de planificar su proyecto.',
+    intro: 'Estos ejemplos funcionales muestran lógica de producto que usted puede revisar. No son resultados comerciales de clientes ni ofertas de productos físicos.',
+    examples: [
+      {product:'roof',title:'De la configuración del tejado a la lista de materiales',body:'Siga el ejemplo documentado de un tejado de 10 × 7 m, desde las dimensiones y las reglas de cubierta hasta las cantidades calculadas y la exportación CSV. Los datos de entrada y las hipótesis de cálculo se pueden revisar.',link:'Revisar el ejemplo técnico del tejado'},
+      {product:'cardbox',title:'De las reglas del embalaje a una caja funcional',body:'Elija entre nueve estilos de caja, cambie las dimensiones y compare cierres, apertura y papeles de cartón en el configurador completo.',link:'Explorar los estilos de caja'},
+    ],
+    next:'Para su catálogo, las reglas, los resultados y las integraciones se revisan con sus productos reales antes de la implantación.',
+    action:'Hablemos de su configurador',
+    pricing:'Comparar costes de implantación',
+  },
+  fr: {
+    title: 'Examinez les règles et les résultats avant de planifier votre projet.',
+    intro: 'Ces exemples fonctionnels montrent une logique produit que vous pouvez examiner. Ce ne sont ni des résultats commerciaux de clients ni des devis pour des produits physiques.',
+    examples: [
+      {product:'roof',title:'De la configuration de toiture à la nomenclature',body:'Suivez l’exemple documenté d’une toiture de 10 × 7 m, des dimensions et règles de couverture jusqu’aux quantités calculées et à l’export CSV. Les données d’entrée et les hypothèses de calcul sont consultables.',link:'Examiner l’exemple technique de toiture'},
+      {product:'cardbox',title:'Des règles d’emballage à un carton fonctionnel',body:'Choisissez parmi neuf styles de carton, modifiez les dimensions et comparez fermetures, ouverture et papiers dans le configurateur complet.',link:'Découvrir les styles de carton'},
+    ],
+    next:'Pour votre catalogue, les règles, les livrables et les intégrations sont vérifiés sur vos produits réels avant la mise en œuvre.',
+    action:'Parler de votre configurateur',
+    pricing:'Comparer les coûts de mise en œuvre',
+  },
+  it: {
+    title: 'Verifichi regole e risultati prima di pianificare il progetto.',
+    intro: 'Questi esempi funzionanti mostrano una logica di prodotto verificabile. Non sono risultati commerciali di clienti né offerte per prodotti fisici.',
+    examples: [
+      {product:'roof',title:'Dalla configurazione del tetto alla distinta materiali',body:'Segua l’esempio documentato di un tetto di 10 × 7 m, dalle dimensioni e dalle regole di copertura fino alle quantità calcolate e all’export CSV. Dati di input e ipotesi di calcolo sono consultabili.',link:'Verifichi l’esempio tecnico del tetto'},
+      {product:'cardbox',title:'Dalle regole dell’imballaggio a una scatola funzionante',body:'Scelga tra nove stili di scatola, modifichi le dimensioni e confronti chiusure, apertura e carte nel configuratore completo.',link:'Esplori gli stili di scatola'},
+    ],
+    next:'Per il Suo catalogo, regole, output e integrazioni vengono verificati sui prodotti reali prima dell’implementazione.',
+    action:'Parliamo del Suo configuratore',
+    pricing:'Confronti i costi di implementazione',
+  },
 };
 
-export const projectActions = {
+export const projectActions: Record<Locale, {action:string;note:string}> = {
   en: {action:'Discuss your configurator',note:'Configuration software for manufacturers and distributors. Product previews are examples, not supplier quotations.'},
   ro: {action:'Solicită evaluarea proiectului',note:'Software de configurare pentru producători și distribuitori. Exemplele de produse nu sunt oferte de la furnizori.'},
   de: {action:'Konfigurator-Projekt besprechen',note:'Konfigurationssoftware für Hersteller und Händler. Produktvorschauen sind Beispiele, keine Lieferantenangebote.'},
+  es: {action:'Hablemos de su configurador',note:'Software de configuración para fabricantes y distribuidores. Las vistas previas de productos son ejemplos, no ofertas de proveedores.'},
+  fr: {action:'Parler de votre configurateur',note:'Logiciel de configuration pour fabricants et distributeurs. Les aperçus produits sont des exemples, pas des devis de fournisseurs.'},
+  it: {action:'Parliamo del Suo configuratore',note:'Software di configurazione per produttori e distributori. Le anteprime di prodotto sono esempi, non offerte di fornitori.'},
 };
 
 export function ImplementationEvidence({locale}: {locale:Locale}) {

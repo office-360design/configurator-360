@@ -1,4 +1,4 @@
-import { localizeFeature, featureLocale } from './featureI18n.js?v=sketch-1';
+import { localizeFeature, featureLocale } from './featureI18n.js?v=locales-6';
 import { slopeLetter } from './sheetPlanner.js?v=sketch-1';
 import {
   defaultSketch, dragSketchPoint, edgeTypes, newSketchSlope, setSketchEdgeLength, setSketchHeight,

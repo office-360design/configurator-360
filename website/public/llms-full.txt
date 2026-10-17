@@ -97,7 +97,7 @@ The public marketing catalogue contains ten products. Each product has an Englis
 
 ## Languages and canonical structure
 
-English is served at https://www.360configurator.com/, Romanian at https://www.360configurator.ro/ and German at https://www.360konfigurator.de/. Product-page paths are /configurators/{slug} on each domain. Every translated page has a self-referencing canonical URL and reciprocal language alternates. /ro and /de are internal export paths, not public canonical URLs.
+English is served at https://www.360configurator.com/, Romanian at https://www.360configurator.ro/, German at https://www.360konfigurator.de/, Spanish at https://www.360configurador.es/, French at https://www.360configurateur.fr/ and Italian at https://www.360configuratore.it/. Product-page paths are /configurators/{slug} on each domain. Every translated page has a self-referencing canonical URL and reciprocal language alternates. /ro, /de, /es, /fr and /it are internal export paths, not public canonical URLs.
 
 ## Contact
 

@@ -556,24 +556,37 @@ async function releaseFixture(run) {
     const { configurators, pageRoutes, routeOutputPath } = await import(dataUrl(routesSource));
     await put('website/scripts/static-routes.mjs', routesSource);
     await put('website/scripts/validate-static-release.mjs', await read('website/scripts/validate-static-release.mjs'));
-    const domains = { en: 'https://www.360configurator.com', ro: 'https://www.360configurator.ro', de: 'https://www.360konfigurator.de' };
+    const domains = {
+      en: 'https://www.360configurator.com', ro: 'https://www.360configurator.ro', de: 'https://www.360konfigurator.de',
+      es: 'https://www.360configurador.es', fr: 'https://www.360configurateur.fr', it: 'https://www.360configuratore.it',
+    };
+    const hreflangs = { en: 'en', ro: 'ro-RO', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', it: 'it-IT' };
     // Pages carry the SEO head the real static export produces: self-canonical,
     // reciprocal hreflang alternates, indexable robots and product links.
     const productLinks = ['pergola', 'roof', 'window', 'hall', 'solar', 'fence', 'chair', 'cardbox', 'bookshelf', 'tiles']
       .map(slug => `<a href="/configurators/${slug}">${slug}</a>`).join('');
     for (const route of pageRoutes) {
-      const locale = /^\/ro(?:\/|$)/.test(route) ? 'ro' : /^\/de(?:\/|$)/.test(route) ? 'de' : 'en';
-      const publicPath = route.replace(/^\/(ro|de)(?=\/|$)/, '') || '/';
-      const alternates = [['en', domains.en], ['ro-RO', domains.ro], ['de-DE', domains.de], ['x-default', domains.en]]
+      const locale = route.match(/^\/(ro|de|es|fr|it)(?=\/|$)/)?.[1] || 'en';
+      const publicPath = route.replace(/^\/(ro|de|es|fr|it)(?=\/|$)/, '') || '/';
+      const alternates = [...Object.entries(hreflangs).map(([short, language]) => [language, domains[short]]), ['x-default', domains.en]]
         .map(([language, origin]) => `<link rel="alternate" hreflang="${language}" href="${origin}${publicPath}">`).join('');
       const head = `<link rel="canonical" href="${domains[locale]}${publicPath}">${alternates}<meta name="robots" content="index, follow">`;
       await put(release + routeOutputPath(route), `<html lang="${locale}"><head>${head}</head><body class="site-shell detail-page"><a href="https://www.360configurator.com/roof-configurator/">Roof</a>${productLinks}</body></html>`);
     }
     for (const file of ['404.html', '.nojekyll', 'release-manifest.json', 'robots.txt', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'apple-touch-icon.png']) await put(release + file);
+    // Per-domain machine-readable context files (llms.txt for .com, llms-<lang>.txt for the country domains).
+    for (const locale of Object.keys(domains)) {
+      const suffix = locale === 'en' ? '' : `-${locale}`;
+      await put(`${release}llms${suffix}.txt`, `# 360Configurator ${locale}\n`);
+      await put(`${release}llms-full${suffix}.txt`, `# 360Configurator ${locale}\n`);
+    }
     const apps = {
       en: ['/pergola-configurator/', '/roof-configurator/', '/window-configurator/', '/hall-configurator/', '/solar-configurator/', '/fence-configurator/', '/cardbox-configurator/', '/chair-configurator/'],
       ro: ['/configurator-pergola/', '/configurator-acoperis/', '/configurator-ferestre/', '/configurator-hala/', '/configurator-solar/', '/configurator-garduri/', '/configurator-cutii-carton/', '/configurator-scaune/'],
       de: ['/pergola-konfigurator/', '/dach-konfigurator/', '/fenster-konfigurator/', '/hallen-konfigurator/', '/solar-konfigurator/', '/zaun-konfigurator/', '/karton-konfigurator/', '/stuhl-konfigurator/'],
+      es: ['/configurador-pergolas/', '/configurador-tejados/', '/configurador-ventanas/', '/configurador-naves/', '/configurador-solar/', '/configurador-vallas/', '/configurador-cajas-carton/', '/configurador-sillas/'],
+      fr: ['/configurateur-pergola/', '/configurateur-toiture/', '/configurateur-fenetres/', '/configurateur-hangar/', '/configurateur-solaire/', '/configurateur-cloture/', '/configurateur-cartons/', '/configurateur-chaises/'],
+      it: ['/configuratore-pergola/', '/configuratore-tetto/', '/configuratore-finestre/', '/configuratore-capannone/', '/configuratore-fotovoltaico/', '/configuratore-recinzioni/', '/configuratore-scatole/', '/configuratore-sedie/'],
     };
     for (const [locale, domain] of Object.entries(domains)) {
       const urls = ['/', '/about', '/contact', '/pricing', '/book-a-demo', ...configurators.map(id => `/configurators/${id}`), ...apps[locale]];

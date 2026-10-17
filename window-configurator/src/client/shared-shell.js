@@ -3,8 +3,8 @@ import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shar
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';
-import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=platform-18';
-import { mountWindowTemplates } from './js/window-templates.js?v=templates-shared-1';
+import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=locales-6';
+import { mountWindowTemplates } from './js/window-templates.js?v=locales-6';
 import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('window');
@@ -17,6 +17,9 @@ const CAMERA_VIEW_TEXT = Object.freeze({
   'en-US': Object.freeze({ outside: 'Outside', inside: 'Inside', prefix: 'Camera' }),
   'ro-RO': Object.freeze({ outside: 'Exterior', inside: 'Interior', prefix: 'Cameră' }),
   'de-DE': Object.freeze({ outside: 'Außen', inside: 'Innen', prefix: 'Kamera' }),
+  'es-ES': Object.freeze({ outside: 'Exterior', inside: 'Interior', prefix: 'Cámara' }),
+  'fr-FR': Object.freeze({ outside: 'Extérieur', inside: 'Intérieur', prefix: 'Caméra' }),
+  'it-IT': Object.freeze({ outside: 'Esterno', inside: 'Interno', prefix: 'Camera' }),
 });
 
 let shell = null;

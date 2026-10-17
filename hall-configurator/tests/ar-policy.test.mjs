@@ -17,11 +17,14 @@ test('Native links preserve platform, session, locale and encoded model URL',()=
   const phone=arPhoneUrl(id,'ios','ro-RO','https://360configurator.ro'),u=new URL(phone);assert.equal(u.searchParams.get('mode'),'ios');assert.equal(u.searchParams.get('id'),id);assert.equal(u.pathname,'/configurator-hala/ar.html');
   assert.equal(new URL(arPhoneUrl(id,'ios','de-DE','https://www.360konfigurator.de')).pathname,'/hallen-konfigurator/ar.html');
   assert.equal(new URL(arPhoneUrl(id,'ios','ro-RO','https://customer.360configurator.com')).pathname,'/hall-configurator/ar.html');
+  for(const [locale,origin,path] of [['es-ES','https://www.360configurador.es','/configurador-naves/'],['fr-FR','https://www.360configurateur.fr','/configurateur-hangar/'],['it-IT','https://www.360configuratore.it','/configuratore-capannone/']]){
+    const v=new URL(arPhoneUrl(id,'android',locale,origin));assert.equal(v.origin,origin);assert.equal(v.pathname,path+'ar.html');assert.equal(v.searchParams.get('lang'),locale);
+  }
   assert.match(arModelUrl(id,'usdz'),/\/hall.usdz\?/);
   const intent=sceneViewerIntent(arModelUrl(id,'glb'),phone);assert.match(intent,/mode=ar_preferred/);assert.match(intent,/package=com.google.android.googlequicksearchbox/);assert.ok(intent.includes(encodeURIComponent(arModelUrl(id,'glb'))));
 });
-test('EN/RO/DE strings and offline QR generation',()=>{
-  const base=Object.keys(AR_COPY['en-US']).sort();for(const locale of ['ro-RO','de-DE'])assert.deepEqual(Object.keys(AR_COPY[locale]).sort(),base);
+test('EN/RO/DE/ES/FR/IT strings and offline QR generation',()=>{
+  const base=Object.keys(AR_COPY['en-US']).sort();for(const locale of ['ro-RO','de-DE','es-ES','fr-FR','it-IT']){assert.ok(AR_COPY[locale],locale);assert.deepEqual(Object.keys(AR_COPY[locale]).sort(),base);}
   const url='https://360configurator.com/hall-configurator/ar.html?id=12345678901234567890123456789012&mode=android&lang=en-US';
   const matrix=qrMatrix(url);assert.ok(matrix.length>=21);assert.equal(matrix[0][0],true);assert.equal(matrix[6][6],true);
   assert.match(qrSvg(url),/viewBox/);assert.throws(()=>qrMatrix('a'.repeat(2000)));

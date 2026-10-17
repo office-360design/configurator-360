@@ -26,7 +26,10 @@ function validStoredAsset(id, data) {
 const PUBLIC_ORIGINS = new Set([
   'https://360configurator.com', 'https://www.360configurator.com',
   'https://360configurator.ro', 'https://www.360configurator.ro',
-  'https://360konfigurator.de', 'https://www.360konfigurator.de', 'https://aks.360configurator.com',
+  'https://360konfigurator.de', 'https://www.360konfigurator.de',
+  'https://360configurador.es', 'https://www.360configurador.es',
+  'https://360configurateur.fr', 'https://www.360configurateur.fr',
+  'https://360configuratore.it', 'https://www.360configuratore.it', 'https://aks.360configurator.com',
 ]);
 const DEV_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 const OPTIONS = {

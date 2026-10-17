@@ -1,6 +1,6 @@
 import { buildPoleGrid } from './layout.js?v=platform-18';
-import { pergolaPlural, pergolaT, pergolaValueLabel } from './i18n.js?v=platform-18';
-import { countHeaters, getTotalSpotlights } from './state.js?v=platform-18';
+import { pergolaPlural, pergolaT, pergolaValueLabel } from './i18n.js?v=locales-6';
+import { countHeaters, getTotalSpotlights } from './state.js?v=locales-6';
 
 const CURRENCY_PROFILES = Object.freeze({
   USD: {
@@ -48,10 +48,24 @@ const servicePrices = {
   warranty: 450,
 };
 
+// The currency profile locale is only a fallback. When the active UI locale is
+// known (en-US, ro-RO, de-DE, es-ES, fr-FR, it-IT) prices are formatted with it,
+// so EUR shows as 1.234 € in es-ES, 1 234 € in fr-FR and 1.234 € in it-IT.
+function resolveFormattingLocale(locale, profile) {
+  if (typeof locale === 'string' && locale) {
+    try {
+      if (Intl.NumberFormat.supportedLocalesOf([locale]).length) return locale;
+    } catch {
+      // Invalid locale tag: use the currency profile locale.
+    }
+  }
+  return profile.locale;
+}
+
 export function formatMoney(value, currency = 'USD', locale = null) {
   const profile = CURRENCY_PROFILES[currency] ?? CURRENCY_PROFILES.USD;
   const converted = Number(value) * profile.rateFromUsd;
-  return new Intl.NumberFormat(locale || profile.locale, {
+  return new Intl.NumberFormat(resolveFormattingLocale(locale, profile), {
     style: 'currency',
     currency,
     maximumFractionDigits: profile.maximumFractionDigits,

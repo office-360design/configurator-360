@@ -1,10 +1,10 @@
-import { createFenceARController } from './ar/controller.js?v=fence-ar-2';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-5';
+import { createFenceARController } from './ar/controller.js?v=locales-6';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=locales-6';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('fence');
 

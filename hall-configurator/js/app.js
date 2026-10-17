@@ -1,11 +1,11 @@
-import { createHallTemplate } from './templates.js?v=hall-production-1';
-import { state, deriveHallMetrics } from './state.js?v=hall-production-1';
-import { HallScene } from './scene.js?v=hall-production-1';
-import { HallUI } from './ui.js?v=hall-production-1';
-import { normalizeOpenings } from './openings.js?v=hall-production-1';
-import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=hall-production-1';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createHallTemplate } from './templates.js?v=locales-6';
+import { state, deriveHallMetrics } from './state.js?v=locales-6';
+import { HallScene } from './scene.js?v=locales-6';
+import { HallUI } from './ui.js?v=locales-6';
+import { normalizeOpenings } from './openings.js?v=locales-6';
+import { applyHallTranslations, resolveHallLocale } from './i18n.js?v=locales-6';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 await requireTenantConfiguratorAccess('hall');
 

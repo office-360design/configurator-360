@@ -6,6 +6,9 @@ const variants = [
   {locale:'en', prefix:'', host:'www.360configurator.com', category:'3D Product Configurator Software for Manufacturers', cost:'Product Configurator Cost and Implementation', intro:'These answers explain the implementation model.'},
   {locale:'ro', prefix:'ro/', host:'www.360configurator.ro', category:'Dezvoltare configuratoare 3D pentru producători', cost:'Costuri și implementare configuratoare 3D', intro:'Răspunsurile explică modelul de implementare.'},
   {locale:'de', prefix:'de/', host:'www.360konfigurator.de', category:'3D-Produktkonfigurator für Hersteller', cost:'Produktkonfigurator Kosten und Umsetzung', intro:'Diese Antworten erläutern das Implementierungsmodell.'},
+  {locale:'es', prefix:'es/', host:'www.360configurador.es', category:'Software configurador 3D de productos para fabricantes', cost:'Coste e implantación de un configurador de productos', intro:'Estas respuestas explican el modelo de implantación.'},
+  {locale:'fr', prefix:'fr/', host:'www.360configurateur.fr', category:'Logiciel configurateur 3D de produits pour fabricants', cost:'Coût et mise en œuvre d’un configurateur de produits', intro:'Ces réponses expliquent le modèle de mise en œuvre.'},
+  {locale:'it', prefix:'it/', host:'www.360configuratore.it', category:'Software configuratore 3D di prodotto per produttori', cost:'Costi e implementazione di un configuratore di prodotto', intro:'Queste risposte spiegano il modello di implementazione.'},
 ];
 const products = ['pergola','roof','window','hall','solar','fence','chair','cardbox','bookshelf','tiles'];
 const text = html => html.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#x27;|&#39;/g,"'");

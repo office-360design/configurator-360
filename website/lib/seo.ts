@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { contactPhone, localeOrigins, localizedUrl, type Locale } from "./i18n";
+import { contactEmail, contactPhone, localeOrigins, localizedUrl, type Locale } from "./i18n";
 
 export const SITE_URL = localeOrigins.en;
 export const SITE_NAME = "360Configurator";
@@ -14,6 +14,9 @@ const openGraphLocales: Record<Locale, string> = {
   en: "en_US",
   ro: "ro_RO",
   de: "de_DE",
+  es: "es_ES",
+  fr: "fr_FR",
+  it: "it_IT",
 };
 
 export function siteUrl(locale: Locale) {
@@ -25,6 +28,9 @@ export function languageAlternates(path = "/") {
     en: localizedUrl("en", path),
     "ro-RO": localizedUrl("ro", path),
     "de-DE": localizedUrl("de", path),
+    "es-ES": localizedUrl("es", path),
+    "fr-FR": localizedUrl("fr", path),
+    "it-IT": localizedUrl("it", path),
     "x-default": localizedUrl("en", path),
   };
 }
@@ -94,7 +100,7 @@ export function organizationSchema(locale: Locale, description: string) {
     name: SITE_NAME,
     url: SITE_URL,
     logo: { "@type": "ImageObject", url: `${SITE_URL}/brand/360configurator.png`, width: 500, height: 250 },
-    email: locale === "ro" ? "office@360configurator.ro" : "office@360configurator.com",
+    email: contactEmail(locale),
     telephone: contactPhone.international,
     description,
     areaServed: "Worldwide",

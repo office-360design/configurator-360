@@ -1,17 +1,23 @@
-import { CURRENCY_OPTIONS, UNIT_OPTIONS } from '../config.js?v=tenant-domains-1';
-import { sharedT } from '../i18n.js?v=platform-18';
+import { CURRENCY_OPTIONS, UNIT_OPTIONS } from '../config.js?v=locales-6';
+import { sharedT } from '../i18n.js?v=locales-6';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 const LANGUAGE_OPTIONS = Object.freeze([
   { value: 'en-US', label: 'English (US)' },
   { value: 'ro-RO', label: 'Română' },
   { value: 'de-DE', label: 'Deutsch' },
+  { value: 'es-ES', label: 'Español' },
+  { value: 'fr-FR', label: 'Français' },
+  { value: 'it-IT', label: 'Italiano' },
 ]);
 
 const DOMAIN_OPTIONS = Object.freeze([
   { value: 'com', label: '360configurator.com' },
   { value: 'ro', label: '360configurator.ro' },
   { value: 'de', label: '360konfigurator.de' },
+  { value: 'es', label: '360configurador.es' },
+  { value: 'fr', label: '360configurateur.fr' },
+  { value: 'it', label: '360configuratore.it' },
 ]);
 
 function initials(name = '', email = '') {

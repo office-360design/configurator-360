@@ -1,9 +1,9 @@
-import { renderPlatformAttribution } from './tenantBranding.js?v=tenant-branding-1';
-import { singleConfiguratorHomepageUrl } from './tenantHomepage.js?v=tenant-homepage-1';
-import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
-import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=tenant-homepage-1';
+import { renderPlatformAttribution } from './tenantBranding.js?v=locales-6';
+import { singleConfiguratorHomepageUrl } from './tenantHomepage.js?v=locales-6';
+import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=locales-6';
+import { TENANT_CONFIGURATORS, resolveTenantContext } from './tenantBootstrap.js?v=locales-6';
 
-import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from './config.js?v=tenant-routes-1';
+import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from './config.js?v=locales-6';
 
 const page = document.querySelector('#tenantPage');
 

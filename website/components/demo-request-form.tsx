@@ -41,6 +41,9 @@ const productNames: Record<Locale, Record<ConfiguratorId, string>> = {
   en: { window: "Window configurator", pergola: "Pergola configurator", roof: "Roof configurator", hall: "Hall configurator", solar: "Solar configurator", fence: "Fence configurator", cardbox: "Cardbox configurator" },
   ro: { window: "Configurator ferestre", pergola: "Configurator pergole", roof: "Configurator acoperiș", hall: "Configurator hale", solar: "Configurator solar", fence: "Configurator garduri", cardbox: "Configurator cutii din carton" },
   de: { window: "Fenster-Konfigurator", pergola: "Pergola-Konfigurator", roof: "Dach-Konfigurator", hall: "Hallen-Konfigurator", solar: "Solar-Konfigurator", fence: "Zaun-Konfigurator", cardbox: "Kartonbox-Konfigurator" },
+  es: { window: "Configurador de ventanas", pergola: "Configurador de pérgolas", roof: "Configurador de tejados", hall: "Configurador de naves", solar: "Configurador solar", fence: "Configurador de vallas", cardbox: "Configurador de cajas de cartón" },
+  fr: { window: "Configurateur de fenêtres", pergola: "Configurateur de pergolas", roof: "Configurateur de toiture", hall: "Configurateur de hangars", solar: "Configurateur solaire", fence: "Configurateur de clôtures", cardbox: "Configurateur de cartons" },
+  it: { window: "Configuratore di finestre", pergola: "Configuratore di pergole", roof: "Configuratore di tetti", hall: "Configuratore di capannoni", solar: "Configuratore fotovoltaico", fence: "Configuratore di recinzioni", cardbox: "Configuratore di scatole" },
 };
 
 const copyByLocale = {
@@ -134,7 +137,97 @@ const copyByLocale = {
     missingConfigurator: "Fügen Sie mindestens einen interessanten Konfigurator hinzu.",
     missingRequired: "Füllen Sie die rot markierten Pflichtfelder aus.",
   },
-} as const;
+  es: {
+    configurator: "Configuradores de interés",
+    sourceConfigurator: "Seleccionado automáticamente según la página desde la que abrió este formulario",
+    addConfigurator: "Añadir configurador",
+    selectConfigurator: "Elegir otro configurador",
+    removeConfigurator: "Quitar configurador",
+    name: "Su nombre",
+    email: "Correo profesional",
+    company: "Nombre de la empresa",
+    phone: "Teléfono",
+    website: "Sitio web de la empresa",
+    role: "Cargo / función",
+    rolePlaceholder: "Seleccione una función",
+    roleOptions: { owner: "Propietario / fundador", executive: "CEO / Director general", sales: "Ventas / Desarrollo de negocio", design: "Diseño / Ingeniería", operations: "Operaciones / Producción", procurement: "Compras / Aprovisionamiento", it: "IT / Software", marketing: "Marketing", other: "Otro", private: "Prefiero no decirlo" },
+    country: "País / región",
+    timing: "Plazo preferido para la demo",
+    timingPlaceholder: "Sin preferencia",
+    timingOptions: { asap: "Lo antes posible", week: "Esta semana", fortnight: "En las próximas dos semanas" },
+    notes: "¿Qué le gustaría ver en la demo?",
+    notesPlaceholder: "Opcional: reglas de producto, precios, BOM, integraciones, flujo comercial, datos CAD…",
+    back: "Volver",
+    submit: "Enviar solicitud",
+    submitting: "Enviando solicitud…",
+    consent: "Al enviar esta solicitud, acepta que el equipo de 360Configurator se ponga en contacto con usted sobre esta demo.",
+    ready: "Su solicitud de demo se ha enviado correctamente. Nos pondremos en contacto con usted en breve.",
+    error: "No se ha podido enviar la solicitud. Compruebe su conexión e inténtelo de nuevo.",
+    rateLimited: "Se han enviado demasiadas solicitudes en poco tiempo. Inténtelo de nuevo más tarde.",
+    missingConfigurator: "Añada al menos un configurador de interés.",
+    missingRequired: "Complete los campos obligatorios marcados en rojo.",
+  },
+  fr: {
+    configurator: "Configurateurs qui vous intéressent",
+    sourceConfigurator: "Sélectionné automatiquement selon la page depuis laquelle vous avez ouvert ce formulaire",
+    addConfigurator: "Ajouter un configurateur",
+    selectConfigurator: "Choisir un autre configurateur",
+    removeConfigurator: "Retirer le configurateur",
+    name: "Votre nom",
+    email: "E-mail professionnel",
+    company: "Nom de l’entreprise",
+    phone: "Téléphone",
+    website: "Site web de l’entreprise",
+    role: "Poste / fonction",
+    rolePlaceholder: "Sélectionnez une fonction",
+    roleOptions: { owner: "Propriétaire / fondateur", executive: "PDG / Directeur général", sales: "Ventes / Développement commercial", design: "Conception / Ingénierie", operations: "Opérations / Production", procurement: "Achats / Approvisionnement", it: "IT / Logiciel", marketing: "Marketing", other: "Autre", private: "Je préfère ne pas répondre" },
+    country: "Pays / région",
+    timing: "Période souhaitée pour la démo",
+    timingPlaceholder: "Pas de préférence",
+    timingOptions: { asap: "Dès que possible", week: "Cette semaine", fortnight: "Sous deux semaines" },
+    notes: "Que souhaitez-vous voir pendant la démo ?",
+    notesPlaceholder: "Facultatif : règles produit, prix, nomenclature, intégrations, processus commercial, données CAO…",
+    back: "Retour",
+    submit: "Envoyer la demande",
+    submitting: "Envoi de la demande…",
+    consent: "En envoyant cette demande, vous acceptez que l’équipe 360Configurator vous contacte au sujet de cette démo.",
+    ready: "Votre demande de démo a bien été envoyée. Nous vous contacterons rapidement.",
+    error: "La demande n’a pas pu être envoyée. Vérifiez votre connexion et réessayez.",
+    rateLimited: "Trop de demandes ont été envoyées en peu de temps. Veuillez réessayer plus tard.",
+    missingConfigurator: "Ajoutez au moins un configurateur qui vous intéresse.",
+    missingRequired: "Veuillez remplir les champs obligatoires signalés en rouge.",
+  },
+  it: {
+    configurator: "Configuratori di interesse",
+    sourceConfigurator: "Selezionato automaticamente in base alla pagina da cui ha aperto questo modulo",
+    addConfigurator: "Aggiungi configuratore",
+    selectConfigurator: "Scegli un altro configuratore",
+    removeConfigurator: "Rimuovi configuratore",
+    name: "Il Suo nome",
+    email: "Email aziendale",
+    company: "Nome dell’azienda",
+    phone: "Telefono",
+    website: "Sito web aziendale",
+    role: "Ruolo / funzione",
+    rolePlaceholder: "Selezioni un ruolo",
+    roleOptions: { owner: "Titolare / fondatore", executive: "CEO / Amministratore delegato", sales: "Vendite / Business Development", design: "Progettazione / Ingegneria", operations: "Operations / Produzione", procurement: "Acquisti / Approvvigionamento", it: "IT / Software", marketing: "Marketing", other: "Altro", private: "Preferisco non indicarlo" },
+    country: "Paese / regione",
+    timing: "Tempistica preferita per la demo",
+    timingPlaceholder: "Nessuna preferenza",
+    timingOptions: { asap: "Il prima possibile", week: "Questa settimana", fortnight: "Entro due settimane" },
+    notes: "Cosa desidera vedere nella demo?",
+    notesPlaceholder: "Facoltativo: regole di prodotto, prezzi, BOM, integrazioni, flusso commerciale, dati CAD…",
+    back: "Indietro",
+    submit: "Invia richiesta",
+    submitting: "Invio della richiesta…",
+    consent: "Inviando questa richiesta, accetta che il team di 360Configurator La contatti in merito a questa demo.",
+    ready: "La Sua richiesta di demo è stata inviata correttamente. La contatteremo a breve.",
+    error: "Non è stato possibile inviare la richiesta. Verifichi la connessione e riprovi.",
+    rateLimited: "Sono state inviate troppe richieste in poco tempo. Riprovi più tardi.",
+    missingConfigurator: "Aggiunga almeno un configuratore di interesse.",
+    missingRequired: "Compili i campi obbligatori evidenziati in rosso.",
+  },
+} as const satisfies Record<Locale, unknown>;
 
 const ROLE_VALUES = [
   ["owner-founder", "owner"],
@@ -268,6 +361,9 @@ function requiredFieldErrors(form: HTMLFormElement) {
   if (!email || Boolean(emailElement?.validity.typeMismatch)) result.email = true;
   return result;
 }
+
+// Each site suggests its own market; English keeps the original example.
+const countryPlaceholders: Record<Locale, string> = { en: "Romania", ro: "România", de: "Deutschland", es: "España", fr: "France", it: "Italia" };
 
 export function DemoRequestForm({ locale }: { locale: Locale }) {
   const copy = copyByLocale[locale];
@@ -421,7 +517,7 @@ export function DemoRequestForm({ locale }: { locale: Locale }) {
         <label className={invalidFields.phone ? "is-invalid" : ""}><span>{copy.phone} <b>*</b></span><input name="phone" type="tel" autoComplete="tel" maxLength={60} aria-required="true" onInput={() => clearInvalidField("phone")} placeholder="+40 712 345 678" /></label>
         <label><span>{copy.website}</span><input name="companyWebsite" inputMode="url" maxLength={300} placeholder="company.com" /></label>
         <label><span>{copy.role}</span><select name="jobTitle" defaultValue=""><option value="">{copy.rolePlaceholder}</option>{ROLE_VALUES.map(([value, label]) => <option key={value} value={value}>{copy.roleOptions[label]}</option>)}</select></label>
-        <label><span>{copy.country}</span><input name="country" autoComplete="country-name" maxLength={120} placeholder="Romania" /></label>
+        <label><span>{copy.country}</span><input name="country" autoComplete="country-name" maxLength={120} placeholder={countryPlaceholders[locale]} /></label>
         <label><span>{copy.timing}</span><select name="preferredTiming" defaultValue=""><option value="">{copy.timingPlaceholder}</option><option value="asap">{copy.timingOptions.asap}</option><option value="week">{copy.timingOptions.week}</option><option value="fortnight">{copy.timingOptions.fortnight}</option></select></label>
       </div>
 

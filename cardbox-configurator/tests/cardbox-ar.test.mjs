@@ -29,13 +29,13 @@ test('Cardbox remains enabled alongside subsequent explicit product opt-ins',()=
  }
 });
 test('Both QR modes use canonical, localized and tenant Cardbox routes and validated filenames',()=>{
- for(const [origin,path]of [['https://www.360configurator.com','cardbox-configurator'],['https://www.360configurator.ro','configurator-cutii-carton'],['https://360konfigurator.de','karton-konfigurator'],['https://tenant.360configurator.ro','cardbox-configurator']])for(const mode of ['android','ios']){
+ for(const [origin,path]of [['https://www.360configurator.com','cardbox-configurator'],['https://www.360configurator.ro','configurator-cutii-carton'],['https://360konfigurator.de','karton-konfigurator'],['https://www.360configurador.es','configurador-cajas-carton'],['https://www.360configurateur.fr','configurateur-cartons'],['https://360configuratore.it','configuratore-scatole'],['https://tenant.360configurator.ro','cardbox-configurator']])for(const mode of ['android','ios']){
   const u=new URL(arPhoneUrl('a'.repeat(32),mode,'ro-RO',origin,'cardbox'));assert.equal(u.origin,origin);assert.equal(u.pathname,`/${path}/ar.html`);assert.equal(u.searchParams.get('mode'),mode);
  }
  for(const format of ['glb','usdz'])assert.match(arModelUrl('b'.repeat(32),format,'cardbox'),new RegExp(`cardbox\\.${format}\\?`));
 });
 test('Localized Cardbox copy retains generic preparation and no removed long descriptions',()=>{
- for(const locale of ['en-US','ro-RO','de-DE']){
+ for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']){
   const copy=AR_COPY.cardbox[locale];assert.deepEqual(Object.keys(copy).sort(),Object.keys(AR_COPY.cardbox['en-US']).sort());
   for(const key of Object.keys(AR_COPY.hall['en-US']))assert.ok(copy[key]);
   for(const key of ['building','exporting','uploading','checking'])assert.doesNotMatch(copy[key],/Firebase|Supabase|GLB|USDZ|geometry|geometrie|upload/i);

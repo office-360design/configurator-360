@@ -3,7 +3,7 @@ import {
   observeGoogleAuth,
   signInWithGoogle,
   signOutGoogle,
-} from '/shared-ui/src/firebaseAuth.js?v=19';
+} from '/shared-ui/src/firebaseAuth.js?v=20';
 
 const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 const state = {

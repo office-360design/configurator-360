@@ -2,7 +2,17 @@
 export const GA_ID = 'G-2E433G5VM7';
 export const CONSENT_KEY = '360-analytics-consent-v1';
 export const INTERNAL_KEY = '360-internal-test';
-export const PUBLIC_DOMAINS = ['www.360configurator.com', 'www.360configurator.ro', 'www.360konfigurator.de'];
+export const PUBLIC_DOMAINS = ['www.360configurator.com', 'www.360configurator.ro', 'www.360konfigurator.de', 'www.360configurador.es', 'www.360configurateur.fr', 'www.360configuratore.it'];
+// Public host → website language. Every host in PUBLIC_DOMAINS has an entry.
+const DOMAIN_LANGUAGES = {
+  'www.360configurator.com': 'en',
+  'www.360configurator.ro': 'ro',
+  'www.360konfigurator.de': 'de',
+  'www.360configurador.es': 'es',
+  'www.360configurateur.fr': 'fr',
+  'www.360configuratore.it': 'it',
+};
+const SUFFIX_LANGUAGES = { '.ro': 'ro', '.de': 'de', '.es': 'es', '.fr': 'fr', '.it': 'it' };
 const PRODUCTS = new Set(['pergola','roof','window','hall','solar','fence','chair','cardbox','bookshelf','tiles']);
 const EVENTS = new Set(['lite_preview_view','lite_preview_engaged','lite_preview_error','full_configurator_open','contact_intent','demo_request_open','lead_form_start','form_error','generate_lead']);
 const seen = new Set();
@@ -33,7 +43,9 @@ export function isInternalVisit(location, storage) {
 }
 
 export function analyticsContext(location) {
-  return { language: location.hostname.endsWith('.ro') ? 'ro' : location.hostname.endsWith('.de') ? 'de' : 'en', hostname: location.hostname };
+  const host = location.hostname.toLowerCase();
+  const suffix = Object.keys(SUFFIX_LANGUAGES).find((ending) => host.endsWith(ending));
+  return { language: DOMAIN_LANGUAGES[host] ?? (suffix ? SUFFIX_LANGUAGES[suffix] : 'en'), hostname: location.hostname };
 }
 
 export function trackWebsiteEvent(name, parameters = {}, once = false) {

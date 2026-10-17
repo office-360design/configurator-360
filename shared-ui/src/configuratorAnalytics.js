@@ -1,4 +1,4 @@
-import { getFirebaseIdToken } from './firebaseAuth.js?v=platform-18';
+import { getFirebaseIdToken } from './firebaseAuth.js?v=locales-6';
 
 const PROJECT_ID = 'configurator-360';
 const FUNCTIONS_REGION = 'europe-west1';

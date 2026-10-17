@@ -128,3 +128,13 @@ test('explicit consent and withdrawal still work for this session when storage i
   assert.equal(isolated.trackWebsiteEvent('contact_intent',{method:'email'}),false);
   assert.equal(calls.length,1);
 });
+
+test('analytics language follows every public website domain', () => {
+  const expected = {
+    'www.360configurator.com': 'en', 'www.360configurator.ro': 'ro', 'www.360konfigurator.de': 'de',
+    'www.360configurador.es': 'es', 'www.360configurateur.fr': 'fr', 'www.360configuratore.it': 'it',
+  };
+  assert.deepEqual([...PUBLIC_DOMAINS].sort(), Object.keys(expected).sort());
+  for (const [hostname, language] of Object.entries(expected)) assert.equal(analyticsContext({hostname}).language, language);
+  assert.equal(analyticsContext({hostname: 'localhost'}).language, 'en');
+});

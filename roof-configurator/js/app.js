@@ -3,17 +3,17 @@ import { validateSheetProfile } from './sheetPlanner.js?v=sketch-47';
 import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import { defaultSketch, sketchArea, validateSketch } from './slopeSketch.js?v=sketch-1';
 import { state, pitchRules, roofNames } from './state.js?v=drainage-48';
-import { RoofScene } from './scene.js?v=restore-1';
-import { RoofUI } from './ui.js?v=restore-1';
+import { RoofScene } from './scene.js?v=locales-6';
+import { RoofUI } from './ui.js?v=locales-6';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=platform-18';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=restore-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+} from './preferences.js?v=locales-6';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 await requireTenantConfiguratorAccess('roof');
 

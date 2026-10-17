@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import * as THREE from 'three';
 import { createFenceState } from '../js/state.js';
 import { buildFenceAssembly } from '../js/fenceFactory.js';
+import { FENCE_MESSAGES } from '../js/i18n.js';
 import { captureFenceARSnapshot, createFenceFirebaseARAsset } from '../js/ar/exportFence.js';
 import { AR_COPY } from '../../shared-ui/src/ar/i18n.js';
 import { AR_PRODUCTS, arPhoneUrl, arModelUrl } from '../../shared-ui/src/ar/links.js';
@@ -25,9 +26,20 @@ test('Fence opt-in, six-product policy and locale-complete copy',()=>{
     assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),AR_PRODUCTS.includes(product));
     assert.equal(isConfiguratorAREnabled(product,{}),false);
   }
-  for(const locale of ['en-US','ro-RO','de-DE']){
+  for(const locale of Object.keys(AR_COPY.hall)){
     assert.deepEqual(Object.keys(AR_COPY.fence[locale]).sort(),Object.keys(AR_COPY.hall[locale]).sort());
     assert.notEqual(AR_COPY.fence[locale].title,AR_COPY.hall[locale].title);
+  }
+});
+test('Fence UI copy is complete for en, ro, de, es, fr and it with matching placeholders',()=>{
+  const locales=['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT'];
+  assert.deepEqual(Object.keys(FENCE_MESSAGES),locales);
+  const vars=s=>[...String(s).matchAll(/\{(\w+)\}/g)].map(m=>m[1]).sort();
+  const en=FENCE_MESSAGES['en-US'];
+  for(const locale of locales){
+    assert.deepEqual(Object.keys(FENCE_MESSAGES[locale]).sort(),Object.keys(en).sort(),locale);
+    for(const key of Object.keys(en))assert.deepEqual(vars(FENCE_MESSAGES[locale][key]),vars(en[key]),`${locale} ${key}`);
+    if(locale!=='en-US')assert.notEqual(FENCE_MESSAGES[locale]['sidebar.title'],en['sidebar.title'],locale);
   }
 });
 test('Canonical/localized/tenant phone paths and both model formats',()=>{

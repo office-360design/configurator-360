@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DEFAULT_STATE, LIMITS, PRESETS, normalizeState } from '../js/facade.js';
-import { MESSAGES } from '../js/i18n.js';
+import { MESSAGES, resolveLocale } from '../js/i18n.js';
 
 test('state is normalised to the grid limits', () => {
   const S = normalizeState({ widths: [100, 9000], heights: [], rowTypes: ['x'], windLoad: 9, anchorSpacing: 1, qty: 0, glassTint: 'pink' });
@@ -36,5 +36,19 @@ test('translations exist in every locale for every key used', () => {
   for (const locale of Object.keys(MESSAGES)) {
     for (const key of used) assert.ok(key in MESSAGES[locale], `${locale} lacks ${key}`);
     assert.deepEqual(Object.keys(MESSAGES[locale]).sort(), Object.keys(MESSAGES['ro-RO']).sort(), `${locale} key parity`);
+  }
+});
+
+test('every locale has the same placeholders as English', () => {
+  assert.deepEqual(Object.keys(MESSAGES), ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']);
+  const vars = text => [...String(text).matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort();
+  for (const [locale, table] of Object.entries(MESSAGES)) {
+    for (const [key, text] of Object.entries(MESSAGES['en-US'])) assert.deepEqual(vars(table[key]), vars(text), `${locale} ${key}`);
+  }
+});
+
+test('resolveLocale recognises short and full codes', () => {
+  for (const [input, expected] of [['en', 'en-US'], ['ro-RO', 'ro-RO'], ['de', 'de-DE'], ['es', 'es-ES'], ['es-ES', 'es-ES'], ['fr', 'fr-FR'], ['fr-FR', 'fr-FR'], ['it', 'it-IT'], ['it-IT', 'it-IT']]) {
+    assert.equal(resolveLocale(input), expected);
   }
 });

@@ -1,5 +1,5 @@
-import { TENANT_CONFIGURATORS, getTenantSlugForHostname } from './tenantBootstrap.js?v=tenant-homepage-1';
-import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from './config.js?v=tenant-routes-1';
+import { TENANT_CONFIGURATORS, getTenantSlugForHostname } from './tenantBootstrap.js?v=locales-6';
+import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from './config.js?v=locales-6';
 
 /** Resolve an opt-in homepage redirect using live entitlements, never a pending plan. */
 export function singleConfiguratorHomepageUrl(context, location = globalThis.location) {

@@ -40,16 +40,16 @@ test('Roof and Solar explicitly enabled alongside the eight earlier products',()
  }
 });
 test('Localized and tenant Roof phone routes stay on the current origin',()=>{
- for(const [origin,path] of [['https://www.360configurator.com','/roof-configurator/'],['https://www.360configurator.ro','/configurator-acoperis/'],['https://360konfigurator.de','/dach-konfigurator/'],['https://customer.360configurator.ro','/roof-configurator/']]){
-  for(const locale of ['en-US','ro-RO','de-DE'])for(const mode of ['android','ios']){
+ for(const [origin,path] of [['https://www.360configurator.com','/roof-configurator/'],['https://www.360configurator.ro','/configurator-acoperis/'],['https://360konfigurator.de','/dach-konfigurator/'],['https://www.360configurador.es','/configurador-tejados/'],['https://www.360configurateur.fr','/configurateur-toiture/'],['https://www.360configuratore.it','/configuratore-tetto/'],['https://customer.360configurator.ro','/roof-configurator/']]){
+  for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT'])for(const mode of ['android','ios']){
    const u=new URL(arPhoneUrl('A'.repeat(32),mode,locale,origin,'roof'));
    assert.equal(u.origin,origin);assert.equal(u.pathname,path+'ar.html');assert.equal(u.searchParams.get('lang'),locale);assert.equal(u.searchParams.get('mode'),mode);
   }
  }
  for(const f of ['glb','usdz'])assert.match(arModelUrl('A'.repeat(32),f,'roof'),new RegExp(`roof\\.${f}\\?`));
 });
-test('Roof texts keep the shared generic progress and short dialog in all three languages',()=>{
- for(const l of ['en-US','ro-RO','de-DE']){
+test('Roof texts keep the shared generic progress and short dialog in all six languages',()=>{
+ for(const l of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']){
   const c=AR_COPY.roof[l];assert.deepEqual(Object.keys(c).sort(),Object.keys(AR_COPY.roof['en-US']).sort());
   for(const k of ['building','exporting','uploading','checking'])assert.doesNotMatch(c[k],/firebase|supabase|glb|usdz|upload/i);
   assert.equal(c.snapshot,undefined);assert.equal(c.scale,undefined);

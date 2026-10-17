@@ -28,7 +28,7 @@ test('Only Hall, Window, Pergola, Fence, Pavement and Chair opt-in; native/local
   assert.match(arModelUrl(id,'usdz','window'),/\/window.usdz\?/);assert.match(sceneViewerIntent(arModelUrl(id,'glb','window'),'https://example.test','Your configured window'),/title=Your\+configured\+window/);
 });
 test('Window AR translations stay complete and distinct from Hall',()=>{
-  for(const locale of ['en-US','ro-RO','de-DE']){assert.deepEqual(Object.keys(AR_COPY.window[locale]).sort(),Object.keys(AR_COPY.hall[locale]).sort());assert.notEqual(AR_COPY.window[locale].title,AR_COPY.hall[locale].title);}
+  for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']){assert.deepEqual(Object.keys(AR_COPY.window[locale]).sort(),Object.keys(AR_COPY.hall[locale]).sort());assert.notEqual(AR_COPY.window[locale].title,AR_COPY.hall[locale].title);}
 });
 test('Snapshot removes exploded positions and non-mesh/hidden decorations without mutating source',()=>{
   const {root,pane}=fixture();const hidden=new THREE.Group();hidden.visible=false;hidden.add(new THREE.Mesh(new THREE.BoxGeometry(100,100,100),new THREE.MeshBasicMaterial()));root.add(hidden);
@@ -156,9 +156,8 @@ test('Window entry invalidates the cached refresh dependency without bypassing A
   const entry=readFileSync(new URL('../../src/client/index.html',import.meta.url),'utf8');
   const main=readFileSync(new URL('../../src/client/js/main.js',import.meta.url),'utf8');
   const controller=readFileSync(new URL('../../src/client/js/ar-controller.js',import.meta.url),'utf8');
-  const release=entry.match(/src="\.\/js\/main\.js\?v=window-ar-(\d+)"/);
-  assert.ok(release && Number(release[1]) >= 3, 'entry must invalidate the pre-fix AR cache');
-  assert.match(main,/from '\.\/profile-controller\.js\?v=window-ar-3'/);
+  assert.match(entry,/src="\.\/js\/main\.js\?v=locales-6"/,'entry must invalidate the pre-fix AR cache');
+  assert.match(main,/from '\.\/profile-controller\.js\?v=locales-6'/);
   assert.match(controller,/!getProfilesReady\?\.\(\)/);
   assert.match(controller,/window\.CONFIGURATOR_READY === false/);
 });

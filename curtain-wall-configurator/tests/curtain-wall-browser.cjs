@@ -74,7 +74,7 @@ const path = require('node:path');
   if (shots) await page.screenshot({ path: path.join(shots, 'cw-cortizo.png') });
 
   // Locales follow the shell.
-  for (const [locale, title] of [['en-US', 'Configure the facade'], ['de-DE', 'Fassade konfigurieren'], ['ro-RO', 'Configurează fațada']]) {
+  for (const [locale, title] of [['en-US', 'Configure the facade'], ['de-DE', 'Fassade konfigurieren'], ['es-ES', 'Configure la fachada'], ['fr-FR', 'Configurez la façade'], ['it-IT', 'Configuri la facciata'], ['ro-RO', 'Configurează fațada']]) {
     await api(l => window.CURTAIN_WALL_API.setLocale(l), locale);
     assert.equal(await page.locator('.intro-section h1').textContent(), title);
   }

@@ -1,9 +1,9 @@
-import { createBookshelfARController } from './ar/controller.js?v=bookshelf-ar-1';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-8';
+import { createBookshelfARController } from './ar/controller.js?v=locales-6';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=locales-6';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('bookshelf');
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
@@ -84,6 +84,9 @@ const BOOKSHELF_QUOTE_LABELS = Object.freeze({
   'en-US': 'Ask for quotation',
   'ro-RO': 'Cere ofertă',
   'de-DE': 'Angebot anfragen',
+  'es-ES': 'Solicitar presupuesto',
+  'fr-FR': 'Demander un devis',
+  'it-IT': 'Richiedi preventivo',
 });
 
 function syncBookshelfLocalShell() {
@@ -203,6 +206,93 @@ const BOOKSHELF_QUOTATION_COPY = Object.freeze({
     failure: 'Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es erneut.',
     shareFailure: 'Der Konfigurationslink konnte nicht erstellt werden. Bitte versuchen Sie es erneut.',
     cooldown: (seconds) => `Bitte warten Sie noch ${seconds} Sekunde${seconds === 1 ? '' : 'n'}, bevor Sie eine neue Anfrage senden.`,
+  }),
+  'es-ES': Object.freeze({
+    title: 'Solicitar presupuesto',
+    intro: 'Complete los datos siguientes y enviaremos su solicitud de estantería a la fábrica.',
+    name: 'Nombre',
+    nameTip: 'Su nombre completo, que la fábrica usa para identificar y responder a su solicitud.',
+    company: 'Nombre de la empresa',
+    companyTip: 'Opcional. Indique la empresa u organización a la que se asociará el presupuesto.',
+    phone: 'Número de teléfono',
+    phoneTip: 'Un número de teléfono en el que la fábrica pueda contactarle sobre el presupuesto.',
+    email: 'Correo electrónico',
+    emailTip: 'La confirmación y la correspondencia del presupuesto se enviarán a esta dirección.',
+    address: 'Dirección de envío',
+    addressTip: 'La dirección a la que habría que entregar las estanterías configuradas.',
+    quantity: 'Número de estanterías',
+    quantityTip: 'Cuántas unidades de esta estantería configurada completa desea. El valor predeterminado es 1.',
+    optional: 'opcional',
+    send: 'Enviar solicitud',
+    sending: 'Enviando…',
+    close: 'Cerrar formulario de presupuesto',
+    required: 'Complete todos los campos obligatorios.',
+    invalidEmail: 'Introduzca una dirección de correo electrónico válida.',
+    invalidPhone: 'Introduzca un número de teléfono válido.',
+    invalidQuantity: 'Introduzca un número de estanterías válido.',
+    invalidAddress: 'Introduzca una dirección de envío válida.',
+    success: 'Solicitud enviada',
+    failure: 'No se pudo enviar la solicitud. Inténtelo de nuevo.',
+    shareFailure: 'No se pudo crear el enlace de la configuración. Inténtelo de nuevo.',
+    cooldown: (seconds) => `Espere ${seconds} segundo${seconds === 1 ? '' : 's'} antes de enviar otra solicitud.`,
+  }),
+  'fr-FR': Object.freeze({
+    title: 'Demander un devis',
+    intro: 'Complétez les informations ci-dessous et nous transmettrons votre demande de bibliothèque à l\'usine.',
+    name: 'Nom',
+    nameTip: 'Votre nom complet, utilisé par l\'usine pour identifier votre demande et y répondre.',
+    company: 'Nom de l\'entreprise',
+    companyTip: 'Facultatif. Indiquez l\'entreprise ou l\'organisation à associer au devis.',
+    phone: 'Numéro de téléphone',
+    phoneTip: 'Un numéro auquel l\'usine peut vous joindre au sujet du devis.',
+    email: 'E-mail',
+    emailTip: 'La confirmation et les échanges relatifs au devis seront envoyés à cette adresse.',
+    address: 'Adresse de livraison',
+    addressTip: 'L\'adresse à laquelle les bibliothèques configurées devront être livrées.',
+    quantity: 'Nombre de bibliothèques',
+    quantityTip: 'Nombre d\'exemplaires souhaités de cette bibliothèque configurée complète. La valeur par défaut est 1.',
+    optional: 'facultatif',
+    send: 'Envoyer la demande',
+    sending: 'Envoi…',
+    close: 'Fermer le formulaire de devis',
+    required: 'Veuillez remplir tous les champs obligatoires.',
+    invalidEmail: 'Veuillez saisir une adresse e-mail valide.',
+    invalidPhone: 'Veuillez saisir un numéro de téléphone valide.',
+    invalidQuantity: 'Veuillez saisir un nombre de bibliothèques valide.',
+    invalidAddress: 'Veuillez saisir une adresse de livraison valide.',
+    success: 'Demande envoyée',
+    failure: 'La demande n\'a pas pu être envoyée. Veuillez réessayer.',
+    shareFailure: 'Le lien de configuration n\'a pas pu être créé. Veuillez réessayer.',
+    cooldown: (seconds) => `Veuillez patienter ${seconds} seconde${seconds === 1 ? '' : 's'} avant d'envoyer une nouvelle demande.`,
+  }),
+  'it-IT': Object.freeze({
+    title: 'Richiedi preventivo',
+    intro: 'Compili i dati qui sotto e invieremo la Sua richiesta di libreria alla fabbrica.',
+    name: 'Nome',
+    nameTip: 'Il Suo nome completo, usato dalla fabbrica per identificare la richiesta e rispondere.',
+    company: 'Nome dell\'azienda',
+    companyTip: 'Facoltativo. Indichi l\'azienda o l\'organizzazione a cui associare il preventivo.',
+    phone: 'Numero di telefono',
+    phoneTip: 'Un numero di telefono al quale la fabbrica può contattarLa per il preventivo.',
+    email: 'E-mail',
+    emailTip: 'La conferma e la corrispondenza sul preventivo saranno inviate a questo indirizzo.',
+    address: 'Indirizzo di consegna',
+    addressTip: 'L\'indirizzo a cui consegnare le librerie configurate.',
+    quantity: 'Numero di librerie',
+    quantityTip: 'Quante copie di questa libreria configurata completa desidera. Il valore predefinito è 1.',
+    optional: 'facoltativo',
+    send: 'Invia richiesta',
+    sending: 'Invio…',
+    close: 'Chiudi modulo di preventivo',
+    required: 'Compili tutti i campi obbligatori.',
+    invalidEmail: 'Inserisca un indirizzo e-mail valido.',
+    invalidPhone: 'Inserisca un numero di telefono valido.',
+    invalidQuantity: 'Inserisca un numero di librerie valido.',
+    invalidAddress: 'Inserisca un indirizzo di consegna valido.',
+    success: 'Richiesta inviata',
+    failure: 'Impossibile inviare la richiesta. Riprovi.',
+    shareFailure: 'Impossibile creare il link della configurazione. Riprovi.',
+    cooldown: (seconds) => `Attenda ${seconds} second${seconds === 1 ? 'o' : 'i'} prima di inviare un'altra richiesta.`,
   }),
 });
 

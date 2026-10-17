@@ -1,24 +1,24 @@
 import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-10';
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=tenant-routes-1';
-import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
-import { sharedT } from './i18n.js?v=platform-21';
-import { renderActionFeedback } from './components/feedback.js?v=platform-21';
-import { renderTopBar } from './components/topBar.js?v=firebase-ar-10';
-import { syncAccountIdentity } from './components/accountMenu.js?v=platform-21';
-import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
-import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
-import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=platform-19';
-import { renderProfileDialog } from './components/profileDialog.js?v=platform-19';
-import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=platform-19';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=locales-6';
+import { COUNTRY_REGION_DEFAULTS, DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=locales-6';
+import { sharedT } from './i18n.js?v=locales-6';
+import { renderActionFeedback } from './components/feedback.js?v=locales-6';
+import { renderTopBar } from './components/topBar.js?v=locales-6';
+import { syncAccountIdentity } from './components/accountMenu.js?v=locales-6';
+import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=locales-6';
+import { renderToolsMenu } from './components/toolsMenu.js?v=locales-6';
+import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=locales-6';
+import { renderProfileDialog } from './components/profileDialog.js?v=locales-6';
+import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=locales-6';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=quotation-1';
-import { renderCartMenu } from './components/cartMenu.js?v=platform-19';
-import { getUserCart, mutateUserCart } from './userCart.js?v=platform-19';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=platform-19';
-import { readShareState } from './shareState.js?v=platform-19';
-import { currentTenantContext, getTenantSlugForHostname } from './tenantBootstrap.js?v=tenant-domains-1';
-import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=platform-19';
-import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=platform-19';
+import { renderCartMenu } from './components/cartMenu.js?v=locales-6';
+import { getUserCart, mutateUserCart } from './userCart.js?v=locales-6';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=locales-6';
+import { readShareState } from './shareState.js?v=locales-6';
+import { currentTenantContext, getTenantSlugForHostname } from './tenantBootstrap.js?v=locales-6';
+import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=locales-6';
+import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=locales-6';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
@@ -173,10 +173,10 @@ function currentBrowserTimeZone() {
 }
 
 function currentDomainPreference() {
+  // Profile domain keys: 'com' for the English site, the language code
+  // ('ro', 'de', 'es', 'fr', 'it') for every country domain.
   const locale = getLocaleForHostname(window.location.hostname);
-  if (locale === 'ro-RO') return 'ro';
-  if (locale === 'de-DE') return 'de';
-  return 'com';
+  return locale === 'en-US' ? 'com' : locale.slice(0, 2).toLowerCase();
 }
 
 function profileAvatarUrl(profile, auth) {
@@ -1530,6 +1530,15 @@ export class StandaloneConfiguratorShell {
         region = { countryCode: '', locale, currency, units };
       } else {
         region = await fetchGuestRegion();
+        // A country without its own profile (or a failed lookup) keeps the
+        // language of the country domain instead of falling back to English.
+        if (!COUNTRY_REGION_DEFAULTS[region.countryCode]) {
+          const locale = getLocaleForHostname(window.location.hostname);
+          if (locale !== DEFAULT_GUEST_REGION.locale) {
+            const { currency, units } = getLanguageProfile(locale);
+            region = { ...region, locale, currency, units };
+          }
+        }
       }
       region = this.persistGuestRegionPreference(region, tenantSlug ? 'domain' : 'ip');
     }

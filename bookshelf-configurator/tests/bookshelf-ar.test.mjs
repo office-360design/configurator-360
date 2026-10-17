@@ -29,14 +29,14 @@ test('Bookshelf and Roof explicitly opt in; Solar remains disabled',()=>{
  }
 });
 test('All locale and tenant QR routes point to the canonical Bookshelf phone page',()=>{
- for(const origin of ['https://www.360configurator.com','https://360configurator.ro','https://www.360konfigurator.de','https://customer.360configurator.ro']) for(const locale of ['en-US','ro-RO','de-DE']) for(const mode of ['android','ios']) {
+ for(const origin of ['https://www.360configurator.com','https://360configurator.ro','https://www.360konfigurator.de','https://www.360configurador.es','https://360configurateur.fr','https://www.360configuratore.it','https://customer.360configurator.ro']) for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']) for(const mode of ['android','ios']) {
   const u=new URL(arPhoneUrl('A'.repeat(32),mode,locale,origin,'bookshelf'));
   assert.equal(u.origin,origin);assert.equal(u.pathname,'/bookshelf-configurator/ar.html');assert.equal(u.searchParams.get('mode'),mode);assert.equal(u.searchParams.get('lang'),locale);
  }
  for(const format of ['glb','usdz'])assert.match(arModelUrl('A'.repeat(32),format,'bookshelf'),new RegExp(`bookshelf\\.${format}\\?`));
 });
 test('Localized Bookshelf messages use the shortened shared UI without implementation details',()=>{
- for(const locale of ['en-US','ro-RO','de-DE']){
+ for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']){
   const copy=AR_COPY.bookshelf[locale];assert.deepEqual(Object.keys(copy).sort(),Object.keys(AR_COPY.bookshelf['en-US']).sort());
   for(const k of Object.keys(AR_COPY.hall['en-US']))assert.ok(copy[k]);
   for(const k of ['building','exporting','uploading','checking'])assert.doesNotMatch(copy[k],/Firebase|Supabase|GLB|USDZ|upload/i);

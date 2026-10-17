@@ -1,4 +1,4 @@
-import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=hall-production-1';
+import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=locales-6';
 export const OPENING_TYPES = {
   personnel: {
     label: 'Human door',

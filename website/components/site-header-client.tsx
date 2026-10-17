@@ -3,24 +3,62 @@
 import { useEffect } from "react";
 import { ThemeToggle } from "../app/theme-toggle";
 import type { Configurator } from "../lib/configurators";
-import { localizedPath, localizedUrl, type Locale, uiCopy } from "../lib/i18n";
+import { localeNativeNames, locales, localizedPath, localizedUrl, type Locale, uiCopy } from "../lib/i18n";
 
 function languagePath(locale: Locale, currentPath: string) {
   return localizedUrl(locale, currentPath || "/");
 }
 
+const bookDemoLabels: Record<Locale, string> = {
+  en: "Book a demo",
+  ro: "Rezervă un demo",
+  de: "Demo buchen",
+  es: "Reservar una demo",
+  fr: "Réserver une démo",
+  it: "Prenota una demo",
+};
+
 function bookDemoLabel(locale: Locale) {
-  if (locale === "ro") return "Rezervă un demo";
-  if (locale === "de") return "Demo buchen";
-  return "Book a demo";
+  return bookDemoLabels[locale];
+}
+
+const liteNotices: Record<Locale, string> = {
+  en: "These are simplified previews. Open the full configurators to explore all features.",
+  ro: "Acestea sunt previzualizări simplificate. Deschide configuratoarele complete pentru toate funcțiile.",
+  de: "Dies sind vereinfachte Vorschauen. Alle Funktionen finden Sie in den vollständigen Konfiguratoren.",
+  es: "Estas son vistas previas simplificadas. Abra los configuradores completos para ver todas las funciones.",
+  fr: "Ce sont des aperçus simplifiés. Ouvrez les configurateurs complets pour découvrir toutes les fonctions.",
+  it: "Queste sono anteprime semplificate. Apra i configuratori completi per scoprire tutte le funzioni.",
+};
+
+// Per-locale menu label overrides; products without an entry use their localized title.
+const configuratorNavOverrides: Record<Locale, Partial<Record<string, string>>> = {
+  en: {},
+  ro: { solar: "Configurație panouri fotovoltaice" },
+  de: {},
+  es: {},
+  fr: {},
+  it: {},
+};
+
+const menuLabels: Record<Locale, string> = { en: "Menu", ro: "Meniu", de: "Menü", es: "Menú", fr: "Menu", it: "Menu" };
+const homeLabels: Record<Locale, string> = {
+  en: "360Configurator home", ro: "Pagina principală 360Configurator", de: "360Configurator Startseite", es: "Inicio de 360Configurator", fr: "Accueil 360Configurator", it: "Home page di 360Configurator",
+};
+const primaryNavLabels: Record<Locale, string> = {
+  en: "Primary navigation", ro: "Navigare principală", de: "Hauptnavigation", es: "Navegación principal", fr: "Navigation principale", it: "Navigazione principale",
+};
+
+function LanguageLinks({ locale, currentPath }: { locale: Locale; currentPath: string }) {
+  return <>{locales.map((language) => <a key={language} className={language === locale ? "active" : ""} href={languagePath(language, currentPath)} lang={language} hrefLang={language} title={localeNativeNames[language]} aria-label={localeNativeNames[language]}>{language.toUpperCase()}</a>)}</>;
 }
 
 export function SiteHeaderClient({ locale, currentPath, configurators }: { locale: Locale; currentPath: string; configurators: Pick<Configurator, "slug" | "index" | "category" | "title" | "shortTitle" | "launchUrl">[] }) {
   const copy = uiCopy[locale];
-  const notice = locale === "ro" ? "Acestea sunt previzualizări simplificate. Deschide configuratoarele complete pentru toate funcțiile." : locale === "de" ? "Dies sind vereinfachte Vorschauen. Alle Funktionen finden Sie in den vollständigen Konfiguratoren." : "These are simplified previews. Open the full configurators to explore all features.";
+  const notice = liteNotices[locale];
   const currentProduct = configurators.find(item => currentPath.endsWith(`/configurators/${item.slug}`));
   const configuratorNavLabel = (slug: string, fallback: string) =>
-    locale === "ro" && slug === "solar" ? "Configurație panouri fotovoltaice" : fallback;
+    configuratorNavOverrides[locale][slug] ?? fallback;
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
@@ -51,12 +89,12 @@ export function SiteHeaderClient({ locale, currentPath, configurators }: { local
     <header className="site-header">
       <div className="header-inner page-frame">
         {/* Native navigation avoids vinext's client-side cross-route hash failure. */}
-        <a className="brand-lockup" href={localizedPath(locale)} aria-label="360Configurator home">
+        <a className="brand-lockup" href={localizedPath(locale)} aria-label={homeLabels[locale]}>
           {/* The supplied transparent wordmark is already optimized and must retain its exact proportions. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/360configurator.png" alt="360Configurator" width={380} height={190} />
         </a>
-        <nav className="desktop-nav" aria-label="Primary navigation">
+        <nav className="desktop-nav" aria-label={primaryNavLabels[locale]}>
           {/* Native anchors intentionally bypass vinext's broken cross-route hash navigation. */}
           <a href={localizedPath(locale)}>{copy.home}</a>
           <div className="nav-configurators">
@@ -83,17 +121,17 @@ export function SiteHeaderClient({ locale, currentPath, configurators }: { local
         </nav>
         <div className="header-actions">
           <div className="language-switcher" aria-label={copy.language}>
-            {(["en", "ro", "de"] as Locale[]).map((language) => <a key={language} className={language === locale ? "active" : ""} href={languagePath(language, currentPath)} lang={language}>{language.toUpperCase()}</a>)}
+            <LanguageLinks locale={locale} currentPath={currentPath} />
           </div>
-          <ThemeToggle />
+          <ThemeToggle locale={locale} />
           <a className="header-contact" href={localizedPath(locale, "/book-a-demo")}>
             {bookDemoLabel(locale)} <span>↗</span>
           </a>
           <details className="mobile-navigation">
-            <summary>Menu</summary>
+            <summary>{menuLabels[locale]}</summary>
             <div data-lenis-prevent onWheel={event => event.stopPropagation()}>
               <div className="mobile-language-switcher" aria-label={copy.language}>
-                {(["en", "ro", "de"] as Locale[]).map((language) => <a key={language} className={language === locale ? "active" : ""} href={languagePath(language, currentPath)} lang={language}>{language.toUpperCase()}</a>)}
+                <LanguageLinks locale={locale} currentPath={currentPath} />
               </div>
               {/* Native anchors intentionally bypass vinext's broken cross-route hash navigation. */}
               <a href={localizedPath(locale)}>{copy.home}</a>

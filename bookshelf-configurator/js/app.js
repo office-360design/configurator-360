@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=locales-6';
 
 await requireTenantConfiguratorAccess('bookshelf');
 
@@ -104,6 +105,8 @@ const COPY = Object.freeze({
     'components.glazedKit': 'Full-height glazed-door set',
     'components.connector': 'Aluminium connection set',
     'components.finish': 'finish',
+    'components.connectorDetail': 'Automatic set for each joint between uprights',
+    'components.familyDetail': '{height} mm family',
   }),
   'ro-RO': Object.freeze({
     'intro.eyebrow': 'Sistem modular dedicat clientului',
@@ -161,6 +164,8 @@ const COPY = Object.freeze({
     'components.glazedKit': 'Set uși vitrate pe toată înălțimea',
     'components.connector': 'Set conexiune din aluminiu',
     'components.finish': 'finisaj',
+    'components.connectorDetail': 'Set automat pentru îmbinarea dintre montanți',
+    'components.familyDetail': 'Familia {height} mm',
   }),
   'de-DE': Object.freeze({
     'intro.eyebrow': 'Kundenspezifisches Modulsystem',
@@ -218,6 +223,185 @@ const COPY = Object.freeze({
     'components.glazedKit': 'Satz vollhohe Glastüren',
     'components.connector': 'Aluminium-Verbindungssatz',
     'components.finish': 'Oberfläche',
+    'components.connectorDetail': 'Automatischer Satz je Modulverbindung',
+    'components.familyDetail': 'Familie {height} mm',
+  }),
+  'es-ES': Object.freeze({
+    'intro.eyebrow': 'Sistema modular específico del cliente',
+    'intro.title': 'Configurador de estanterías',
+    'intro.copy': 'Construya un tramo continuo con módulos rectos y esquinas en L a 90°. Todos los módulos conectados usan siempre la misma familia dimensional.',
+    'section.family': 'Familia dimensional',
+    'section.selected': 'Módulo seleccionado',
+    'section.shelves': 'Baldas',
+    'section.components': 'Componentes',
+    'shelves.instructions': 'Haga doble clic en una balda para seleccionarla. Use los controles sobre el modelo o el teclado para moverla, o elimínela si no es fija.',
+    'shelves.add': 'Añadir balda',
+    'shelves.full': 'No quedan posiciones libres para otra balda.',
+    'family.compact': '800 × 350 × 2150 mm',
+    'family.compactDims': 'Recto 800 × 350 × 2150 mm · Esquina 750 × 750 × 2150 mm',
+    'family.tall': '900 × 350 × 2300 mm',
+    'family.tallDims': 'Recto 900 × 350 × 2300 mm · Esquina 850 × 850 × 2300 mm',
+    'family.rule': 'Cambiar la familia actualiza todos los módulos a la vez; no se pueden mezclar alturas.',
+    'selected.empty': 'Seleccione un módulo de la estantería en la vista 3D para elegir sus puertas, protección de cerradura, acabado de madera o eliminarlo.',
+    'selected.keyplate': 'Herrajes de puerta',
+    'keyplate.diamond': 'Escudo rombo',
+    'keyplate.rectangle': 'Escudo rectangular',
+    'keyplate.knob': 'Pomos',
+    'selected.module': 'Módulo',
+    'selected.doors': 'Configuración de puertas',
+    'selected.colour': 'Acabado de madera',
+    'selected.delete': 'Eliminar módulo',
+    'selected.keepOne': 'Debe quedar al menos un módulo en la configuración.',
+    'doors.open': 'Abierto',
+    'doors.openHint': 'Sin puertas',
+    'doors.lower': 'Puertas inferiores',
+    'doors.lowerHint': 'Almacenaje cerrado en la base',
+    'doors.glazed': 'Puertas acristaladas',
+    'doors.glazedHint': 'Cierre de vidrio a toda altura',
+    'doors.cornerUnsupported': 'Los módulos de esquina en L no admiten puertas.',
+    'add.kicker': 'Ampliar configuración',
+    'add.title': 'Añadir módulo',
+    'add.straight': 'Módulo recto',
+    'add.straightHint': 'Continuar en la misma dirección',
+    'add.corner': 'Módulo de esquina en L',
+    'add.cornerHint': 'Girar el tramo 90°',
+    'add.confirm': 'Añadir módulo',
+    'add.intersection': 'Ese módulo se cruzaría con el tramo de estantería existente.',
+    'viewer.hint': 'Haga clic en un módulo para editarlo. Use los botones + para ampliar la configuración.',
+    'type.straight': 'Recto',
+    'type.corner': 'Esquina en L',
+    'components.modules': 'Módulos',
+    'components.joints': 'Uniones',
+    'components.layout': 'Disposición',
+    'components.openRun': 'Tramo abierto',
+    'components.closedLoop': 'Circuito cerrado',
+    'components.note': 'No se muestran precios. Se añade automáticamente un juego de unión de aluminio por cada unión entre dos módulos.',
+    'components.straight': 'Módulo de estantería recto',
+    'components.corner': 'Módulo de estantería de esquina en L',
+    'components.lowerKit': 'Juego de puertas inferiores macizas',
+    'components.glazedKit': 'Juego de puertas acristaladas a toda altura',
+    'components.connector': 'Juego de unión de aluminio',
+    'components.finish': 'acabado',
+    'components.connectorDetail': 'Juego automático para cada unión entre montantes',
+    'components.familyDetail': 'Familia de {height} mm',
+  }),
+  'fr-FR': Object.freeze({
+    'intro.eyebrow': 'Système modulaire dédié au client',
+    'intro.title': 'Configurateur de bibliothèque',
+    'intro.copy': 'Composez un linéaire continu de modules droits et d\'angles en L à 90°. Tous les modules reliés utilisent toujours la même famille de dimensions.',
+    'section.family': 'Famille de dimensions',
+    'section.selected': 'Module sélectionné',
+    'section.shelves': 'Étagères',
+    'section.components': 'Composants',
+    'shelves.instructions': 'Double-cliquez sur une étagère pour la sélectionner. Utilisez les commandes sur le modèle ou le clavier pour la déplacer, ou supprimez-la si elle n\'est pas fixe.',
+    'shelves.add': 'Ajouter une étagère',
+    'shelves.full': 'Il n\'y a plus d\'emplacement libre pour une autre étagère.',
+    'family.compact': '800 × 350 × 2150 mm',
+    'family.compactDims': 'Droit 800 × 350 × 2150 mm · Angle 750 × 750 × 2150 mm',
+    'family.tall': '900 × 350 × 2300 mm',
+    'family.tallDims': 'Droit 900 × 350 × 2300 mm · Angle 850 × 850 × 2300 mm',
+    'family.rule': 'Changer de famille met à jour tous les modules ; les hauteurs ne peuvent pas être mélangées.',
+    'selected.empty': 'Sélectionnez un module de bibliothèque dans la vue 3D pour choisir ses portes, sa protection de serrure, sa finition bois ou le supprimer.',
+    'selected.keyplate': 'Quincaillerie de porte',
+    'keyplate.diamond': 'Entrée de serrure losange',
+    'keyplate.rectangle': 'Entrée de serrure rectangulaire',
+    'keyplate.knob': 'Boutons de porte',
+    'selected.module': 'Module',
+    'selected.doors': 'Configuration des portes',
+    'selected.colour': 'Finition bois',
+    'selected.delete': 'Supprimer le module',
+    'selected.keepOne': 'Au moins un module doit rester dans la configuration.',
+    'doors.open': 'Ouvert',
+    'doors.openHint': 'Sans portes',
+    'doors.lower': 'Portes basses',
+    'doors.lowerHint': 'Rangement fermé en partie basse',
+    'doors.glazed': 'Portes vitrées',
+    'doors.glazedHint': 'Fermeture vitrée toute hauteur',
+    'doors.cornerUnsupported': 'Les modules d\'angle en L ne prennent pas de portes.',
+    'add.kicker': 'Étendre la configuration',
+    'add.title': 'Ajouter un module',
+    'add.straight': 'Module droit',
+    'add.straightHint': 'Continuer dans la même direction',
+    'add.corner': 'Module d\'angle en L',
+    'add.cornerHint': 'Tourner le linéaire de 90°',
+    'add.confirm': 'Ajouter le module',
+    'add.intersection': 'Ce module croiserait le linéaire de bibliothèque existant.',
+    'viewer.hint': 'Cliquez sur un module pour le modifier. Utilisez les boutons + pour étendre la configuration.',
+    'type.straight': 'Droit',
+    'type.corner': 'Angle en L',
+    'components.modules': 'Modules',
+    'components.joints': 'Liaisons',
+    'components.layout': 'Disposition',
+    'components.openRun': 'Linéaire ouvert',
+    'components.closedLoop': 'Boucle fermée',
+    'components.note': 'Aucun prix n\'est affiché. Un kit de liaison en aluminium est ajouté automatiquement pour chaque jonction entre deux modules.',
+    'components.straight': 'Module de bibliothèque droit',
+    'components.corner': 'Module de bibliothèque d\'angle en L',
+    'components.lowerKit': 'Kit de portes basses pleines',
+    'components.glazedKit': 'Kit de portes vitrées toute hauteur',
+    'components.connector': 'Kit de liaison en aluminium',
+    'components.finish': 'finition',
+    'components.connectorDetail': 'Kit automatique pour chaque jonction entre montants',
+    'components.familyDetail': 'Famille {height} mm',
+  }),
+  'it-IT': Object.freeze({
+    'intro.eyebrow': 'Sistema modulare dedicato al cliente',
+    'intro.title': 'Configuratore di librerie',
+    'intro.copy': 'Componga una fila continua di moduli dritti e angoli a L a 90°. Tutti i moduli collegati usano sempre la stessa famiglia dimensionale.',
+    'section.family': 'Famiglia dimensionale',
+    'section.selected': 'Modulo selezionato',
+    'section.shelves': 'Ripiani',
+    'section.components': 'Componenti',
+    'shelves.instructions': 'Faccia doppio clic su un ripiano per selezionarlo. Usi i comandi sul modello o la tastiera per spostarlo, oppure lo rimuova se non è fisso.',
+    'shelves.add': 'Aggiungi ripiano',
+    'shelves.full': 'Non ci sono più posizioni libere per un altro ripiano.',
+    'family.compact': '800 × 350 × 2150 mm',
+    'family.compactDims': 'Dritto 800 × 350 × 2150 mm · Angolo 750 × 750 × 2150 mm',
+    'family.tall': '900 × 350 × 2300 mm',
+    'family.tallDims': 'Dritto 900 × 350 × 2300 mm · Angolo 850 × 850 × 2300 mm',
+    'family.rule': 'Cambiare famiglia aggiorna tutti i moduli insieme; non è possibile combinare altezze diverse.',
+    'selected.empty': 'Selezioni un modulo della libreria nella vista 3D per sceglierne ante, protezione serratura, finitura legno o eliminarlo.',
+    'selected.keyplate': 'Ferramenta delle ante',
+    'keyplate.diamond': 'Bocchetta a rombo',
+    'keyplate.rectangle': 'Bocchetta rettangolare',
+    'keyplate.knob': 'Pomoli',
+    'selected.module': 'Modulo',
+    'selected.doors': 'Configurazione ante',
+    'selected.colour': 'Finitura legno',
+    'selected.delete': 'Elimina modulo',
+    'selected.keepOne': 'Nella configurazione deve rimanere almeno un modulo.',
+    'doors.open': 'Aperto',
+    'doors.openHint': 'Senza ante',
+    'doors.lower': 'Ante inferiori',
+    'doors.lowerHint': 'Contenitore chiuso alla base',
+    'doors.glazed': 'Ante in vetro',
+    'doors.glazedHint': 'Chiusura in vetro a tutta altezza',
+    'doors.cornerUnsupported': 'I moduli angolari a L non prevedono ante.',
+    'add.kicker': 'Estendi configurazione',
+    'add.title': 'Aggiungi modulo',
+    'add.straight': 'Modulo dritto',
+    'add.straightHint': 'Prosegue nella stessa direzione',
+    'add.corner': 'Modulo angolare a L',
+    'add.cornerHint': 'Ruota la fila di 90°',
+    'add.confirm': 'Aggiungi modulo',
+    'add.intersection': 'Questo modulo intersecherebbe la fila di librerie esistente.',
+    'viewer.hint': 'Faccia clic su un modulo per modificarlo. Usi i pulsanti + per estendere la configurazione.',
+    'type.straight': 'Dritto',
+    'type.corner': 'Angolo a L',
+    'components.modules': 'Moduli',
+    'components.joints': 'Giunzioni',
+    'components.layout': 'Disposizione',
+    'components.openRun': 'Fila aperta',
+    'components.closedLoop': 'Anello chiuso',
+    'components.note': 'Non vengono mostrati prezzi. Per ogni giunzione tra due moduli viene aggiunto automaticamente un kit di collegamento in alluminio.',
+    'components.straight': 'Modulo libreria dritto',
+    'components.corner': 'Modulo libreria angolare a L',
+    'components.lowerKit': 'Kit ante inferiori piene',
+    'components.glazedKit': 'Kit ante in vetro a tutta altezza',
+    'components.connector': 'Kit di collegamento in alluminio',
+    'components.finish': 'finitura',
+    'components.connectorDetail': 'Kit automatico per ogni giunzione tra montanti',
+    'components.familyDetail': 'Famiglia {height} mm',
   }),
 });
 
@@ -246,7 +430,8 @@ const shelfNoSlotsHint = $('#shelfNoSlotsHint');
 
 let locale = localeForHost();
 let units = locale === 'en-US' ? 'imperial' : 'metric';
-let currency = locale === 'ro-RO' ? 'RON' : locale === 'de-DE' ? 'EUR' : 'USD';
+const LOCALE_CURRENCY = Object.freeze({ 'en-US': 'USD', 'ro-RO': 'RON', 'de-DE': 'EUR', 'es-ES': 'EUR', 'fr-FR': 'EUR', 'it-IT': 'EUR' });
+let currency = LOCALE_CURRENCY[locale];
 let darkMode = false;
 let dimensionsVisible = true;
 let cameraMode = 0;
@@ -269,10 +454,8 @@ let state = {
 };
 
 function localeForHost() {
-  const host = String(location.hostname || '').toLowerCase();
-  if (host.includes('360configurator.ro')) return 'ro-RO';
-  if (host.includes('360konfigurator.de')) return 'de-DE';
-  return 'en-US';
+  const resolved = getLocaleForHostname(location.hostname || '');
+  return COPY[resolved] ? resolved : 'en-US';
 }
 
 function t(key) { return COPY[locale]?.[key] ?? COPY['en-US'][key] ?? key; }
@@ -2155,7 +2338,7 @@ function updateEndpointButtons() {
 }
 
 function renderTranslations() {
-  document.documentElement.lang = locale.startsWith('ro') ? 'ro' : locale.startsWith('de') ? 'de' : 'en';
+  document.documentElement.lang = locale.split('-')[0];
   document.querySelectorAll('[data-i18n]').forEach((element) => {
     element.textContent = t(element.dataset.i18n);
   });
@@ -2295,10 +2478,10 @@ function renderComponents() {
       const detail = `${spec.corner} × ${spec.corner} × ${spec.height} mm · ${finish}`;
       addRow(`corner|${module.colour}`, t('components.corner'), detail);
     }
-    if (module.kind === 'straight' && module.door === 'lower') addRow('door-lower', t('components.lowerKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
-    if (module.kind === 'straight' && module.door === 'glazed') addRow('door-glazed', t('components.glazedKit'), `${state.family === 'compact' ? '2150' : '2300'} mm family`);
+    if (module.kind === 'straight' && module.door === 'lower') addRow('door-lower', t('components.lowerKit'), t('components.familyDetail').replace('{height}', state.family === 'compact' ? '2150' : '2300'));
+    if (module.kind === 'straight' && module.door === 'glazed') addRow('door-glazed', t('components.glazedKit'), t('components.familyDetail').replace('{height}', state.family === 'compact' ? '2150' : '2300'));
   });
-  if (jointCount > 0) addRow('connectors', t('components.connector'), locale === 'ro-RO' ? 'Set automat pentru îmbinarea dintre montanți' : locale === 'de-DE' ? 'Automatischer Satz je Modulverbindung' : 'Automatic set for each joint between uprights', jointCount);
+  if (jointCount > 0) addRow('connectors', t('components.connector'), t('components.connectorDetail'), jointCount);
 
   $('#componentsList').innerHTML = [...rows.values()].map((row) => `
     <div class="component-row">

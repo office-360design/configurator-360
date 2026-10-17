@@ -3,11 +3,11 @@ import {
   CURRENCY_OPTIONS,
   QUALITY_OPTIONS,
   UNIT_OPTIONS,
-} from '../config.js?v=tenant-domains-1';
-import { sharedT } from '../i18n.js?v=platform-21';
+} from '../config.js?v=locales-6';
+import { sharedT } from '../i18n.js?v=locales-6';
 import { sharedIcon } from '../icons.js?v=platform-21';
 import { escapeHtml } from '../utils.js?v=platform-21';
-import { accountOrdersLabel, installAccountOrders } from './accountOrders.js?v=platform-21';
+import { accountOrdersLabel, installAccountOrders } from './accountOrders.js?v=locales-6';
 
 
 installAccountOrders();
@@ -16,6 +16,9 @@ const DOMAIN_OPTIONS = Object.freeze([
   { locale: 'en-US', suffix: 'COM', flag: '🇺🇸' },
   { locale: 'ro-RO', suffix: 'RO', flag: '🇷🇴' },
   { locale: 'de-DE', suffix: 'DE', flag: '🇩🇪' },
+  { locale: 'es-ES', suffix: 'ES', flag: '🇪🇸' },
+  { locale: 'fr-FR', suffix: 'FR', flag: '🇫🇷' },
+  { locale: 'it-IT', suffix: 'IT', flag: '🇮🇹' },
 ]);
 
 function renderDomainControl(locale, domainOpen = false, currentDomainLocale = 'en-US') {

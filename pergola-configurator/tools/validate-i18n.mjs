@@ -21,18 +21,18 @@ import {
   localizeCatalogOptions,
   localizeStep,
   pergolaT,
-} from '../src/i18n.js?v=platform-18';
-import { getSharedMessages } from '../../shared-ui/src/i18n.js?v=platform-18';
+} from '../src/i18n.js?v=locales-6';
+import { getSharedMessages } from '../../shared-ui/src/i18n.js?v=locales-6';
 import {
   getLanguageProfile,
   getLocaleForHostname,
   getLocalizedConfiguratorUrl,
-} from '../../shared-ui/src/config.js?v=platform-18';
+} from '../../shared-ui/src/config.js?v=locales-6';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(here, '..');
 const repoRoot = path.resolve(packageRoot, '..');
-const locales = ['en-US', 'ro-RO', 'de-DE'];
+const locales = ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT'];
 const failures = [];
 
 function fail(message) {
@@ -44,6 +44,22 @@ for (const locale of locales) {
   const keys = Object.keys(PERGOLA_MESSAGES[locale] ?? {}).sort();
   if (keys.length !== englishKeys.length || keys.some((key, index) => key !== englishKeys[index])) {
     fail(`${locale} Pergola dictionary does not have exact key parity with en-US.`);
+  }
+}
+
+const placeholderSet = (message) => [...String(message).matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]).sort().join(',');
+for (const locale of locales) {
+  const dictionary = PERGOLA_MESSAGES[locale] ?? {};
+  for (const key of englishKeys) {
+    const message = dictionary[key];
+    if (typeof message !== 'string' || !message.trim()) {
+      fail(`${locale} has an empty Pergola translation for ${key}.`);
+    } else if (placeholderSet(message) !== placeholderSet(PERGOLA_MESSAGES['en-US'][key])) {
+      fail(`${locale} Pergola translation for ${key} does not keep the English placeholders.`);
+    }
+  }
+  if (locale !== 'en-US' && pergolaT(locale, 'panel.title') === PERGOLA_MESSAGES['en-US']['panel.title']) {
+    fail(`${locale} resolves to the English Pergola dictionary instead of its own.`);
   }
 }
 
@@ -118,6 +134,9 @@ const profileExpectations = {
   'en-US': { hostname: 'www.360configurator.com', units: 'imperial', currency: 'USD', path: '/pergola-configurator/' },
   'ro-RO': { hostname: 'www.360configurator.ro', units: 'metric', currency: 'RON', path: '/configurator-pergola/' },
   'de-DE': { hostname: 'www.360konfigurator.de', units: 'metric', currency: 'EUR', path: '/pergola-konfigurator/' },
+  'es-ES': { hostname: 'www.360configurador.es', units: 'metric', currency: 'EUR', path: '/configurador-pergolas/' },
+  'fr-FR': { hostname: 'www.360configurateur.fr', units: 'metric', currency: 'EUR', path: '/configurateur-pergola/' },
+  'it-IT': { hostname: 'www.360configuratore.it', units: 'metric', currency: 'EUR', path: '/configuratore-pergola/' },
 };
 
 for (const [locale, expected] of Object.entries(profileExpectations)) {

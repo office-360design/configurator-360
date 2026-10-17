@@ -168,7 +168,8 @@ test('disabled, suspended and nonexistent tenants do not pass the bootstrap gate
       assert.equal(fixture.document.documentElement.dataset.tenantAccessBlocked, 'true', product);
     }
   }
-  for (const hostname of ['www.360configurator.com', 'aks.360configurator.com', 'www.360configurator.ro']) {
+  for (const hostname of ['www.360configurator.com', 'aks.360configurator.com', 'www.360configurator.ro',
+    'www.360konfigurator.de', 'www.360configurador.es', 'www.360configurateur.fr', 'www.360configuratore.it']) {
     const fixture = bootstrapHarness({ hostname });
     assert.equal(await fixture.api.requireTenantConfiguratorAccess('bookshelf'), null);
     assert.equal(fixture.requests(), 0);

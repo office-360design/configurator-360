@@ -22,6 +22,27 @@ const copy = {
     scope: 'Vorhandenes System, Anpassung oder individuelle Entwicklung: Empfehlung, Umfang und Preis werden nach der technischen Prüfung festgelegt. Vorschauen sind keine Fertigungsspezifikationen und garantieren kein Lieferantenangebot. Der Pflasterkonfigurator ist ein Prototyp. Für Projekte nutzen Sie Kontakt oder Demo-Anfrage.',
     resources: 'Offizielle Ressourcen', sitemap: 'XML-Sitemap', robots: 'Crawler-Regeln', full: 'Vollständiger Produktkontext', details: 'Produktdetails aus der öffentlichen Website', application: 'Vollständige Anwendung', pricing: 'Implementierungskosten und laufender Betrieb',
   },
+  es: {
+    overview: '360Configurator desarrolla configuradores 3D de productos en el navegador para fabricantes y distribuidores. Las vistas previas del sitio web son versiones lite; las funciones, los precios y los resultados varían entre las aplicaciones completas.',
+    pages: 'Páginas principales', products: 'Configuradores y casos de uso',
+    boundaries: 'Implantación y límites',
+    scope: 'Sistema existente, adaptación o desarrollo a medida: la recomendación, el alcance y el precio se definen tras la revisión técnica. Las vistas previas no son especificaciones de fabricación ni ofertas de proveedores. El configurador de pavimentos es un prototipo. Para hablar de un proyecto de software, utilice Contacto o la solicitud de demo.',
+    resources: 'Recursos oficiales', sitemap: 'Sitemap XML', robots: 'Política para rastreadores', full: 'Contexto completo de productos', details: 'Detalles de productos del sitio web público', application: 'Aplicación completa', pricing: 'Costes de implantación y servicio continuo',
+  },
+  fr: {
+    overview: '360Configurator développe des configurateurs produit 3D dans le navigateur pour les fabricants et les distributeurs. Les aperçus du site sont des versions lite ; les fonctions, les prix et les livrables varient selon les applications complètes.',
+    pages: 'Pages principales', products: 'Configurateurs et cas d’usage',
+    boundaries: 'Mise en œuvre et limites',
+    scope: 'Système existant, adaptation ou développement sur mesure : la recommandation, le périmètre et le prix sont définis après revue technique. Les aperçus ne sont ni des spécifications de fabrication ni des devis de fournisseurs. Le configurateur de pavage est un prototype. Pour discuter d’un projet logiciel, utilisez la page Contact ou la demande de démo.',
+    resources: 'Ressources officielles', sitemap: 'Sitemap XML', robots: 'Règles pour les robots', full: 'Contexte produit complet', details: 'Détails produits du site public', application: 'Application complète', pricing: 'Coûts de mise en œuvre et service continu',
+  },
+  it: {
+    overview: '360Configurator sviluppa configuratori di prodotto 3D nel browser per produttori e distributori. Le anteprime del sito sono versioni lite; funzioni, prezzi e output variano tra le applicazioni complete.',
+    pages: 'Pagine principali', products: 'Configuratori e casi d’uso',
+    boundaries: 'Implementazione e limiti',
+    scope: 'Sistema esistente, adattamento o sviluppo su misura: raccomandazione, perimetro e prezzo vengono definiti dopo la revisione tecnica. Le anteprime non sono specifiche di produzione né offerte di fornitori. Il configuratore di pavimentazioni è un prototipo. Per discutere un progetto software, utilizzi la pagina Contatti o la richiesta di demo.',
+    resources: 'Risorse ufficiali', sitemap: 'Sitemap XML', robots: 'Regole per i crawler', full: 'Contesto completo dei prodotti', details: 'Dettagli dei prodotti dal sito pubblico', application: 'Applicazione completa', pricing: 'Costi di implementazione e servizio continuativo',
+  },
 };
 function decode(value) {
   return value.replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ')

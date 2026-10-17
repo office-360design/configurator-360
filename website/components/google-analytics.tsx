@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GA_ID, PUBLIC_DOMAINS, readChoice, setChoice, browserStorage, isInternalVisit, analyticsContext, trackWebsiteEvent, previewEvent } from "../lib/website-analytics.js";
-import { configuratorPublicPaths } from "../lib/i18n";
+import { configuratorPublicPaths, type Locale } from "../lib/i18n";
 import "../app/analytics-preferences.css";
 
 declare global {
@@ -12,10 +12,13 @@ declare global {
   }
 }
 
-const copy = {
+const copy: Record<Locale, {title: string; body: string; accept: string; reject: string; settings: string}> = {
   en: {title: "Website analytics", body: "May we use Google Analytics to understand visits and improve this website? Optional analytics are off until you agree. Contact forms and configurators work either way. Your choice applies to this domain.", accept: "Allow analytics", reject: "No analytics", settings: "Analytics preferences"},
   ro: {title: "Analiza utilizării site-ului", body: "Putem folosi Google Analytics pentru a înțelege vizitele și a îmbunătăți site-ul? Analiza opțională este oprită până accepți. Formularele și configuratoarele funcționează în ambele cazuri. Alegerea se aplică acestui domeniu.", accept: "Accept analiza", reject: "Fără analiză", settings: "Preferințe de analiză"},
   de: {title: "Website-Analyse", body: "Dürfen wir Google Analytics verwenden, um Besuche zu verstehen und diese Website zu verbessern? Die optionale Analyse bleibt bis zu Ihrer Zustimmung aus. Formulare und Konfiguratoren funktionieren in beiden Fällen. Ihre Wahl gilt für diese Domain.", accept: "Analyse erlauben", reject: "Ohne Analyse", settings: "Analyse-Einstellungen"},
+  es: {title: "Analítica del sitio web", body: "¿Podemos usar Google Analytics para entender las visitas y mejorar este sitio web? La analítica opcional permanece desactivada hasta que usted la acepte. Los formularios y configuradores funcionan en ambos casos. Su elección se aplica a este dominio.", accept: "Permitir analítica", reject: "Sin analítica", settings: "Preferencias de analítica"},
+  fr: {title: "Mesure d’audience", body: "Pouvons-nous utiliser Google Analytics pour comprendre les visites et améliorer ce site ? La mesure d’audience facultative reste désactivée tant que vous ne l’acceptez pas. Les formulaires et configurateurs fonctionnent dans les deux cas. Votre choix s’applique à ce domaine.", accept: "Autoriser la mesure", reject: "Pas de mesure", settings: "Préférences de mesure d’audience"},
+  it: {title: "Analisi del sito web", body: "Possiamo usare Google Analytics per capire le visite e migliorare questo sito? L’analisi facoltativa resta disattivata finché Lei non acconsente. Moduli e configuratori funzionano in entrambi i casi. La Sua scelta vale per questo dominio.", accept: "Consenti analisi", reject: "Nessuna analisi", settings: "Preferenze di analisi"},
 };
 
 let initialized = false;
@@ -46,7 +49,7 @@ function initializeAnalytics() {
   window.dispatchEvent(new Event('analytics-consent-granted'));
 }
 
-export function AnalyticsPreferencesButton({locale = 'en'}: {locale?: keyof typeof copy}) {
+export function AnalyticsPreferencesButton({locale = 'en'}: {locale?: Locale}) {
   return <button type="button" className="analytics-preferences-link" onClick={() => window.dispatchEvent(new Event('analytics-preferences-open'))}>{copy[locale].settings}</button>;
 }
 
@@ -118,7 +121,7 @@ export function GoogleAnalytics() {
 
 // Locale comes from the server-rendered page footer, not a post-hydration guess.
 // Reading storage in the head hides a previously decided panel without a flash.
-export function AnalyticsPreferences({locale = 'en'}: {locale?: keyof typeof copy}) {
+export function AnalyticsPreferences({locale = 'en'}: {locale?: Locale}) {
   const [visible, setVisible] = useState(true);
   const [opened, setOpened] = useState(false);
   useEffect(() => {

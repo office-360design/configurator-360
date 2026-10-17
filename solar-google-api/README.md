@@ -83,11 +83,13 @@ Non-secret values:
 GOOGLE_SOLAR_CACHE_BUCKET=cfg360-solar-cache-89ccb07249b1
 PVGIS_CACHE_BUCKET=cfg360-solar-cache-89ccb07249b1  # optional; defaults to GOOGLE_SOLAR_CACHE_BUCKET
 GOOGLE_SOLAR_SECURITY_COLLECTION=googleSolarSecurityV1
-GOOGLE_SOLAR_ALLOWED_ORIGIN=https://www.360configurator.com,https://www.360configurator.ro,https://www.360konfigurator.de,https://aks.360configurator.com
+GOOGLE_SOLAR_ALLOWED_ORIGIN=https://www.360configurator.com,https://www.360configurator.ro,https://www.360konfigurator.de,https://www.360configurador.es,https://www.360configurateur.fr,https://www.360configuratore.it,https://aks.360configurator.com
 GOOGLE_SOLAR_MAX_LOGIN_ATTEMPTS_HOUR=12
 GOOGLE_SOLAR_MAX_ANALYSES_PER_IP_DAY=20
 GOOGLE_SOLAR_MAX_ANALYSES_DAY=100
 ```
+
+`GOOGLE_SOLAR_ALLOWED_ORIGIN` replaces the built-in platform origin list when it is set. When a country domain is added (for example `.es`, `.fr` and `.it`), update this variable on the deployed service at the same time; otherwise the new public domains are rejected. Tenant origins on every country root are derived from `src/tenantDomains.mjs` and do not need to be listed.
 
 Secret Manager mappings:
 

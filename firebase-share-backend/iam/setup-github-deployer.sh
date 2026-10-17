@@ -59,7 +59,7 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME" \
   --quiet
 
 # Firebase Admin creates a short-lived custom token when a signed-in user moves
-# between the .com/.ro/.de origins. The runtime account must be allowed to sign
+# between the .com/.ro/.de/.es/.fr/.it origins. The runtime account must be allowed to sign
 # that token; grant the permission only on its own service-account identity.
 gcloud iam service-accounts add-iam-policy-binding "$RUNTIME" \
   --project="$PROJECT_ID" \

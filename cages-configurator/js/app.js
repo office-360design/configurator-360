@@ -1,5 +1,5 @@
-import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 import { CageScene } from './scene.js?v=cages-4';
 import { sectionSvg } from './section.js?v=cages-4';
 import {
