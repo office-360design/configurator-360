@@ -10,12 +10,6 @@ import { sharedT } from './i18n.js?v=locales-6';
 
 export const GA_ID = 'G-2E433G5VM7';
 export const CONSENT_KEY = '360-analytics-consent-v1';
-// Domains with their own GA4 property also report there; the common property
-// (GA_ID) keeps the total of all domains. Keep equal in website/lib/website-analytics.js
-// and shared-ui/src/siteAnalytics.js (tested).
-export const DOMAIN_GA_IDS = { 'www.360configurador.es': 'G-HKK13MR72P' };
-/** Every GA4 property a page on this host reports to. */
-export const measurementIds = (hostname) => [GA_ID, DOMAIN_GA_IDS[String(hostname || '').toLowerCase()]].filter(Boolean);
 export const INTERNAL_KEY = '360-internal-test';
 export const PUBLIC_DOMAINS = ['www.360configurator.com', 'www.360configurator.ro', 'www.360konfigurator.de', 'www.360configurador.es', 'www.360configurateur.fr', 'www.360configuratore.it'];
 const DOMAIN_LANGUAGES = {
@@ -55,8 +49,7 @@ export function analyticsAllowed(location = window.location, store = storage()) 
 
 function initialize() {
   if (readChoice() !== 'granted' || !analyticsAllowed()) return;
-  const ids = measurementIds(window.location.hostname);
-  ids.forEach((id) => { window[`ga-disable-${id}`] = false; });
+  window[`ga-disable-${GA_ID}`] = false;
   if (initialized) {
     window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
   } else {
@@ -69,7 +62,7 @@ function initialize() {
     window.gtag('set', 'linker', { domains: PUBLIC_DOMAINS });
     window.gtag('js', new Date());
     // page_view comes from Enhanced Measurement, as on the website.
-    for (const id of ids) window.gtag('config', id, { language: DOMAIN_LANGUAGES[window.location.hostname.toLowerCase()] || 'en', hostname: window.location.hostname, page_type: 'configurator', allow_google_signals: false });
+    window.gtag('config', GA_ID, { language: DOMAIN_LANGUAGES[window.location.hostname.toLowerCase()] || 'en', hostname: window.location.hostname, page_type: 'configurator', allow_google_signals: false });
     const script = document.createElement('script');
     script.id = 'google-analytics';
     script.async = true;
@@ -80,12 +73,11 @@ function initialize() {
 }
 
 function withdraw() {
-  const ids = measurementIds(window.location.hostname);
-  ids.forEach((id) => { window[`ga-disable-${id}`] = true; });
+  window[`ga-disable-${GA_ID}`] = true;
   if (!initialized) return;
   window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
   const baseDomain = window.location.hostname.replace(/^www\./, '');
-  for (const name of ['_ga', ...ids.map((id) => `_ga_${id.slice(2)}`)]) {
+  for (const name of ['_ga', `_ga_${GA_ID.slice(2)}`]) {
     document.cookie = `${name}=; Max-Age=0; path=/`;
     document.cookie = `${name}=; Max-Age=0; path=/; domain=${baseDomain}`;
   }

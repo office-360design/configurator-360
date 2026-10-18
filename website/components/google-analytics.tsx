@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GA_ID, measurementIds, PUBLIC_DOMAINS, readChoice, setChoice, browserStorage, isInternalVisit, analyticsContext, trackWebsiteEvent, previewEvent, isProductPagePath } from "../lib/website-analytics.js";
+import { GA_ID, PUBLIC_DOMAINS, readChoice, setChoice, browserStorage, isInternalVisit, analyticsContext, trackWebsiteEvent, previewEvent, isProductPagePath } from "../lib/website-analytics.js";
 import { configuratorPublicPaths, internalPath, localeFromHostname, type Locale } from "../lib/i18n";
 import "../app/analytics-preferences.css";
 
@@ -24,8 +24,7 @@ const copy: Record<Locale, {title: string; body: string; accept: string; reject:
 let initialized = false;
 function initializeAnalytics() {
   if (readChoice(browserStorage()) !== 'granted' || isInternalVisit(window.location, browserStorage())) return;
-  const ids = measurementIds(window.location.hostname);
-  for (const id of ids) (window as unknown as Record<string, unknown>)[`ga-disable-${id}`] = false;
+  (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = false;
   if (initialized) {
     window.gtag?.('consent', 'update', {analytics_storage: 'granted'});
     window.dispatchEvent(new Event('analytics-consent-granted'));
@@ -42,8 +41,7 @@ function initializeAnalytics() {
   window.gtag('js', new Date());
   // Enhanced Measurement owns page_view, including History API navigation.
   // Do not send an additional manual SPA page_view here.
-  // The common property plus, on domains that have one, the domain's own property.
-  for (const id of ids) window.gtag('config', id, {...analyticsContext(window.location), allow_google_signals: false});
+  window.gtag('config', GA_ID, {...analyticsContext(window.location), allow_google_signals: false});
   const script = document.createElement('script');
   script.id = 'google-analytics'; script.async = true;
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
@@ -140,12 +138,11 @@ export function AnalyticsPreferences({locale = 'en'}: {locale?: Locale}) {
     document.documentElement.dataset.analyticsChoice = value;
     if (value === 'granted') initializeAnalytics();
     else if (initialized) {
-      const ids = measurementIds(window.location.hostname);
-      for (const id of ids) (window as unknown as Record<string, unknown>)[`ga-disable-${id}`] = true;
+      (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = true;
       window.gtag?.('consent', 'update', {analytics_storage: 'denied'});
       // Withdraw without reloading: preserve unsent form input and preview state.
       const baseDomain = window.location.hostname.replace(/^www\./, '');
-      for (const name of ['_ga', ...ids.map(id => `_ga_${id.slice(2)}`)]) {
+      for (const name of ['_ga', '_ga_2E433G5VM7']) {
         document.cookie = `${name}=; Max-Age=0; path=/`;
         document.cookie = `${name}=; Max-Age=0; path=/; domain=${baseDomain}`;
       }
