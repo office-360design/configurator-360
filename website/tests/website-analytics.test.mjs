@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
 import {CONSENT_KEY, INTERNAL_KEY, readChoice, isInternalVisit, trackWebsiteEvent} from '../lib/website-analytics.js';
-import {GA_ID, PUBLIC_DOMAINS, analyticsContext} from '../lib/website-analytics.js';
+import {GA_ID, PUBLIC_DOMAINS, analyticsContext, measurementIds} from '../lib/website-analytics.js';
 
 function storage() {const values = new Map(); return {getItem: key => values.get(key) ?? null, setItem: (key,value) => values.set(key,value), removeItem: key => values.delete(key)};}
 function browser() {
@@ -90,7 +90,7 @@ test('production initialization has no tag before consent or for staff, and queu
   const script=ts.transpile(`let initialized=false; ${initialize.getText(ast)}`,{target:ts.ScriptTarget.ES2022});
   for (const host of PUBLIC_DOMAINS) {
     const store=storage(), tags=[], window={localStorage:store,location:{hostname:host,pathname:'/',search:''},dispatchEvent:()=>{}};
-    const context=vm.createContext({window,document:{createElement:()=>({}),head:{appendChild:tag=>tags.push(tag)}},Event,GA_ID,PUBLIC_DOMAINS,readChoice,isInternalVisit,analyticsContext,browserStorage:()=>store});
+    const context=vm.createContext({window,document:{createElement:()=>({}),head:{appendChild:tag=>tags.push(tag)}},Event,GA_ID,measurementIds,PUBLIC_DOMAINS,readChoice,isInternalVisit,analyticsContext,browserStorage:()=>store});
     vm.runInContext(script,context);
     vm.runInContext('initializeAnalytics()',context);
     assert.equal(tags.length,0);
@@ -113,7 +113,7 @@ test('production initialization has no tag before consent or for staff, and queu
 test('withdrawal preserves form state by not reloading the page', async () => {
   const source=await readFile(new URL('../components/google-analytics.tsx',import.meta.url),'utf8');
   assert.doesNotMatch(source,/location\.reload/);
-  assert.match(source,/ga-disable-\$\{GA_ID\}`\] = true/);
+  assert.match(source,/ga-disable-\$\{id\}`\] = true/);
 });
 
 test('explicit consent and withdrawal still work for this session when storage is blocked', async () => {
@@ -153,4 +153,8 @@ test('the configurators use the same Analytics property, consent key and domains
   const configurators = await import('../../shared-ui/src/siteAnalytics.js');
   for (const name of ['GA_ID', 'CONSENT_KEY', 'INTERNAL_KEY']) assert.equal(configurators[name], site[name], name);
   assert.deepEqual(configurators.PUBLIC_DOMAINS, site.PUBLIC_DOMAINS);
+  assert.deepEqual(configurators.DOMAIN_GA_IDS, site.DOMAIN_GA_IDS);
+  for (const host of Object.keys(site.DOMAIN_GA_IDS)) assert.ok(site.PUBLIC_DOMAINS.includes(host), host);
+  assert.deepEqual(site.measurementIds('www.360configurador.es'), ['G-2E433G5VM7', 'G-HKK13MR72P']);
+  assert.deepEqual(site.measurementIds('www.360configurator.com'), ['G-2E433G5VM7']);
 });

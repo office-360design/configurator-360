@@ -22,7 +22,7 @@ const server = createServer(async (request, response) => {
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const port = server.address().port;
 
-const hosts = ['www.360configurator.com', 'www.360configuratore.it', 'acme.360configurator.com'];
+const hosts = ['www.360configurator.com', 'www.360configuratore.it', 'www.360configurador.es', 'acme.360configurator.com'];
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
   args: [`--host-resolver-rules=${hosts.map((h) => `MAP ${h} 127.0.0.1:${port}`).join(', ')}`, '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
@@ -91,7 +91,21 @@ try {
   await context.close();
   checks += 2;
 
-  // 6. Never on a customer host, in the website's embedded preview, or on an internal test visit.
+  // 6. A domain with its own property reports there and to the common property.
+  ({ page, context } = await open('www.360configurador.es', '/fence-configurator/'));
+  await banner(page).locator('[data-consent="granted"]').click();
+  await page.waitForTimeout(300);
+  const configured = await page.evaluate(() => (window.dataLayer || []).map((e) => Array.from(e)).filter((a) => a[0] === 'config').map((a) => a[1]));
+  assert.deepEqual(configured, ['G-2E433G5VM7', 'G-HKK13MR72P'], '.es: common and domain property');
+  await context.close();
+  ({ page, context } = await open('www.360configuratore.it', '/roof-configurator/'));
+  await banner(page).locator('[data-consent="granted"]').click();
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => (window.dataLayer || []).map((e) => Array.from(e)).filter((a) => a[0] === 'config').map((a) => a[1])), ['G-2E433G5VM7'], '.it: common property only');
+  await context.close();
+  checks += 2;
+
+  // 7. Never on a customer host, in the website's embedded preview, or on an internal test visit.
   for (const [host, pathname] of [['acme.360configurator.com', '/roof-configurator/'], ['www.360configurator.com', '/roof-configurator/?embed=preview'], ['www.360configurator.com', '/roof-configurator/?360_test=1']]) {
     ({ page, context, google } = await open(host, pathname));
     assert.equal(await banner(page).count(), 0, `${host}${pathname}: no banner`);

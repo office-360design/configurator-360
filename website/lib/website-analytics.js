@@ -2,6 +2,12 @@
 // shared-ui/src/siteAnalytics.js; keep GA_ID, CONSENT_KEY, INTERNAL_KEY and PUBLIC_DOMAINS equal in both.
 export const GA_ID = 'G-2E433G5VM7';
 export const CONSENT_KEY = '360-analytics-consent-v1';
+// Domains with their own GA4 property also report there; the common property
+// (GA_ID) keeps the total of all domains. Keep equal in website/lib/website-analytics.js
+// and shared-ui/src/siteAnalytics.js (tested).
+export const DOMAIN_GA_IDS = { 'www.360configurador.es': 'G-HKK13MR72P' };
+/** Every GA4 property a page on this host reports to. */
+export const measurementIds = (hostname) => [GA_ID, DOMAIN_GA_IDS[String(hostname || '').toLowerCase()]].filter(Boolean);
 export const INTERNAL_KEY = '360-internal-test';
 // The configurators page segment on every domain (lib/page-slugs.json; kept equal by tests/website-analytics.test.mjs).
 export const PRODUCT_PAGE_SEGMENTS = ['configurators', 'configuratoare', 'konfiguratoren', 'configuradores', 'configurateurs', 'configuratori'];
