@@ -1,5 +1,6 @@
 import { createSolarARController } from './ar/controller.js?v=locales-6';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=locales-6';
+import { startsWithPanelClosed } from '../../shared-ui/src/phoneLayout.js?v=mobile-panels-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=mobile-panels-1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { getSeasonForDate } from './solarPosition.js?v=locales-6';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
@@ -167,8 +168,8 @@ simulationPanelToggle?.addEventListener('click', () => {
 
 function syncMobileLayout() {
   document.body.classList.toggle('solar-mobile-layout', mobileLayoutQuery.matches);
-  setSidebarCollapsed(mobileLayoutQuery.matches);
-  setSimulationPanelCollapsed(mobileLayoutQuery.matches);
+  setSidebarCollapsed(mobileLayoutQuery.matches || startsWithPanelClosed());
+  setSimulationPanelCollapsed(mobileLayoutQuery.matches || startsWithPanelClosed());
 }
 
 syncMobileLayout();

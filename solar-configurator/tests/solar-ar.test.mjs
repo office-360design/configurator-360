@@ -127,7 +127,7 @@ test('Entrypoints use shared Firebase dialog, pinned exporters, explicit capabil
  const shell=read('../js/sharedShell.js'),app=read('../js/app.js'),scene=read('../js/scene.js'),html=read('../index.html'),exporter=read('../js/ar/exportSolar.js');
  assert.match(shell,/viewAR: true/);assert.match(shell,/onViewAR\(\) \{ void solarAR.open/);assert.match(shell,/createSolarARController/);
  assert.match(app,/async captureARSnapshot/);assert.match(scene,/waitForSolarTextures\(\(\) => \[this.modelRoot, this.solarRoot\]/);
- assert.match(html,/sharedShell.js\?v=locales-6/);assert.match(html,/app\.js\?v=[\w-]+"/);assert.match(html,/three@0\.169\.0/);
+ assert.match(html,/sharedShell.js\?v=mobile-panels-1/);assert.match(html,/app\.js\?v=[\w-]+"/);assert.match(html,/three@0\.169\.0/);
  for(const name of ['GLTFExporter','USDZExporter'])assert.match(exporter,new RegExp(`three/addons/exporters/${name}.js`));
  assert.doesNotMatch(exporter,/supabase|scene\.rebuild|fetch\(/i);assert.match(exporter,/quickLookCompatible: true/);
 });
