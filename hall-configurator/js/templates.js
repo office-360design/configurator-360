@@ -1,4 +1,4 @@
-import { normalizeOpenings, validateOpenings } from './openings.js?v=localized-slugs-1';
+import { normalizeOpenings, validateOpenings } from './openings.js?v=site-analytics-1';
 
 import { PRODUCTION_DEFAULTS } from './production.js?v=hall-production-1';
 import { LOGISTICS_DEFAULTS } from './logistics.js?v=hall-production-1';

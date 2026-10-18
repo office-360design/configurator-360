@@ -1,11 +1,11 @@
 import { isConfiguratorAREnabled } from '../arPolicy.js?v=firebase-ar-10';
 import { getLanguageProfile } from '../config.js?v=localized-slugs-1';
 import { renderPlatformAttribution } from '../tenantBranding.js?v=localized-slugs-1';
-import { sharedT } from '../i18n.js?v=locales-6';
+import { sharedT } from '../i18n.js?v=site-analytics-1';
 import { sharedIcon } from '../icons.js?v=platform-21';
 import { escapeHtml } from '../utils.js?v=platform-21';
-import { renderAccountMenu } from './accountMenu.js?v=localized-slugs-1';
-import { renderLanguageMenu } from './languageMenu.js?v=localized-slugs-1';
+import { renderAccountMenu } from './accountMenu.js?v=site-analytics-1';
+import { renderLanguageMenu } from './languageMenu.js?v=site-analytics-1';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
   return `

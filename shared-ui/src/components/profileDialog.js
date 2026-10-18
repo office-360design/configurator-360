@@ -1,5 +1,5 @@
 import { CURRENCY_OPTIONS, UNIT_OPTIONS } from '../config.js?v=localized-slugs-1';
-import { sharedT } from '../i18n.js?v=locales-6';
+import { sharedT } from '../i18n.js?v=site-analytics-1';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 const LANGUAGE_OPTIONS = Object.freeze([

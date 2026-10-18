@@ -1,8 +1,8 @@
-import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=localized-slugs-1';
+import { mountStandaloneConfiguratorShell } from '../../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
 import { resolveSharedTools } from '../../../shared-ui/src/tools/registry.js?v=platform-18';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
-import { pergolaT } from '../i18n.js?v=locales-6';
-import { calculatePrice, formatMoney } from '../pricing.js?v=locales-6';
+import { pergolaT } from '../i18n.js?v=site-analytics-1';
+import { calculatePrice, formatMoney } from '../pricing.js?v=site-analytics-1';
 
 import { createPergolaARController } from '../ar/controller.js?v=locales-6';
 

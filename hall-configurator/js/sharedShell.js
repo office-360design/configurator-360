@@ -1,11 +1,11 @@
-import { HALL_TEMPLATES } from './templates.js?v=localized-slugs-1';
-import { createHallTemplateDialog } from './templateDialog.js?v=localized-slugs-1';
+import { HALL_TEMPLATES } from './templates.js?v=site-analytics-1';
+import { createHallTemplateDialog } from './templateDialog.js?v=site-analytics-1';
 import { mountTemplatesMenu } from '../../shared-ui/src/components/templatesMenu.js?v=templates-1';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=localized-slugs-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
-import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=localized-slugs-1';
+import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=site-analytics-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('hall');
@@ -49,7 +49,7 @@ async function openHallAR() {
   templatesMenu?.close();
   window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
   if (!arDialogLoading) {
-    arDialogLoading = import('./ar/dialog.js?v=localized-slugs-1').then(({ createHallARDialog }) => {
+    arDialogLoading = import('./ar/dialog.js?v=site-analytics-1').then(({ createHallARDialog }) => {
       arDialog = createHallARDialog({
         getSnapshot: () => window.HALL_CONFIGURATOR_API?.captureState?.(),
         getLocale: () => shell?.state.locale ?? initialLocale,

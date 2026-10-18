@@ -1,4 +1,4 @@
-import { modulePresets, regionPresets } from './state.js?v=localized-slugs-1';
+import { modulePresets, regionPresets } from './state.js?v=site-analytics-1';
 import {
   estimateAnnualProduction,
   estimateDailyConsumption,
@@ -6,9 +6,9 @@ import {
   localObstructionShadeAtSun,
   simulateDay,
   sunClearsPvgisHorizon,
-} from './energyModel.js?v=localized-slugs-1';
-import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=localized-slugs-1';
-import { getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=localized-slugs-1';
+} from './energyModel.js?v=site-analytics-1';
+import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=site-analytics-1';
+import { getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=site-analytics-1';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -18,7 +18,7 @@ import {
   normalizeUnits,
   toDisplayLength,
 } from './preferences.js?v=locales-6';
-import { applySolarTranslations, solarFormatAzimuth, solarModuleLabel, solarModuleNote, solarRateSourceLabel, solarRegionCity, solarRoofName, solarSeasonLabel, solarT, resolveSolarLocale } from './i18n.js?v=localized-slugs-1';
+import { applySolarTranslations, solarFormatAzimuth, solarModuleLabel, solarModuleNote, solarRateSourceLabel, solarRegionCity, solarRoofName, solarSeasonLabel, solarT, resolveSolarLocale } from './i18n.js?v=site-analytics-1';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth']);
 const numeric = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;

@@ -147,3 +147,10 @@ test('product pages are recognised under every domain language', async () => {
   assert.equal(isProductPagePath('/konfiguratoren/fenster'), true);
   assert.equal(isProductPagePath('/chi-siamo'), false);
 });
+
+test('the configurators use the same Analytics property, consent key and domains as the website', async () => {
+  const site = await import('../lib/website-analytics.js');
+  const configurators = await import('../../shared-ui/src/siteAnalytics.js');
+  for (const name of ['GA_ID', 'CONSENT_KEY', 'INTERNAL_KEY']) assert.equal(configurators[name], site[name], name);
+  assert.deepEqual(configurators.PUBLIC_DOMAINS, site.PUBLIC_DOMAINS);
+});

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { formatLength } from './preferences.js?v=locales-6';
-import { solarT, resolveSolarLocale } from './i18n.js?v=localized-slugs-1';
+import { solarT, resolveSolarLocale } from './i18n.js?v=site-analytics-1';
 
 const LINE_COLOR = 0x4f5963;
 

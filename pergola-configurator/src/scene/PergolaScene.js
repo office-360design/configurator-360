@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { buildPergola } from './buildPergola.js?v=locales-6';
 import { AssetLibrary, fitAssetToBox } from './AssetLibrary.js?v=platform-18';
-import { pergolaT } from '../i18n.js?v=locales-6';
+import { pergolaT } from '../i18n.js?v=site-analytics-1';
 
 function disposeObject(object) {
   // Rebuilds own their materials, but PBR texture maps are library-owned.

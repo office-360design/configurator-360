@@ -8,7 +8,7 @@ import { applyGasTranslations } from './i18n.js?v=mobile-panels-1';
 import { GasConfiguratorStore } from './state.js?v=locales-6';
 import { renderGasLayout } from './ui/layout.js?v=mobile-panels-1';
 import { profilePointerToDesign, renderGasState } from './ui/renderers.js?v=mobile-panels-1';
-import { mountGasSharedShell } from './ui/sharedShell.js?v=localized-slugs-1';
+import { mountGasSharedShell } from './ui/sharedShell.js?v=site-analytics-1';
 
 const root = document.querySelector('#app');
 if (!root) throw new Error('The #app mount element is missing.');

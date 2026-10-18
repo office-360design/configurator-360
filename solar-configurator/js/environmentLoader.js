@@ -1,4 +1,4 @@
-import { solarT, resolveSolarLocale } from './i18n.js?v=localized-slugs-1';
+import { solarT, resolveSolarLocale } from './i18n.js?v=site-analytics-1';
 
 const t = (key, variables = {}) => solarT(resolveSolarLocale(), key, variables);
 const EARTH_METERS_PER_DEG = 111320;

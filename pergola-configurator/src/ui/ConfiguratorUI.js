@@ -1,5 +1,5 @@
 import { STEPS } from '../catalog.js?v=platform-18';
-import { calculatePrice, formatMoney } from '../pricing.js?v=locales-6';
+import { calculatePrice, formatMoney } from '../pricing.js?v=site-analytics-1';
 import {
   createPoleMount,
   findPoleMount,
@@ -18,8 +18,8 @@ import {
   segmentIsAvailable,
 } from '../state.js?v=locales-6';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
-import { pergolaRenderers } from './pergolaRenderers.js?v=localized-slugs-1';
-import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js?v=locales-6';
+import { pergolaRenderers } from './pergolaRenderers.js?v=site-analytics-1';
+import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js?v=site-analytics-1';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];
 

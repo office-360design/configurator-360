@@ -1,8 +1,8 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
 import { createFenceState, deriveFenceMetrics, normalizeFenceState } from './state.js?v=platform-18';
 import { FenceScene } from './scene.js?v=platform-18';
-import { FenceUI } from './ui.js?v=localized-slugs-1';
-import { resolveFenceLocale } from './i18n.js?v=localized-slugs-1';
+import { FenceUI } from './ui.js?v=site-analytics-1';
+import { resolveFenceLocale } from './i18n.js?v=site-analytics-1';
 import { initializeFenceFinishCatalog } from './finish-catalog.js?v=1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 

@@ -1,13 +1,13 @@
-import { refreshProductionLabels } from './productionGeometry.js?v=localized-slugs-1';
+import { refreshProductionLabels } from './productionGeometry.js?v=site-analytics-1';
 import { loadingSceneryExclusions } from './logistics.js?v=hall-production-1';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=localized-slugs-1';
-import { deriveHallMetrics } from './state.js?v=localized-slugs-1';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=localized-slugs-1';
-import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=localized-slugs-1';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=site-analytics-1';
+import { deriveHallMetrics } from './state.js?v=site-analytics-1';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=site-analytics-1';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=site-analytics-1';
 
 function disposeObject(object) {
   object.traverse((child) => {

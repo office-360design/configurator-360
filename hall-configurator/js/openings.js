@@ -1,4 +1,4 @@
-import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=localized-slugs-1';
+import { hallOpeningLabel, hallT, hallWallLabel, resolveHallLocale } from './i18n.js?v=site-analytics-1';
 export const OPENING_TYPES = {
   personnel: {
     label: 'Human door',

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as THREE from 'three';
-import { state } from '../js/state.js?v=localized-slugs-1';
-import { STORAGE_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=localized-slugs-1';
-import { buildHallModel, applyExplodedView } from '../js/hallFactory.js?v=localized-slugs-1';
-import { normalizeOpenings } from '../js/openings.js?v=localized-slugs-1';
-import { buildBom } from '../js/bom.js?v=localized-slugs-1';
+import { state } from '../js/state.js?v=site-analytics-1';
+import { STORAGE_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=site-analytics-1';
+import { buildHallModel, applyExplodedView } from '../js/hallFactory.js?v=site-analytics-1';
+import { normalizeOpenings } from '../js/openings.js?v=site-analytics-1';
+import { buildBom } from '../js/bom.js?v=site-analytics-1';
 import { createSectionalDoorAssembly } from '../js/loadingGeometry.js?v=hall-production-1';
 globalThis.window = { HALL_CONFIGURATOR_SHARED_SHELL: { state: { locale: 'en-US' } }, location: { hostname: 'localhost' } };
 const t=createHallTemplate(STORAGE_TEMPLATE_ID,state);

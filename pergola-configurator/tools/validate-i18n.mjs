@@ -21,8 +21,8 @@ import {
   localizeCatalogOptions,
   localizeStep,
   pergolaT,
-} from '../src/i18n.js?v=locales-6';
-import { getSharedMessages } from '../../shared-ui/src/i18n.js?v=locales-6';
+} from '../src/i18n.js?v=site-analytics-1';
+import { getSharedMessages } from '../../shared-ui/src/i18n.js?v=site-analytics-1';
 import {
   getLanguageProfile,
   getLocaleForHostname,
