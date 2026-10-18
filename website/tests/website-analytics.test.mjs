@@ -154,3 +154,11 @@ test('the configurators use the same Analytics property, consent key and domains
   for (const name of ['GA_ID', 'CONSENT_KEY', 'INTERNAL_KEY']) assert.equal(configurators[name], site[name], name);
   assert.deepEqual(configurators.PUBLIC_DOMAINS, site.PUBLIC_DOMAINS);
 });
+
+test('configurator modules that report events are imported with a cache tag', async () => {
+  // The servers send no Cache-Control, so an untagged module can stay stale after a deploy.
+  for (const file of ['standaloneShell.js', 'configurationQuotation.js']) {
+    const source = await readFile(new URL(`../../shared-ui/src/${file}`, import.meta.url), 'utf8');
+    for (const [, name] of source.matchAll(/from\s+['"]\.\/(siteAnalytics|configurationQuotation)\.js(?!\?v=)/g)) assert.fail(`${file} imports ${name}.js without ?v=`);
+  }
+});

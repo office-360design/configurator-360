@@ -1,5 +1,5 @@
 import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-10';
-import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
+import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js?v=site-analytics-1';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, WEBSITE_DEMO_PATHS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=localized-slugs-1';
 import { startsWithPanelClosed } from './phoneLayout.js?v=mobile-panels-1';
 import { COUNTRY_REGION_DEFAULTS, DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=locales-6';
