@@ -18,7 +18,7 @@ import {
   segmentIsAvailable,
 } from '../state.js?v=locales-6';
 import { escapeHtml } from '../../../shared-ui/src/utils.js?v=platform-18';
-import { pergolaRenderers } from './pergolaRenderers.js?v=locales-6';
+import { pergolaRenderers } from './pergolaRenderers.js?v=mobile-panels-1';
 import { pergolaT, translatePergolaRuntimeMessage } from '../i18n.js?v=locales-6';
 
 const CAMERA_PRESETS = ['perspective', 'front', 'left', 'right', 'top'];

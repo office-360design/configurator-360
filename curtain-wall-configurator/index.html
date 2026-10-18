@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-3" />
-  <link rel="stylesheet" href="./styles.css?v=cw-7" />
+  <link rel="stylesheet" href="./styles.css?v=mobile-panels-1" />
   <script type="importmap">
     {
       "imports": {
@@ -21,10 +21,9 @@
 </head>
 <body>
 <main class="app-shell">
-  <section class="viewer-panel" aria-label="Fațadă 3D">
+  <section class="viewer-panel" aria-label="Fațadă 3D" data-i18n-aria="region.viewer">
     <div class="viewer-stage">
       <div id="canvasHost"></div>
-      <div class="tag" id="tag" aria-live="polite"></div>
       <div class="stage-hint" data-i18n="stage.hint"></div>
       <div class="explode-panel" id="explodePanel" hidden>
         <div class="explode-head"><strong data-i18n="explode.title"></strong><button type="button" class="mini" data-action="assemble" data-i18n="explode.close"></button></div>
@@ -32,7 +31,9 @@
         <ol class="explode-legend" id="explodeLegend"></ol>
       </div>
     </div>
-    <section class="sheet" aria-label="Documentație">
+    <!-- Summary strip under the 3D model, never on top of it. -->
+    <div class="tag" id="tag" aria-live="polite"></div>
+    <section class="sheet" aria-label="Documentație" data-i18n-aria="region.sheet">
       <div class="sheet-tabs" role="tablist">
         <button type="button" role="tab" data-tab="elevation" aria-selected="true" data-i18n="tab.elevation"></button>
         <button type="button" role="tab" data-tab="node" aria-selected="false" data-i18n="tab.node"></button>
@@ -52,7 +53,7 @@
     </section>
   </section>
 
-  <aside class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light" aria-label="Parametri fațadă">
+  <aside class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light" aria-label="Parametri fațadă" data-i18n-aria="region.sidebar">
     <section class="panel-section intro-section intro-compact"><h1 data-i18n="title"></h1></section>
 
     <section class="accordion-section is-open" data-accordion="system">
@@ -133,7 +134,7 @@
 <button id="cwSidebarToggle" type="button" data-i18n-aria="toggle.sidebar" aria-expanded="true">
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
 </button>
-<script type="module" src="./js/sharedShell.js?v=locales-6"></script>
-<script type="module" src="./js/app.js?v=locales-6"></script>
+<script type="module" src="./js/sharedShell.js?v=mobile-panels-1"></script>
+<script type="module" src="./js/app.js?v=mobile-panels-1"></script>
 </body>
 </html>

@@ -25,7 +25,7 @@ import {
   areaGeometry,
 } from './model.js';
 import { translator } from './i18n.js';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=locales-6';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=mobile-panels-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
 import { createShareUrl } from '../../shared-ui/src/shareState.js';

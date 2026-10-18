@@ -6,7 +6,7 @@ import {
 } from './config.js?v=platform-18';
 import { createComponentSelection } from './component-selection.js?v=locales-6';
 import { createSceneContext } from './scene.js?v=platform-18';
-import { initializeUIControls } from './ui-controls.js?v=locales-6';
+import { initializeUIControls } from './ui-controls.js?v=mobile-panels-1';
 import { createWindowBuilder } from './window-builder.js?v=locales-6';
 import { createMaterialManager } from './materials.js?v=locales-6';
 import { createARController } from './ar-controller.js?v=locales-6';
