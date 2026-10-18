@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {pageFile, localizedRoutePath} from './page-paths.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import * as THREE from 'three';
@@ -156,10 +157,10 @@ test('all new localized pages expose correct SEO, visible FAQs, full-app links a
     const home = await readFile(new URL(`../outputs/release-site/${prefix}index.html`,import.meta.url),'utf8');
     for (const slug of slugs) {
       assert.ok(home.includes(`data-lite-product="${slug}"`));
-      const html = await readFile(new URL(`../outputs/release-site/${prefix}configurators/${slug}/index.html`,import.meta.url),'utf8');
+      const html = await readFile(new URL(`../outputs/release-site/${pageFile(prefix,`/configurators/${slug}`)}`,import.meta.url),'utf8');
       assert.equal((html.match(/<h1[ >]/g)||[]).length,1);
-      assert.ok(html.includes(`rel="canonical" href="${origin}/configurators/${slug}"`));
-      for (const languageOrigin of Object.values(origins)) assert.ok(html.includes(`${languageOrigin}/configurators/${slug}`));
+      assert.ok(html.includes(`rel="canonical" href="${origin}${localizedRoutePath(locale,`/configurators/${slug}`)}"`));
+      for (const [languageLocale,languageOrigin] of Object.entries(origins)) assert.ok(html.includes(`${languageOrigin}${localizedRoutePath(languageLocale,`/configurators/${slug}`)}`));
       assert.ok(html.includes('"@type":"FAQPage"'));
       assert.ok(html.includes('"@type":"WebApplication"'));
       assert.ok(html.includes('"@type":"BreadcrumbList"'));
@@ -171,7 +172,7 @@ test('all new localized pages expose correct SEO, visible FAQs, full-app links a
       assert.doesNotMatch(html,/data-scene="gas"|\/configurators\/gas/);
     }
     const sitemap = await readFile(new URL(`../outputs/release-site/sitemap-${locale}.xml`,import.meta.url),'utf8');
-    for (const slug of slugs) assert.ok(sitemap.includes(`${origin}/configurators/${slug}`));
+    for (const slug of slugs) assert.ok(sitemap.includes(`${origin}${localizedRoutePath(locale,`/configurators/${slug}`)}`));
     assert.doesNotMatch(sitemap,/gas|\/bookshelf-configurator\/|\/tiles-configurator\//);
   }
 });

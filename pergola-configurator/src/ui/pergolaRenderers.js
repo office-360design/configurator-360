@@ -49,7 +49,7 @@ import {
   segmentHasMountedItems,
   segmentIsAvailable,
 } from '../state.js?v=locales-6';
-import { escapeHtml } from '../../../shared-ui/src/index.js?v=mobile-panels-1';
+import { escapeHtml } from '../../../shared-ui/src/index.js?v=localized-slugs-1';
 import {
   localizeCatalogOptions,
   localizePoleLabel,

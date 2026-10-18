@@ -1,16 +1,16 @@
 import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-10';
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=locales-6';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, WEBSITE_DEMO_PATHS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=localized-slugs-1';
 import { startsWithPanelClosed } from './phoneLayout.js?v=mobile-panels-1';
 import { COUNTRY_REGION_DEFAULTS, DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=locales-6';
 import { sharedT } from './i18n.js?v=locales-6';
 import { renderActionFeedback } from './components/feedback.js?v=locales-6';
-import { renderTopBar } from './components/topBar.js?v=locales-6';
-import { syncAccountIdentity } from './components/accountMenu.js?v=locales-6';
+import { renderTopBar } from './components/topBar.js?v=localized-slugs-1';
+import { syncAccountIdentity } from './components/accountMenu.js?v=localized-slugs-1';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=locales-6';
 import { renderToolsMenu } from './components/toolsMenu.js?v=locales-6';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=locales-6';
-import { renderProfileDialog } from './components/profileDialog.js?v=locales-6';
+import { renderProfileDialog } from './components/profileDialog.js?v=localized-slugs-1';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=locales-6';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=quotation-1';
 import { renderCartMenu } from './components/cartMenu.js?v=locales-6';
@@ -2204,7 +2204,7 @@ export class StandaloneConfiguratorShell {
     if (action === 'book-demo') {
       const resolvedLocale = LANGUAGE_PROFILES[this.state.locale] ? this.state.locale : 'en-US';
       const host = LOCALE_HOSTS[resolvedLocale] || LOCALE_HOSTS['en-US'];
-      const target = new URL(`https://${host}/book-a-demo/`);
+      const target = new URL(`https://${host}${WEBSITE_DEMO_PATHS[resolvedLocale] || '/book-a-demo'}`);
       target.searchParams.set('configurator', this.productId);
       const source = new URL(window.location.href);
       source.search = '';

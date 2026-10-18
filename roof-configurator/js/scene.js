@@ -8,7 +8,7 @@ import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildRoofModel } from './roofFactory.js?v=roof-ar-1';
 import { createDimensions } from './dimensions.js?v=locales-6';
-import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=locales-6';
+import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=localized-slugs-1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 

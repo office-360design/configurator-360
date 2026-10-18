@@ -1,5 +1,5 @@
-import { renderPlatformAttribution } from './tenantBranding.js?v=locales-6';
-import { getLocaleForHostname } from './config.js?v=locales-6';
+import { renderPlatformAttribution } from './tenantBranding.js?v=localized-slugs-1';
+import { getLocaleForHostname } from './config.js?v=localized-slugs-1';
 import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=locales-6';
 import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=locales-6';
 import {

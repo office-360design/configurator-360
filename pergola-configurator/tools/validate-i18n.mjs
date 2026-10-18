@@ -27,7 +27,7 @@ import {
   getLanguageProfile,
   getLocaleForHostname,
   getLocalizedConfiguratorUrl,
-} from '../../shared-ui/src/config.js?v=locales-6';
+} from '../../shared-ui/src/config.js?v=localized-slugs-1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(here, '..');

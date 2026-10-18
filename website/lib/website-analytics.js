@@ -2,6 +2,11 @@
 export const GA_ID = 'G-2E433G5VM7';
 export const CONSENT_KEY = '360-analytics-consent-v1';
 export const INTERNAL_KEY = '360-internal-test';
+// The configurators page segment on every domain (lib/page-slugs.json; kept equal by tests/website-analytics.test.mjs).
+export const PRODUCT_PAGE_SEGMENTS = ['configurators', 'configuratoare', 'konfiguratoren', 'configuradores', 'configurateurs', 'configuratori'];
+const PRODUCT_PAGE_PATTERN = new RegExp(`/(?:${PRODUCT_PAGE_SEGMENTS.join('|')})/`);
+/** True on a configurator product page, whatever the domain language. */
+export const isProductPagePath = (pathname) => PRODUCT_PAGE_PATTERN.test(String(pathname || ''));
 export const PUBLIC_DOMAINS = ['www.360configurator.com', 'www.360configurator.ro', 'www.360konfigurator.de', 'www.360configurador.es', 'www.360configurateur.fr', 'www.360configuratore.it'];
 // Public host → website language. Every host in PUBLIC_DOMAINS has an entry.
 const DOMAIN_LANGUAGES = {
@@ -66,7 +71,7 @@ export function trackWebsiteEvent(name, parameters = {}, once = false) {
 
 export function previewEvent(name, product) {
   if (typeof window === 'undefined' || !PRODUCTS.has(product)) return false;
-  return trackWebsiteEvent(name, {product, placement: window.location.pathname.includes('/configurators/') ? 'product_page' : 'homepage', ...(name === 'lite_preview_error' ? {error_code:'preview_unavailable'} : {})}, true);
+  return trackWebsiteEvent(name, {product, placement: isProductPagePath(window.location.pathname) ? 'product_page' : 'homepage', ...(name === 'lite_preview_error' ? {error_code:'preview_unavailable'} : {})}, true);
 }
 
 // Only an exact known product may accompany a form event. Free-text interests,

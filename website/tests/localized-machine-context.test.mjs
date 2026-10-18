@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {localizedMachineContext,localizedFullContext,sectionText} from '../scripts/localized-machine-context.mjs';
-import {configurators} from '../scripts/static-routes.mjs';
+import {configurators, localizedRoutePath} from '../scripts/static-routes.mjs';
 
 test('localized context is generated from the same current page metadata', async () => {
   const root = new URL('../outputs/release-site/',import.meta.url).pathname;
@@ -11,7 +11,9 @@ test('localized context is generated from the same current page metadata', async
   const review={en:/technical review/,ro:/evaluarea tehnică/,de:/technischen Prüfung/,es:/revisión técnica/,fr:/revue technique/,it:/revisione tecnica/};
   for (const [locale,host] of [['en','www.360configurator.com'],['ro','www.360configurator.ro'],['de','www.360konfigurator.de'],['es','www.360configurador.es'],['fr','www.360configurateur.fr'],['it','www.360configuratore.it']]) {
     const text=await localizedMachineContext(decodeURIComponent(root),locale,`https://${host}`,configurators);
-    assert.equal((text.match(/\/configurators\//g)||[]).length,10);
+    // Ten product pages, each under the domain's own configurators segment.
+    const productSegment=localizedRoutePath(locale,'/configurators/x').split('/')[1];
+    assert.equal((text.match(new RegExp(`/${productSegment}/`,'g'))||[]).length,10);
     if (locale!=='en') assert.doesNotMatch(text,/https:\/\/www\.360configurator\.com/);
     assert.match(text,lite[locale]);
     assert.match(text,review[locale]);

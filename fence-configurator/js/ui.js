@@ -1,8 +1,8 @@
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { PANEL_STYLES, activeRunIds, deriveFenceMetrics, normalizeFenceState } from './state.js?v=platform-18';
 import { getAvailableFenceFinishes, resolveFenceFinish, selectFenceFinish } from './finish-catalog.js?v=1';
-import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=locales-6';
-import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=locales-6';
+import { buildFenceBom, fenceBomCsv, formatMoney } from './bom.js?v=localized-slugs-1';
+import { applyFenceTranslations, fenceT, resolveFenceLocale } from './i18n.js?v=localized-slugs-1';
 
 const CONTROL_CONFIG = Object.freeze({
   runA: { kind: 'length', min: 2, max: 30, step: 0.25 },

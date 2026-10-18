@@ -1,9 +1,9 @@
-import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=locales-6';
+import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=localized-slugs-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 import { ChairScene } from './scene.js?v=locales-6';
 import { WOOD_TYPES, FABRIC_TYPES, WOOD_COLOURS, FABRIC_COLOURS, materialLabel } from './materials.js?v=locales-6';
 import { chairT, formatDimension } from './i18n.js?v=locales-6';
-import { mountChairShell } from './sharedShell.js?v=mobile-panels-1';
+import { mountChairShell } from './sharedShell.js?v=localized-slugs-1';
 
 applyConfiguratorSeo('chair');
 const tenantContext = await requireTenantConfiguratorAccess('chair');

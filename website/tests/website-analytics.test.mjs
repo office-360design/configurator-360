@@ -138,3 +138,12 @@ test('analytics language follows every public website domain', () => {
   for (const [hostname, language] of Object.entries(expected)) assert.equal(analyticsContext({hostname}).language, language);
   assert.equal(analyticsContext({hostname: 'localhost'}).language, 'en');
 });
+
+test('product pages are recognised under every domain language', async () => {
+  const {PRODUCT_PAGE_SEGMENTS, isProductPagePath} = await import('../lib/website-analytics.js');
+  const slugs = JSON.parse(await readFile(new URL('../lib/page-slugs.json', import.meta.url), 'utf8'));
+  assert.deepEqual([...PRODUCT_PAGE_SEGMENTS].sort(), [...new Set(Object.values(slugs.pages.configurators))].sort());
+  assert.equal(isProductPagePath('/configuratori/finestre'), true);
+  assert.equal(isProductPagePath('/konfiguratoren/fenster'), true);
+  assert.equal(isProductPagePath('/chi-siamo'), false);
+});

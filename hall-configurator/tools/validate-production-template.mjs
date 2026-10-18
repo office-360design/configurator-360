@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=locales-6';
-import { HALL_TEMPLATES, PRODUCTION_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=locales-6';
+import { state, deriveHallMetrics } from '../js/state.js?v=localized-slugs-1';
+import { HALL_TEMPLATES, PRODUCTION_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=localized-slugs-1';
 import { PRODUCTION_DEFAULTS, normalizeProduction, productionLayout, footprint, footprintsOverlap, productionOpeningClearances } from '../js/production.js?v=hall-production-1';
-import { normalizeOpening, normalizeOpenings, validateOpenings } from '../js/openings.js?v=locales-6';
+import { normalizeOpening, normalizeOpenings, validateOpenings } from '../js/openings.js?v=localized-slugs-1';
 import { loadingLayout } from '../js/logistics.js?v=hall-production-1';
-import { getHallMessages } from '../js/i18n.js?v=locales-6';
-import { estimateHallPrice } from '../js/pricing.js?v=locales-6';
+import { getHallMessages } from '../js/i18n.js?v=localized-slugs-1';
+import { estimateHallPrice } from '../js/pricing.js?v=localized-slugs-1';
 const original = structuredClone(state), t = createHallTemplate(PRODUCTION_TEMPLATE_ID, state);
 assert.deepEqual(state, original);assert.equal(HALL_TEMPLATES.length,4);
 assert.equal(new Set(HALL_TEMPLATES.map(t=>t.id)).size,4);

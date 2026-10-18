@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
-import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=locales-6';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=localized-slugs-1';
 
 await requireTenantConfiguratorAccess('bookshelf');
 

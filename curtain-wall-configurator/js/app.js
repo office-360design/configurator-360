@@ -1,6 +1,6 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
-import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=locales-6';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=localized-slugs-1';
 import { DEFAULT_STATE, FINISHES, LIMITS, PRESETS, TINTS, fmt, normalizeState, setNumberLocale } from './facade.js?v=locales-6';
 import { nodeSvg } from './drawings.js?v=cortizo-i18n-1';
 import { applyTranslations, resolveLocale, translator } from './i18n.js?v=cortizo-i18n-1';

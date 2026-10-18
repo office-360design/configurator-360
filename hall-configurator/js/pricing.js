@@ -1,8 +1,8 @@
 import { loadingLayout } from './logistics.js?v=hall-production-1';
 import { commercialLayout } from './commercial.js?v=hall-production-1';
-import { deriveHallMetrics } from './state.js?v=locales-6';
-import { normalizeOpenings, openingLabel } from './openings.js?v=locales-6';
-import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=locales-6';
+import { deriveHallMetrics } from './state.js?v=localized-slugs-1';
+import { normalizeOpenings, openingLabel } from './openings.js?v=localized-slugs-1';
+import { hallT, hallValueLabel, resolveHallLocale } from './i18n.js?v=localized-slugs-1';
 
 const structureRates = { light: 72, standard: 88, heavy: 108 };
 const claddingRates = { trapezoidal: 34, sandwich: 59, 'standing-seam': 66 };

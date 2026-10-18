@@ -1,7 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { metadataRoutes, pageRoutes, routeOutputPath } from "./static-routes.mjs";
+import { localizedRoutePath, metadataRoutes, pageRoutes, routeOutputPath } from "./static-routes.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const websiteRoot = path.resolve(scriptDirectory, "..");
@@ -132,6 +132,16 @@ for (const htmlFile of htmlFiles) {
   for (const reference of references) {
     const target = localTarget(reference, htmlFile);
     if (!target) continue;
+    // Like nginx ($site_prefix), a root path on a country page resolves in that locale's tree first.
+    const treeLocale = path.relative(releaseRoot, htmlFile).split(path.sep)[0];
+    const clean = cleanReference(reference);
+    // A country page links to its own slugs; an English slug there would only work through the 301.
+    if (prefixedLocales.includes(treeLocale) && clean.startsWith("/")) {
+      const englishRoute = clean.replace(/\/$/, "");
+      const localized = localizedRoutePath(treeLocale, englishRoute);
+      if (localized !== englishRoute) failures.push(`${path.relative(releaseRoot, htmlFile)} links to the English slug ${reference} instead of ${localized}`);
+    }
+    if (prefixedLocales.includes(treeLocale) && clean.startsWith("/") && await resolvesToStaticTarget(path.join(releaseRoot, treeLocale, clean))) continue;
     if (await resolvesToStaticTarget(target)) continue;
 
     const composedTarget = composedSiteTarget(reference);
@@ -167,12 +177,13 @@ for (const route of pageRoutes) {
   const matchesUrl = (tag, expected) => {
     try { return new URL(tagUrl(tag)).href === new URL(expected).href; } catch { return false; }
   };
-  if (canonicalTags.length !== 1 || !matchesUrl(canonicalTags[0]?.[0] || "", `${expectedOrigin}${publicPath}`)) {
+  // publicPath is the internal (English) route; every domain shows it under its own slugs.
+  if (canonicalTags.length !== 1 || !matchesUrl(canonicalTags[0]?.[0] || "", `${expectedOrigin}${localizedRoutePath(expectedLanguage, publicPath)}`)) {
     failures.push(`${route} must have exactly one self-canonical in the initial HTML head`);
   }
-  for (const [language, alternateOrigin] of [...localeContract.map(({ hreflang, origin }) => [hreflang, origin]), ["x-default", "https://www.360configurator.com"]]) {
+  for (const [language, alternateOrigin, alternateLocale] of [...localeContract.map(({ hreflang, origin, locale }) => [hreflang, origin, locale]), ["x-default", "https://www.360configurator.com", "en"]]) {
     const alternates = [...head.matchAll(/<link\b[^>]*rel=["']alternate["'][^>]*>/gi)].map(match => match[0]);
-    if (!alternates.some(tag => new RegExp(`hreflang=["']${language}["']`, "i").test(tag) && matchesUrl(tag, `${alternateOrigin}${publicPath}`))) {
+    if (!alternates.some(tag => new RegExp(`hreflang=["']${language}["']`, "i").test(tag) && matchesUrl(tag, `${alternateOrigin}${localizedRoutePath(alternateLocale, publicPath)}`))) {
       failures.push(`${route} lacks reciprocal ${language} hreflang in the initial HTML head`);
     }
   }
@@ -193,7 +204,7 @@ for (const route of pageRoutes) {
   if (!html.includes(`<html lang="${expectedLanguage}"`)) failures.push(`${route} has an incorrect document language; expected ${expectedLanguage}`);
   if (route === "/" || prefixedLocales.some((locale) => route === `/${locale}`)) {
     for (const slug of ["pergola", "roof", "window", "hall", "solar", "fence", "chair", "cardbox", "bookshelf", "tiles"]) {
-      if (!html.includes(`href="/configurators/${slug}"`)) failures.push(`${route} lacks crawlable product link for ${slug}`);
+      if (!html.includes(`href="${localizedRoutePath(expectedLanguage, `/configurators/${slug}`)}"`)) failures.push(`${route} lacks crawlable product link for ${slug}`);
     }
   }
 }
@@ -230,13 +241,14 @@ const allOrigins = Object.values(sitemapExpectations).map(({ origin }) => origin
 for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
   const xml = await readFile(path.join(releaseRoot, `sitemap-${locale}.xml`), "utf8");
   const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+  const page = (route) => `${origin}${localizedRoutePath(locale, route)}`;
   const expected = [
     `${origin}/`,
-    `${origin}/about`,
-    `${origin}/contact`,
-    `${origin}/pricing`,
-    `${origin}/book-a-demo`,
-    ...marketingSlugs.map((slug) => `${origin}/configurators/${slug}`),
+    page("/about"),
+    page("/contact"),
+    page("/pricing"),
+    page("/book-a-demo"),
+    ...marketingSlugs.map((slug) => page(`/configurators/${slug}`)),
     ...apps.map((appPath) => `${origin}${appPath}`),
   ];
 
@@ -248,6 +260,13 @@ for (const [locale, { origin, apps }] of Object.entries(sitemapExpectations)) {
   for (const foreignOrigin of allOrigins.filter((candidate) => candidate !== origin)) {
     if (xml.includes(foreignOrigin)) failures.push(`sitemap-${locale}.xml contains foreign origin ${foreignOrigin}`);
   }
+}
+
+// Independent spot checks of the localized slugs (not derived from lib/page-slugs.json).
+for (const [locale, present, absent] of [["it", "/chi-siamo", "/about"], ["de", "/konfiguratoren/fenster", "/configurators/window"], ["ro", "/despre-noi", "/about"]]) {
+  const xml = await readFile(path.join(releaseRoot, `sitemap-${locale}.xml`), "utf8");
+  if (!xml.includes(`${originByLocale[locale]}${present}<`)) failures.push(`sitemap-${locale}.xml lacks the localized page ${present}`);
+  if (xml.includes(`${originByLocale[locale]}${absent}<`)) failures.push(`sitemap-${locale}.xml still lists the English slug ${absent}`);
 }
 
 const defaultSitemap = await readFile(path.join(releaseRoot, "sitemap.xml"), "utf8");

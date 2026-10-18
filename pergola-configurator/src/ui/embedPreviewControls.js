@@ -8,7 +8,7 @@ import {
   getTotalSpotlights,
   segmentIsAvailable,
 } from '../state.js?v=locales-6';
-import { renderPergolaGrid, renderRoofRectangleGrid } from './pergolaRenderers.js?v=mobile-panels-1';
+import { renderPergolaGrid, renderRoofRectangleGrid } from './pergolaRenderers.js?v=localized-slugs-1';
 
 const PREVIEW_MESSAGE_TYPE = '360configurator:preview-adjustment';
 

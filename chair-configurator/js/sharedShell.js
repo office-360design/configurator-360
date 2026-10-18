@@ -1,5 +1,5 @@
 import { createChairARController } from './ar/controller.js?v=locales-6';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=mobile-panels-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=localized-slugs-1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-19';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
 

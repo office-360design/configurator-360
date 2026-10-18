@@ -31,6 +31,15 @@ domains = {
     'it-IT': '360configuratore.it',
 }
 locale_prefixes = [locale.split('-')[0] for locale in domains if locale != 'en-US']
+# Presentation page slugs per language (the website's source of truth).
+page_slugs = json.loads((root / 'website/lib/page-slugs.json').read_text())
+def localized_page(locale, path):
+    """Public path of an English marketing path on a locale's domain."""
+    if locale == 'en':
+        return path
+    first, _, rest = path.partition('/')
+    page = next(v for v in page_slugs['pages'].values() if v['en'] == first)
+    return page[locale] + ('/' + page_slugs['configurators'][rest][locale] if rest else '')
 nginx = shutil.which('nginx') or '/usr/sbin/nginx'
 if not Path(nginx).exists():
     raise SystemExit('nginx is required for route tests (install nginx, then rerun).')
@@ -60,7 +69,9 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
     ]
     for locale_prefix in [''] + [f'{prefix}/' for prefix in locale_prefixes]:
         for marketing_path in marketing_paths:
-            fixtures[f'{locale_prefix}{marketing_path}/index.html'] = f'MARKETING {locale_prefix}{marketing_path}'
+            # The static export writes every country page under its own slug.
+            local = localized_page(locale_prefix.rstrip('/') or 'en', marketing_path)
+            fixtures[f'{locale_prefix}{local}/index.html'] = f'MARKETING {locale_prefix}{marketing_path}'
     for product in ['window', 'pergola', 'roof', 'solar', 'hall', 'fence', 'cardbox', 'tiles', 'chair', 'bookshelf']:
         fixtures[f'{product}-configurator/index.html'] = f'APP {product}'
         fixtures[f'{product}-configurator/js/app.js'] = f'ASSET {product}'
@@ -182,9 +193,16 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
         # never catch tenant pages, app files or unknown marketing slugs.
         for prefix, suffix in [('' if loc == 'en-US' else f'{loc.split("-")[0]}/', dom) for loc, dom in domains.items()]:
             host = f'www.{suffix}'
+            language = prefix.rstrip('/') or 'en'
             for marketing_path in marketing_paths:
                 for query in ['', '?project=existing-system&encoded=a%2Fb%20c']:
-                    canonical = '/' + marketing_path
+                    canonical = '/' + localized_page(language, marketing_path)
+                    # The old English slug moves to the domain's own slug in one 301.
+                    if canonical != '/' + marketing_path:
+                        for old in ['/' + marketing_path, '/' + marketing_path + '/', '/' + marketing_path + '/index.html']:
+                            status, headers, _ = get(host, old + query)
+                            assert status == 301 and headers.get('Location') == f'https://{host}{canonical}{query}', (host, old, status, headers)
+                            tested += 1
                     status, headers, body = get(host, canonical + query)
                     assert status == 200 and body == f'MARKETING {prefix}{marketing_path}', (host, canonical, status, body)
                     for alias in [canonical + '/', canonical + '/index.html']:
@@ -196,7 +214,8 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
                     assert get(host, canonical + '/', 'HEAD')[1].get('Location') == f'https://{host}{canonical}'
                     tested += 2
                     tested += 2
-            for old, destination in [('/our-work/', '/'), ('/paving-configurator/', '/configurators/tiles')]:
+            tiles = '/' + localized_page(language, 'configurators/tiles')
+            for old, destination in [('/our-work/', '/'), ('/paving-configurator/', tiles)]:
                 status, headers, _ = get(host, old + '?campaign=old')
                 assert status == 301 and headers.get('Location') == f'https://{host}{destination}?campaign=old', (host, old, status, headers)
                 tested += 1
@@ -204,7 +223,10 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
                 assert get(host, invalid)[0] == 404, (host, invalid)
                 tested += 1
         for locale, domain in [(loc.split('-')[0], dom) for loc, dom in domains.items() if loc != 'en-US']:
-            for old, target in [(f'/{locale}', '/'), (f'/{locale}/', '/'), (f'/{locale}/contact', '/contact')]:
+            # Old .com/<locale>/<English slug> URLs reach the final localized page in one hop.
+            for old, target in [(f'/{locale}', '/'), (f'/{locale}/', '/'), (f'/{locale}/contact', '/' + localized_page(locale, 'contact')),
+                                (f'/{locale}/about', '/' + localized_page(locale, 'about')),
+                                (f'/{locale}/configurators/window/', '/' + localized_page(locale, 'configurators/window'))]:
                 status, headers, _ = get('www.360configurator.com', old + '?encoded=a%2Fb%20c')
                 assert status == 301 and headers.get('Location') == f'https://www.{domain}{target}?encoded=a%2Fb%20c', (old, headers)
                 tested += 1

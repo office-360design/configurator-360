@@ -85,7 +85,7 @@ try {
         </head><body><main class="scene-fixture">Configurator viewport (test fixture)</main>
         <script type="module">
           import { resolveTenantContext } from '/shared-ui/src/tenantBootstrap.js?v=locales-6';
-          import { mountStandaloneConfiguratorShell } from '/shared-ui/src/standaloneShell.js?v=mobile-panels-1';
+          import { mountStandaloneConfiguratorShell } from '/shared-ui/src/standaloneShell.js?v=localized-slugs-1';
           await resolveTenantContext();
           window.shell = mountStandaloneConfiguratorShell({
             productId: '${productId}', productType: '${productId}',

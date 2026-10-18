@@ -1,4 +1,5 @@
 import {readFile} from 'node:fs/promises';
+import {localizedRoutePath} from './static-routes.mjs';
 import path from 'node:path';
 
 const copy = {
@@ -68,7 +69,8 @@ export function sectionText(fragment) {
 }
 
 function pageFile(releaseRoot,locale,route) {
-  return path.join(releaseRoot,locale==='en'?'':locale,route==='/'?'index.html':`${route.slice(1)}/index.html`);
+  const localized=localizedRoutePath(locale,route);
+  return path.join(releaseRoot,locale==='en'?'':locale,localized==='/'?'index.html':`${localized.slice(1)}/index.html`);
 }
 
 // Derive product facts from the actual localized server-rendered page metadata.
@@ -84,7 +86,7 @@ export async function localizedMachineContext(releaseRoot, locale, origin, produ
     const title=decode(html.match(/<title>([^<]+)<\/title>/i)?.[1] || '360Configurator');
     const description=decode(html.match(/<meta[^>]*name="description"[^>]*content="([^"]+)"/i)?.[1] || '');
     if (!description) throw new Error(`Missing description for ${locale}${route}`);
-    entries.push(`- [${title}](${origin}${route}): ${description}`);
+    entries.push(`- [${title}](${origin}${localizedRoutePath(locale,route)}): ${description}`);
   }
   return `# 360Configurator\n\n> ${text.overview}\n\n## ${text.pages}\n\n${entries.slice(0,primary.length).join('\n')}\n\n## ${text.products}\n\n${entries.slice(primary.length).join('\n')}\n\n## ${text.boundaries}\n\n${text.scope}\n\n## ${text.resources}\n\n- [${text.full}](${origin}/llms-full.txt)\n- [${text.sitemap}](${origin}/sitemap.xml)\n- [${text.robots}](${origin}/robots.txt)\n`;
 }
@@ -94,7 +96,7 @@ export async function localizedFullContext(releaseRoot,locale,origin,products) {
   const pricingHtml=await readFile(pageFile(releaseRoot,locale,'/pricing'),'utf8');
   const pricing=pricingHtml.match(/<section\b[^>]*data-machine-section="implementation-costs"[^>]*>([\s\S]*?)<\/section>/)?.[1];
   if (!pricing) throw new Error(`Missing implementation costs for ${locale}`);
-  const pricingContext=`## ${copy[locale].pricing}\n\n${origin}/pricing#cost-breakdown\n\n${sectionText(pricing)}`;
+  const pricingContext=`## ${copy[locale].pricing}\n\n${origin}${localizedRoutePath(locale,'/pricing')}#cost-breakdown\n\n${sectionText(pricing)}`;
   const sections=[];
   for (const slug of products) {
     const route=`/configurators/${slug}`;
@@ -107,7 +109,7 @@ export async function localizedFullContext(releaseRoot,locale,origin,products) {
     const graph=JSON.parse(html.match(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/)?.[1] || '{}');
     const application=graph['@graph']?.find(item=>item['@type']==='WebApplication')?.url;
     if (!application || new URL(application).origin!==origin) throw new Error(`Invalid full app URL for ${locale}/${slug}`);
-    sections.push(`## ${title}\n\n${origin}${route}\n\n${marked.map(([, ,fragment])=>sectionText(fragment)).join('\n\n')}\n\n${copy[locale].application}: ${application}`);
+    sections.push(`## ${title}\n\n${origin}${localizedRoutePath(locale,route)}\n\n${marked.map(([, ,fragment])=>sectionText(fragment)).join('\n\n')}\n\n${copy[locale].application}: ${application}`);
   }
   return `${summary}\n${pricingContext}\n\n## ${copy[locale].details}\n\n${sections.join('\n\n')}\n`;
 }

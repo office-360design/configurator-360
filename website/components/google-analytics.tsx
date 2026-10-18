@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GA_ID, PUBLIC_DOMAINS, readChoice, setChoice, browserStorage, isInternalVisit, analyticsContext, trackWebsiteEvent, previewEvent } from "../lib/website-analytics.js";
-import { configuratorPublicPaths, type Locale } from "../lib/i18n";
+import { GA_ID, PUBLIC_DOMAINS, readChoice, setChoice, browserStorage, isInternalVisit, analyticsContext, trackWebsiteEvent, previewEvent, isProductPagePath } from "../lib/website-analytics.js";
+import { configuratorPublicPaths, internalPath, localeFromHostname, type Locale } from "../lib/i18n";
 import "../app/analytics-preferences.css";
 
 declare global {
@@ -99,9 +99,11 @@ export function GoogleAnalytics() {
       }
       if (!PUBLIC_DOMAINS.includes(url.hostname)) return;
       const product = Object.values(configuratorPublicPaths).flatMap(paths => Object.entries(paths)).find(([, path]) => url.pathname === path || `${url.pathname}/` === path)?.[0];
-      if (product) trackWebsiteEvent('full_configurator_open', {product, placement: window.location.pathname.includes('/configurators/') ? 'product_page' : 'homepage'});
-      else if (url.pathname.replace(/\/$/, '') === '/book-a-demo') trackWebsiteEvent('demo_request_open');
-      else if (url.pathname.replace(/\/$/, '') === '/contact') trackWebsiteEvent('contact_intent', {method: 'contact_page'});
+      // Page links use each domain's own slugs; compare their internal route.
+      const route = internalPath(localeFromHostname(url.hostname), url.pathname).replace(/\/$/, '');
+      if (product) trackWebsiteEvent('full_configurator_open', {product, placement: isProductPagePath(window.location.pathname) ? 'product_page' : 'homepage'});
+      else if (route === '/book-a-demo') trackWebsiteEvent('demo_request_open');
+      else if (route === '/contact') trackWebsiteEvent('contact_intent', {method: 'contact_page'});
     };
     document.addEventListener('click', click);
     return () => {

@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright';
+import { localizedRoutePath } from '../../website/scripts/static-routes.mjs';
 
 const HOSTS = {
   en: {
@@ -112,9 +113,10 @@ function canonicalUrl(origin, pathname) {
   return `${origin}${pathname}`;
 }
 
+// Marketing pages use each domain's own language slugs (website/lib/page-slugs.json).
 function alternateMapForMarketing(pathname) {
   return Object.fromEntries(
-    Object.values(HOSTS).map((host) => [host.hreflang, canonicalUrl(host.origin, pathname)]),
+    Object.entries(HOSTS).map(([locale, host]) => [host.hreflang, canonicalUrl(host.origin, localizedRoutePath(locale, pathname))]),
   );
 }
 
@@ -132,8 +134,8 @@ function expectedPages() {
         locale,
         kind: pathname.startsWith('/configurators/') ? 'marketing-product' : 'marketing',
         product: pathname.startsWith('/configurators/') ? pathname.split('/').pop() : null,
-        url: canonicalUrl(host.origin, pathname),
-        expectedCanonical: canonicalUrl(host.origin, pathname),
+        url: canonicalUrl(host.origin, localizedRoutePath(locale, pathname)),
+        expectedCanonical: canonicalUrl(host.origin, localizedRoutePath(locale, pathname)),
         expectedLang: host.lang,
         expectedAlternates: alternateMapForMarketing(pathname),
         expectedXDefault: canonicalUrl(HOSTS.en.origin, pathname),
@@ -169,9 +171,13 @@ const ROUTING_CHECKS = [
     {
       url: `${HOSTS.en.origin}/${locale}/configurators/pergola`,
       expectedStatus: 301,
-      expectedLocation: `${host.origin}/configurators/pergola`,
+      expectedLocation: `${host.origin}${localizedRoutePath(locale, '/configurators/pergola')}`,
     },
   ]),
+  // Old English page slugs on a country domain move to the domain's own slug.
+  ...COUNTRY_HOSTS.flatMap(([locale, host]) => ['/about', '/pricing', '/configurators/window']
+    .filter((pathname) => localizedRoutePath(locale, pathname) !== pathname)
+    .map((pathname) => ({ url: `${host.origin}${pathname}`, expectedStatus: 301, expectedLocation: `${host.origin}${localizedRoutePath(locale, pathname)}` }))),
   // English app routes on a country domain move to the localized alias.
   ...COUNTRY_HOSTS.map(([, host]) => ({
     url: `${host.origin}/pergola-configurator/`,
