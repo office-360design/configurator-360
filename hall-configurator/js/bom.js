@@ -1,8 +1,8 @@
 import { productionLayout } from './production.js?v=hall-production-1';
 import { loadingLayout } from './logistics.js?v=hall-production-1';
 import { commercialLayout } from './commercial.js?v=hall-production-1';
-import { normalizeOpenings, openingLabel } from './openings.js?v=locales-6';
-import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=locales-6';
+import { normalizeOpenings, openingLabel } from './openings.js?v=localized-slugs-1';
+import { hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=localized-slugs-1';
 
 const unit = (value, locale) => value === 'pcs' ? hallT(locale, 'bom.unit.pcs') : value;
 

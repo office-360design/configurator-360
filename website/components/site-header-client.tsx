@@ -3,10 +3,12 @@
 import { useEffect } from "react";
 import { ThemeToggle } from "../app/theme-toggle";
 import type { Configurator } from "../lib/configurators";
-import { localeNativeNames, locales, localizedPath, localizedUrl, type Locale, uiCopy } from "../lib/i18n";
+import { internalPath, localeNativeNames, locales, localizedPath, localizedUrl, type Locale, uiCopy } from "../lib/i18n";
 
-function languagePath(locale: Locale, currentPath: string) {
-  return localizedUrl(locale, currentPath || "/");
+// currentPath is the public path on the current locale's domain; each language link
+// points to the same page under that language's own slugs.
+function languagePath(locale: Locale, current: Locale, currentPath: string) {
+  return localizedUrl(locale, internalPath(current, currentPath || "/"));
 }
 
 const bookDemoLabels: Record<Locale, string> = {
@@ -50,13 +52,13 @@ const primaryNavLabels: Record<Locale, string> = {
 };
 
 function LanguageLinks({ locale, currentPath }: { locale: Locale; currentPath: string }) {
-  return <>{locales.map((language) => <a key={language} className={language === locale ? "active" : ""} href={languagePath(language, currentPath)} lang={language} hrefLang={language} title={localeNativeNames[language]} aria-label={localeNativeNames[language]}>{language.toUpperCase()}</a>)}</>;
+  return <>{locales.map((language) => <a key={language} className={language === locale ? "active" : ""} href={languagePath(language, locale, currentPath)} lang={language} hrefLang={language} title={localeNativeNames[language]} aria-label={localeNativeNames[language]}>{language.toUpperCase()}</a>)}</>;
 }
 
 export function SiteHeaderClient({ locale, currentPath, configurators }: { locale: Locale; currentPath: string; configurators: Pick<Configurator, "slug" | "index" | "category" | "title" | "shortTitle" | "launchUrl">[] }) {
   const copy = uiCopy[locale];
   const notice = liteNotices[locale];
-  const currentProduct = configurators.find(item => currentPath.endsWith(`/configurators/${item.slug}`));
+  const currentProduct = configurators.find(item => internalPath(locale, currentPath).endsWith(`/configurators/${item.slug}`));
   const configuratorNavLabel = (slug: string, fallback: string) =>
     configuratorNavOverrides[locale][slug] ?? fallback;
   useEffect(() => {

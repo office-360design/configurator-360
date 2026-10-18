@@ -1,5 +1,5 @@
 import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=locales-6';
-import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=locales-6';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=localized-slugs-1';
 
 // Positional columns, in the platform language order (English is the key): [ro-RO, de-DE, es-ES, fr-FR, it-IT].
 // Keep SOLAR_TRANSLATION_COLUMNS, every row and tools/validate-i18n.mjs in sync when adding a language.

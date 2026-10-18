@@ -115,7 +115,7 @@ test('Editor, snapshot and native exporters use Chair r160; GLTF local import gr
 test('AR button, capture hook, generic dialog and phone entry are wired into deployed Chair files',()=>{
  const app=read('../js/app.js'),shell=read('../js/sharedShell.js'),html=read('../index.html'),phone=read('../ar.html');
  assert.match(shell,/viewAR: true/);assert.match(shell,/onViewAR\(\) \{ ar.open\(\); \}/);assert.match(app,/captureARSnapshot\(\) \{ return scene.captureARSnapshot\(\); \}/);
- assert.match(html,/app\.js\?v=locales-6/);assert.match(html,/shared-ui\/styles\/ar\.css/);
+ assert.match(html,/app\.js\?v=localized-slugs-1/);assert.match(html,/shared-ui\/styles\/ar\.css/);
  assert.match(phone,/id="arPhoneLaunch"[^>]*>[\s\S]*?<img [^>]*\/>\s*<\/a>/);assert.match(read('../js/ar/phone.js'),/mountARPhone\('chair'\)/);
  for(const workflow of ['../../.github/workflows/deploy-cloudrun.yml','../../.github/workflows/deploy-pages.yml'])assert.match(read(workflow),/cp -R chair-configurator\/\. dist\/site\/chair-configurator\//);
 });

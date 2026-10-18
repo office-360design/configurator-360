@@ -2,7 +2,7 @@ import {
   CONFIGURATOR_PUBLIC_PATHS,
   LOCALE_HOSTS,
   getLocaleForHostname,
-} from './config.js?v=locales-6';
+} from './config.js?v=localized-slugs-1';
 
 const SEO_LOCALES = Object.freeze({
   'en-US': Object.freeze({ lang: 'en', hreflang: 'en', ogLocale: 'en_US' }),

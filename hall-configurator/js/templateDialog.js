@@ -1,4 +1,4 @@
-import { hallT } from './i18n.js?v=locales-6';
+import { hallT } from './i18n.js?v=localized-slugs-1';
 
 /** Hall-only preview/confirmation. The shared optional Templates menu is unchanged. */
 export function createHallTemplateDialog({ getLocale, applyTemplate, onApplied = null }) {

@@ -12,6 +12,7 @@ on:
       - 'scripts/**'
       - '*-configurator/**'
       - 'package*.json'
+      - 'website/lib/page-slugs.json'
   pull_request:
     branches: [main, tenants]
     paths:
@@ -23,6 +24,7 @@ on:
       - 'scripts/**'
       - '*-configurator/**'
       - 'package*.json'
+      - 'website/lib/page-slugs.json'
   workflow_dispatch:
 
 permissions:

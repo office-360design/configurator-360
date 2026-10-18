@@ -20,9 +20,25 @@ The static website stores the non-English pages under the internal prefixes `/ro
 Examples:
 
 - `https://www.360configurator.ro/` internally serves `/ro/index.html`
-- `https://www.360configurator.ro/about/` internally serves `/ro/about/index.html`
-- `https://www.360konfigurator.de/configurators/pergola/` internally serves `/de/configurators/pergola/index.html`
+- `https://www.360configurator.ro/despre-noi` internally serves `/ro/despre-noi/index.html`
+- `https://www.360konfigurator.de/konfiguratoren/pergolen` internally serves `/de/konfiguratoren/pergolen/index.html`
 - `https://www.360configurateur.fr/contact` internally serves `/fr/contact/index.html`
+
+### Page slugs per language
+
+Every presentation page uses slugs in the domain's language. The table is `website/lib/page-slugs.json`; it drives the links, canonical and hreflang tags (`localizedPath` in `website/lib/i18n.ts`), the static export folders and sitemaps, the llms files, and the nginx redirects.
+
+| Page | en | ro | de | es | fr | it |
+|---|---|---|---|---|---|---|
+| About | `/about` | `/despre-noi` | `/ueber-uns` | `/sobre-nosotros` | `/a-propos` | `/chi-siamo` |
+| Contact | `/contact` | `/contact` | `/kontakt` | `/contacto` | `/contact` | `/contatti` |
+| Pricing | `/pricing` | `/preturi` | `/preise` | `/precios` | `/tarifs` | `/prezzi` |
+| Book a demo | `/book-a-demo` | `/programeaza-demo` | `/demo-buchen` | `/reservar-demo` | `/reserver-demo` | `/prenota-demo` |
+| Products | `/configurators/<p>` | `/configuratoare/<p>` | `/konfiguratoren/<p>` | `/configuradores/<p>` | `/configurateurs/<p>` | `/configuratori/<p>` |
+
+The product part is localized too (e.g. `/configuratori/finestre`, `/konfiguratoren/daecher`); see the JSON for all ten products.
+
+**Redirects (301).** On each country domain the old English slug (with or without a trailing slash or `/index.html`) moves to the domain's own slug, keeping the query string. Legacy `.com/<lang>/<English slug>` URLs go to the final localized page in one hop. The nginx maps are generated: after changing a slug run `node scripts/build/sync-website-slugs.mjs`; `npm run check:tenant-domains` fails while nginx and the JSON disagree. Keep the previous slug redirecting when you rename one.
 
 Legacy `.com/ro/…`, `.com/de/…`, `.com/es/…`, `.com/fr/…` and `.com/it/…` URLs permanently redirect to their country domains. On a tenant host the same prefixes redirect (302) to the tenant alias on the matching country root.
 

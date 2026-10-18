@@ -1,4 +1,4 @@
-import { LOCALE_HOSTS } from './config.js?v=locales-6';
+import { LOCALE_HOSTS } from './config.js?v=localized-slugs-1';
 
 // Reuse the official, locally hosted logo on every tenant domain. Customer
 // branding must never supply the attribution image or its destination.

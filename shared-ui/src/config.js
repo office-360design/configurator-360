@@ -60,6 +60,10 @@ export const LOCALE_HOSTS = Object.freeze({
   'it-IT': 'www.360configuratore.it',
 });
 
+// The website's "book a demo" page on each domain (website/lib/page-slugs.json;
+// scripts/build/sync-website-slugs.mjs --check keeps them equal).
+export const WEBSITE_DEMO_PATHS = Object.freeze({ 'en-US': '/book-a-demo', 'ro-RO': '/programeaza-demo', 'de-DE': '/demo-buchen', 'es-ES': '/reservar-demo', 'fr-FR': '/reserver-demo', 'it-IT': '/prenota-demo' });
+
 export const CONFIGURATOR_PUBLIC_PATHS = Object.freeze({
   'en-US': Object.freeze({
     pergola: '/pergola-configurator/',

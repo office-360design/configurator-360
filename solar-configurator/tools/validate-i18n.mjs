@@ -11,10 +11,10 @@ import {
   solarRegionCity,
   solarRoofName,
   solarT,
-} from '../js/i18n.js?v=locales-6';
-import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js?v=locales-6';
-import { calculateSolarEstimate, estimateToCsv } from '../js/estimate.js?v=locales-6';
-import { state as baseState } from '../js/state.js?v=locales-6';
+} from '../js/i18n.js?v=localized-slugs-1';
+import { getLocalizedConfiguratorUrl } from '../../shared-ui/src/config.js?v=localized-slugs-1';
+import { calculateSolarEstimate, estimateToCsv } from '../js/estimate.js?v=localized-slugs-1';
+import { state as baseState } from '../js/state.js?v=localized-slugs-1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');

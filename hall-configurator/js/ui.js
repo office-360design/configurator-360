@@ -2,11 +2,11 @@ import { PRODUCTION_DEFAULTS, normalizeProduction, productionLayout } from './pr
 import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout } from './logistics.js?v=hall-production-1';
 import { COMMERCIAL_DEFAULTS, normalizeCommercialFeatures, commercialLayout } from './commercial.js?v=hall-production-1';
 import { bindPanelAccordions, bindPanelRange } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { buildBom, bomToCsv } from './bom.js?v=locales-6';
-import { estimateHallPrice, formatPrice } from './pricing.js?v=locales-6';
-import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, openingLabel } from './openings.js?v=locales-6';
+import { buildBom, bomToCsv } from './bom.js?v=localized-slugs-1';
+import { estimateHallPrice, formatPrice } from './pricing.js?v=localized-slugs-1';
+import { normalizeOpening, normalizeOpenings, openingType, validateOpenings, openingLabel } from './openings.js?v=localized-slugs-1';
 import { getHeaProfile } from './heaProfiles.js?v=hall-production-1';
-import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=locales-6';
+import { applyHallTranslations, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel, resolveHallLocale } from './i18n.js?v=localized-slugs-1';
 
 const formatters = {
   length: (v) => `${v.toFixed(1)} m`,

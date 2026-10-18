@@ -5,7 +5,8 @@ This audit checks the live EN, RO, DE, ES, FR and IT production sites after depl
 It covers:
 
 - the home/about/contact/pricing/demo pages on all six domains;
-- all ten `/configurators/{product}` marketing pages on each domain;
+- all ten product marketing pages on each domain, under that domain's own slugs (`/configuratori/finestre` on .it, see `website/lib/page-slugs.json`);
+- the 301 from the old English page slugs on the country domains;
 - all eight indexable standalone configurator applications on each domain (bookshelf/tiles apps remain intentionally noindex);
 - HTTP status and redirect chains;
 - rendered `<html lang>`;

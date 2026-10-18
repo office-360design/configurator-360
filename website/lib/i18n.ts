@@ -1,3 +1,5 @@
+import pageSlugs from "./page-slugs.json";
+
 export const locales = ["en", "ro", "de", "es", "fr", "it"] as const;
 export type Locale = (typeof locales)[number];
 
@@ -106,9 +108,37 @@ export type ConfiguratorRouteSlug = keyof typeof configuratorPublicPaths.en;
 
 // Localized pages are stored below /ro, /de, /es, /fr and /it by the static
 // build, but the public URL space is domain-based. Links never expose them.
-export function localizedPath(_locale: Locale, path = "/") {
+type SlugTable = Record<string, Record<Locale, string>>;
+const PAGE_SLUGS = pageSlugs.pages as SlugTable;
+const CONFIGURATOR_SLUGS = pageSlugs.configurators as SlugTable;
+
+// Translates the first path segment (a presentation page) and, under the configurators
+// page, the second one (the product) between two locales. Query and hash are kept.
+function translateSlugs(path: string, from: Locale, to: Locale) {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return normalized || "/";
+  if (from === to) return normalized || "/";
+  const cut = normalized.search(/[?#]/);
+  const pathname = cut === -1 ? normalized : normalized.slice(0, cut);
+  const suffix = cut === -1 ? "" : normalized.slice(cut);
+  const segments = pathname.split("/");
+  const page = Object.values(PAGE_SLUGS).find((slugs) => slugs[from] === segments[1]);
+  if (!page) return normalized || "/";
+  segments[1] = page[to];
+  if (page === PAGE_SLUGS.configurators && segments[2]) {
+    const product = Object.values(CONFIGURATOR_SLUGS).find((slugs) => slugs[from] === segments[2]);
+    if (product) segments[2] = product[to];
+  }
+  return segments.join("/") + suffix;
+}
+
+/** Public path on the locale's own domain for an internal (English) route, e.g. it + /about → /chi-siamo. */
+export function localizedPath(locale: Locale, path = "/") {
+  return translateSlugs(path, "en", locale);
+}
+
+/** Internal (English) route of a public path seen on the locale's domain, e.g. it + /chi-siamo → /about. */
+export function internalPath(locale: Locale, path = "/") {
+  return translateSlugs(path, locale, "en");
 }
 
 export function localizedUrl(locale: Locale, path = "/") {

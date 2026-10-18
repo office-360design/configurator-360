@@ -1,4 +1,4 @@
-import { regionPresets } from './state.js?v=locales-6';
+import { regionPresets } from './state.js?v=localized-slugs-1';
 
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
+import {pageFile} from './page-paths.mjs';
 import {analyticsChoiceBootstrap, polishStylesBootstrap} from '../lib/website-bootstrap.js';
 import {websiteProduct} from '../lib/website-analytics.js';
 
@@ -52,7 +53,7 @@ test('exported locales contain early consent, factual examples and contact paths
     assert.match(html,/project=custom-system/);
     assert.match(html,/rel="canonical"/);
     assert.match(html,/hrefLang="x-default"/);
-    const product=await readFile(new URL(`../outputs/exported-pages/${prefix}configurators/cardbox/index.html`,import.meta.url),'utf8');
+    const product=await readFile(new URL(`../outputs/exported-pages/${pageFile(prefix,'/configurators/cardbox')}`,import.meta.url),'utf8');
     const questions=product.match(/<div class="project-questions">([\s\S]*?)<\/div>/)?.[1];
     assert.ok(questions);
     assert.equal((questions.match(/<details>/g) || []).length,3);

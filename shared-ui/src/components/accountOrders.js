@@ -1,5 +1,5 @@
 import { getFirebaseIdToken } from '../firebaseAuth.js?v=locales-6';
-import { getLocaleForHostname } from '../config.js?v=locales-6';
+import { getLocaleForHostname } from '../config.js?v=localized-slugs-1';
 
 const FUNCTIONS_REGION = 'europe-west1';
 const PROJECT_ID = 'configurator-360';

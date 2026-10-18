@@ -2,7 +2,7 @@ import { cp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { localizedMachineContext, localizedFullContext } from "./localized-machine-context.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { pageRoutes, configurators as marketingConfiguratorSlugs } from "./static-routes.mjs";
+import { pageRoutes, localizedRoutePath, configurators as marketingConfiguratorSlugs } from "./static-routes.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const websiteRoot = path.resolve(scriptDirectory, "..");
@@ -103,13 +103,15 @@ function xmlEscape(value) {
 
 function sitemapUrls(locale) {
   const origin = localizedOrigins[locale];
+  // Each domain lists its pages under its own language slugs.
+  const page = (route) => `${origin}${localizedRoutePath(locale, route)}`;
   return [
     `${origin}/`,
-    `${origin}/about`,
-    `${origin}/contact`,
-    `${origin}/pricing`,
-    `${origin}/book-a-demo`,
-    ...marketingConfiguratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
+    page("/about"),
+    page("/contact"),
+    page("/pricing"),
+    page("/book-a-demo"),
+    ...marketingConfiguratorSlugs.map((slug) => page(`/configurators/${slug}`)),
     ...indexedExternalSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
   ];
 }

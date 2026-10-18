@@ -1,9 +1,9 @@
-import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=locales-6';
+import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=localized-slugs-1';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
-import { RoofScene } from './scene.js?v=locales-6';
-import { SolarUI } from './ui.js?v=locales-6';
-import { fetchPvgisSiteEstimate } from './energyModel.js?v=locales-6';
-import { loadGeographicEnvironment } from './environmentLoader.js?v=locales-6';
+import { RoofScene } from './scene.js?v=localized-slugs-1';
+import { SolarUI } from './ui.js?v=localized-slugs-1';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=localized-slugs-1';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=localized-slugs-1';
 import {
   analyzeGoogleSolar,
   clearGoogleSolarSession,
@@ -19,14 +19,14 @@ import {
   getSunTimes,
   getTodayInTimeZone,
   nearestRegionKey,
-} from './solarPosition.js?v=locales-6';
+} from './solarPosition.js?v=localized-slugs-1';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
 } from './preferences.js?v=locales-6';
-import { solarT, resolveSolarLocale } from './i18n.js?v=locales-6';
+import { solarT, resolveSolarLocale } from './i18n.js?v=localized-slugs-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 await requireTenantConfiguratorAccess('solar');

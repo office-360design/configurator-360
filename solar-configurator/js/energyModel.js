@@ -1,6 +1,6 @@
-import { regionPresets } from './state.js?v=locales-6';
-import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=locales-6';
-import { solarT, resolveSolarLocale } from './i18n.js?v=locales-6';
+import { regionPresets } from './state.js?v=localized-slugs-1';
+import { getActiveLocation, getSolarContext, getSunTimes } from './solarPosition.js?v=localized-slugs-1';
+import { solarT, resolveSolarLocale } from './i18n.js?v=localized-slugs-1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 const normalizeDeg = (value) => ((value % 360) + 360) % 360;
