@@ -1,5 +1,5 @@
 import { buildPoleGrid } from './layout.js?v=platform-18';
-import { pergolaPlural, pergolaT, pergolaValueLabel } from './i18n.js?v=locales-6';
+import { pergolaPlural, pergolaT, pergolaValueLabel } from './i18n.js?v=site-analytics-1';
 import { countHeaters, getTotalSpotlights } from './state.js?v=locales-6';
 
 const CURRENCY_PROFILES = Object.freeze({

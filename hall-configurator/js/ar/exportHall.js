@@ -1,8 +1,8 @@
 import { buildProductARScene } from '../../../shared-3d/src/ar/productSnapshot.js?v=ar-completeness-1';
 import * as THREE from 'three';
-import { buildHallModel } from '../hallFactory.js?v=localized-slugs-1';
-import { state as defaults } from '../state.js?v=localized-slugs-1';
-import { normalizeOpenings, validateOpenings } from '../openings.js?v=localized-slugs-1';
+import { buildHallModel } from '../hallFactory.js?v=site-analytics-1';
+import { state as defaults } from '../state.js?v=site-analytics-1';
+import { normalizeOpenings, validateOpenings } from '../openings.js?v=site-analytics-1';
 
 export const AR_LIMITS = Object.freeze({ glb: 10 * 1024 * 1024, usdz: 24 * 1024 * 1024 });
 function fail(code) { const error = new Error(code); error.code = code; throw error; }

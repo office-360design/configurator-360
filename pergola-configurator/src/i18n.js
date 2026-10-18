@@ -1,4 +1,4 @@
-import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=locales-6';
+import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=site-analytics-1';
 
 const EN = {
   'app.previewAria': '3D pergola preview',

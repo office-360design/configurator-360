@@ -1,4 +1,5 @@
-// Marketing website only. Never import this module into the full applications.
+// Marketing website analytics. The configurators use the same property and rules through
+// shared-ui/src/siteAnalytics.js; keep GA_ID, CONSENT_KEY, INTERNAL_KEY and PUBLIC_DOMAINS equal in both.
 export const GA_ID = 'G-2E433G5VM7';
 export const CONSENT_KEY = '360-analytics-consent-v1';
 export const INTERNAL_KEY = '360-internal-test';

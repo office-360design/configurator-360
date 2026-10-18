@@ -8,12 +8,12 @@ import { ConfiguratorStore } from './state.js?v=locales-6';
 import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
 import { applyConfiguratorSeo } from '../../shared-ui/src/configuratorSeo.js?v=localized-slugs-1';
 import { getLanguageProfile, getLocaleForHostname } from '../../shared-ui/src/config.js?v=localized-slugs-1';
-import { PergolaScene } from './scene/PergolaScene.js?v=locales-6';
-import { ConfiguratorUI } from './ui/ConfiguratorUI.js?v=localized-slugs-1';
-import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=localized-slugs-1';
-import { pergolaT } from './i18n.js?v=locales-6';
+import { PergolaScene } from './scene/PergolaScene.js?v=site-analytics-1';
+import { ConfiguratorUI } from './ui/ConfiguratorUI.js?v=site-analytics-1';
+import { mountPergolaSharedShell } from './ui/pergolaSharedShell.js?v=site-analytics-1';
+import { pergolaT } from './i18n.js?v=site-analytics-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
-import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=localized-slugs-1';
+import { mountPergolaEmbedPreviewControls } from './ui/embedPreviewControls.js?v=site-analytics-1';
 import { initializePergolaColorCatalog } from './color-catalog.js';
 
 const tenantContext = await requireTenantConfiguratorAccess('pergola');

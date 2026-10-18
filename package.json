@@ -19,6 +19,7 @@
     "check:tenant-catalogue:browser": "node scripts/validation/tenant-catalogue.browser.mjs",
     "check:tenant-branding": "node --test scripts/validation/tenant-branding.test.mjs",
     "check:tenant-branding:browser": "node scripts/validation/tenant-branding.browser.mjs",
+    "check:site-analytics:browser": "node scripts/validation/site-analytics.browser.mjs",
     "check:tenant-homepage": "node --test scripts/validation/tenant-homepage.test.mjs",
     "check:tenant-homepage:browser": "node scripts/validation/tenant-homepage.browser.mjs",
     "check:tenant": "node scripts/validation/validate_tenant_bootstrap.mjs",

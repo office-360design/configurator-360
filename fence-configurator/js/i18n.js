@@ -1,4 +1,4 @@
-import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=locales-6';
+import { normalizeConfiguratorLocale } from '../../shared-ui/src/i18n.js?v=site-analytics-1';
 import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=localized-slugs-1';
 
 const EN = {

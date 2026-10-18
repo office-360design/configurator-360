@@ -1,5 +1,5 @@
 import { normalizeToolsPlacement, resolveSharedTools } from '../tools/registry.js?v=platform-18';
-import { sharedT } from '../i18n.js?v=locales-6';
+import { sharedT } from '../i18n.js?v=site-analytics-1';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 const DEFAULT_TOOL_ITEMS = resolveSharedTools([

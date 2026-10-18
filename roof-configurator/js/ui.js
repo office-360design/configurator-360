@@ -6,7 +6,7 @@ import { defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=drainage-48';
-import { bomToCsv, calculateBom } from './bom.js?v=localized-slugs-1';
+import { bomToCsv, calculateBom } from './bom.js?v=site-analytics-1';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -17,7 +17,7 @@ import {
   toDisplayLength,
 } from './preferences.js?v=locales-6';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=localized-slugs-1';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=site-analytics-1';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 

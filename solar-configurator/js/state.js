@@ -1,4 +1,4 @@
-import { solarT, resolveSolarLocale } from './i18n.js?v=localized-slugs-1';
+import { solarT, resolveSolarLocale } from './i18n.js?v=site-analytics-1';
 
 const initialLocale = resolveSolarLocale();
 const t = (key, variables = {}) => solarT(initialLocale, key, variables);

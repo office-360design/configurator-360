@@ -20,7 +20,7 @@ import {
   calculatePrice,
   formatMoney,
   sideLabel,
-} from '../pricing.js?v=locales-6';
+} from '../pricing.js?v=site-analytics-1';
 import {
   canPlacePoleMount,
   countPoleMounts,
@@ -49,7 +49,7 @@ import {
   segmentHasMountedItems,
   segmentIsAvailable,
 } from '../state.js?v=locales-6';
-import { escapeHtml } from '../../../shared-ui/src/index.js?v=localized-slugs-1';
+import { escapeHtml } from '../../../shared-ui/src/index.js?v=site-analytics-1';
 import {
   localizeCatalogOptions,
   localizePoleLabel,
@@ -58,7 +58,7 @@ import {
   pergolaPlural,
   pergolaT,
   pergolaValueLabel,
-} from '../i18n.js?v=locales-6';
+} from '../i18n.js?v=site-analytics-1';
 import { optionCard, segmented, colorSwatches } from './renderHelpers.js?v=pergola-panel-1';
 
 const POLE_MOUNT_OPTIONS = [
