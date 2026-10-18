@@ -31,6 +31,8 @@ let checks = 0;
 
 async function open(host, pathname, { context } = {}) {
   context ??= await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  // A previous page still loading models would hold the connections to the test server.
+  for (const previous of context.pages()) await previous.close();
   const page = await context.newPage();
   const google = [];
   await page.route('**/api/region-defaults**', (route) => route.abort());
