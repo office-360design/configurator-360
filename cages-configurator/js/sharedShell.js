@@ -2,10 +2,16 @@ import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standalone
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
+import { createCagesARController } from './ar/controller.js?v=cages-ar-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('cages');
 const compactViewport = window.matchMedia('(max-width: 760px)');
 const api = () => window.CAGES_CONFIGURATOR_API;
+const ar = createCagesARController({
+  getAssembly: () => api()?.getARAssembly?.(),
+  getLocale: () => window.CAGES_CONFIGURATOR_SHARED_SHELL?.state?.locale || 'ro-RO',
+  onFeedback: (...args) => window.CAGES_CONFIGURATOR_SHARED_SHELL?.showFeedback?.(...args),
+});
 
 bindPanelAccordions(document.querySelector('.sidebar'));
 
@@ -15,9 +21,9 @@ const shell = mountStandaloneConfiguratorShell({
   storagePrefix: '360-configurator:cages',
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
-  // Save, share and quotation need 'cages' in the backend product catalogue,
-  // which also adds it to the tenant plans. Enable them once that is decided.
-  capabilities: { viewAR: false, save: false, undo: false, reset: true, share: false },
+  // Save, share and quotation remain disabled until cages joins the backend
+  // product catalogue. AR uses the shared public snapshot infrastructure.
+  capabilities: { viewAR: true, save: false, undo: false, reset: true, share: false },
   tools: {
     items: resolveSharedTools(['camera']),
     placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 },
@@ -30,6 +36,7 @@ const shell = mountStandaloneConfiguratorShell({
     initiallyCollapsed: compactViewport.matches,
   },
   callbacks: {
+    onViewAR() { ar.open(); },
     async resetConfiguration() { return api()?.resetConfiguration?.() !== false; },
     captureState() { return api()?.captureState?.(); },
     restoreState(snapshot) { return api()?.restoreState?.(snapshot) ?? false; },

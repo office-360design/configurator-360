@@ -164,6 +164,7 @@ export function createPhotoAnalysis({
       job.jobId = payload.job_id;
       for (const part of [payload.geometry, payload.segmentation].filter(Boolean)) validateReply(part, token, working);
       retained = { photoId: token.photoId, resultId: `${token.photoId}:${++resultSequence}`, payload, targets: [...targets], includeOutsideGroundSupport };
+      const analysisResultId = retained.resultId;
       const bundle = importableBundle(payload);
       if (!bundle) {
         publish({ phase: 'manual_required', busy: false, errors: payload.errors || {}, timing_s: payload.timing_s || {},
@@ -185,7 +186,7 @@ export function createPhotoAnalysis({
         publish({ phase: 'review', busy: false }); return { applied: false, reason: 'edited' };
       }
       const summary = importResult(bundle, { photoId: token.photoId, designRevision: token.designRevision,
-        replaceExisting, targets, includeOutsideGroundSupport, analysisResultId: retained.resultId, tolerancePx: config.tolerancePx ?? .75,
+        replaceExisting, targets, includeOutsideGroundSupport, analysisResultId, tolerancePx: config.tolerancePx ?? .75,
         maxCornersPerBoundary: config.maxCornersPerBoundary, minRegionAreaM2: config.minRegionAreaM2 });
       publish({ phase: payload.segmentation ? 'ready' : 'camera_only', busy: false, summary,
         errors: payload.errors || {}, timing_s: payload.timing_s || {}, error: null, elapsedMs: now() - start });

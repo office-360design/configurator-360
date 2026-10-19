@@ -148,14 +148,14 @@ test('Pergola entitlement must be enabled for tenant publication and preflight',
   assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'pergola' } })).statusCode, 204);
   assert.equal((await h.call('publishHallAR', { origin, query: { product: 'pergola' } })).statusCode, 201);
 });
-test('Cleanup handles all ten products without touching non-AR application objects', async () => {
+test('Cleanup handles all eleven products without touching non-AR application objects', async () => {
   const h = harness();
-  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar']) {
+  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar', 'cages']) {
     const r = await h.call('publishHallAR', { query: { product } }); assert.equal(r.statusCode, 201);
     h.docs.get(`hallARSessions/${r.jsonBody.id}`).expiresAt = h.Timestamp.fromMillis(Date.now() - 1);
   }
   h.files.set('private/application-data', { b: Buffer.from('untouched') });
-  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 10);
+  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 11);
   assert.ok(h.files.has('private/application-data'));
 });
 test('Fence GLB/USDZ: private product paths, manifests, HEAD, byte ranges and expiry', async () => {

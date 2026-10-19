@@ -26,7 +26,7 @@ function expectedParts(s) {
 function counts(root) {const out={};root.traverse(o=>{if(o.isMesh)out[o.name]=(out[o.name]||0)+1;});return out;}
 const nonzero=o=>Object.fromEntries(Object.entries(o).filter(([,n])=>n));
 test('Seven opted-in products; Pavement phone links stay on canonical/localized/tenant origins',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar']);
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar','cages']);
  for(const product of [...AR_PRODUCTS,'roof','solar','bookshelf','chair','gas','cardbox']){
   assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),AR_PRODUCTS.includes(product));
   assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);
@@ -63,6 +63,13 @@ test('Snapshot captures current dimensions, pattern, rotation, curbs and house c
  for(const k of ['length','width','tile','pattern','color','accent','rotation','edges','houseShape','houseX','houseZ'])assert.deepEqual(snapshot[k],state[k]);
  state.length=9;state.edges[0]=false;assert.equal(snapshot.length,3.4);assert.equal(snapshot.edges[0],true);
  assert.throws(()=>captureTilesARSnapshot(null),{code:'not-ready'});
+});
+test('Snapshot accepts committed multi-region paving state',()=>{
+ const state=normalize({shape:'regions',areaRegions:[{id:'main',outer:[{x:0,z:0},{x:3,z:0},{x:3,z:2},{x:0,z:2}],holes:[]}]});
+ const snapshot=captureTilesARSnapshot(state);
+ assert.equal(snapshot.version,2);
+ assert.equal(snapshot.shape,'regions');
+ assert.equal(snapshot.areaRegions.length,1);
 });
 test('All six stone types and every bond retain every full tile, cut face and curb at both rotations',()=>{
  let configurations=0;
@@ -131,7 +138,7 @@ test('Limits, invalid areas and empty paving fail explicitly instead of dropping
 test('Editor wires the shared dialog, blocks uncommitted outlines, and uses the same cut geometry as AR',()=>{
  const app=read('../js/app.js'),controller=read('../js/ar/controller.js'),viewer=read('../js/viewer.js');
  assert.match(app,/viewAR: true/);assert.match(app,/onViewAR\(\) \{ ar.open\(\)/);assert.match(app,/drawingArea[\s\S]*area-in-progress/);
- assert.match(controller,/product: 'tiles'/);assert.match(controller,/structuredClone\(getState\(\)\)/);
+ assert.match(controller,/product: 'tiles'/); assert.match(controller,/captureTilesARSnapshot\(getState\(\)\)/);
  assert.match(viewer,/pavementCutSurfaces\(parts, s\)/);assert.match(viewer,/curbCutSurfaces\(curbs, s\)/);
  assert.doesNotMatch(controller,/supabase|tus|CONFIGURATOR_READY/i);
  const html=read('../ar.html'),link=html.match(/<a id="arPhoneLaunch"[^>]*>([\s\S]*?)<\/a>/)[1];assert.match(link,/<img/);assert.doesNotMatch(link,/<span|<div/);

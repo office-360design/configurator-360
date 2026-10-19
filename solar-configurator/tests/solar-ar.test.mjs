@@ -28,7 +28,7 @@ function setup(patch = {}) {
 function dispose(root) { const gs=new Set(),ms=new Set();root.traverse(o=>{if(o.geometry)gs.add(o.geometry);[].concat(o.material||[]).forEach(m=>ms.add(m));});gs.forEach(g=>g.dispose());ms.forEach(m=>m.dispose()); }
 const capture = x => captureSolarARSnapshot(x.house,x.panels);
 test('Solar completes the ten explicit AR adapters; unknown products and capabilities still denied',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar']);
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar','cages']);
  for (const p of [...AR_PRODUCTS,'gas','other','']) {
   assert.equal(isConfiguratorAREnabled(p,{viewAR:true}),AR_PRODUCTS.includes(p));
   assert.equal(isConfiguratorAREnabled(p,{viewAR:false}),false);assert.equal(isConfiguratorAREnabled(p),false);

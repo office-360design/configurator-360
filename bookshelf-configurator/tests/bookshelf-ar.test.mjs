@@ -22,7 +22,7 @@ function sample(w=800,h=2150,d=350) {
 const json=o=>JSON.stringify(o.toJSON());
 const parse=s=>new THREE.ObjectLoader().parse(s.model);
 test('Bookshelf and Roof explicitly opt in; Solar remains disabled',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar']);
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar','cages']);
  for(const product of [...AR_PRODUCTS,'roof','solar','gas','']){
   assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),AR_PRODUCTS.includes(product));
   assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);assert.equal(isConfiguratorAREnabled(product),false);

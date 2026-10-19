@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="description" content="Deschide carcasa configurată în realitate augmentată pe Android sau iOS." />
+  <title>Carcasă AR | 360Configurator</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../shared-ui/styles/ar.css?v=firebase-ar-7" />
+</head>
+<body class="hall-ar-page">
+  <main class="hall-ar-phone-card">
+    <h1 data-copy="phoneTitle">Carcasa configurată</h1>
+    <p id="arPhoneStatus" role="status" aria-live="polite">Se încarcă modelul AR…</p>
+    <p id="arPhoneError" class="hall-ar-error" role="alert" hidden></p>
+    <p id="arPhoneHelp"></p>
+    <a id="arPhoneLaunch" class="hall-ar-primary" data-label="Deschide AR" aria-label="Deschide AR" hidden>
+      <img src="./assets/ar/cube.svg" alt="" />
+    </a>
+    <button type="button" id="arPhoneRetry" hidden data-copy="retry">Încearcă din nou</button>
+    <p data-copy="phoneNote"></p>
+    <small id="arPhoneExpiry"></small><p><small data-copy="phonePrivacy"></small></p>
+    <a class="hall-ar-back" href="./" data-copy="back">Configurator carcase</a>
+  </main>
+  <script type="module" src="./js/ar/phone.js?v=locales-6"></script>
+</body>
+</html>

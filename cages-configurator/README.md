@@ -68,6 +68,9 @@ npm run check:cages:browser
 
 - Uses the shared 360Configurator shell (top bar, Tools with camera views,
   collapsible settings panel) and the shared panel controls and colours.
+- Supports Firebase-backed AR snapshots for Android and iOS/iPadOS. AR exports
+  the configured reinforcement cage while excluding inspection sleepers,
+  labels, bore/panel overlays and editor scenery.
 - Public route `/cages-configurator/` on every language domain (nginx), copied
   by the Cloud Run deploy workflow; the page is `noindex` until marketing pages
   exist.
