@@ -122,6 +122,27 @@ class AnalysisJobs:
             raise HTTPException(404, 'Analysis job not found or expired.')
         return j
 
+    async def analyze(self, rgb, image_id, client_id, generation):
+        """Hold the caller's HTTP request until all inference has finished.
+
+        Shield the worker: cancelling a response must not release its model lock
+        while a non-interruptible PyTorch call still owns the thread/buffers.
+        The generation cancellation route can invalidate results in the meantime.
+        """
+        submitted = self.submit(rgb, image_id, client_id, generation)
+        job = self.get(submitted['job_id'], client_id)
+        try:
+            await asyncio.shield(job.task)
+        except asyncio.CancelledError:
+            self.cancel(job.id, client_id)
+            await asyncio.shield(job.task)
+            raise
+        if job.state == 'cancelled':
+            raise HTTPException(410, 'This analysis was cancelled or superseded.')
+        if job.state != 'completed' or job.result is None:
+            raise HTTPException(500, 'Analysis failed. Check the service log or continue manually.')
+        return {**job.result, 'job_id': job.id, 'generation': job.generation}
+
     def cancel(self, job_id, client_id):
         j = self.get(job_id, client_id)
         if j.state not in TERMINAL:

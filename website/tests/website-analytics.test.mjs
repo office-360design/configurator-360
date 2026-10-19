@@ -59,12 +59,13 @@ test('only the delivered form response reports a lead; automatic pageviews have 
   }
   const source=await readFile(new URL('../components/google-analytics.tsx',import.meta.url),'utf8');
   assert.doesNotMatch(source,/gtag[^\n]*['"]event['"],\s*['"]page_view/);
-  assert.match(source,/if \(choice === 'granted'\) initializeAnalytics/);
+  assert.match(source,/hasWebsiteConsent\('statistics'\)/);
 });
 
 test('SwiftCallback remains independent of analytics and never reports a confirmed lead', async () => {
   const source=await readFile(new URL('../components/swift-callback.tsx',import.meta.url),'utf8');
-  assert.match(source,/document\.readyState === 'complete'/);
+  assert.match(source,/hasWebsiteConsent\('preferences'\)/);
+  assert.doesNotMatch(source,/hasWebsiteConsent\('statistics'\)/);
   assert.match(source,/contact_intent/); assert.doesNotMatch(source,/generate_lead|CONSENT_KEY/);
 });
 
@@ -90,7 +91,7 @@ test('production initialization has no tag before consent or for staff, and queu
   const script=ts.transpile(`let initialized=false; ${initialize.getText(ast)}`,{target:ts.ScriptTarget.ES2022});
   for (const host of PUBLIC_DOMAINS) {
     const store=storage(), tags=[], window={localStorage:store,location:{hostname:host,pathname:'/',search:''},dispatchEvent:()=>{}};
-    const context=vm.createContext({window,document:{createElement:()=>({}),head:{appendChild:tag=>tags.push(tag)}},Event,GA_ID,PUBLIC_DOMAINS,readChoice,isInternalVisit,analyticsContext,browserStorage:()=>store});
+    const context=vm.createContext({window,document:{createElement:()=>({}),head:{appendChild:tag=>tags.push(tag)}},Event,GA_ID,PUBLIC_DOMAINS,hasWebsiteConsent:category=>category==='statistics' && readChoice(store)==='granted',isInternalVisit,analyticsContext,browserStorage:()=>store});
     vm.runInContext(script,context);
     vm.runInContext('initializeAnalytics()',context);
     assert.equal(tags.length,0);

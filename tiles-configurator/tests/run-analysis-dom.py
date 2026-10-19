@@ -27,11 +27,12 @@ window.step='analyze';window.importCount=0;window.requests=[];window.manual=0;le
 window.existing=[];window.ui=null;
 const mock=async (url,options)=>{
  requests.push(url);
- if(url.endsWith('/health'))return new Response(JSON.stringify({service:'paving-analysis',job_api_version:1}));
+ if(url.endsWith('/health'))return new Response(JSON.stringify({service:'paving-analysis',analysis_api_version:1,job_api_version:1}));
  if(url.includes('/requests/'))return new Response('{}');
- if(url.endsWith('/jobs')) {generation=Number(options.body.get('generation'));polls=0;}
- let reply={job_id:'a'.repeat(32),generation,image_id:photo.photoId,image:{width:160,height:120},state:++polls>2?'completed':'running',stage:polls>1?'camera':'segmentation'};
- if(url.endsWith('/result'))reply={image_id:photo.photoId,image:{width:160,height:120},geometry:{image_id:photo.photoId,image:{width:160,height:120}},segmentation:{image_id:photo.photoId,image:{width:160,height:120}}};
+ if(!url.endsWith('/analyze'))throw new Error('Unexpected request: '+url);
+ generation=Number(options.body.get('generation'));
+ await new Promise(r=>setTimeout(r,15));
+ const reply={job_id:'a'.repeat(32),generation,image_id:photo.photoId,image:{width:160,height:120},geometry:{image_id:photo.photoId,image:{width:160,height:120}},segmentation:{image_id:photo.photoId,image:{width:160,height:120}}};
  return new Response(JSON.stringify(reply));
 };
 window.ctl=modules.controller.createPhotoAnalysis({apiBase:'http://mock.test/api/paving',clientId:'test',config:{pollIntervalMs:10,requestTimeoutMs:1000,analysisTimeoutMs:10000},

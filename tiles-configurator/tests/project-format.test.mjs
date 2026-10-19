@@ -21,6 +21,15 @@ const base=()=>({format:PROJECT_FORMAT,version:1,state:structuredClone(state),ph
     pose:{position:[0,3,5],quaternion:[0,0,0,1],target:[0,0,0],fov:40,projection:[NaN]}},
   referenceCorners:[{x:.2,y:.2},{x:.8,y:.2},{x:.8,y:.8},{x:.2,y:.8}],result:null});
 
+test('cached detection retains whether unsupported ground was included',async()=>{
+ for(const flag of [true,false]) {
+  const saved=await makeResultAsset(result,['pavement'],asset.meta.sha256,flag);
+  const loaded=await readResultAsset(saved,asset.meta.sha256);
+  assert.equal(loaded.includeOutsideGroundSupport,flag);
+  assert.deepEqual(loaded.payload,result);
+ }
+});
+
 test('project retains edited regions, multiple intentional holes, origins, curbs, rotation and prices',()=>{
   const doc=validateProjectDocument(base());
   assert.deepEqual(doc.state,state);assert.equal(doc.state.areaRegions[0].holes.length,2);

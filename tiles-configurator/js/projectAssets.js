@@ -71,9 +71,9 @@ export async function makePhotoAsset(blob, expected = null, decode = decodePhoto
     fail('photoMismatch', 'This is not the exact photograph used by the saved project. Select the original file, not a crop or resized copy.');
   return { meta: validateAssetRef(meta, 'photo'), blob: normalized };
 }
-export async function makeResultAsset(payload, targets, photoSha256) {
+export async function makeResultAsset(payload, targets, photoSha256, includeOutsideGroundSupport = false) {
   const value = { format: '360-tiles-detection', version: 1, photoSha256,
-    targets: (targets || ['grass','dirt']).filter(v => ['grass','dirt','pavement'].includes(v)), payload };
+    targets: (targets || ['grass','dirt']).filter(v => ['grass','dirt','pavement'].includes(v)), includeOutsideGroundSupport, payload };
   const text = JSON.stringify(value);
   if (byteLength(text) > PROJECT_LIMITS.resultBytes) fail('resultTooLarge', 'The optional model result exceeds 32 MiB. Save the design without diagnostics.');
   const blob = new Blob([text], { type: 'application/json' });
@@ -84,7 +84,8 @@ export async function readResultAsset(asset, photoSha256) {
   const result = JSON.parse(await asset.blob.text());
   if (result?.format !== '360-tiles-detection' || result.version !== 1 || result.photoSha256 !== photoSha256 ||
       !result.payload || typeof result.payload !== 'object' || Array.isArray(result.payload) ||
-      !Array.isArray(result.targets) || result.targets.some(v => !['grass','dirt','pavement'].includes(v)))
+      !Array.isArray(result.targets) || result.targets.some(v => !['grass','dirt','pavement'].includes(v)) ||
+      result.includeOutsideGroundSupport !== undefined && typeof result.includeOutsideGroundSupport !== 'boolean')
     fail('resultMismatch', 'The cached detection belongs to a different photo or is invalid.');
   return result;
 }

@@ -49,7 +49,7 @@ jobs:
           for check in tenant tenant-branding tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
             npm run "check:$check"
           done
-          node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs
+          node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs scripts/validation/configurator-seo-heads.test.mjs
           node scripts/validation/validate_sales_dashboard.mjs
           node --check firebase-share-backend/functions/index.js
           bash -n firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from fastapi.testclient import TestClient
-from .deployment import configured_job_options, configured_hosts, legacy_api_enabled, LIMITS
+from .deployment import configured_job_options, configured_hosts, legacy_api_enabled, background_jobs_enabled, LIMITS
 from .app import create_app
 from .test_camera import FakeModel
 from .test_jobs import FakeSegments
@@ -29,6 +29,13 @@ class DeploymentTests(unittest.TestCase):
     def test_optional_legacy_switch(self):
         self.assertTrue(legacy_api_enabled('1'));self.assertFalse(legacy_api_enabled('0'))
         with self.assertRaises(ValueError):legacy_api_enabled('false')
+    def test_background_uploads_require_explicit_opt_in(self):
+        self.assertFalse(background_jobs_enabled('0'))
+        self.assertTrue(background_jobs_enabled('1'))
+        with self.assertRaises(ValueError): background_jobs_enabled('true')
+        with patch.dict(os.environ, {'PAVING_ENABLE_BACKGROUND_JOBS': '1'}):
+            with TestClient(create_app(FakeModel(), FakeSegments())) as c:
+                self.assertTrue(c.get('/api/paving/health').json()['deployment']['background_jobs'])
     def test_host_guard_rejects_foreign_host(self):
         with patch.dict(os.environ,{'PAVING_ALLOWED_HOSTS':'localhost,127.0.0.1'}):
             with TestClient(create_app(FakeModel(),FakeSegments()),base_url='http://localhost') as c:

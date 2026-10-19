@@ -47,7 +47,7 @@ def wait_for_result(c, submitted, client='test-client'):
 
 class JobAPITests(unittest.TestCase):
     def setUp(self):
-        self.ctx = TestClient(create_app(FakeModel(), FakeSegments()))
+        self.ctx = TestClient(create_app(FakeModel(), FakeSegments(), background_jobs=True))
         self.c = self.ctx.__enter__()
     def tearDown(self):
         self.ctx.__exit__(None, None, None)

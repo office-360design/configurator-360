@@ -1,6 +1,11 @@
 /** Normal user controls; raw models/masks stay in the separate Debug dropdown. */
 const COPY = {
-  en: { title:'Automatic paving suggestion', progress:'Analysis running', run:'Analyze photo again', retry:'Retry automatic analysis', restore:'Restore detected area',
+  en: { title:'Automatic paving suggestion', run:'Analyze photo again', retry:'Retry automatic analysis', restore:'Restore detected area',
+    includeOutside:'Include pavement outside the estimated ground plane',
+    outsideHelp:'Selected areas outside the fitted ground support are projected onto the same plane. Scale and quantities there are approximate. Changes apply when you analyze or restore.',
+    outsideNotice:'This suggestion includes areas outside the fitted ground support. Their scale and quantities are approximate.',
+    progress:'Analysis in progress',
+    cornerNotice:n=>`Some boundaries need more than ${n} corners to preserve their shape and holes. Extra corners were kept.`,
     manual:'Use the 1 m reference square', change:'Choose another photo', cancel:'Stop analysis · continue manually',
     replace:'Replace the current pavement, including its intentional holes, with a new detected suggestion? Undo will restore the current design.',
     target:'Ground to suggest for paving', grass:'Grass', dirt:'Dirt / gravel', pavement:'Existing pavement',
@@ -13,7 +18,12 @@ const COPY = {
       error:'Automatic analysis could not be completed. Retry or continue manually.',cancelled:'Automatic analysis stopped. Manual editing remains available.'},
     privacy:'Automatic analysis sends a resized copy of this photo to the configured analysis service. Manual calibration does not require the models.',
     first:'The first run may download model weights. Progress is shown by stage, not an estimated percentage.', empty:'No usable paving was detected. Add an area manually, or include existing pavement and restore the detected area.' },
-  ro: { title:'Sugestie automată de pavaj',progress:'Analiza rulează',run:'Analizează din nou fotografia',retry:'Reîncearcă analiza automată',restore:'Restabilește zona detectată',
+  ro: { title:'Sugestie automată de pavaj',run:'Analizează din nou fotografia',retry:'Reîncearcă analiza automată',restore:'Restabilește zona detectată',
+    includeOutside:'Include pavajul din afara planului estimat al solului',
+    outsideHelp:'Zonele selectate din afara suportului estimat al solului sunt proiectate pe același plan. Scara și cantitățile lor sunt aproximative. Modificările se aplică la analizare sau restabilire.',
+    outsideNotice:'Sugestia include zone din afara suportului estimat al solului. Scara și cantitățile lor sunt aproximative.',
+    progress:'Analiză în curs',
+    cornerNotice:n=>`Unele contururi necesită mai mult de ${n} colțuri pentru a păstra forma și golurile. Colțurile suplimentare au fost păstrate.`,
     manual:'Folosește pătratul de referință de 1 m',change:'Alege altă fotografie',cancel:'Oprește analiza · continuă manual',
     replace:'Înlocuiești pavajul actual, inclusiv golurile create manual, cu o nouă sugestie? Anulare va restabili proiectul actual.',
     target:'Suprafețe propuse pentru pavare',grass:'Iarbă',dirt:'Pământ / pietriș',pavement:'Pavaj existent',
@@ -26,7 +36,12 @@ const COPY = {
       error:'Analiza automată nu a putut fi finalizată. Reîncearcă sau continuă manual.',cancelled:'Analiza automată a fost oprită. Editarea manuală rămâne disponibilă.'},
     privacy:'Analiza automată trimite o copie redimensionată a fotografiei către serviciul de analiză configurat. Calibrarea manuală nu necesită modelele.',
     first:'Prima rulare poate descărca modelele. Progresul este afișat pe etape, nu ca procent estimat.',empty:'Nu s-a detectat o zonă utilizabilă. Adaugă manual o zonă sau include pavajul existent și restabilește detecția.' },
-  de: { title:'Automatischer Pflastervorschlag',progress:'Analyse läuft',run:'Foto erneut analysieren',retry:'Automatische Analyse wiederholen',restore:'Erkannten Bereich wiederherstellen',
+  de: { title:'Automatischer Pflastervorschlag',run:'Foto erneut analysieren',retry:'Automatische Analyse wiederholen',restore:'Erkannten Bereich wiederherstellen',
+    includeOutside:'Pflaster außerhalb der geschätzten Bodenebene einbeziehen',
+    outsideHelp:'Ausgewählte Bereiche außerhalb der erkannten Bodenfläche werden auf dieselbe Ebene projiziert. Maßstab und Mengen sind dort Näherungswerte. Änderungen gelten beim Analysieren oder Wiederherstellen.',
+    outsideNotice:'Dieser Vorschlag enthält Bereiche außerhalb der erkannten Bodenfläche. Maßstab und Mengen sind dort Näherungswerte.',
+    progress:'Analyse läuft',
+    cornerNotice:n=>`Einige Konturen benötigen mehr als ${n} Ecken, um ihre Form und Aussparungen zu erhalten. Zusätzliche Ecken wurden beibehalten.`,
     manual:'1-m-Referenzquadrat verwenden',change:'Anderes Foto auswählen',cancel:'Analyse stoppen · manuell fortfahren',
     replace:'Die aktuelle Pflasterfläche einschließlich absichtlich angelegter Löcher durch einen neuen Vorschlag ersetzen? Rückgängig stellt den aktuellen Entwurf wieder her.',
     target:'Vorgeschlagene Bodenflächen',grass:'Rasen',dirt:'Erde / Kies',pavement:'Vorhandenes Pflaster',
@@ -40,8 +55,12 @@ const COPY = {
     privacy:'Die automatische Analyse sendet eine verkleinerte Kopie an den konfigurierten Analysedienst. Manuelle Kalibrierung benötigt keine Modelle.',
     first:'Beim ersten Lauf werden gegebenenfalls Modelle heruntergeladen. Fortschritt wird als Phase und nicht als geschätzter Prozentsatz angezeigt.',empty:'Keine nutzbare Fläche erkannt. Manuell hinzufügen oder vorhandenes Pflaster auswählen und den erkannten Bereich wiederherstellen.' },
   es: {
+    includeOutside:'Incluir pavimento fuera del plano del suelo estimado',
+    outsideHelp:'Las zonas seleccionadas fuera del soporte del suelo estimado se proyectan sobre el mismo plano. Su escala y cantidades son aproximadas. Los cambios se aplican al analizar o restaurar.',
+    outsideNotice:'Esta sugerencia incluye zonas fuera del soporte del suelo estimado. Su escala y cantidades son aproximadas.',
     title: 'Sugerencia automática de pavimento',
     progress: 'Análisis en curso',
+    cornerNotice:n=>`Algunos contornos necesitan más de ${n} esquinas para conservar su forma y sus huecos. Se conservaron las esquinas adicionales.`,
     run: 'Analizar la foto de nuevo',
     retry: 'Reintentar análisis automático',
     restore: 'Restaurar superficie detectada',
@@ -76,8 +95,12 @@ const COPY = {
     empty: 'No se detectó pavimento utilizable. Añada una superficie manualmente o incluya el pavimento existente y restaure la superficie detectada.',
   },
   fr: {
+    includeOutside:'Inclure le pavage hors du plan du sol estimé',
+    outsideHelp:'Les zones sélectionnées hors du support du sol estimé sont projetées sur le même plan. Leur échelle et leurs quantités sont approximatives. Les changements prennent effet lors de l’analyse ou de la restauration.',
+    outsideNotice:'Cette suggestion comprend des zones hors du support du sol estimé. Leur échelle et leurs quantités sont approximatives.',
     title: 'Suggestion de pavage automatique',
     progress: 'Analyse en cours',
+    cornerNotice:n=>`Certains contours nécessitent plus de ${n} sommets pour préserver leur forme et leurs trous. Les sommets supplémentaires ont été conservés.`,
     run: 'Analyser à nouveau la photo',
     retry: 'Relancer l\'analyse automatique',
     restore: 'Restaurer la surface détectée',
@@ -112,8 +135,12 @@ const COPY = {
     empty: 'Aucun pavage exploitable n\'a été détecté. Ajoutez une surface manuellement, ou incluez le pavage existant et restaurez la surface détectée.',
   },
   it: {
+    includeOutside:'Includi la pavimentazione fuori dal piano del terreno stimato',
+    outsideHelp:'Le aree selezionate fuori dal supporto del terreno stimato vengono proiettate sullo stesso piano. Scala e quantità sono approssimative. Le modifiche si applicano durante l’analisi o il ripristino.',
+    outsideNotice:'Questo suggerimento include aree fuori dal supporto del terreno stimato. Scala e quantità sono approssimative.',
     title: 'Suggerimento automatico di pavimentazione',
     progress: 'Analisi in corso',
+    cornerNotice:n=>`Alcuni contorni richiedono più di ${n} angoli per mantenere forma e fori. Gli angoli aggiuntivi sono stati conservati.`,
     run: 'Analizza di nuovo la foto',
     retry: 'Riprova l\'analisi automatica',
     restore: 'Ripristina superficie rilevata',
@@ -148,10 +175,25 @@ const COPY = {
     empty: 'Nessuna pavimentazione utilizzabile rilevata. Aggiunga una superficie manualmente o includa la pavimentazione esistente e ripristini la superficie rilevata.',
   },
 };
-export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['grass', 'dirt']}) {
+const WAIT_COPY = {
+  en: ['Analyzing the photo. Waiting for the models to finish…', 'The first analysis may take longer while the models load. You can stop and continue manually.'],
+  ro: ['Se analizează fotografia. Se așteaptă finalizarea modelelor…', 'Prima analiză poate dura mai mult până se încarcă modelele. Poți opri analiza și continua manual.'],
+  de: ['Foto wird analysiert. Die Modelle werden ausgeführt…', 'Die erste Analyse kann beim Laden der Modelle länger dauern. Sie können stoppen und manuell fortfahren.'],
+  es: ['Analizando la foto. Esperando a que terminen los modelos…', 'El primer análisis puede tardar más mientras se cargan los modelos. Puede detenerlo y continuar manualmente.'],
+  fr: ['Analyse de la photo. En attente de la fin des modèles…', 'La première analyse peut être plus longue pendant le chargement des modèles. Vous pouvez arrêter et continuer manuellement.'],
+  it: ['Analisi della foto. In attesa del completamento dei modelli…', 'La prima analisi può richiedere più tempo durante il caricamento dei modelli. Puoi interrompere e continuare manualmente.'],
+};
+function analysisCopy(locale) {
+  const language = locale.split('-')[0], copy = COPY[language] || COPY.en;
+  const [analyzing, first] = WAIT_COPY[language] || WAIT_COPY.en;
+  return {...copy, first, phases: {...copy.phases, analyzing}};
+}
+export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['pavement'], initialIncludeOutsideGroundSupport = true}) {
   const panel = document.createElement('details'); panel.id = 'photoAnalysisPanel'; panel.className = 'accordion-section photo-analysis-panel';
-  panel.innerHTML = `<summary class="accordion-toggle"></summary><div class="accordion-panel"><p data-analysis-status role="status" aria-live="polite"></p><progress hidden></progress>
+  panel.innerHTML = `<summary class="accordion-toggle"></summary><div class="accordion-panel"><p data-analysis-status role="status" aria-live="polite"></p><p class="note" data-analysis-corner-notice role="status" hidden></p><progress hidden aria-label="Analysis running"></progress>
     <p data-analysis-error role="alert" hidden></p><fieldset><legend></legend>${['grass','dirt','pavement'].map(k=>`<label><input type="checkbox" value="${k}" ${initialTargets.includes(k)?'checked':''}><span data-target="${k}"></span></label>`).join('')}</fieldset>
+    <label class="analysis-outside"><input type="checkbox" data-analysis-outside ${initialIncludeOutsideGroundSupport?'checked':''} aria-describedby="analysisOutsideHelp"><span data-analysis-outside-label></span></label>
+    <p class="note" id="analysisOutsideHelp" data-analysis-outside-help></p><p class="note" data-analysis-outside-notice role="status" hidden></p>
     <div class="analysis-actions"><button type="button" data-analyze class="area-secondary"></button><button type="button" data-restore class="area-secondary"></button>
     <button type="button" data-manual class="area-secondary"></button><button type="button" data-stop class="area-secondary"></button>
     <button type="button" data-change-photo class="area-secondary"></button></div><p class="note" data-analysis-help></p><p class="note" data-analysis-privacy></p></div>`;
@@ -159,6 +201,7 @@ export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['
     .photo-analysis-panel,.photo-analysis-panel .accordion-panel{min-width:0}.photo-analysis-panel p{font-size:12px;line-height:1.5}
     .photo-analysis-panel progress{width:100%;height:8px;margin-bottom:8px}.photo-analysis-panel fieldset{border:0;padding:0;margin:10px 0;display:flex;flex-wrap:wrap;gap:8px 12px}
     .photo-analysis-panel legend{font-size:12px;margin-bottom:7px}.photo-analysis-panel fieldset label{display:flex;align-items:center;gap:5px;font-size:12px;white-space:normal}
+    .photo-analysis-panel .analysis-outside{display:flex;align-items:flex-start;gap:7px;font-size:12px;line-height:1.5}.analysis-outside input{flex-shrink:0;margin-top:2px}
     .photo-analysis-panel input[type=checkbox]{width:16px;height:16px;accent-color:#0878c9}.analysis-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .analysis-actions button{font:inherit;font-size:12px;padding:9px;min-height:40px;cursor:pointer}.analysis-actions button:disabled{opacity:.5;cursor:default}
     .analysis-actions [data-stop],.analysis-actions [data-change-photo]{grid-column:1/-1}.photo-analysis-panel [data-analysis-error]{color:#a13f20;overflow-wrap:anywhere}
@@ -167,9 +210,9 @@ export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['
     .photo-flow-card{max-height:calc(100dvh - 90px);overflow:auto}.photo-flow.is-upload .photo-analysis-panel{display:none}
     @media(max-width:760px){.photo-flow-card .photo-analysis-panel fieldset{gap:5px}.photo-flow:not(.is-upload) .photo-flow-card{max-height:58dvh}}
   `; document.head.append(style);
-  const $ = sel => panel.querySelector(sel), c = () => COPY[getLocale().split('-')[0]] || COPY.en;
+  const $ = sel => panel.querySelector(sel), c = () => analysisCopy(getLocale());
   let localError = '', errorPhotoId = null;
-  function targets() { return Array.from(panel.querySelectorAll('input:checked')).map(el=>el.value); }
+  function targets() { return Array.from(panel.querySelectorAll('fieldset input:checked')).map(el=>el.value); }
   function update() {
     const copy=c(), step=getStep(), photo=api.getPhotoSource(), s=api.getAnalysisStatus();
     if (errorPhotoId !== photo?.photoId) { localError=''; errorPhotoId=photo?.photoId; }
@@ -184,6 +227,15 @@ export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['
     $('summary').textContent=copy.title;
     $('[data-analysis-status]').textContent=copy.phases[s.phase]||copy.phases.idle;
     if(s.phase==='ready' && s.summary?.diagnostics?.regions===0) $('[data-analysis-status]').textContent=copy.empty;
+    const diagnostics = (api.getModelImportSummary?.() || (s.phase === 'ready' ? s.summary : null))?.diagnostics;
+    $('[data-analysis-corner-notice]').hidden = s.busy || !diagnostics?.boundariesOverCornerTarget;
+    $('[data-analysis-corner-notice]').textContent = diagnostics?.boundariesOverCornerTarget ? copy.cornerNotice(diagnostics.maxCornersPerBoundary) : '';
+    $('[data-analysis-outside]').disabled=s.busy;
+    $('[data-analysis-outside-label]').textContent=copy.includeOutside;
+    $('[data-analysis-outside-help]').textContent=copy.outsideHelp;
+    $('[data-analysis-outside-help]').hidden=!$('[data-analysis-outside]').checked;
+    $('[data-analysis-outside-notice]').textContent=copy.outsideNotice;
+    $('[data-analysis-outside-notice]').hidden=s.busy||!diagnostics?.extrapolatedPixels;
     $('progress').hidden=!s.busy; $('progress').setAttribute('aria-label',copy.progress);
     $('fieldset').disabled=s.busy;
     $('legend').textContent=copy.target;
@@ -206,11 +258,12 @@ export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['
     try {
       const replaceExisting=api.getPavingState().areaRegions.length>0;
       if(replaceExisting&&!window.confirm(c().replace)) return;
-      await api[name]({replaceExisting,targets:targets()});
+      await api[name]({replaceExisting,targets:targets(),includeOutsideGroundSupport:$('[data-analysis-outside]').checked});
     } catch(e) {localError=e.message||String(e);}
     update();
   }
   $('[data-analyze]').addEventListener('click',()=>action('runPhotoAnalysis'));
+  $('[data-analysis-outside]').addEventListener('change',update);
   $('[data-restore]').addEventListener('click',()=>action('restoreDetectedArea'));
   for(const selector of ['[data-manual]','[data-stop]']) $(selector).addEventListener('click',()=>{
     localError='';try {api.beginManualCalibration();}catch(e){localError=e.message;}update();
@@ -219,6 +272,6 @@ export function mountAnalysisPanel({api, getLocale, getStep, initialTargets = ['
   update(); return {update};
 }
 export function analysisFlowText(locale) {
-  const c = COPY[locale.split('-')[0]] || COPY.en;
+  const c = analysisCopy(locale);
   return { title: c.title, help: c.first, privacy: c.privacy };
 }

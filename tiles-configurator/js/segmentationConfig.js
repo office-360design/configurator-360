@@ -5,11 +5,14 @@
 export const SEGMENTATION_CONFIG = Object.freeze({
   enabled: true,
   apiBase: 'https://tiles-analysis-test-719238533149.europe-central2.run.app/api/paving',
-  pollIntervalMs: 900,
+  // apiBase: '',
   requestTimeoutMs: 45000,
-  analysisTimeoutMs: 20 * 60 * 1000, // Covers first-run downloads and CPU inference.
-  targets: ['grass', 'dirt'],
+  analysisTimeoutMs: 5 * 60 * 1000, // Held upload request, including cold start and queueing. Cloud Run: 360 seconds.
+  targets: ['pavement'],
+  includeOutsideGroundSupport: true,
   tolerancePx: 0.75,
+  maxCornersPerBoundary: 20,
+  minRegionAreaM2: 0.5,
 });
 
 export function resolveAnalysisBase(config = SEGMENTATION_CONFIG, location = globalThis.location) {

@@ -10,7 +10,7 @@ import {prepareModelImport} from '../js/segmentationAdapter.js';
 import {normalize,layout,estimate,areaGeometry} from '../js/model.js';
 import {asRegionState} from '../js/pavingEditor.js';
 import {PavingHistory} from '../js/pavingHistory.js';
-import {fixture} from './fixtures/model-results.mjs';
+import {fixture,binaryRLE} from './fixtures/model-results.mjs';
 const app=await readFile(new URL('../js/app.js',import.meta.url),'utf8');
 const opening=app.slice(app.indexOf('function detachProjectPhoto()'),app.indexOf('function change(patch'));
 const commit=app.slice(app.indexOf('function commitPavingState('),app.indexOf('function finishAreaDrawing()'));
@@ -46,8 +46,30 @@ function harness(){
 test('project opening restores saved client holes, not original mask topology',async()=>{
  const c=harness();await c.applyStoredProject(c.bundle,()=>true);
  assert.equal(c.state.areaRegions.length,1);assert.equal(c.state.areaRegions[0].holes.length,2);
- assert.equal(c.lastModelImport.value.regions.length,2);assert.equal(c.backdrop(),'blob:new');
+ assert.equal(c.lastModelImport.value.regions.length,1);assert.equal(c.backdrop(),'blob:new');
  assert.equal(c.getView().photoMode,true);assert.ok(c.modelImportSummary);assert.equal(c.history.stack.length,0);
+});
+
+test('reopening honors the cached inclusion choice without replacing the saved design',async()=>{
+ for(const flag of [true,false]) {
+  const c=harness(),before=structuredClone(c.bundle.document.state);
+  c.bundle.detection.includeOutsideGroundSupport=flag;
+  c.bundle.detection.payload.geometry.ground_support=binaryRLE(new Uint8Array(200*160));
+  await c.applyStoredProject(c.bundle,()=>true);
+  assert.equal(c.lastModelImport.value.diagnostics.includeOutsideGroundSupport,flag);
+  assert.equal(c.lastModelImport.value.regions.length>0,flag);
+  assert.deepEqual(c.state,before);
+ }
+});
+
+test('opening a saved design preserves a manually added region smaller than the detection minimum',async()=>{
+ const c=harness(),doc=structuredClone(c.bundle.document);
+ doc.state=normalize({...doc.state,areaRegions:[...doc.state.areaRegions,{outer:rect(8,8,.2,.2),holes:[]}]});
+ c.bundle={...c.bundle,...prepareProjectState(doc)};
+ await c.applyStoredProject(c.bundle,()=>true);
+ assert.equal(c.state.areaRegions.length,2);
+ assert.ok(Math.abs(estimate(c.state).area-(14+.04))<1e-8);
+ assert.equal(c.state.areaRegions[0].holes.length,2);
 });
 test('cached detection with a different camera is historical, never called the active calibration',async()=>{
  const c=harness();const edited=structuredClone(c.bundle.document);edited.view.calibration.value.imageId='older-source-id';

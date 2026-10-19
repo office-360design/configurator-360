@@ -3,7 +3,7 @@
  * session assets, not repeated in undo or compact account saves.
  */
 import { PROJECT_FORMAT, PROJECT_LIMITS, validateProjectDocument, prepareProjectState, projectSavedState, projectFromSavedState, projectError } from './pavingProject.js';
-import { makePhotoAsset, makeResultAsset, readResultAsset, encodeProjectFile, decodeProjectFile, verifyAsset } from './projectAssets.js';
+import { makePhotoAsset, makeResultAsset, readResultAsset, encodeProjectFile, decodeProjectFile, verifyAsset } from './projectAssets.js?v=tiles-ground-support-1';
 import { ProjectStore } from './projectStore.js';
 export function createProjectSession({ capture, getPhoto, getSource, getRevision, getDetection, apply,
   assertSavable = () => {}, beforeOpen = () => {}, onStatus = () => {}, store = new ProjectStore(),
@@ -87,7 +87,7 @@ export function createProjectSession({ capture, getPhoto, getSource, getRevision
     resultKey = key;
     resultTask = (async () => {
       try {
-        const result = await makeResultAsset(info.getPayload ? info.getPayload() : info.payload, info.targets, asset.meta.sha256);
+        const result = await makeResultAsset(info.getPayload ? info.getPayload() : info.payload, info.targets, asset.meta.sha256, info.includeOutsideGroundSupport);
         if (assetPhotoId !== photoId || resultKey !== key) return;
         resultAsset = result;
         if (epoch === cacheEpoch && autoCache) await store.cacheAssets({ result });

@@ -5,7 +5,7 @@ import { createProjectSession } from '../js/projectSession.js';
 import { normalize } from '../js/model.js';
 import { fixture } from './fixtures/model-results.mjs';
 import { prepareModelImport } from '../js/segmentationAdapter.js';
-import { decodeProjectFile, makePhotoAsset } from '../js/projectAssets.js';
+import { decodeProjectFile, makePhotoAsset, readResultAsset } from '../js/projectAssets.js';
 const blob=new Blob([await readFile(new URL('./fixtures/server-model-photo.png',import.meta.url))],{type:'image/png'});
 const decode=async()=>({width:200,height:160});
 const data=fixture({width:200,height:160});
@@ -43,6 +43,18 @@ test('save/open uses original binary photo plus the current edited design; openi
  live.state=normalize({shape:'regions',areaRegions:[],areaOrigin:{x:0,z:0}});live.revision++;
  await session.openLocal('project-1');assert.deepEqual(live.state,before);assert.equal(live.network,network);assert.equal(live.calls,1);
  assert.equal(store.projects.size,1);assert.equal(session.getStatus().cached,true);
+});
+
+test('portable project detection cache keeps the selected ground support behavior',async()=>{
+ for(const flag of [true,false]) {
+  const h=harness();h.live.detection.includeOutsideGroundSupport=flag;
+  await h.session.photoLoaded(h.live.photo,h.live.source);
+  const file=await h.session.download({includeResult:true});
+  const loaded=await decodeProjectFile(file,decode);
+  const detection=await readResultAsset(loaded.assets.result,loaded.document.photo.sha256);
+  assert.equal(detection.includeOutsideGroundSupport,flag);
+  assert.deepEqual(loaded.document.state,h.live.state);
+ }
 });
 test('same-browser account reference resolves its photograph, holes and model calibration',async()=>{
  const h=harness();await h.session.photoLoaded(h.live.photo,h.live.source);await h.session.rememberDetection();

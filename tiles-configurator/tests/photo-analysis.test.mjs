@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createPhotoAnalysis, importableBundle, abortableDelay } from '../js/photoAnalysis.js';
 import { workingImageSize } from '../js/photoPreparation.js';
 import { resolveAnalysisBase } from '../js/segmentationConfig.js';
-import { fixture } from './fixtures/model-results.mjs';
+import { fixture, binaryRLE } from './fixtures/model-results.mjs';
 import { prepareModelImport } from '../js/segmentationAdapter.js';
 
 const respond=(data,status=200)=>({ok:status>=200&&status<300,status,text:async()=>JSON.stringify(data)});
@@ -19,15 +19,16 @@ function setup(opts={}) {
     const path=url.replace('http://analysis/api/paving','');
     env.requests.push({path,options});
     if(path.startsWith('/requests/'))return respond({cancelled:true});
-    if(path==='/health')return respond({service:'paving-analysis',job_api_version:1,models_loaded:{}});
-    if(path==='/jobs') {
+    if(path==='/health')return respond({service:'paving-analysis',analysis_api_version:1,job_api_version:1,models_loaded:{}});
+    if(path==='/analyze') {
       job={job_id:'a'.repeat(32),image_id:options.body.get('image_id'),generation:Number(options.body.get('generation')),
         image:{width:160,height:120},state:'queued',stage:'queued'};
-      await opts.onUpload?.(env);return respond(job);
+      await opts.onUpload?.(env);
+      await opts.onResult?.(env);
+      env.now+=20;
+      return respond({...payload,job_id:job.job_id,generation:job.generation});
     }
-    if(path.endsWith('/result')){await opts.onResult?.(env);return respond(payload);}
-    env.polls++;await opts.onPoll?.(env);
-    return respond({...job,state:env.polls>1?'completed':'running',stage:'camera'});
+    throw new Error('Unexpected request: '+path);
   };
   const ctl=createPhotoAnalysis({apiBase:'http://analysis/api/paving',clientId:'test-client',
     config:{pollIntervalMs:1,requestTimeoutMs:1000,analysisTimeoutMs:10000,...opts.config},
@@ -43,13 +44,14 @@ function setup(opts={}) {
   return {ctl,env,payload};
 }
 
-test('upload -> job -> both model outputs -> real hole-capable adapter',async()=>{
+test('one held upload returns both models without polling or a result fetch',async()=>{
   const {ctl,env}=setup();const done=await ctl.run();assert.equal(done.applied,true);
-  assert.deepEqual(env.events.filter(x=>x.busy).map(x=>x.phase),['preparing','connecting','uploading','queued','camera','applying']);
+  assert.deepEqual(env.events.filter(x=>x.busy).map(x=>x.phase),['preparing','connecting','uploading','analyzing','applying']);
+  assert.deepEqual(env.requests.map(x=>x.path),['/health','/analyze']);
   assert.equal(ctl.getStatus().phase,'ready');assert.equal(env.imports.length,1);
   assert.equal(env.imports[0].token.designRevision,1);assert.equal(env.imports[0].value.diagnostics.holes,1);
-  assert.equal(env.imports[0].value.regions.length,2);
-  const upload=env.requests.find(x=>x.path==='/jobs');assert.equal(upload.options.body.get('image_id'),env.photo.photoId);
+  assert.equal(env.imports[0].value.regions.length,1);assert.equal(env.imports[0].value.diagnostics.filteredSmallRegions,1);
+  const upload=env.requests.find(x=>x.path==='/analyze');assert.equal(upload.options.body.get('image_id'),env.photo.photoId);
   assert.equal(upload.options.body.get('client_id'),'test-client');
 });
 test('existing intentional holes require explicit replacement before any requests',async()=>{
@@ -87,7 +89,7 @@ test('a different response photo is rejected before contour conversion',async()=
 });
 test('mismatched generation/job rejected',async()=>{
   const {ctl,env}=setup({fetch:async(u,o,base)=>{
-    const r=await base(u,o);if(u.endsWith('/jobs')){const j=JSON.parse(await r.text());j.generation++;return respond(j);}return r;
+    const r=await base(u,o);if(u.endsWith('/analyze')){const j=JSON.parse(await r.text());j.generation++;return respond(j);}return r;
   }});await ctl.run();assert.equal(ctl.getStatus().errorCode,'imageMismatch');assert.equal(env.imports.length,0);
 });
 test('old response cannot replace a newly loaded photograph or its status',async()=>{
@@ -139,6 +141,38 @@ test('restoring detected area does not rerun or upload to models',async()=>{
  ctl.restore({replaceExisting:true,targets:['pavement']});assert.equal(env.requests.length,count);
  assert.equal(env.imports.length,2);assert.equal(env.imports[1].value.regions.length,0);
 });
+
+test('ground support inclusion defaults on; restoring can turn it off and back on without inference',async()=>{
+ const {ctl,env}=setup({payload:p=>{p.geometry.ground_support=binaryRLE(new Uint8Array(160*120));}});
+ await ctl.run();
+ assert.equal(env.imports[0].token.includeOutsideGroundSupport,true);
+ assert.ok(env.imports[0].value.diagnostics.extrapolatedPixels>0);
+ const requests=env.requests.length;
+ ctl.restore({replaceExisting:true,includeOutsideGroundSupport:false});
+ assert.equal(env.imports[1].value.regions.length,0);
+ assert.equal(ctl.getResultInfo().includeOutsideGroundSupport,false);
+ ctl.restore({replaceExisting:true});
+ assert.equal(env.imports[2].token.includeOutsideGroundSupport,false);
+ ctl.restore({replaceExisting:true,includeOutsideGroundSupport:true});
+ assert.ok(env.imports[3].value.regions.length>0);
+ assert.equal(env.requests.length,requests);
+});
+
+test('analysis respects an unchecked ground support option and configured defaults',async()=>{
+ const first=setup({config:{includeOutsideGroundSupport:false}});
+ await first.ctl.run();assert.equal(first.env.imports[0].token.includeOutsideGroundSupport,false);
+ const second=setup();await second.ctl.run({includeOutsideGroundSupport:false});
+ assert.equal(second.env.imports[0].token.includeOutsideGroundSupport,false);
+});
+
+test('analysis and retained-result restore pass corner and area settings to the importer',async()=>{
+ const {ctl,env}=setup({config:{maxCornersPerBoundary:12,minRegionAreaM2:.75}});
+ await ctl.run();assert.equal(env.imports[0].token.maxCornersPerBoundary,12);
+ assert.equal(env.imports[0].token.minRegionAreaM2,.75);
+ const requests=env.requests.length;ctl.restore({replaceExisting:true});
+ assert.equal(env.imports[1].token.maxCornersPerBoundary,12);assert.equal(env.requests.length,requests);
+ assert.equal(env.imports[1].token.minRegionAreaM2,.75);
+});
 test('retained results are copies and never leak to a different photo',async()=>{
  const {ctl,env}=setup();await ctl.run();const a=ctl.getResult();a.geometry.image_id='changed';
  assert.equal(ctl.getResult().geometry.image_id,env.photo.photoId);env.photo.photoId='different';assert.equal(ctl.getResult(),null);
@@ -161,6 +195,31 @@ test('aborted wait rejects promptly',async()=>{
  const c=new AbortController();const p=abortableDelay(10000,c.signal);c.abort();await assert.rejects(p,e=>e.name==='AbortError');
 });
 test('missing camera cannot be made into a bundle',()=>assert.equal(importableBundle({segmentation:{}}),null));
+
+test('analysis uses the long deadline rather than the short health-request timeout',async()=>{
+  const {ctl,env}=setup({config:{requestTimeoutMs:10,analysisTimeoutMs:1000},onUpload:()=>new Promise(r=>setTimeout(r,30))});
+  assert.equal((await ctl.run()).applied,true);
+  assert.equal(env.requests.find(r=>r.path==='/analyze').options.signal.aborted,false);
+});
+
+test('a stalled held analysis times out and invalidates its generation',async()=>{
+  const {ctl,env}=setup({config:{requestTimeoutMs:1000,analysisTimeoutMs:10},fetch:async(u,o,base)=>{
+    if(!u.endsWith('/analyze'))return base(u,o);
+    return new Promise((resolve,reject)=>o.signal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError'))));
+  }});
+  assert.equal((await ctl.run()).reason,'error');
+  assert.equal(ctl.getStatus().errorCode,'requestTimeout');
+  assert.ok(env.requests.some(r=>r.path==='/requests/1'));
+  assert.equal(env.imports.length,0);
+});
+
+test('old service is rejected before uploading rather than silently using background jobs',async()=>{
+  const {ctl,env}=setup({fetch:async(u,o,base)=>u.endsWith('/health')?
+    respond({service:'paving-analysis',api_version:3,job_api_version:1}):base(u,o)});
+  await ctl.run();
+  assert.equal(ctl.getStatus().errorCode,'serviceVersion');
+  assert.equal(env.requests.some(r=>r.path==='/analyze'||r.path==='/jobs'),false);
+});
 
 test('a partial camera-only retry does not erase an existing design or its intentional holes',async()=>{
   const {ctl,env}=setup({existing:[{id:'intentional',holes:[[]]}],payload:p=>{p.segmentation=null;p.errors.segmentation={code:'segmentation_failed'};}});

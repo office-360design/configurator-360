@@ -31,6 +31,16 @@ test('unapplied results do not invent the effective mask or projection-clipping 
   const d=inspectDebugSource(input(),photo);assert.ok(d.masks.supportedSelection);
   assert.equal(d.masks.effective,undefined);assert.equal(d.masks.projectionRejected,undefined);
 });
+
+test('including outside ground support does not label the recovered pixels as rejected',()=>{
+ const source=input();source.payload.geometry.ground_support=binaryRLE(new Uint8Array(19200));
+ const p=prepareModelImport(source.payload);
+ source.prepared={image:p.camera.image,masks:p.masks};source.summary={diagnostics:p.diagnostics};
+ const d=inspectDebugSource(source,photo);
+ assert.ok(d.counts.effective.pixels>0);
+ assert.equal(d.counts.unsupported.pixels,0);
+ assert.equal(d.counts.projectionRejected.pixels,p.diagnostics.projectionRejectedPixels);
+});
 test('camera failure still exposes real semantic masks but no fabricated support or camera',()=>{
   const s=input();s.payload.geometry=null;const d=inspectDebugSource(s,photo);
   assert.ok(d.classes);assert.equal(d.camera,null);assert.equal(d.masks.groundSupport,undefined);
@@ -118,5 +128,6 @@ test('RLE report reimport keeps non-default target choices, not newly chosen def
   source.prepared={image:p.camera.image,masks:p.masks};source.summary={diagnostics:p.diagnostics,warnings:p.warnings};
   const report=buildDebugReport({snapshot,source,inspected:inspectDebugSource(source,photo),design:{areaRegions:[]},includeMasks:true});
   const result=prepareModelImport(unwrapDebugReport(report));
-  assert.deepEqual(result.masks.effective,p.masks.effective);assert.equal(result.regions.length,1);
+ assert.deepEqual(result.masks.effective,p.masks.effective);assert.ok(result.masks.effective.some(Boolean));
+ assert.equal(result.regions.length,0);assert.equal(result.diagnostics.filteredSmallRegions,1);
 });

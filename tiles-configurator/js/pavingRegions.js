@@ -110,6 +110,32 @@ function ringsIntersect(a, b, allowPointTouch = false) {
   }
   return false;
 }
+/** Local topology check for removing one vertex from already validated regions.
+ * Only the replacement chord and the swept triangle can change the topology.
+ */
+export function canRemoveBoundaryVertex(regions, regionIndex, holeIndex, vertexIndex) {
+  const region = regions[regionIndex], ring = holeIndex < 0 ? region.outer : region.holes[holeIndex],
+    n = ring.length, previous = (vertexIndex + n - 1) % n,
+    a = ring[previous], b = ring[vertexIndex], c = ring[(vertexIndex + 1) % n];
+  if (n <= 3 || distance(a, c) <= EPS) return false;
+  const before = area2(ring), after = before - cross(a, b, c);
+  if (Math.abs(after) < 2e-7 || (before < 0) !== (after < 0)) return false;
+  for (const r of regions) for (const boundary of [r.outer, ...r.holes]) {
+    // A whole hole or island can lie in the swept triangle without crossing
+    // the new chord. Reject that containment change as well as intersections.
+    if (boundary !== ring && Math.abs(cross(a, b, c)) > EPS && pointInRing(boundary[0], [a, b, c]) >= 0) return false;
+    for (let i = 0; i < boundary.length; i++) {
+      if (boundary === ring && (i === previous || i === vertexIndex)) continue;
+      const hits = intersections(a, c, boundary[i], boundary[(i + 1) % boundary.length]);
+      // Only the two existing neighbouring edges may share chord endpoints.
+      if (hits.length && (boundary !== ring ||
+          i !== (previous + n - 1) % n && i !== (vertexIndex + 1) % n ||
+          hits.some(([t]) => Math.abs(t - hits[0][0]) > EPS) ||
+          hits.some(([t, u]) => t > EPS && t < 1 - EPS || u > EPS && u < 1 - EPS))) return false;
+    }
+  }
+  return true;
+}
 const ringSamples = (p) => p.flatMap((a, i) => [a, mix(a, p[(i + 1) % p.length], .5)]);
 const strictlyInRegion = (p, r) => pointInRing(p, r.outer) === 1 &&
   r.holes.every((h) => pointInRing(p, h) === -1);
