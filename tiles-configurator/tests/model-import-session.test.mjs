@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {fixture} from './fixtures/model-results.mjs';
 import {prepareModelImport} from '../js/segmentationAdapter.js';
+import {SEGMENTATION_CONFIG} from '../js/segmentationConfig.js';
 import {failImport} from '../js/modelCamera.js';
 import {normalize,layout,estimate,areaGeometry} from '../js/model.js';
 import {asRegionState,clearPaving,applyPavingPatch} from '../js/pavingEditor.js';
@@ -16,7 +17,7 @@ const rect=(x,z,w,h)=>[{x,z},{x:x+w,z},{x:x+w,z:z+h},{x,z:z+h}];
 function harness({empty=false}={}) {
  const state=normalize({shape:'regions',areaOrigin:{x:0,z:0},areaRegions:empty?[]:[{outer:rect(0,0,4,4),holes:[rect(1,1,1,1)],curbs:{outer:false}}]});
  let view={calibration:{type:'reference_square',corners:[{x:.2,y:.2},{x:.8,y:.2},{x:.8,y:.8},{x:.2,y:.8}]},photoMode:true,photoSetup:empty},renders=0;
- const c=vm.createContext({structuredClone,JSON,normalize,layout,estimate,areaGeometry,asRegionState,prepareModelImport,failImport,
+ const c=vm.createContext({structuredClone,JSON,normalize,layout,estimate,areaGeometry,asRegionState,prepareModelImport,failImport,SEGMENTATION_CONFIG,
   state,photoSource:{photoId:'synthetic-metric-test',width:160,height:120},designRevision:7,modelImportSummary:null,lastModelImport:null,
   photoFlowStep:empty?'calibrate':'done',drawingArea:false,draftAreaPoints:[],activeBoundaryKey:'',activeVertex:0,
   document:{body:{classList:{toggle(){}}}},$:()=>({hidden:false}),shell:{markDirty(){}},
@@ -45,15 +46,22 @@ for(const [label,options,mutate] of [
  });
 test('camera and imported shape undo/redo as ONE transaction; existing intentional holes return',()=>{
  const c=harness(),before=c.captureHistorySnapshot();c.importModelResult(fixture(),c.token());
- assert.equal(c.history.stack.length,1);assert.equal(c.getView().calibration.type,'metric_model');assert.equal(c.state.areaRegions.length,2);
+ assert.equal(c.history.stack.length,1);assert.equal(c.getView().calibration.type,'metric_model');assert.equal(c.state.areaRegions.length,1);
+ assert.equal(c.modelImportSummary.diagnostics.filteredSmallRegions,1);
  assert.ok(c.history.undo());assert.deepEqual(c.state,before.state);assert.deepEqual(c.getView(),before.photoView);assert.equal(c.modelImportSummary,null);
- assert.ok(c.history.redo());assert.equal(c.getView().calibration.type,'metric_model');assert.equal(c.state.areaRegions.length,2);assert.equal(c.modelImportSummary.diagnostics.holes,1);
+ assert.ok(c.history.redo());assert.equal(c.getView().calibration.type,'metric_model');assert.equal(c.state.areaRegions.length,1);assert.equal(c.modelImportSummary.diagnostics.holes,1);
  assert.ok(!JSON.stringify(c.history.stack).includes('groundSupport')); // No large masks in undo.
 });
 test('first import bypasses manual calibration; undo returns to the original calibration step',()=>{
  const c=harness({empty:true}),token=c.token();token.replaceExisting=false;c.importModelResult(fixture(),token);
  assert.equal(c.photoFlowStep,'done');assert.equal(c.getView().photoSetup,false);
  c.history.undo();assert.equal(c.photoFlowStep,'calibrate');assert.equal(c.state.areaRegions.length,0);assert.equal(c.getView().photoSetup,true);
+});
+
+test('local model imports respect the configured minimum detected area',()=>{
+ const c=harness();c.SEGMENTATION_CONFIG={...SEGMENTATION_CONFIG,minRegionAreaM2:0};
+ c.importModelResult(fixture(),c.token());
+ assert.equal(c.state.areaRegions.length,2);assert.equal(c.modelImportSummary.diagnostics.filteredSmallRegions,0);
 });
 test('render failure rolls back the camera and geometry and retains redo history',()=>{
  const c=harness();c.history.future.push({sentinel:true});const before=c.captureHistorySnapshot();c.failRender=true;
@@ -68,7 +76,7 @@ test('manual holes and clear-from-scratch preserve the imported calibration',()=
 test('local export association must be explicit',()=>{
  const c=harness(),b=fixture({imageId:'prototype-export-other-session'});
  assert.throws(()=>c.importModelResult(b,c.token()),e=>e.code==='imageMismatch');
- c.importModelResult(b,{...c.token(),associateWithCurrentPhoto:true});assert.equal(c.state.areaRegions.length,2);
+ c.importModelResult(b,{...c.token(),associateWithCurrentPhoto:true});assert.equal(c.state.areaRegions.length,1);
 });
 test('unfinished outlines are not discarded by import',()=>{
  const c=harness();c.drawingArea=true;c.draftAreaPoints=rect(0,0,2,2);const before=JSON.stringify(c.draftAreaPoints);

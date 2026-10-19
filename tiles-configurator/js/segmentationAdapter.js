@@ -1,5 +1,5 @@
 import { normalizeRegions, ringArea } from './pavingRegions.js';
-import { traceMask, simplifyContours } from './maskContours.js';
+import { traceMask, simplifyContours } from './maskContours.js?v=tiles-corners-2';
 import { failImport, assertSameImage, validateModelCamera, imageToGround, assertPhotoMatches } from './modelCamera.js';
 
 export const GROUND_LABELS = Object.freeze({ grass: 10, dirt: 6, pavement: 4 });
@@ -53,6 +53,9 @@ function unpack(input) {
 }
 /** Pure import preparation. Does not mutate a viewer, application state or source masks. */
 export function prepareModelImport(input, options={}) {
+  const minRegionAreaM2 = options.minRegionAreaM2 === undefined ? .5 : options.minRegionAreaM2;
+  if (typeof minRegionAreaM2 !== 'number' || !Number.isFinite(minRegionAreaM2) || minRegionAreaM2 < 0)
+    failImport('invalidOptions','The minimum detected region area must be a finite, non-negative number of square metres.');
   const {geometry,segmentation,selection,requested,original,source,occlusion}=unpack(input),
     camera=validateModelCamera(geometry), {width:W,height:H}=camera.image, size=W*H;
   if(segmentation) {
@@ -99,30 +102,53 @@ export function prepareModelImport(input, options={}) {
     if(!centre||!Number.isFinite(area)||area<=0||area>maxPixelArea) {projectionRejectedPixels++;continue;}
     effective[i]=1; pavingPixels++; exactPixelAreaM2+=area;
   }
-  const traced=traceMask(effective,W,H), simplified=simplifyContours(traced.regions,W,H,options.tolerancePx??.75);
   const mapRing=ring=>ring.map(p=>{
     const v=project(p.x,p.z);
     if(!v) failImport('invalidProjection','A boundary lies outside the valid ground projection.');
     return v;
   });
+  const regionArea = r => ringArea(r.outer) - r.holes.reduce((sum, hole) => sum + ringArea(hole), 0),
+    mapRegion = r => ({...r,outer:mapRing(r.outer),holes:r.holes.map(mapRing)});
+  let filteredSmallRegions = 0, filteredSmallRegionAreaM2 = 0;
+  function keepRegion(region) {
+    const area = regionArea(region);
+    // Allow roundoff at the exact threshold, e.g. 0.49999999999999994 m².
+    if (area + 1e-10 * Math.max(1, minRegionAreaM2) >= minRegionAreaM2) return true;
+    filteredSmallRegions++; filteredSmallRegionAreaM2 += area; return false;
+  }
+  const traced=traceMask(effective,W,H),
+    // Filter before contour validation so tiny disconnected detections do not
+    // exhaust the editor's region budget or constrain larger boundaries.
+    largeRegions=traced.regions.filter(r=>keepRegion(mapRegion(r))),
+    simplified=simplifyContours(largeRegions,W,H,options.tolerancePx??.75,options.maxCornersPerBoundary),
+    projected=simplified.regions.map(mapRegion),
+    // Simplification can shrink a region below the threshold. Check its final
+    // net area too, keeping pixel and metric region arrays in the same order.
+    kept=projected.map(keepRegion), pixelRegions=simplified.regions.filter((_,i)=>kept[i]);
   let regions;
-  try {regions=normalizeRegions(simplified.regions.map(r=>({...r,outer:mapRing(r.outer),holes:r.holes.map(mapRing)})));}
+  try {regions=normalizeRegions(projected.filter((_,i)=>kept[i]));}
   catch(error) {
     if(error?.code) throw error;
     failImport(error.message==='areaTooComplex'?'areaTooComplex':'invalidTopology',
       'The projected contours exceed the editor budget or contain unresolved contacts. No regions or holes were removed.');
   }
+  const boundariesOverCornerTarget = simplified.maxCornersPerBoundary === null ? 0 : pixelRegions.reduce((sum,r)=>
+    sum+[r.outer,...r.holes].filter(ring=>ring.length>simplified.maxCornersPerBoundary).length,0);
   const holes=regions.reduce((s,r)=>s+r.holes.length,0), vertices=regions.reduce((s,r)=>s+r.outer.length+r.holes.reduce((a,h)=>a+h.length,0),0),
     area=regions.reduce((s,r)=>s+ringArea(r.outer)-r.holes.reduce((a,h)=>a+ringArea(h),0),0),
     warnings=['Camera, scale and quantities are estimated from the photograph, not physically verified.'];
   if(unsupportedPixels+projectionRejectedPixels) warnings.push(`${unsupportedPixels+projectionRejectedPixels} selected pixels were excluded by ground support or projection safety checks.`);
   if(traced.saddleCorners) warnings.push('Diagonal pixel contacts were separated with a 0.02 px bevel; pixel-centre classifications are unchanged.');
+  if(boundariesOverCornerTarget) warnings.push(`Some detected boundaries need more than ${simplified.maxCornersPerBoundary} corners to preserve their shape and holes. Extra corners were kept.`);
+  if(filteredSmallRegions) warnings.push(`${filteredSmallRegions} detected regions smaller than ${minRegionAreaM2} m² were ignored. Holes in retained regions were preserved.`);
   if(!regions.length) warnings.push('The result contains no usable paving. The imported camera can still be used for manual drawing.');
   if(!labels) warnings.push('This import contains an explicit paving mask, not original semantic labels. Semantic protection diagnostics are unavailable.');
   if(occlusionMask) warnings.push('The supplied occlusion mask is retained separately; it is not subtracted from design quantities. Foreground compositing is not part of step 2.');
-  return {camera,regions,origin:{x:0,z:0},pixelRegions:simplified.regions,source,
+  return {camera,regions,origin:{x:0,z:0},pixelRegions,source,
     diagnostics:{selectedPixels,pavingPixels,unsupportedPixels,projectionRejectedPixels,regions:regions.length,holes,vertices,
       rawBoundaryEdges:traced.edgeCount,saddleCorners:traced.saddleCorners,tolerancePx:simplified.tolerancePx,
+      maxCornersPerBoundary:simplified.maxCornersPerBoundary,boundariesOverCornerTarget,
+      minRegionAreaM2,filteredSmallRegions,filteredSmallRegionAreaM2,
       exactPixelAreaM2,vectorAreaM2:area,areaDifferenceM2:area-exactPixelAreaM2,measurementStatus:'estimated'},
     masks:{labels,uncertain,groundHint,protected:blocked,groundSupport:support,requested:requestedMask,selection:selected,effective,occlusion:occlusionMask},warnings};
 }

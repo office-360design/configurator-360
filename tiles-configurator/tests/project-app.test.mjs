@@ -46,8 +46,18 @@ function harness(){
 test('project opening restores saved client holes, not original mask topology',async()=>{
  const c=harness();await c.applyStoredProject(c.bundle,()=>true);
  assert.equal(c.state.areaRegions.length,1);assert.equal(c.state.areaRegions[0].holes.length,2);
- assert.equal(c.lastModelImport.value.regions.length,2);assert.equal(c.backdrop(),'blob:new');
+ assert.equal(c.lastModelImport.value.regions.length,1);assert.equal(c.backdrop(),'blob:new');
  assert.equal(c.getView().photoMode,true);assert.ok(c.modelImportSummary);assert.equal(c.history.stack.length,0);
+});
+
+test('opening a saved design preserves a manually added region smaller than the detection minimum',async()=>{
+ const c=harness(),doc=structuredClone(c.bundle.document);
+ doc.state=normalize({...doc.state,areaRegions:[...doc.state.areaRegions,{outer:rect(8,8,.2,.2),holes:[]}]});
+ c.bundle={...c.bundle,...prepareProjectState(doc)};
+ await c.applyStoredProject(c.bundle,()=>true);
+ assert.equal(c.state.areaRegions.length,2);
+ assert.ok(Math.abs(estimate(c.state).area-(14+.04))<1e-8);
+ assert.equal(c.state.areaRegions[0].holes.length,2);
 });
 test('cached detection with a different camera is historical, never called the active calibration',async()=>{
  const c=harness();const edited=structuredClone(c.bundle.document);edited.view.calibration.value.imageId='older-source-id';

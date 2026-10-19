@@ -118,5 +118,6 @@ test('RLE report reimport keeps non-default target choices, not newly chosen def
   source.prepared={image:p.camera.image,masks:p.masks};source.summary={diagnostics:p.diagnostics,warnings:p.warnings};
   const report=buildDebugReport({snapshot,source,inspected:inspectDebugSource(source,photo),design:{areaRegions:[]},includeMasks:true});
   const result=prepareModelImport(unwrapDebugReport(report));
-  assert.deepEqual(result.masks.effective,p.masks.effective);assert.equal(result.regions.length,1);
+ assert.deepEqual(result.masks.effective,p.masks.effective);assert.ok(result.masks.effective.some(Boolean));
+ assert.equal(result.regions.length,0);assert.equal(result.diagnostics.filteredSmallRegions,1);
 });

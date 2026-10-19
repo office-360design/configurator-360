@@ -33,9 +33,27 @@ manual fallback rather than a stretched/cropped analysis image.
 
 The normal panel includes stage progress, retry, Stop analysis / continue manually,
 Restore detected area, Choose another photo, and the 1 m reference-square path.
-Grass and dirt are the initial targets. Existing pavement is opt-in. Changing
+Existing pavement is the initial target. Grass and dirt are opt-in. Changing
 these target checkboxes alone never reruns models or changes the design; Analyze
 or Restore applies the chosen target set explicitly.
+
+Detected outer boundaries and holes each target at most 20 corners, configured
+by `maxCornersPerBoundary` in `js/segmentationConfig.js` (`null` disables it).
+After pixel-tolerance simplification, the least significant corners are removed
+while preserving valid boundaries, holes and separate islands. Removals are
+ranked by deviation from the original contour and then by swept area; fixed
+pixel/area tolerances do not override the requested count. Diagonal bevels can
+also be simplified when topology checks permit it. Boundaries retain extra
+corners only when topology or the bounded processing budget prevents further
+reduction, with a notice in the analysis panel. Manual editing retains its existing geometry limits. Raw
+model results remain available for Restore without another model request.
+
+Detected regions smaller than 0.5 m² of estimated ground area are ignored.
+The threshold uses the outer area minus its holes, before and after corner
+simplification. Holes within retained regions are preserved. Configure it with
+`minRegionAreaM2` in `js/segmentationConfig.js`; `0` disables the filter. Manual
+drawing and existing saved designs retain their areas. Original masks are kept
+for diagnostics and restoring the detection with different settings.
 
 First-use model downloads may be slow. Progress reports stages, not invented
 percentages or an unsupported time estimate. Default HTTP timeout is 45 seconds
