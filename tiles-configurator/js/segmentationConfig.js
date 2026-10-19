@@ -9,6 +9,7 @@ export const SEGMENTATION_CONFIG = Object.freeze({
   requestTimeoutMs: 45000,
   analysisTimeoutMs: 5 * 60 * 1000, // Held upload request, including cold start and queueing. Cloud Run: 360 seconds.
   targets: ['pavement'],
+  includeOutsideGroundSupport: true,
   tolerancePx: 0.75,
   maxCornersPerBoundary: 20,
   minRegionAreaM2: 0.5,

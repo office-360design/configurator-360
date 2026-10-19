@@ -1,6 +1,6 @@
 import { mountModelImportPanel } from './modelImportPanel.js';
 import { DEBUG_CLASSES, DEBUG_MASKS, inspectDebugSource, debugMetadata, designStatistics,
-  buildDebugReport, publicServiceAddress } from './segmentationDebugData.js';
+  buildDebugReport, publicServiceAddress } from './segmentationDebugData.js?v=tiles-ground-support-1';
 import { debugCopy } from './segmentationDebugCopy.js';
 import { createDebugOverlay } from './debugOverlay.js';
 

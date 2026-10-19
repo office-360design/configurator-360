@@ -53,6 +53,9 @@ function unpack(input) {
 }
 /** Pure import preparation. Does not mutate a viewer, application state or source masks. */
 export function prepareModelImport(input, options={}) {
+  const includeOutsideGroundSupport = options.includeOutsideGroundSupport ?? true;
+  if (typeof includeOutsideGroundSupport !== 'boolean')
+    failImport('invalidOptions','Including areas outside ground support must be a boolean.');
   const minRegionAreaM2 = options.minRegionAreaM2 === undefined ? .5 : options.minRegionAreaM2;
   if (typeof minRegionAreaM2 !== 'number' || !Number.isFinite(minRegionAreaM2) || minRegionAreaM2 < 0)
     failImport('invalidOptions','The minimum detected region area must be a finite, non-negative number of square metres.');
@@ -86,21 +89,23 @@ export function prepareModelImport(input, options={}) {
   if(!labels&&!selection) failImport('missingMasks','A semantic result or explicit paving mask is required.');
   const selected=selection?decodeBinaryRLE(selection,size):Uint8Array.from(labels,v=>selectedLabels.has(v)?1:0),
     requestedMask=requested?decodeBinaryRLE(requested,size):selected.slice(), effective=new Uint8Array(size),
+    unsupported=new Uint8Array(size), projectionRejected=new Uint8Array(size),
     maxRange=options.maxRangeM??80, maxPixelArea=options.maxPixelAreaM2??1;
   if(typeof maxRange!=='number'||!Number.isFinite(maxRange)||maxRange<=0||maxRange>80||
       typeof maxPixelArea!=='number'||!Number.isFinite(maxPixelArea)||maxPixelArea<=0||maxPixelArea>1)
     failImport('invalidOptions','Projection limits must be positive, at most 80 m range and 1 m² per pixel.');
-  let selectedPixels=0,pavingPixels=0,unsupportedPixels=0,projectionRejectedPixels=0,exactPixelAreaM2=0;
+  let selectedPixels=0,pavingPixels=0,unsupportedPixels=0,projectionRejectedPixels=0,extrapolatedPixels=0,exactPixelAreaM2=0;
   const project=(u,v)=>imageToGround(camera,u,v,{maxRange});
   for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
     const i=y*W+x; if(!selected[i]) continue; selectedPixels++;
-    if(!support[i]) {unsupportedPixels++;continue;}
+    if(!support[i] && !includeOutsideGroundSupport) {unsupported[i]=1;unsupportedPixels++;continue;}
     // Test the whole pixel, not only its centre. A cell crossing the horizon or
     // range limit must not generate enormous contour vertices/false metric areas.
     const centre=project(x+.5,y+.5), corners=[project(x,y),project(x+1,y),project(x+1,y+1),project(x,y+1)];
     const area=corners.every(Boolean)?ringArea(corners):NaN;
-    if(!centre||!Number.isFinite(area)||area<=0||area>maxPixelArea) {projectionRejectedPixels++;continue;}
+    if(!centre||!Number.isFinite(area)||area<=0||area>maxPixelArea) {projectionRejected[i]=1;projectionRejectedPixels++;continue;}
     effective[i]=1; pavingPixels++; exactPixelAreaM2+=area;
+    if(!support[i]) extrapolatedPixels++;
   }
   const mapRing=ring=>ring.map(p=>{
     const v=project(p.x,p.z);
@@ -138,6 +143,7 @@ export function prepareModelImport(input, options={}) {
     area=regions.reduce((s,r)=>s+ringArea(r.outer)-r.holes.reduce((a,h)=>a+ringArea(h),0),0),
     warnings=['Camera, scale and quantities are estimated from the photograph, not physically verified.'];
   if(unsupportedPixels+projectionRejectedPixels) warnings.push(`${unsupportedPixels+projectionRejectedPixels} selected pixels were excluded by ground support or projection safety checks.`);
+  if(extrapolatedPixels) warnings.push(`${extrapolatedPixels} selected pixels outside fitted ground support were projected onto the estimated plane. Scale and quantities in these areas are approximate.`);
   if(traced.saddleCorners) warnings.push('Diagonal pixel contacts were separated with a 0.02 px bevel; pixel-centre classifications are unchanged.');
   if(boundariesOverCornerTarget) warnings.push(`Some detected boundaries need more than ${simplified.maxCornersPerBoundary} corners to preserve their shape and holes. Extra corners were kept.`);
   if(filteredSmallRegions) warnings.push(`${filteredSmallRegions} detected regions smaller than ${minRegionAreaM2} m² were ignored. Holes in retained regions were preserved.`);
@@ -145,10 +151,10 @@ export function prepareModelImport(input, options={}) {
   if(!labels) warnings.push('This import contains an explicit paving mask, not original semantic labels. Semantic protection diagnostics are unavailable.');
   if(occlusionMask) warnings.push('The supplied occlusion mask is retained separately; it is not subtracted from design quantities. Foreground compositing is not part of step 2.');
   return {camera,regions,origin:{x:0,z:0},pixelRegions,source,
-    diagnostics:{selectedPixels,pavingPixels,unsupportedPixels,projectionRejectedPixels,regions:regions.length,holes,vertices,
+    diagnostics:{selectedPixels,pavingPixels,unsupportedPixels,projectionRejectedPixels,includeOutsideGroundSupport,extrapolatedPixels,regions:regions.length,holes,vertices,
       rawBoundaryEdges:traced.edgeCount,saddleCorners:traced.saddleCorners,tolerancePx:simplified.tolerancePx,
       maxCornersPerBoundary:simplified.maxCornersPerBoundary,boundariesOverCornerTarget,
       minRegionAreaM2,filteredSmallRegions,filteredSmallRegionAreaM2,
       exactPixelAreaM2,vectorAreaM2:area,areaDifferenceM2:area-exactPixelAreaM2,measurementStatus:'estimated'},
-    masks:{labels,uncertain,groundHint,protected:blocked,groundSupport:support,requested:requestedMask,selection:selected,effective,occlusion:occlusionMask},warnings};
+    masks:{labels,uncertain,groundHint,protected:blocked,groundSupport:support,requested:requestedMask,selection:selected,effective,unsupported,projectionRejected,occlusion:occlusionMask},warnings};
 }

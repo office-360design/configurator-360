@@ -1,12 +1,12 @@
-import { createProjectSession } from './projectSession.js';
+import { createProjectSession } from './projectSession.js?v=tiles-ground-support-1';
 import { mountProjectPanel } from './projectPanel.js';
 import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
-import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-request-analysis-1';
-import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-request-analysis-1';
-import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-request-analysis-1';
-import { prepareModelImport } from './segmentationAdapter.js?v=tiles-area-1';
+import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-ground-support-1';
+import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-ground-support-1';
+import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-ground-support-1';
+import { prepareModelImport } from './segmentationAdapter.js?v=tiles-ground-support-1';
 import { failImport } from './modelCamera.js';
-import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';
+import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-ground-support-1';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
 import { PavingHistory } from './pavingHistory.js';
 import { createTilesARController } from './ar/controller.js?v=locales-6';
@@ -628,7 +628,8 @@ function importModelResult(input, options = {}) {
     failImport('unfinishedDrawing', 'Finish or cancel the current outline before importing a model result.');
   if (asRegionState(state).areaRegions.length && options.replaceExisting !== true)
     failImport('replaceRequired', 'The current pavement and its holes will not be overwritten without explicit replacement.');
-  const imported = prepareModelImport(input, { minRegionAreaM2: SEGMENTATION_CONFIG.minRegionAreaM2, ...options, photo }),
+  const imported = prepareModelImport(input, { minRegionAreaM2: SEGMENTATION_CONFIG.minRegionAreaM2,
+    includeOutsideGroundSupport: SEGMENTATION_CONFIG.includeOutsideGroundSupport, ...options, photo }),
     next = normalize({ ...state, shape: 'regions', areaPoints: null, areaRegions: imported.regions, areaOrigin: imported.origin,
       // Photo model results must not be clipped by an unrelated 3D demo house.
       houseEnabled: false }),
@@ -1155,6 +1156,7 @@ async function applyStoredProject(bundle, guard) {
   let suggestion = null;
   if (detection && assets.photo) {
     try { suggestion = prepareModelImport(detection.payload, {photo:doc.photo, targets:detection.targets,
+      includeOutsideGroundSupport:detection.includeOutsideGroundSupport ?? false,
       tolerancePx:SEGMENTATION_CONFIG.tolerancePx,maxCornersPerBoundary:SEGMENTATION_CONFIG.maxCornersPerBoundary,
       minRegionAreaM2:SEGMENTATION_CONFIG.minRegionAreaM2}); }
     catch (error) { console.warn('Optional cached detection was not restored:', error); }
@@ -1280,6 +1282,7 @@ const api = {
     if (analysisController.getResultInfo()) return analysisController.restore(options);
     if (!lastModelImport || lastModelImport.photoId !== photoSource?.photoId) throw new Error('No original suggestion is available for this photo.');
     return importModelResult(lastModelImport.payload, { ...options, ...api.getPhotoSource(),
+      includeOutsideGroundSupport: options.includeOutsideGroundSupport ?? lastModelImport.value.diagnostics.includeOutsideGroundSupport,
       targets: options.targets || lastModelImport.targets, associateWithCurrentPhoto: true });
   },
   getAnalysisStatus: () => {
@@ -1359,10 +1362,13 @@ projectSession = createProjectSession({
     const info = analysisController?.getResultInfo();
     if (info) {
       const targets = lastModelImport?.analysisResultId === info.resultId ? lastModelImport.targets : info.targets;
-      return {key:`${info.resultId}:${targets.join(',')}`,getPayload:()=>analysisController.getResult(),targets};
+      const includeOutsideGroundSupport = lastModelImport?.analysisResultId === info.resultId ?
+        lastModelImport.value.diagnostics.includeOutsideGroundSupport : info.includeOutsideGroundSupport;
+      return {key:`${info.resultId}:${targets.join(',')}:${includeOutsideGroundSupport}`,getPayload:()=>analysisController.getResult(),targets,includeOutsideGroundSupport};
     }
     return lastModelImport?.photoId === photoSource?.photoId && lastModelImport ?
-      {key:lastModelImport.importId,payload:lastModelImport.payload,targets:lastModelImport.targets} : null;
+      {key:lastModelImport.importId,payload:lastModelImport.payload,targets:lastModelImport.targets,
+        includeOutsideGroundSupport:lastModelImport.value.diagnostics.includeOutsideGroundSupport} : null;
   },
   assertSavable: () => {
     if (!viewer) throw new Error('The viewer is not ready.');
@@ -1375,7 +1381,7 @@ projectSession = createProjectSession({
 });
 projectUI = mountProjectPanel({api,getLocale:()=>locale,getStep:()=>photoFlowStep});
 analysisUI = mountAnalysisPanel({ api, getLocale: () => locale, getStep: () => photoFlowStep,
-  initialTargets: SEGMENTATION_CONFIG.targets });
+  initialTargets: SEGMENTATION_CONFIG.targets, initialIncludeOutsideGroundSupport: SEGMENTATION_CONFIG.includeOutsideGroundSupport });
 window.addEventListener('pagehide', () => analysisController.cancel({ notify: false }));
 modelImportUI = mountSegmentationDebugPanel({ api, getLocale: () => locale, getStep: () => photoFlowStep });
 let sliderFrame = 0,
