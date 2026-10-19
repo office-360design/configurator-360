@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { TILES, CURBS, COLORS, layout, curbLayout, areaGeometry } from '../model.js';
 import { polygonArea } from '../area.js';
 import { pavementCutSurfaces, curbCutSurfaces } from '../surfaceLayout.js?v=tiles-ar-1';
-import { stoneAppearance } from '../stoneAppearance.js';
+import { stoneAppearance } from '../stoneAppearance.js?v=tiles-striated-1';
+import { createStriatedStoneTexture, applyStoneTextureUV } from '../striatedStone.js';
 
 export const PAVEMENT_TOP_Y = 0.004;
 export const CURB_EXPOSED_HEIGHT = 0.035;
@@ -47,17 +48,21 @@ export function buildPavementARModel(state, { textures = true } = {}) {
   const cuts = pavementCutSurfaces(parts,state), curbCuts = curbCutSurfaces(curbs,state);
   const plain = parts.filter(p => !p.fragments), plainCurbs = curbs.filter(p => !p.polygon && !p.fragments);
   const root = new THREE.Group(); root.name = 'Configured pavement';
-  const materials = new Map(), geometries = new Set();
+  const materials = new Map(), geometries = new Set(), stoneTextures = new Map();
   let normalMap = null, triangles = 0;
   // Every rectangular solid needs 12 triangles; fail explicitly, never drop
   // later stones/curbs just to produce a smaller model.
   if ((plain.length + plainCurbs.length) * 12 > MAX_TRIANGLES) fail('model-too-large');
   function materialFor(stone, colour) {
     const look = stoneAppearance(stone,COLORS[colour]);
-    const c = new THREE.Color(look.base).multiplyScalar(look.brightness);
-    const key = c.getHexString();
+    const variant = textures ? look.textureVariant : undefined;
+    if (variant !== undefined && !stoneTextures.has(variant))
+      stoneTextures.set(variant, createStriatedStoneTexture(THREE, variant));
+    const c = new THREE.Color(variant === undefined ? look.base : '#ffffff').multiplyScalar(look.brightness);
+    const key = `${c.getHexString()}:${variant ?? 'plain'}`;
     if (!materials.has(key)) {
-      const material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, metalness: 0, normalMap });
+      const material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, metalness: 0, normalMap,
+        map: variant === undefined ? null : stoneTextures.get(variant) });
       material.name = `Pavement ${colour} ${key}`; materials.set(key,material);
     }
     return materials.get(key);
@@ -70,6 +75,7 @@ export function buildPavementARModel(state, { textures = true } = {}) {
   }
   const dispose = () => {
     geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());normalMap?.dispose();
+    stoneTextures.forEach(t=>t.dispose());
     root.clear();
   };
   try {
@@ -90,6 +96,8 @@ export function buildPavementARModel(state, { textures = true } = {}) {
         const geometry=new THREE.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false,steps:1});
         geometry.rotateX(-Math.PI/2);
         geometry.translate(-bounds.width/2,baseY,-bounds.depth/2);
+        if (stoneAppearance(stone,COLORS[color]).textureVariant !== undefined)
+          applyStoneTextureUV(geometry, stone, bounds.width/2, bounds.depth/2);
         add(geometry,materialFor(stone,color),name);
       }
     }

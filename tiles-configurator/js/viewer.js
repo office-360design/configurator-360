@@ -1,7 +1,8 @@
 import { reprojectRegions } from './referenceReprojection.js';
 import { REGION_LIMITS } from './pavingRegions.js';
 import { pavementCutSurfaces, curbCutSurfaces } from './surfaceLayout.js?v=tiles-ar-1';
-import { stoneAppearance } from './stoneAppearance.js';
+import { stoneAppearance } from './stoneAppearance.js?v=tiles-striated-1';
+import { createStriatedStoneTexture, applyStoneTextureUV } from './striatedStone.js';
 import { houseGeometry } from './house.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -144,6 +145,15 @@ export function createViewer(host, callbacks = {}) {
     bumpMap: texture,
     bumpScale: 0.0015,
   });
+  const stoneTextures = new Map();
+  function stoneTexture(variant) {
+    if (!stoneTextures.has(variant)) {
+      const map = createStriatedStoneTexture(THREE, variant);
+      map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      stoneTextures.set(variant, map);
+    }
+    return stoneTextures.get(variant);
+  }
   function clear(g) {
     g.traverse((o) => {
       if (o.isInstancedMesh) {
@@ -180,32 +190,42 @@ export function createViewer(host, callbacks = {}) {
   }
   function drawPieces(parts, height, colorFor, baseY, { topOnly = false } = {}) {
     if (!parts.length) return;
-    const pieceMaterial = topOnly ? material.clone() : material;
-    if (topOnly) {
-      pieceMaterial.polygonOffset = true;
-      pieceMaterial.polygonOffsetFactor = -1;
-      pieceMaterial.polygonOffsetUnits = -2;
-    }
-    const mesh = new THREE.InstancedMesh(box, pieceMaterial, parts.length);
-    const renderHeight = topOnly ? Math.min(PAVEMENT_VISUAL_THICKNESS, Math.max(0.0005, height)) : height;
-    const renderBaseY = topOnly
-      ? baseY + height - renderHeight + PAVEMENT_SURFACE_OFFSET
-      : baseY;
-    parts.forEach((p, i) => {
-      dummy.position.set(p.x - bounds.centerX, renderBaseY + renderHeight / 2, p.z - bounds.centerZ);
-      dummy.rotation.set(0, -THREE.MathUtils.degToRad(Number(p.rotation) || 0), 0);
-      dummy.scale.set(Math.max(0.001, p.l - 0.003), renderHeight, Math.max(0.001, p.w - 0.003));
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-      const appearance = stoneAppearance(p, COLORS[colorFor(p, i)]);
-      const color = new THREE.Color(appearance.base);
-      color.multiplyScalar(appearance.brightness);
-      mesh.setColorAt(i, color);
+    const batches = new Map();
+    parts.forEach((p,i) => {
+      const appearance = stoneAppearance(p, COLORS[colorFor(p,i)]), key = appearance.textureVariant ?? 'plain';
+      if (!batches.has(key)) batches.set(key, []);
+      batches.get(key).push({p,appearance});
     });
-    mesh.castShadow = !topOnly;
-    mesh.receiveShadow = true;
-    mesh.instanceMatrix.needsUpdate = true;
-    group.add(mesh);
+    // A bounded set of shared materials preserves instancing even on large yards.
+    for (const [variant, batch] of batches) {
+      const textured = typeof variant === 'number';
+      const pieceMaterial = topOnly || textured ? material.clone() : material;
+      if (textured) pieceMaterial.map = stoneTexture(variant);
+      if (topOnly) {
+        pieceMaterial.polygonOffset = true;
+        pieceMaterial.polygonOffsetFactor = -1;
+        pieceMaterial.polygonOffsetUnits = -2;
+      }
+      const mesh = new THREE.InstancedMesh(box, pieceMaterial, batch.length);
+      const renderHeight = topOnly ? Math.min(PAVEMENT_VISUAL_THICKNESS, Math.max(0.0005, height)) : height;
+      const renderBaseY = topOnly
+        ? baseY + height - renderHeight + PAVEMENT_SURFACE_OFFSET
+        : baseY;
+      batch.forEach(({p,appearance}, i) => {
+        dummy.position.set(p.x - bounds.centerX, renderBaseY + renderHeight / 2, p.z - bounds.centerZ);
+        dummy.rotation.set(0, -THREE.MathUtils.degToRad(Number(p.rotation) || 0), 0);
+        dummy.scale.set(Math.max(0.001, p.l - 0.003), renderHeight, Math.max(0.001, p.w - 0.003));
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        const color = new THREE.Color(textured ? '#ffffff' : appearance.base);
+        color.multiplyScalar(appearance.brightness);
+        mesh.setColorAt(i, color);
+      });
+      mesh.castShadow = !topOnly;
+      mesh.receiveShadow = true;
+      mesh.instanceMatrix.needsUpdate = true;
+      group.add(mesh);
+    }
   }
   function textSprite(text, { background = true, scale = 1 } = {}) {
     const c = document.createElement('canvas');
@@ -644,7 +664,7 @@ export function createViewer(host, callbacks = {}) {
   }
   function drawPolygons(items, height, baseY, { topOnly = false } = {}) {
     if (!items.length) return;
-    const geometries = [];
+    const batches = new Map();
     const renderHeight = topOnly ? Math.min(PAVEMENT_VISUAL_THICKNESS, Math.max(0.0005, height)) : height;
     const renderBaseY = topOnly
       ? baseY + height - renderHeight + PAVEMENT_SURFACE_OFFSET
@@ -653,27 +673,32 @@ export function createViewer(host, callbacks = {}) {
       if (polygon.length < 3 || polygonArea(polygon) < 1e-9) continue;
       const geometry = prism(polygon, renderHeight, renderBaseY),
         appearance = stoneAppearance(stone, COLORS[color]);
-      const shade = new THREE.Color(appearance.base);
+      const variant = appearance.textureVariant ?? 'plain', textured = typeof variant === 'number';
+      if (textured) applyStoneTextureUV(geometry, stone, bounds.centerX, bounds.centerZ);
+      const shade = new THREE.Color(textured ? '#ffffff' : appearance.base);
       shade.multiplyScalar(appearance.brightness);
       const colors = new Float32Array(geometry.attributes.position.count * 3);
       for (let i = 0; i < colors.length; i += 3) colors.set([shade.r, shade.g, shade.b], i);
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      geometries.push(geometry);
+      if (!batches.has(variant)) batches.set(variant, []);
+      batches.get(variant).push(geometry);
     }
-    if (!geometries.length) return;
-    const merged = mergeGeometries(geometries, false);
-    geometries.forEach((g) => g.dispose());
-    const mat = material.clone();
-    mat.vertexColors = true;
-    if (topOnly) {
-      mat.polygonOffset = true;
-      mat.polygonOffsetFactor = -1;
-      mat.polygonOffsetUnits = -2;
+    for (const [variant, geometries] of batches) {
+      const merged = mergeGeometries(geometries, false);
+      geometries.forEach((g) => g.dispose());
+      const mat = material.clone();
+      if (typeof variant === 'number') mat.map = stoneTexture(variant);
+      mat.vertexColors = true;
+      if (topOnly) {
+        mat.polygonOffset = true;
+        mat.polygonOffsetFactor = -1;
+        mat.polygonOffsetUnits = -2;
+      }
+      const mesh = new THREE.Mesh(merged, mat);
+      mesh.castShadow = !topOnly;
+      mesh.receiveShadow = true;
+      group.add(mesh);
     }
-    const mesh = new THREE.Mesh(merged, mat);
-    mesh.castShadow = !topOnly;
-    mesh.receiveShadow = true;
-    group.add(mesh);
   }
   function handleSize() {
     return Math.max(0.075, Math.min(0.18, Math.max(bounds?.width || 6, bounds?.depth || 4) * 0.014));

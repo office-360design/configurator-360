@@ -54,6 +54,11 @@ test('one held upload returns both models without polling or a result fetch',asy
   const upload=env.requests.find(x=>x.path==='/analyze');assert.equal(upload.options.body.get('image_id'),env.photo.photoId);
   assert.equal(upload.options.body.get('client_id'),'test-client');
 });
+
+test('an empty configurator has no retained result before any photo is loaded',()=>{
+ const {ctl,env}=setup();env.photo=null;
+ assert.equal(ctl.getResultInfo(),null);assert.equal(ctl.getResult(),null);
+});
 test('existing intentional holes require explicit replacement before any requests',async()=>{
   const {ctl,env}=setup({existing:[{holes:[[]]}]});await assert.rejects(ctl.run(),e=>e.code==='replaceRequired');
   assert.equal(env.requests.length,0);assert.equal(env.imports.length,0);

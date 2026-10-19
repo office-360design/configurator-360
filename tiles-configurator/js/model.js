@@ -1,4 +1,5 @@
 import { normalizeRegions, triangleIndex, REGION_LIMITS } from './pavingRegions.js';
+import { STRIATED_GREY } from './striatedStone.js';
 import { normalizeFootprint } from './footprint.js';
 import { interlockingLayout } from './interlocking.js';
 import { excludeHouse } from './house.js';
@@ -17,6 +18,7 @@ export const COLORS = {
   sahara: ['#c9b796', '#ac885d', '#ded0ad'],
   whiteMix: ['#d8d5ca', '#969a98', '#414748'],
   shellBrown: ['#806453', '#aa927b', '#c6b5a0'],
+  striatedGrey: STRIATED_GREY,
 };
 export const TILES = {
   hbeton: {
@@ -47,7 +49,7 @@ export const TILES = {
     width: 0.2,
     thickness: 0.06,
     price: 115,
-    colors: ['noir', 'sahara', 'whiteMix', 'shellBrown'],
+    colors: ['noir', 'sahara', 'whiteMix', 'shellBrown', 'striatedGrey'],
     patterns: ['running', 'stack', 'checker'],
     source: 'https://wise.ro/produs/pavaj-premium-rezidential/',
   },
