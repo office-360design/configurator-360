@@ -7,6 +7,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { normalize, TILES, CURBS, layout, curbLayout, areaGeometry } from '../js/model.js';
 import { polygonArea } from '../js/area.js';
 import { pavementCutSurfaces, curbCutSurfaces } from '../js/surfaceLayout.js';
+import { stoneTextureUV } from '../js/striatedStone.js';
 import { buildPavementARModel, PAVEMENT_TOP_Y, CURB_EXPOSED_HEIGHT } from '../js/ar/pavementModel.js';
 import { captureTilesARSnapshot, buildTilesARScene, createTilesFirebaseARAsset } from '../js/ar/exportTiles.js';
 import { AR_PRODUCTS, arPhoneUrl, arModelUrl } from '../../shared-ui/src/ar/links.js';
@@ -127,6 +128,25 @@ test('Actual default, interlocking and house-cutout GLBs are self-contained and 
    const doc=JSON.parse(b.toString('utf8',20,20+b.readUInt32LE(12)).trim());assert.equal(doc.buffers[0].uri,undefined);
    const tris=doc.meshes.flatMap(m=>m.primitives).reduce((n,p)=>n+doc.accessors[p.indices].count/3,0);assert.equal(tris,built.stats.triangles);
    console.log(`Pavement GLB: ${b.length} bytes, ${built.stats.tiles} stones, ${built.stats.curbs} curbs, ${tris} triangles`);
+  }finally{built.dispose();}
+ }
+});
+
+test('striated finish keeps stone-local UVs on rotated cut faces in the portable model',()=>{
+ for(const rotation of [0,27,90]) {
+  const s=normalize({tile:'tetraNova',color:'striatedGrey',rotation,length:1.43,width:1.27,edges:[false,false,false,false]});
+  const bounds=areaGeometry(s),cuts=pavementCutSurfaces(layout(s),s).filter(p=>p.polygon.length>=3&&polygonArea(p.polygon)>=1e-9);
+  const built=buildPavementARModel(s,{textures:false});
+  try {
+   const meshes=built.root.children.filter(o=>o.name==='pavement-cut-tile');
+   assert.equal(meshes.length,cuts.length);assert.ok(meshes.length>0);
+   meshes.forEach((mesh,index)=>{
+    const p=mesh.geometry.attributes.position,uv=mesh.geometry.attributes.uv;
+    for(let i=0;i<p.count;i++) {
+     const expected=stoneTextureUV(cuts[index].stone,p.getX(i)+bounds.width/2,p.getZ(i)+bounds.depth/2);
+     near(uv.getX(i),expected.u);near(uv.getY(i),expected.v);
+    }
+   });
   }finally{built.dispose();}
  }
 });

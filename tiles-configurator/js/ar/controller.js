@@ -11,7 +11,7 @@ export function createTilesARController({ getState, getLocale, onFeedback = () =
       return captureTilesARSnapshot(getState());
     },
     async exportAsset(snapshot,format,onProgress) {
-      const {createTilesFirebaseARAsset}=await import('./exportTiles.js?v=tiles-ar-1');
+      const {createTilesFirebaseARAsset}=await import('./exportTiles.js?v=tiles-photo-finish-1');
       return createTilesFirebaseARAsset(snapshot,format,onProgress);
     },
   });

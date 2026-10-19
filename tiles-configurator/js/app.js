@@ -1,7 +1,7 @@
 import { createProjectSession } from './projectSession.js?v=tiles-ground-support-1';
 import { mountProjectPanel } from './projectPanel.js';
 import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
-import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-ground-support-1';
+import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-striated-1';
 import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-ground-support-1';
 import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-ground-support-1';
 import { prepareModelImport } from './segmentationAdapter.js?v=tiles-ground-support-1';
@@ -9,9 +9,10 @@ import { failImport } from './modelCamera.js';
 import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-ground-support-1';
 import { asRegionState, clearPaving, applyPavingPatch, replaceBoundary, editBoundaryVertex } from './pavingEditor.js';
 import { PavingHistory } from './pavingHistory.js';
-import { createTilesARController } from './ar/controller.js?v=locales-6';
+import { createTilesARController } from './ar/controller.js?v=tiles-photo-finish-1';
 import { mountLocationPicker } from './locationPicker.js';
-import { patternPreview } from './patternPreview.js';
+import { patternPreview } from './patternPreview.js?v=tiles-striated-2';
+import { striatedStoneURL, loadStriatedStone } from './striatedStone.js';
 import { houseGeometry } from './house.js';
 import { normalizeFootprint } from './footprint.js';
 import {
@@ -24,7 +25,7 @@ import {
   estimate,
   areaGeometry,
 } from './model.js';
-import { translator } from './i18n.js';
+import { translator } from './i18n.js?v=tiles-striated-1';
 import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js';
@@ -502,10 +503,11 @@ function installAreaEditor() {
   document.head.append(style);
 }
 function swatches(id, key, colors) {
+  const photoSwatch = striatedStoneURL();
   $(id).innerHTML = colors
     .map(
       (c) =>
-        `<button type="button" class="swatch" data-key="${key}" data-color="${c}" title="${t(c)}" aria-label="${t(c)}" aria-pressed="${state[key] === c}" style="--swatch:${Array.isArray(COLORS[c]) ? `linear-gradient(120deg,${COLORS[c].join(',')})` : COLORS[c]}"></button>`,
+        `<button type="button" class="swatch" data-key="${key}" data-color="${c}" title="${t(c)}" aria-label="${t(c)}" aria-pressed="${state[key] === c}" style="--swatch:${c === 'striatedGrey' && photoSwatch ? `url(${photoSwatch}) center / cover` : Array.isArray(COLORS[c]) ? `linear-gradient(120deg,${COLORS[c].join(',')})` : COLORS[c]}"></button>`,
     )
     .join('');
 }
@@ -1673,7 +1675,11 @@ shell.host.addEventListener('click', (e) => {
   if (action === 'toggle-dimensions') shell.setToolActive('dimensions', viewer?.toggleDimensions());
 });
 try {
-  const { createViewer } = await import('./viewer.js?v=tiles-ar-1');
+  // Loading a finish never replaces geometry or re-runs photo analysis.
+  void loadStriatedStone().then(() => {
+    if (viewer) { viewer.preserveCamera(); render(); }
+  }).catch(error => console.warn('Tetra Nova texture could not be loaded:', error));
+  const { createViewer } = await import('./viewer.js?v=tiles-striated-1');
   viewer = createViewer($('canvasHost'), {
     onHouseDragStart: () => history.record(),
     onHouseMove: (patch) => change(patch, false),
