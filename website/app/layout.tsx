@@ -6,9 +6,10 @@ import "./critical-polish.css";
 import "./growth-journey.css";
 import { languageAlternates, SITE_URL } from "../lib/seo";
 import { GoogleAnalytics } from "../components/google-analytics";
-import { SwiftCallback } from "../components/swift-callback";
 import { DeferredPolishStyles } from "../components/deferred-polish-styles";
-import { analyticsChoiceBootstrap } from "../lib/website-bootstrap.js";
+import "vanilla-cookieconsent/dist/cookieconsent.css";
+import "./cookie-preferences.css";
+import "./swift-callback.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -92,13 +93,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
-        <script dangerouslySetInnerHTML={{ __html: analyticsChoiceBootstrap }} />
         <DeferredPolishStyles />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
         <GoogleAnalytics />
-        <SwiftCallback />
       </body>
     </html>
   );

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { GA_ID, PUBLIC_DOMAINS, readChoice, setChoice, browserStorage, isInternalVisit, analyticsContext, trackWebsiteEvent, previewEvent, isProductPagePath } from "../lib/website-analytics.js";
-import { configuratorPublicPaths, internalPath, localeFromHostname, type Locale } from "../lib/i18n";
-import "../app/analytics-preferences.css";
+import { useEffect } from "react";
+import { GA_ID, PUBLIC_DOMAINS, browserStorage, isInternalVisit, analyticsContext, trackWebsiteEvent, previewEvent, isProductPagePath } from "../lib/website-analytics.js";
+import { configuratorPublicPaths, internalPath, localeFromHostname } from "../lib/i18n";
+import { CONSENT_EVENTS, hasWebsiteConsent } from "../lib/site-consent";
 
 declare global {
   interface Window {
@@ -12,18 +12,9 @@ declare global {
   }
 }
 
-const copy: Record<Locale, {title: string; body: string; accept: string; reject: string; settings: string}> = {
-  en: {title: "Website analytics", body: "May we use Google Analytics to understand visits and improve this website? Optional analytics are off until you agree. Contact forms and configurators work either way. Your choice applies to this domain.", accept: "Allow analytics", reject: "No analytics", settings: "Analytics preferences"},
-  ro: {title: "Analiza utilizării site-ului", body: "Putem folosi Google Analytics pentru a înțelege vizitele și a îmbunătăți site-ul? Analiza opțională este oprită până accepți. Formularele și configuratoarele funcționează în ambele cazuri. Alegerea se aplică acestui domeniu.", accept: "Accept analiza", reject: "Fără analiză", settings: "Preferințe de analiză"},
-  de: {title: "Website-Analyse", body: "Dürfen wir Google Analytics verwenden, um Besuche zu verstehen und diese Website zu verbessern? Die optionale Analyse bleibt bis zu Ihrer Zustimmung aus. Formulare und Konfiguratoren funktionieren in beiden Fällen. Ihre Wahl gilt für diese Domain.", accept: "Analyse erlauben", reject: "Ohne Analyse", settings: "Analyse-Einstellungen"},
-  es: {title: "Analítica del sitio web", body: "¿Podemos usar Google Analytics para entender las visitas y mejorar este sitio web? La analítica opcional permanece desactivada hasta que usted la acepte. Los formularios y configuradores funcionan en ambos casos. Su elección se aplica a este dominio.", accept: "Permitir analítica", reject: "Sin analítica", settings: "Preferencias de analítica"},
-  fr: {title: "Mesure d’audience", body: "Pouvons-nous utiliser Google Analytics pour comprendre les visites et améliorer ce site ? La mesure d’audience facultative reste désactivée tant que vous ne l’acceptez pas. Les formulaires et configurateurs fonctionnent dans les deux cas. Votre choix s’applique à ce domaine.", accept: "Autoriser la mesure", reject: "Pas de mesure", settings: "Préférences de mesure d’audience"},
-  it: {title: "Analisi del sito web", body: "Possiamo usare Google Analytics per capire le visite e migliorare questo sito? L’analisi facoltativa resta disattivata finché Lei non acconsente. Moduli e configuratori funzionano in entrambi i casi. La Sua scelta vale per questo dominio.", accept: "Consenti analisi", reject: "Nessuna analisi", settings: "Preferenze di analisi"},
-};
-
 let initialized = false;
 function initializeAnalytics() {
-  if (readChoice(browserStorage()) !== 'granted' || isInternalVisit(window.location, browserStorage())) return;
+  if (!hasWebsiteConsent('statistics') || isInternalVisit(window.location, browserStorage())) return;
   (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = false;
   if (initialized) {
     window.gtag?.('consent', 'update', {analytics_storage: 'granted'});
@@ -41,7 +32,7 @@ function initializeAnalytics() {
   window.gtag('js', new Date());
   // Enhanced Measurement owns page_view, including History API navigation.
   // Do not send an additional manual SPA page_view here.
-  window.gtag('config', GA_ID, {...analyticsContext(window.location), allow_google_signals: false});
+  window.gtag('config', GA_ID, {...analyticsContext(window.location), allow_google_signals: false, allow_ad_personalization_signals: false, cookie_expires: 180 * 24 * 60 * 60, cookie_update: false});
   const script = document.createElement('script');
   script.id = 'google-analytics'; script.async = true;
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
@@ -49,14 +40,14 @@ function initializeAnalytics() {
   window.dispatchEvent(new Event('analytics-consent-granted'));
 }
 
-export function AnalyticsPreferencesButton({locale = 'en'}: {locale?: Locale}) {
-  return <button type="button" className="analytics-preferences-link" onClick={() => window.dispatchEvent(new Event('analytics-preferences-open'))}>{copy[locale].settings}</button>;
-}
-
 export function GoogleAnalytics() {
   useEffect(() => {
-    const choice = readChoice(browserStorage());
-    if (choice === 'granted') initializeAnalytics();
+    const syncConsent = () => {
+      if (hasWebsiteConsent('statistics')) initializeAnalytics();
+      else withdrawAnalytics();
+    };
+    CONSENT_EVENTS.forEach(event => window.addEventListener(event, syncConsent));
+    syncConsent();
     const visibleProducts = new Set<string>();
     const views = new IntersectionObserver(entries => {
       for (const entry of entries) {
@@ -107,6 +98,7 @@ export function GoogleAnalytics() {
     };
     document.addEventListener('click', click);
     return () => {
+      CONSENT_EVENTS.forEach(event => window.removeEventListener(event, syncConsent));
       views.disconnect();
       window.removeEventListener('analytics-consent-granted', granted);
       document.removeEventListener('pointerdown', gesture, true);
@@ -121,38 +113,18 @@ export function GoogleAnalytics() {
   return null;
 }
 
-// Locale comes from the server-rendered page footer, not a post-hydration guess.
-// Reading storage in the head hides a previously decided panel without a flash.
-export function AnalyticsPreferences({locale = 'en'}: {locale?: Locale}) {
-  const [visible, setVisible] = useState(true);
-  const [opened, setOpened] = useState(false);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setVisible(!readChoice(browserStorage())));
-    const open = () => {setOpened(true);setVisible(true);};
-    window.addEventListener('analytics-preferences-open', open);
-    return () => {cancelAnimationFrame(frame);window.removeEventListener('analytics-preferences-open', open);};
-  }, []);
-  const choose = (value: 'granted' | 'denied') => {
-    // Retain this explicit choice in memory if persistent storage is unavailable.
-    setChoice(value);
-    document.documentElement.dataset.analyticsChoice = value;
-    if (value === 'granted') initializeAnalytics();
-    else if (initialized) {
-      (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = true;
-      window.gtag?.('consent', 'update', {analytics_storage: 'denied'});
-      // Withdraw without reloading: preserve unsent form input and preview state.
-      const baseDomain = window.location.hostname.replace(/^www\./, '');
-      for (const name of ['_ga', '_ga_2E433G5VM7']) {
-        document.cookie = `${name}=; Max-Age=0; path=/`;
-        document.cookie = `${name}=; Max-Age=0; path=/; domain=${baseDomain}`;
-      }
+// Only analytics is stopped here; withdrawing it never reloads or loses form input.
+function withdrawAnalytics() {
+  (window as unknown as Record<string, unknown>)[`ga-disable-${GA_ID}`] = true;
+  if (!initialized) return;
+  window.gtag?.('consent', 'update', {analytics_storage: 'denied'});
+  const hostname = window.location.hostname;
+  const baseDomain = hostname.replace(/^www\./, '');
+  for (const entry of document.cookie.split(';')) {
+    const name = entry.split('=')[0].trim();
+    if (!/^_ga(?:_|$)/.test(name)) continue;
+    for (const domain of ['', hostname, baseDomain]) {
+      document.cookie = `${name}=; Max-Age=0; path=/;${domain ? ` domain=${domain};` : ''} SameSite=Lax`;
     }
-    setVisible(false);
-  };
-  if (!visible) return null;
-  const text = copy[locale];
-  return <section className="analytics-preferences" data-preferences-open={opened ? 'true' : undefined} aria-labelledby="analytics-preferences-title" data-lenis-prevent>
-    <h2 id="analytics-preferences-title">{text.title}</h2><p>{text.body}</p>
-    <div><button type="button" onClick={() => choose('denied')}>{text.reject}</button><button type="button" onClick={() => choose('granted')}>{text.accept}</button></div>
-  </section>;
+  }
 }
