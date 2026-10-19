@@ -1,4 +1,4 @@
-import { regionPresets } from './state.js?v=platform-18';
+import { regionPresets } from './state.js?v=site-analytics-1';
 
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;

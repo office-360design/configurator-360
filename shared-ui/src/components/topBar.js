@@ -1,11 +1,11 @@
 import { isConfiguratorAREnabled } from '../arPolicy.js?v=firebase-ar-10';
-import { getLanguageProfile } from '../config.js?v=tenant-domains-1';
-import { renderPlatformAttribution } from '../tenantBranding.js?v=tenant-branding-1';
-import { sharedT } from '../i18n.js?v=platform-21';
+import { getLanguageProfile } from '../config.js?v=localized-slugs-1';
+import { renderPlatformAttribution } from '../tenantBranding.js?v=localized-slugs-1';
+import { sharedT } from '../i18n.js?v=site-analytics-1';
 import { sharedIcon } from '../icons.js?v=platform-21';
 import { escapeHtml } from '../utils.js?v=platform-21';
-import { renderAccountMenu } from './accountMenu.js?v=platform-21';
-import { renderLanguageMenu } from './languageMenu.js?v=platform-21';
+import { renderAccountMenu } from './accountMenu.js?v=site-analytics-1';
+import { renderLanguageMenu } from './languageMenu.js?v=site-analytics-1';
 
 function iconButton({ action, label, icon, disabled = false, extraClass = '' }) {
   return `
@@ -82,6 +82,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
     undo: sharedT(locale, 'topbar.undo'),
     reset: sharedT(locale, 'topbar.reset'),
     account: sharedT(locale, 'topbar.account'),
+    bookDemo: sharedT(locale, 'topbar.bookDemo'),
   };
 
   return `
@@ -93,8 +94,8 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
           </a>
           ${tenantBranded ? renderPlatformAttribution(state.currentDomainLocale || locale) : ''}
         </div>
-        <button class="book-demo-button" type="button" data-action="book-demo" aria-label="Book a demo">
-          <span class="book-demo-button__label">Book a demo</span>
+        <button class="book-demo-button" type="button" data-action="book-demo" aria-label="${escapeHtml(labels.bookDemo)}">
+          <span class="book-demo-button__label">${escapeHtml(labels.bookDemo)}</span>
         </button>
       </div>
 

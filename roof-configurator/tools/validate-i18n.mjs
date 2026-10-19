@@ -7,7 +7,7 @@ const root = path.resolve(here, '..', '..');
 const roofRoot = path.join(root, 'roof-configurator');
 
 const i18n = await import(`${pathToFileURL(path.join(roofRoot, 'js', 'i18n.js')).href}?validate=${Date.now()}`);
-const locales = ['en-US', 'ro-RO', 'de-DE'];
+const locales = ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT'];
 const failures = [];
 
 const keySets = locales.map((locale) => new Set(Object.keys(i18n.getRoofMessages(locale))));
@@ -17,6 +17,23 @@ for (let index = 1; index < locales.length; index += 1) {
   const extra = [...keySets[index]].filter((key) => !keySets[0].has(key));
   if (missing.length) failures.push(`${locales[index]} missing keys: ${missing.join(', ')}`);
   if (extra.length) failures.push(`${locales[index]} extra keys: ${extra.join(', ')}`);
+}
+
+const placeholders = (text) => [...String(text).matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]).sort().join(',');
+const englishMessages = i18n.getRoofMessages('en-US');
+for (const locale of locales.slice(1)) {
+  const messages = i18n.getRoofMessages(locale);
+  if (messages === englishMessages) {
+    failures.push(`${locale} resolves to the English dictionary instead of its own`);
+    continue;
+  }
+  for (const key of referenceKeys) {
+    if (!String(messages[key] ?? '').trim()) failures.push(`${locale} has an empty message for ${key}`);
+    if (placeholders(messages[key]) !== placeholders(englishMessages[key])) failures.push(`${locale} placeholders differ for ${key}`);
+  }
+  if (i18n.getRainwaterComponents(locale) === i18n.getRainwaterComponents('en-US')) {
+    failures.push(`${locale} resolves to the English rainwater components instead of its own`);
+  }
 }
 
 for (const locale of locales) {
@@ -41,6 +58,9 @@ const expectedPaths = {
   'en-US': '/roof-configurator/',
   'ro-RO': '/configurator-acoperis/',
   'de-DE': '/dach-konfigurator/',
+  'es-ES': '/configurador-tejados/',
+  'fr-FR': '/configurateur-toiture/',
+  'it-IT': '/configuratore-tetto/',
 };
 for (const [locale, expected] of Object.entries(expectedPaths)) {
   const actual = sharedConfig.CONFIGURATOR_PUBLIC_PATHS?.[locale]?.roof;

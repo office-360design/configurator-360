@@ -57,6 +57,7 @@ const LEGACY_STORAGE_KEYS = Object.freeze([
   '360-configurator:gas-prototype:v1',
 ]);
 const MAX_HISTORY = 60;
+export const SUPPORTED_GAS_LOCALES = Object.freeze(['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']);
 const ROUTE_MODES = new Set(['inspect', 'setA', 'setB', 'addWaypoint']);
 const GROUND_SOURCES = new Set(['assumption', 'publicScreening', 'verifiedSurvey']);
 const UTILITY_SOURCES = new Set(['missing', 'ownerPlan', 'fieldVerified']);
@@ -410,7 +411,7 @@ export function normalizeState(incoming = {}) {
   const segmentSettings = normalizeSegmentSettings(points, merged.segmentSettings);
   const segmentIds = new Set(segments.map((segment) => segment.id));
   const waypointIds = new Set(points.filter((point) => point.kind === 'waypoint').map((point) => point.id));
-  const locale = ['en-US', 'ro-RO', 'de-DE'].includes(merged.preferences?.locale)
+  const locale = SUPPORTED_GAS_LOCALES.includes(merged.preferences?.locale)
     ? merged.preferences.locale
     : 'en-US';
   const pipe = normalizePipeSelection(merged.pipe, DEFAULT_PIPE_SELECTION);

@@ -4,6 +4,8 @@ const EPSILON = 1e-8;
 const MIN_TRACK_M = 0.05;
 const DEFAULT_EDGE_EXTENSION_M = 0.013;
 const SIZE_REBUILD_INTERVAL_MS = 70;
+// Size a new column/row adds (DEFAULT_NEW_WINDOW_* in window-layout-state.js).
+const NEW_WINDOW_SIZE_M = Object.freeze({ x: 0.6, y: 0.9 });
 
 function finite(value, fallback = 0) {
     const number = Number(value);
@@ -274,6 +276,36 @@ function getMinimumOverallAxisSize(
     return minimum;
 }
 
+// Upper bound of the overall dimension: with equal track shares a cell spanning
+// k of n tracks receives k/n of it, so every window stays within the individual
+// maximum when overall <= maxWindow · n/k. One window ⇒ the window maximum;
+// N columns ⇒ N × the window maximum. Never above the admin overall maximum.
+function getMaximumOverallAxisSize(
+    state,
+    axis,
+    maxWindowM = getWindowSliderRange('individual', axis).maxM,
+    overallMaxM = getWindowSliderRange('overall', axis).maxM
+) {
+    const tracks = state?.gridTracks?.[axis] || [];
+    if (!tracks.length) return Math.min(overallMaxM, maxWindowM);
+    let maximum = overallMaxM;
+    (state?.windows || []).forEach(cell => {
+        const spanCount = Math.max(1, tracksForCell(state, cell, axis).length);
+        maximum = Math.min(maximum, maxWindowM * (tracks.length / spanCount));
+    });
+    return Math.floor(maximum * 1000 + 1e-6) / 1000;
+}
+
+const LIMIT_MESSAGES = Object.freeze({
+    ro: 'Dimensiunea generală maximă ar fi depășită. Micșorează ferestrele înainte de a adăuga alta.',
+    de: 'Die maximale Gesamtgröße würde überschritten. Verkleinern Sie die Fenster, bevor Sie ein weiteres hinzufügen.',
+    en: 'The maximum overall size would be exceeded. Make the windows smaller before adding another one.',
+});
+const limitMessage = () => {
+    const lang = String(globalThis.document?.documentElement?.lang || 'en').slice(0, 2);
+    return LIMIT_MESSAGES[lang] || LIMIT_MESSAGES.en;
+};
+
 function lockedTrackKeysForModifiedWindows(state, modifiedWindowIds, axis, currentCellId = null) {
     const lockedKeys = new Set();
     for (const windowId of modifiedWindowIds || []) {
@@ -461,8 +493,7 @@ function bindOverallControls({
     getState,
     getDimensions,
     getMinimumDimensions,
-    widthMaxM,
-    heightMaxM,
+    getMaximumDimensions,
     onResize,
     onPreview = null,
 }) {
@@ -491,6 +522,7 @@ function bindOverallControls({
         // A layout-dependent minimum may exceed the admin cap after adding cells.
         // Disable this axis, rather than silently extending the maximum again.
         range.dataset.layoutMinimumM = String(minimumM);
+        range.dataset.layoutMaximumM = String(configuredMax);
         range.min = min.toFixed(3);
         range.max = configuredMax.toFixed(3);
         range.disabled = unavailable;
@@ -509,8 +541,9 @@ function bindOverallControls({
 
     function sync(dimensions = getDimensions()) {
         const minimum = getMinimumDimensions();
-        writePair(widthRange, widthValue, dimensions.widthM, minimum.widthM, widthMaxM, true);
-        writePair(heightRange, heightValue, dimensions.heightM, minimum.heightM, heightMaxM, true);
+        const maximum = getMaximumDimensions();
+        writePair(widthRange, widthValue, dimensions.widthM, minimum.widthM, maximum.widthM, true);
+        writePair(heightRange, heightValue, dimensions.heightM, minimum.heightM, maximum.heightM, true);
     }
 
     function preview(axis = null) {
@@ -541,10 +574,11 @@ function bindOverallControls({
     function queue(axis) {
         pendingAxes.add(axis);
         const minimum = getMinimumDimensions();
+        const maximum = getMaximumDimensions();
         if (axis === 'width') {
-            writePair(widthRange, widthValue, widthRange.value, minimum.widthM, widthMaxM);
+            writePair(widthRange, widthValue, widthRange.value, minimum.widthM, maximum.widthM);
         } else {
-            writePair(heightRange, heightValue, heightRange.value, minimum.heightM, heightMaxM);
+            writePair(heightRange, heightValue, heightRange.value, minimum.heightM, maximum.heightM);
         }
 
         const elapsed = performance.now() - lastRebuildAt;
@@ -565,10 +599,12 @@ function bindOverallControls({
     widthRange.addEventListener('change', () => void flush('width'));
     heightRange.addEventListener('change', () => void flush('height'));
 
-    function bindNumber(valueInput, range, axis, configuredMax) {
+    const maximumFor = axis => getMaximumDimensions()[axis === 'width' ? 'widthM' : 'heightM'];
+    function bindNumber(valueInput, range, axis) {
         const commit = () => {
             const minimum = getMinimumDimensions();
             const minimumM = axis === 'width' ? minimum.widthM : minimum.heightM;
+            const configuredMax = maximumFor(axis);
             const requestedMm = finite(valueInput.value, finite(range.value) * 1000);
             writePair(range, valueInput, requestedMm / 1000, minimumM, configuredMax);
             void flush(axis);
@@ -580,10 +616,11 @@ function bindOverallControls({
             commit();
         });
     }
-    bindNumber(widthValue, widthRange, 'width', widthMaxM);
-    bindNumber(heightValue, heightRange, 'height', heightMaxM);
+    bindNumber(widthValue, widthRange, 'width');
+    bindNumber(heightValue, heightRange, 'height');
 
-    function step(range, valueInput, axis, configuredMax, deltaMm) {
+    function step(range, valueInput, axis, deltaMm) {
+        const configuredMax = maximumFor(axis);
         const minimum = getMinimumDimensions();
         const minimumM = axis === 'width' ? minimum.widthM : minimum.heightM;
         writePair(
@@ -595,10 +632,10 @@ function bindOverallControls({
         );
         void flush(axis);
     }
-    widthDec?.addEventListener('click', () => step(widthRange, widthValue, 'width', widthMaxM, -1));
-    widthInc?.addEventListener('click', () => step(widthRange, widthValue, 'width', widthMaxM, 1));
-    heightDec?.addEventListener('click', () => step(heightRange, heightValue, 'height', heightMaxM, -1));
-    heightInc?.addEventListener('click', () => step(heightRange, heightValue, 'height', heightMaxM, 1));
+    widthDec?.addEventListener('click', () => step(widthRange, widthValue, 'width', -1));
+    widthInc?.addEventListener('click', () => step(widthRange, widthValue, 'width', 1));
+    heightDec?.addEventListener('click', () => step(heightRange, heightValue, 'height', -1));
+    heightInc?.addEventListener('click', () => step(heightRange, heightValue, 'height', 1));
 
     // Keep the controls stable if a profile/layout operation completes before
     // the first user interaction.
@@ -617,8 +654,6 @@ export function createLayoutSizingManager({
     onPreviewStateChange = () => {},
 } = {}) {
     if (!controller) throw new Error('A window layout controller is required.');
-    widthMaxM = getWindowSliderRange('overall', 'width').maxM;
-    heightMaxM = getWindowSliderRange('overall', 'height').maxM;
 
     const extension = Math.max(0, finite(edgeExtensionM, DEFAULT_EDGE_EXTENSION_M));
     // Width and height modification state are deliberately independent.
@@ -651,6 +686,10 @@ export function createLayoutSizingManager({
             getMinimumOverallAxisSize(getState(), 'x', getWindowSliderRange('individual', 'x').minM, extension)),
         heightM: Math.max(getWindowSliderRange('overall', 'y').minM,
             getMinimumOverallAxisSize(getState(), 'y', getWindowSliderRange('individual', 'y').minM, extension)),
+    });
+    const getMaximumDimensions = (state = getState()) => ({
+        widthM: getMaximumOverallAxisSize(state, 'x'),
+        heightM: getMaximumOverallAxisSize(state, 'y'),
     });
 
     function enqueue(task) {
@@ -788,7 +827,7 @@ export function createLayoutSizingManager({
             if (!hasFiniteValue(requestedValue)) return;
             const tracks = nextState.gridTracks?.[axis] || [];
             if (!tracks.length) return;
-            const maximumValue = getWindowSliderRange('overall', axis).maxM;
+            const maximumValue = getMaximumOverallAxisSize(nextState, axis);
             if (minimumValue > maximumValue + EPSILON) return;
             const requested = Math.min(maximumValue, Math.max(minimumValue, Number(requestedValue)));
             const targetStructural = Math.max(
@@ -942,7 +981,7 @@ export function createLayoutSizingManager({
             if (!hasFiniteValue(requestedValue)) return;
             const tracks = nextState.gridTracks?.[axis] || [];
             if (!tracks.length) return;
-            const maximumValue = getWindowSliderRange('overall', axis).maxM;
+            const maximumValue = getMaximumOverallAxisSize(nextState, axis);
             if (minimumValue > maximumValue + EPSILON) return;
             const requested = Math.min(maximumValue, Math.max(minimumValue, Number(requestedValue)));
             const targetStructural = Math.max(
@@ -1007,12 +1046,24 @@ export function createLayoutSizingManager({
         return overallDrainPromise;
     }
 
+    // Layouts over the maximum (old saves, merged cells, deleted columns) are
+    // brought back within it with equal shares, like an overall resize.
+    async function clampNow() {
+        const { widthM, heightM } = getOverallDimensions();
+        const maximum = getMaximumDimensions();
+        const size = {};
+        if (widthM > maximum.widthM + 0.0005) size.widthM = maximum.widthM;
+        if (heightM > maximum.heightM + 0.0005) size.heightM = maximum.heightM;
+        if (!Object.keys(size).length) return false;
+        await resizeOverallNow(size);
+        return true;
+    }
+
     const controls = bindOverallControls({
         getState,
         getDimensions: getOverallDimensions,
         getMinimumDimensions,
-        widthMaxM,
-        heightMaxM,
+        getMaximumDimensions,
         onResize: resizeOverall,
         onPreview: previewOverall,
     });
@@ -1020,6 +1071,12 @@ export function createLayoutSizingManager({
     return {
         getOverallDimensions,
         getMinimumDimensions,
+        getMaximumDimensions,
+        // Saved or shared layouts created before the limits are brought back
+        // within them (equal shares, like an overall resize).
+        clampToLimits() {
+            return enqueue(clampNow);
+        },
         syncOverallControls() {
             controls?.sync(getOverallDimensions());
         },
@@ -1037,6 +1094,15 @@ export function createLayoutSizingManager({
         resizeOverall,
         addWindow(cellId, direction, type, options = {}) {
             return enqueue(async () => {
+                // A new column/row adds its default size to the overall
+                // dimension; refuse it when that passes the admin maximum.
+                const axis = direction === 'left' || direction === 'right' ? 'x' : 'y';
+                const current = getOverallDimensions()[axis === 'x' ? 'widthM' : 'heightM'];
+                const added = NEW_WINDOW_SIZE_M[axis];
+                if (current + added > getWindowSliderRange('overall', axis).maxM + EPSILON) {
+                    sharedFeedback.show(limitMessage(), { type: 'error', durationMs: 3500 });
+                    return null;
+                }
                 const result = await controller.addWindow(cellId, direction, type, {
                     ...options,
                     notify: true,
@@ -1051,6 +1117,7 @@ export function createLayoutSizingManager({
             return enqueue(async () => {
                 const result = await controller.deleteWindow(cellId, { notify: true });
                 clearModifiedFlags();
+                await clampNow();
                 controls?.sync(getOverallDimensions());
                 onAfterChange(result, { kind: 'topology' });
                 return result;

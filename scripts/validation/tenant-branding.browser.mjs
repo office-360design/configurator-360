@@ -84,8 +84,8 @@ try {
           <style>body{margin:0;background:#eef2f5}.scene-fixture{padding:90px 30px;font:20px sans-serif;color:#445564}</style>
         </head><body><main class="scene-fixture">Configurator viewport (test fixture)</main>
         <script type="module">
-          import { resolveTenantContext } from '/shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
-          import { mountStandaloneConfiguratorShell } from '/shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+          import { resolveTenantContext } from '/shared-ui/src/tenantBootstrap.js?v=locales-6';
+          import { mountStandaloneConfiguratorShell } from '/shared-ui/src/standaloneShell.js?v=site-analytics-1';
           await resolveTenantContext();
           window.shell = mountStandaloneConfiguratorShell({
             productId: '${productId}', productType: '${productId}',

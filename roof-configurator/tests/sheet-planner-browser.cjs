@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   await page.route('**/sheet-fixture', route => route.fulfill({ contentType: 'text/html', body: '<link rel="stylesheet" href="/roof-configurator/sheet-planner.css"><body style="font-family:Arial"></body>' }));
   await page.goto('http://127.0.0.1:8080/sheet-fixture');
   await page.evaluate(async () => {
-    const { SheetPlannerUI } = await import('/roof-configurator/js/sheetPlannerUI.js?v=layout-21');
+    const { SheetPlannerUI } = await import('/roof-configurator/js/sheetPlannerUI.js?v=locales-6');
     window.roofState = { roofType: 'hip', length: 10, depth: 7, overhang: .45, pitch: 30 };
     window.planner = new SheetPlannerUI(window.roofState);
     window.planner.open();

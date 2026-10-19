@@ -2,7 +2,7 @@ import { EditorDrainage } from './editorDrainage.js?v=drainage-49';
 import { setupEditorTouch } from './editorTouch.js?v=pan-42';
 import { setupEditorToolbar } from './editorToolbar.js?v=axes-36';
 import { extendPerimeter, connectPerimeterPoints } from './perimeter.js?v=navigation-32';
-import { localizeFeature } from './featureI18n.js?v=drainage-49';
+import { localizeFeature } from './featureI18n.js?v=locales-6';
 import { RoofWindowTool } from './roofWindowTool.js?v=navigation-32';
 import { roofWindowGeometry } from './roofWindows.js?v=windows-24';
 import {
@@ -354,7 +354,6 @@ export class RoofLayoutEditor {
       }
     });
     this.dialog.querySelector('.layout-status').textContent = '';
-    this.drainageTool.render(project);
     this.drawIssues();
   }
 

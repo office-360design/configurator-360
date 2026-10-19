@@ -1,4 +1,4 @@
-import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=firebase-ar-5';
+import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=locales-6';
 // Load geometry/export dependencies only after the AR dialog can show progress.
 export function createTilesARController({ getState, getLocale, onFeedback = () => {} } = {}) {
   return createFirebaseARDialog({

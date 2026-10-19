@@ -1,21 +1,6 @@
-import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 import { WINDOW_WIDTH_MAX_M } from './config.js?v=platform-18';
 
 const SIZE_REBUILD_INTERVAL_MS = 80;
-
-function setSidebarCollapsed(collapsed) {
-    const controlsPanel = document.getElementById('controls');
-    const toggleButton = document.getElementById('sidebar-toggle');
-    if (!controlsPanel || !toggleButton) return;
-
-    controlsPanel.classList.toggle('sidebar-collapsed', collapsed);
-    document.body.classList.toggle('sidebar-is-collapsed', collapsed);
-    toggleButton.setAttribute('aria-expanded', String(!collapsed));
-    const locale = getWindowLocale();
-    const sidebarLabel = windowT(locale, collapsed ? 'sidebar.show' : 'sidebar.hide');
-    toggleButton.setAttribute('aria-label', sidebarLabel);
-    toggleButton.title = sidebarLabel;
-}
 
 function stepDecimals(stepValue) {
     const text = String(stepValue ?? '');
@@ -60,11 +45,8 @@ export function initializeUIControls({
     openQRModal,
     closeQRModal,
 }) {
-    document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-        const controlsPanel = document.getElementById('controls');
-        const collapsed = controlsPanel?.classList.contains('sidebar-collapsed') || false;
-        setSidebarCollapsed(!collapsed);
-    });
+    // The settings panel toggle belongs to the shared shell (settingsPanel in shared-shell.js);
+    // a second listener here undid every first tap.
 
     let pendingWindowRebuildTimer = null;
     let lastSizeRebuildAt = 0;

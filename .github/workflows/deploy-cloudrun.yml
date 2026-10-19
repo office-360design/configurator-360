@@ -100,6 +100,9 @@ jobs:
       - name: Build static website
         run: npm run release:static --prefix website
 
+      - name: Verify website consent, lead events and native preview parity
+        run: npm run test:postlaunch --prefix website
+
       # ------------------------------------------------------------
       # Assemble exactly the same site currently sent to GitHub Pages
       # ------------------------------------------------------------
@@ -162,6 +165,8 @@ jobs:
 
           mkdir -p dist/site/curtain-wall-configurator
           cp -R curtain-wall-configurator/. dist/site/curtain-wall-configurator/
+          # Cortizo: publish the engine, the catalogue data and the logic map only.
+          (cd dist/site/curtain-wall-configurator/cortizo && rm -rf docs scripts tests CLAUDE.md README.md package.json .gitignore data/*.xlsx web/app.js web/template.html)
 
       - name: Verify static site
         shell: bash

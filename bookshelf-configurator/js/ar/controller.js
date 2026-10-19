@@ -1,4 +1,4 @@
-import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=firebase-ar-8';
+import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=locales-6';
 
 export function createBookshelfARController({ getSnapshot, getLocale, onFeedback = () => {} } = {}) {
   return createFirebaseARDialog({

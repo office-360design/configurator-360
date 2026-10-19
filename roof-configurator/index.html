@@ -9,7 +9,7 @@
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="../shared-ui/styles/standalone.css?v=tenant-branding-1" />
   <link rel="stylesheet" href="../shared-ui/styles/panelControls.css?v=panel-controls-3" />
-  <link rel="stylesheet" href="./styles.css?v=panel-controls-3" />
+  <link rel="stylesheet" href="./styles.css?v=letters-46-sketch-1" />
   <link rel="stylesheet" href="./shared-shell.css?v=panel-controls-3" />
   <link rel="stylesheet" href="../shared-ui/styles/ar.css?v=firebase-ar-9" />
   <script type="importmap">
@@ -21,19 +21,18 @@
     }
   </script>
   <script type="module">
-    import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js?v=platform-18';
+    import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js?v=localized-slugs-1';
     applyConfiguratorSeo('roof');
   </script>
-  <link rel="stylesheet" href="./sheet-planner.css?v=planner-23" />
-  <link rel="stylesheet" href="./layout-editor.css?v=windows-25" />
+  <link rel="stylesheet" href="./sheet-planner.css?v=sketch-47" />
+  <link rel="stylesheet" href="./layout-editor.css?v=drainage-49" />
+  <link rel="stylesheet" href="./slope-sketch.css?v=sketch-2" />
 </head>
 <body>
   <main class="app-shell">
     <aside class="sidebar shared-panel-controls shared-settings-panel shared-settings-panel--light" aria-label="Roof configuration controls">
-      <section class="panel-section intro-section">
-        <p class="eyebrow" id="roofPanelEyebrow">Roof design</p>
-        <h1 id="roofPanelTitle">Roof settings</h1>
-        <p class="section-copy" id="roofPanelDescription">Configure the roof shape, dimensions, covering and colour from one panel.</p>
+      <section class="panel-section intro-section intro-compact">
+        <h1 id="roofPanelTitle">Configure your roof</h1>
       </section>
 
       <section class="accordion-section is-open" data-accordion="type">
@@ -72,15 +71,15 @@
               </svg>
               <span>Custom</span>
             </button>
-            <button class="roof-card choice-card" type="button" data-roof-type="layout" aria-pressed="false">
-              <svg viewBox="0 0 80 52" aria-hidden="true"><path class="accent" d="M12 42V10h30v14h26v18zM12 42l15-15V10m0 17h15l26 15"/></svg>
-              <span>Draw layout</span>
-            </button>
           </div>
 
           <div class="layout-launch" id="layoutLaunch" hidden>
             <button type="button" id="editRoofLayout">Edit roof layout</button>
             <p>Draw the outer roof edge and divide it into slopes. Set point heights in the editor; wall height and covering remain available here.</p>
+          </div>
+          <div class="layout-launch" id="sketchLaunch" hidden>
+            <button type="button" id="editSlopeSketch">Edit slopes</button>
+            <p>Draw each slope separately from on-site measurements: eave, ridge and side lengths. The sheet cutting plan uses these shapes directly; there is no 3D model.</p>
           </div>
           <div class="custom-plan-panel" id="customPlanPanel" hidden>
             <div class="custom-plan-copy">
@@ -182,6 +181,20 @@
           </div>
         </div>
       </section>
+      <section class="accordion-section" data-accordion="drainage" id="drainageControls">
+        <button class="accordion-toggle" type="button" aria-expanded="false" aria-controls="roofPanelDrainage"><span>Drainage</span><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+        <div class="accordion-panel" id="roofPanelDrainage" hidden>
+          <label class="select-label"><input type="checkbox" id="showDrainage"> Gutters and downpipes</label>
+          <button type="button" id="editDrainagePositions">Edit drainage placement</button>
+          <label class="select-label" for="drainagePosition">Downpipe placement per eave</label>
+          <select id="drainagePosition"><option value="both">Both ends</option><option value="start">Start end</option><option value="end">Far end</option></select>
+          <label class="select-label" for="drainageDiameter">Pipe diameter (mm)</label>
+          <select id="drainageDiameter"><option>80</option><option selected>100</option><option>120</option></select>
+          <label class="select-label" for="drainageColor">Drainage colour</label>
+          <select id="drainageColor"><option value="graphite">Graphite</option><option value="roof">Match roof colour</option></select>
+          <p class="rule-note">Use recommended eaves and valley outlets, or customize placement in the editor. Drainage is not included in the BOM.</p>
+        </div>
+      </section>
     </aside>
 
     <button id="roofSidebarToggle" class="shared-settings-toggle shared-settings-toggle--light" type="button" aria-label="Hide roof settings" aria-expanded="true" title="Hide roof settings">
@@ -196,15 +209,6 @@
             <strong id="headerEstimateTotal">—</strong>
           </button>
           <button type="button" class="estimate-button" id="sheetPlanOpenButton" aria-haspopup="dialog"><span>Sheet cutting plan</span><strong>Panels &amp; quantities</strong></button>
-          <div class="view-actions" aria-label="Camera controls">
-            <button type="button" data-view="perspective" class="active">3D</button>
-            <button type="button" data-view="front">Front</button>
-            <button type="button" data-view="top">Top</button>
-            <button type="button" data-view="reset" title="Reset view">Reset</button>
-          </div>
-          <div class="model-options" aria-label="Model display options">
-            <label><input type="checkbox" id="wireframeToggle" /> Technical edges</label>
-          </div>
         </div>
 
         <div class="viewer-title-block">
@@ -217,7 +221,19 @@
 
       <div class="viewer-stage" id="viewerStage">
         <div class="roof-tools-anchor" id="roofToolsAnchor" aria-label="Tools control"></div>
+        <div class="draw-mode-switch" role="group" aria-label="Drawing mode">
+          <button type="button" class="draw-mode-button" data-roof-type="layout" data-draw-mode aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M12 42V10h30v14h26v18zM12 42l15-15V10m0 17h15l26 15"/></svg>
+            <span>Draw whole roof</span>
+          </button>
+          <button type="button" class="draw-mode-button" data-roof-type="sketch" data-draw-mode aria-pressed="false">
+            <svg viewBox="0 0 80 52" aria-hidden="true"><path d="M6 42h30L21 16zM42 42h32l-8-22H50z"/></svg>
+            <span>Draw each slope</span>
+          </button>
+        </div>
+        <button type="button" id="surfaceLettersToggle" class="surface-letters-toggle" aria-pressed="false">Surface letters</button>
         <div id="canvasHost" aria-label="Interactive 3D roof model"></div>
+        <div class="sketch-viewer" id="sketchViewer" hidden></div>
         <div class="stage-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
         <div class="custom-viewer-notice" id="customViewerNotice" hidden>
           <span class="custom-viewer-notice-icon" aria-hidden="true">⌁</span>
@@ -316,12 +332,12 @@
 
       <section class="roof-component-results" aria-label="Rainwater components">
         <div class="roof-component-grid" id="roofComponentGrid">
-          <article class="roof-component-card" data-component-card data-search="jgheab colectează apa de pe versanți. disponibil în lungimi de 3 m și 4 m pentru montaj facil.">
+          <article class="roof-component-card" data-component-card data-search="jgheab colectează apa de pe acoperiș. disponibil în lungimi de 3 m și 4 m pentru montaj facil.">
             <span class="roof-component-number">1</span>
             <img src="./assets/rainwater/01.jpg" alt="Jgheab" loading="lazy" />
             <div class="roof-component-copy">
               <h3>Jgheab</h3>
-              <p>Colectează apa de pe versanți. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.</p>
+              <p>Colectează apa de pe acoperiș. Disponibil în lungimi de 3 m și 4 m pentru montaj facil.</p>
             </div>
           </article>
           <article class="roof-component-card" data-component-card data-search="burlan tub vertical ø 90 mm sau ø 100 mm care coboară apa spre sol.">
@@ -587,8 +603,8 @@
       panel?.addEventListener('close', () => document.body.classList.remove('bom-is-open'));
     })();
   </script>
-  <script type="module" src="./js/sharedShell.js?v=roof-ar-1"></script>
-  <script type="module" src="./js/app.js?v=roof-ar-1"></script>
+  <script type="module" src="./js/sharedShell.js?v=site-analytics-1"></script>
+  <script type="module" src="./js/app.js?v=site-analytics-1"></script>
 </body>
 </html>
 

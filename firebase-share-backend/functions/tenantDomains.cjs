@@ -6,9 +6,12 @@ const TENANT_DOMAIN_ROOTS = Object.freeze({
   'en-US': '360configurator.com',
   'ro-RO': '360configurator.ro',
   'de-DE': '360konfigurator.de',
+  'es-ES': '360configurador.es',
+  'fr-FR': '360configurateur.fr',
+  'it-IT': '360configuratore.it',
 });
 
-const TENANT_ORIGIN_PATTERN = /^https:\/\/([a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?)\.(?:360configurator\.com|360configurator\.ro|360konfigurator\.de)$/;
+const TENANT_ORIGIN_PATTERN = /^https:\/\/([a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?)\.(?:360configurator\.com|360configurator\.ro|360konfigurator\.de|360configurador\.es|360configurateur\.fr|360configuratore\.it)$/;
 
 const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const RESERVED_TENANT_SLUGS = Object.freeze([

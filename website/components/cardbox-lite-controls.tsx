@@ -4,10 +4,19 @@ import type {Locale} from '../lib/i18n';
 import type {LiteState} from '../lib/lite-products';
 import {RangeControl,PresetControl} from './scene-control-primitives';
 
+const cardboxLabels:Record<Locale,readonly string[]>={
+  en:['Box style','Width','Depth','Height','Inspect top opening','Paper composition'],
+  ro:['Tip cutie','Lățime','Adâncime','Înălțime','Inspectează deschiderea de sus','Compoziție hârtie'],
+  de:['Kartontyp','Breite','Tiefe','Höhe','Obere Öffnung ansehen','Papieraufbau'],
+  es:['Tipo de caja','Ancho','Fondo','Alto','Ver apertura superior','Composición del papel'],
+  fr:['Type de carton','Largeur','Profondeur','Hauteur','Voir l’ouverture supérieure','Composition du papier'],
+  it:['Tipo di scatola','Larghezza','Profondità','Altezza','Ispeziona apertura superiore','Composizione della carta'],
+};
+
 export function CardboxLiteControls({state,locale,tab,onChange}:{state:LiteState;locale:Locale;tab:string;onChange:(key:string,value:string|number)=>void}) {
   const style=catalog.styles.find(item=>item.id===state.style)||catalog.styles[0];
   const copy=catalog.copy[locale] as Record<string,string>;
-  const labels={en:['Box style','Width','Depth','Height','Inspect top opening','Paper composition'],ro:['Tip cutie','Lățime','Adâncime','Înălțime','Inspectează deschiderea de sus','Compoziție hârtie'],de:['Kartontyp','Breite','Tiefe','Höhe','Obere Öffnung ansehen','Papieraufbau']}[locale];
+  const labels=cardboxLabels[locale];
   if(tab==='form')return <div className="scene-option-group"><span className="control-section-label">{labels[0]}</span><div className="scene-preset-row cardbox-style-grid" role="group" aria-label={labels[0]}>{catalog.styles.map(item=><button type="button" key={item.id} aria-pressed={state.style===item.id} className={state.style===item.id?'active':''} onClick={()=>onChange('style',item.id)}><span aria-hidden="true" dangerouslySetInnerHTML={{__html:item.icon}}/><strong>{item.labels[locale]}</strong><small>FEFCO {item.code}</small></button>)}</div></div>;
   if(tab==='finish')return <div className="cardbox-paper"><PresetControl label={labels[5]} value={state.paper||'TFT'} options={['TFT','AFT','AFA'].map(id=>[id,`${id} · ${copy['board.'+id.toLowerCase()]}`])} onChange={value=>onChange('paper',value)}/></div>;
   return <>

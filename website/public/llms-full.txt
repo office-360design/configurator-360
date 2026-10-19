@@ -61,7 +61,7 @@ Live system: https://www.360configurator.com/fence-configurator/
 
 ## Chair configurator
 
-The chair preview uses the full application's original procedural geometry with website-specific materials. Compare frame colours, upholstery colours and woven or velvet-inspired treatments. The fixed product envelope is 500 × 470 × 790 mm. The full application offers additional wood species and fabric categories. Materials are illustrative, not certified supplier scans.
+The chair preview uses the full application's original procedural geometry and baked colour, normal and roughness maps from its material providers. Compare oak, beech and ash, frame colours, upholstery colours and fabric categories. The fixed product envelope is 500 × 470 × 790 mm. The full application offers a broader material selection. These generated surfaces are illustrative, not certified supplier scans.
 
 Canonical page: https://www.360configurator.com/configurators/chair
 Live system: https://www.360configurator.com/chair-configurator/
@@ -82,7 +82,7 @@ Live system: https://www.360configurator.com/bookshelf-configurator/
 
 ## Pavement configurator
 
-The website preview uses the full prototype's paving-layout calculation on a bounded rectangle with a 20 × 10 cm format. It supports running bond, herringbone and basket weave, area measurement, colour comparison and installed-piece counts including edge cuts. These counts exclude spare allowance and are not purchasing advice or a quote. The full prototype adds formats, custom outlines, curbs, house exclusions, editable demo rates and CSV output. Material appearance is illustrative.
+The active website preview is a lightweight photo/2D illustration on a bounded rectangle, with three paving formats, compatible laying patterns, pattern rotation, colours and border curbs. It reports rectangular area, not installed-piece or purchasing quantities. House geometry and exclusions belong to the full 3D prototype, which also provides custom outlines, piece counts, editable demo rates and CSV output. The website illustration is not the native 3D editor or a certified supplier sample.
 
 Canonical page: https://www.360configurator.com/configurators/tiles
 Live system: https://www.360configurator.com/tiles-configurator/
@@ -97,7 +97,7 @@ The public marketing catalogue contains ten products. Each product has an Englis
 
 ## Languages and canonical structure
 
-English is served at https://www.360configurator.com/, Romanian at https://www.360configurator.ro/ and German at https://www.360konfigurator.de/. Product-page paths are /configurators/{slug} on each domain. Every translated page has a self-referencing canonical URL and reciprocal language alternates. /ro and /de are internal export paths, not public canonical URLs.
+English is served at https://www.360configurator.com/, Romanian at https://www.360configurator.ro/, German at https://www.360konfigurator.de/, Spanish at https://www.360configurador.es/, French at https://www.360configurateur.fr/ and Italian at https://www.360configuratore.it/. Product-page paths are /configurators/{slug} on each domain. Every translated page has a self-referencing canonical URL and reciprocal language alternates. /ro, /de, /es, /fr and /it are internal export paths, not public canonical URLs.
 
 ## Contact
 

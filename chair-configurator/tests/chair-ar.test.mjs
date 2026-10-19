@@ -7,7 +7,8 @@ import * as THREE from 'three';
 import {GeometryLibrary} from '../../shared-3d/src/geometry/GeometryLibrary.js';
 import {createChairModel} from '../js/chairGeometry.js';
 import {ChairScene} from '../js/scene.js';
-import {WOOD_TYPES, FABRIC_TYPES} from '../js/materials.js';
+import {WOOD_TYPES, FABRIC_TYPES, MATERIAL_LABEL_LOCALES, materialLabel} from '../js/materials.js';
+import {CHAIR_COPY, CHAIR_LOCALES, chairT} from '../js/i18n.js';
 import {captureChairARSnapshot, createChairFirebaseARAsset, CHAIR_AR_LIMITS} from '../js/ar/exportChair.js';
 import {AR_PRODUCTS, arPhoneUrl, arModelUrl} from '../../shared-ui/src/ar/links.js';
 import {AR_COPY, arT} from '../../shared-ui/src/ar/i18n.js';
@@ -41,14 +42,24 @@ test('Chair phone URLs support canonical, localized and tenant domains for both 
  }
  for(const f of ['glb','usdz'])assert.match(arModelUrl(id,f,'chair'),new RegExp(`/chair\\.${f}\\?`));
 });
-test('EN/RO/DE Chair copy is complete and retains generic progress with no long descriptions',()=>{
- for(const locale of ['en-US','ro-RO','de-DE']){
+test('Chair AR copy is complete in every locale the shared AR copy provides and retains generic progress with no long descriptions',()=>{
+ for(const locale of Object.keys(AR_COPY.hall)){
   assert.deepEqual(Object.keys(AR_COPY.chair[locale]).sort(),Object.keys(AR_COPY.hall[locale]).sort());
   assert.notEqual(arT('chair',locale,'title'),arT('hall',locale,'title'));
   assert.match(arT('chair',locale,'building'),/QR/);
   for(const key of ['building','exporting','uploading','checking'])assert.doesNotMatch(arT('chair',locale,key),/firebase|supabase|upload|glb|usdz|geometry|geometrie/i);
  }
  assert.doesNotMatch(read('../../shared-ui/src/ar/dialog.js'),/data-copy="(?:snapshot|scale)"/);
+});
+test('Chair sidebar copy and material labels cover en, ro, de, es, fr and it with no gaps',()=>{
+ const locales=['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT'];
+ assert.deepEqual([...CHAIR_LOCALES],locales);assert.deepEqual([...MATERIAL_LABEL_LOCALES],locales);
+ for(const locale of locales){
+  assert.deepEqual(Object.keys(CHAIR_COPY[locale]).sort(),Object.keys(CHAIR_COPY['en-US']).sort(),locale);
+  for(const key of Object.keys(CHAIR_COPY['en-US']))assert.ok(chairT(locale,key).trim(),`${locale}.${key}`);
+  for(const item of [...WOOD_TYPES,...FABRIC_TYPES]){assert.equal(item.labels.length,locales.length,item.id);assert.ok(materialLabel(item,locale).trim(),`${locale}.${item.id}`);}
+ }
+ for(const locale of locales.slice(1))assert.notEqual(chairT(locale,'title'),chairT('en-US','title'),locale);
 });
 test('Snapshot retains all 18 real product meshes and grounds the legs without scenery',()=>{
  const m=make(),stage=new THREE.Group();stage.add(m.group);stage.add(new THREE.Mesh(new THREE.PlaneGeometry(5,5),new THREE.MeshStandardMaterial()));
@@ -104,7 +115,7 @@ test('Editor, snapshot and native exporters use Chair r160; GLTF local import gr
 test('AR button, capture hook, generic dialog and phone entry are wired into deployed Chair files',()=>{
  const app=read('../js/app.js'),shell=read('../js/sharedShell.js'),html=read('../index.html'),phone=read('../ar.html');
  assert.match(shell,/viewAR: true/);assert.match(shell,/onViewAR\(\) \{ ar.open\(\); \}/);assert.match(app,/captureARSnapshot\(\) \{ return scene.captureARSnapshot\(\); \}/);
- assert.match(html,/app\.js\?v=chair-ar-1/);assert.match(html,/shared-ui\/styles\/ar\.css/);
+ assert.match(html,/app\.js\?v=site-analytics-1/);assert.match(html,/shared-ui\/styles\/ar\.css/);
  assert.match(phone,/id="arPhoneLaunch"[^>]*>[\s\S]*?<img [^>]*\/>\s*<\/a>/);assert.match(read('../js/ar/phone.js'),/mountARPhone\('chair'\)/);
  for(const workflow of ['../../.github/workflows/deploy-cloudrun.yml','../../.github/workflows/deploy-pages.yml'])assert.match(read(workflow),/cp -R chair-configurator\/\. dist\/site\/chair-configurator\//);
 });

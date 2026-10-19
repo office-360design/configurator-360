@@ -12,7 +12,7 @@ import {
   poleFaceIsAvailable,
   poleIsAvailable,
   segmentIsAvailable,
-} from '../state.js?v=platform-18';
+} from '../state.js?v=locales-6';
 
 const METERS_PER_MM = 0.001;
 const SCREEN_TYPES = ['screen', 'motorized-screen'];

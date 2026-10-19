@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {pageFile, localizedRoutePath} from './page-paths.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import * as THREE from 'three';
@@ -114,10 +115,14 @@ test('paving preview matches production layout count, area and edge positions', 
     assert.equal(model.metrics.pieces,expected.length);
     assert.ok(Math.abs(model.metrics.area-length*width)<1e-6);
     assert.ok(expected.length < 700);
-    assert.ok(Math.abs(expected.reduce((n,p)=>n+p.l*p.w,0) - length*width) < 1e-6);
+    // Native layout now preserves the full tile bounding box and reports the
+    // clipped installed polygon area separately for pieces crossing the edge.
+    assert.ok(Math.abs(expected.reduce((n,p)=>n+(p.area??p.l*p.w),0) - length*width) < 1e-6);
     const matrix = new THREE.Matrix4();
     model.group.children.find(child=>child.isInstancedMesh).getMatrixAt(0,matrix);
-    assert.ok(Math.abs(matrix.elements[12] - (expected[0].x-length/2)) < 1e-6);
+    const firstInstancedPiece = expected.find(piece => !piece.fragments);
+    assert.ok(firstInstancedPiece);
+    assert.ok(Math.abs(matrix.elements[12] - (firstInstancedPiece.x-length/2)) < 1e-6);
     disposeModel(model);
   }
 });
@@ -145,28 +150,29 @@ test('bookshelf native shelf layouts and door hardware build in both door positi
 });
 
 test('all new localized pages expose correct SEO, visible FAQs, full-app links and no eager renderers', async () => {
-  const origins = {en:'https://www.360configurator.com',ro:'https://www.360configurator.ro',de:'https://www.360konfigurator.de'};
+  const origins = {en:'https://www.360configurator.com',ro:'https://www.360configurator.ro',de:'https://www.360konfigurator.de',es:'https://www.360configurador.es',fr:'https://www.360configurateur.fr',it:'https://www.360configuratore.it'};
   const slugs = ['chair','cardbox','bookshelf','tiles'];
   for (const [locale,origin] of Object.entries(origins)) {
     const prefix = locale === 'en' ? '' : `${locale}/`;
     const home = await readFile(new URL(`../outputs/release-site/${prefix}index.html`,import.meta.url),'utf8');
     for (const slug of slugs) {
       assert.ok(home.includes(`data-lite-product="${slug}"`));
-      const html = await readFile(new URL(`../outputs/release-site/${prefix}configurators/${slug}/index.html`,import.meta.url),'utf8');
+      const html = await readFile(new URL(`../outputs/release-site/${pageFile(prefix,`/configurators/${slug}`)}`,import.meta.url),'utf8');
       assert.equal((html.match(/<h1[ >]/g)||[]).length,1);
-      assert.ok(html.includes(`rel="canonical" href="${origin}/configurators/${slug}"`));
-      for (const languageOrigin of Object.values(origins)) assert.ok(html.includes(`${languageOrigin}/configurators/${slug}`));
+      assert.ok(html.includes(`rel="canonical" href="${origin}${localizedRoutePath(locale,`/configurators/${slug}`)}"`));
+      for (const [languageLocale,languageOrigin] of Object.entries(origins)) assert.ok(html.includes(`${languageOrigin}${localizedRoutePath(languageLocale,`/configurators/${slug}`)}`));
       assert.ok(html.includes('"@type":"FAQPage"'));
       assert.ok(html.includes('"@type":"WebApplication"'));
       assert.ok(html.includes('"@type":"BreadcrumbList"'));
-      assert.equal((html.match(/<details>/g)||[]).length,3);
+      // Three product FAQs plus three project-review objections; neither is dropped.
+      assert.equal((html.match(/<details>/g)||[]).length,6);
       assert.ok(html.includes('data-lite-product="'+slug+'"'));
       const preloads = [...html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)].map(m=>m[0]).join('\n');
       assert.doesNotMatch(preloads,/three\.module|webgl-stage-|\/runtime-|\/bookshelf-|\/chair-|\/tiles-|\/cardbox-/);
       assert.doesNotMatch(html,/data-scene="gas"|\/configurators\/gas/);
     }
     const sitemap = await readFile(new URL(`../outputs/release-site/sitemap-${locale}.xml`,import.meta.url),'utf8');
-    for (const slug of slugs) assert.ok(sitemap.includes(`${origin}/configurators/${slug}`));
+    for (const slug of slugs) assert.ok(sitemap.includes(`${origin}${localizedRoutePath(locale,`/configurators/${slug}`)}`));
     assert.doesNotMatch(sitemap,/gas|\/bookshelf-configurator\/|\/tiles-configurator\//);
   }
 });

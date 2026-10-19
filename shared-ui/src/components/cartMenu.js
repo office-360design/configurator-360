@@ -1,6 +1,6 @@
-import { sharedT } from '../i18n.js?v=platform-18';
+import { sharedT } from '../i18n.js?v=site-analytics-1';
 import { sharedIcon } from '../icons.js?v=platform-18';
-import { installQuotationRequestController } from '../quotationRequest.js?v=platform-18';
+import { installQuotationRequestController } from '../quotationRequest.js?v=locales-6';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 installQuotationRequestController();
@@ -16,9 +16,8 @@ function normalizedCurrency(value = '', fallback = 'USD') {
 }
 
 function localeDefaultCurrency(locale = 'en-US') {
-  if (locale === 'ro-RO') return 'RON';
-  if (locale === 'de-DE') return 'EUR';
-  return 'USD';
+  const defaults = { 'en-US': 'USD', 'ro-RO': 'RON', 'de-DE': 'EUR', 'es-ES': 'EUR', 'fr-FR': 'EUR', 'it-IT': 'EUR' };
+  return defaults[locale] || 'USD';
 }
 
 function selectedCartCurrency(locale = 'en-US') {

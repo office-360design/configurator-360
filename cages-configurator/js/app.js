@@ -1,5 +1,5 @@
-import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 import { CageScene } from './scene.js?v=cages-4';
 import { sectionSvg } from './section.js?v=cages-4';
 import {
@@ -77,8 +77,8 @@ function render(m) {
     ? `2×${m.nv}Ø${S.dv} vert. · Ø${S.dh}/${S.sh} oriz. · agrafe Ø${S.dt}`
     : `${S.n}Ø${S.dl} ${S.grade} · SP Ø${S.ds}/${S.pitch}${S.dense ? ` (${S.pitchEnd})` : ''}`;
   $('#tag').innerHTML = `<div class="mark">${markCode(S)}</div>
-    ${lim.name} · ${sectionLabel(S)} · L ${fmt(S.Lm, 2)} m<br>${reinforcement}<br>
-    <b>${fmt(m.mass)} kg</b> / buc · ${fmt(m.mass / S.Lm, 1)} kg/m${m.bend ? ' · cap îndoit' : ''}`;
+    <span>${lim.name} · ${sectionLabel(S)} · L ${fmt(S.Lm, 2)} m</span><span>${reinforcement}</span>
+    <span><b>${fmt(m.mass)} kg</b> / buc · ${fmt(m.mass / S.Lm, 1)} kg/m${m.bend ? ' · cap îndoit' : ''}</span>`;
   $('#boreHint').textContent = isWall ? `Carcasă ${S.W} × ${fmt(m.Tc)} mm (perete ${S.T} mm)`
     : m.circ ? `Diametru foraj rezultat: Ø${m.boreB} mm` : `Secțiune panou rezultată: ${m.boreB}×${m.boreH} mm`;
 

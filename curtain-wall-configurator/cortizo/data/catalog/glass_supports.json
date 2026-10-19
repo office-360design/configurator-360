@@ -1,0 +1,338 @@
+[
+ {
+  "type": "Standard",
+  "ref": "999035",
+  "A_mm": 26.0,
+  "max_kg_2": 306.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999036",
+  "A_mm": 32.0,
+  "max_kg_2": 204.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999037",
+  "A_mm": 34.5,
+  "max_kg_2": 183.0,
+  "max_kg_4": 367.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999038",
+  "A_mm": 38.0,
+  "max_kg_2": 153.0,
+  "max_kg_4": 306.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999039",
+  "A_mm": 40.0,
+  "max_kg_2": 143.0,
+  "max_kg_4": 285.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999040",
+  "A_mm": 41.5,
+  "max_kg_2": 133.0,
+  "max_kg_4": 265.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999041",
+  "A_mm": 44.0,
+  "max_kg_2": 122.0,
+  "max_kg_4": 245.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999042",
+  "A_mm": 47.0,
+  "max_kg_2": 112.0,
+  "max_kg_4": 224.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999043",
+  "A_mm": 50.0,
+  "max_kg_2": 102.0,
+  "max_kg_4": 204.0,
+  "page": 250
+ },
+ {
+  "type": "Standard",
+  "ref": "999044",
+  "A_mm": 56.0,
+  "max_kg_2": 87.0,
+  "max_kg_4": 173.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999047",
+  "A_mm": 32.0,
+  "max_kg_2": 367.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999048",
+  "A_mm": 34.5,
+  "max_kg_2": 326.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999049",
+  "A_mm": 38.0,
+  "max_kg_2": 285.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999050",
+  "A_mm": 40.0,
+  "max_kg_2": 255.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999051",
+  "A_mm": 41.5,
+  "max_kg_2": 234.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999052",
+  "A_mm": 44.0,
+  "max_kg_2": 204.0,
+  "max_kg_4": 400.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999053",
+  "A_mm": 47.0,
+  "max_kg_2": 189.0,
+  "max_kg_4": 377.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999054",
+  "A_mm": 50.0,
+  "max_kg_2": 173.0,
+  "max_kg_4": 347.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999055",
+  "A_mm": 56.0,
+  "max_kg_2": 153.0,
+  "max_kg_4": 306.0,
+  "page": 250
+ },
+ {
+  "type": "Sarcini mari",
+  "ref": "999556",
+  "A_mm": 60.0,
+  "max_kg_2": 135.0,
+  "max_kg_4": 270.0,
+  "page": 250
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999157 / 999357 / 999457",
+  "A_mm": 44.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999154 / 999354 / 999454",
+  "A_mm": 50.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999162 / 999362 / 999462",
+  "A_mm": 52.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999155 / 999355 / 999455",
+  "A_mm": 56.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999163 / 999363 / 999463",
+  "A_mm": 58.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999156 / 999356 / 999456",
+  "A_mm": 62.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999166 / 999366 / 999466",
+  "A_mm": 64.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999167 / 999367 / 999467",
+  "A_mm": 67.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999168 / 999368 / 999468",
+  "A_mm": 71.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "În cruce (central / stânga / dreapta)",
+  "ref": "999169 / 999369 / 999469",
+  "A_mm": 75.0,
+  "max_kg_2": 750.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999204",
+  "A_mm": 16.0,
+  "max_kg_2": 357.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999203",
+  "A_mm": 18.0,
+  "max_kg_2": 306.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999202",
+  "A_mm": 20.0,
+  "max_kg_2": 255.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999201",
+  "A_mm": 22.0,
+  "max_kg_2": 204.0,
+  "max_kg_4": null,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999198",
+  "A_mm": 33.0,
+  "max_kg_2": 133.0,
+  "max_kg_4": 265.0,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999197",
+  "A_mm": 35.0,
+  "max_kg_2": 125.0,
+  "max_kg_4": 251.0,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999196",
+  "A_mm": 37.0,
+  "max_kg_2": 117.0,
+  "max_kg_4": 234.0,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999195",
+  "A_mm": 39.0,
+  "max_kg_2": 110.0,
+  "max_kg_4": 220.0,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999194",
+  "A_mm": 41.0,
+  "max_kg_2": 102.0,
+  "max_kg_4": 204.0,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999193",
+  "A_mm": 43.0,
+  "max_kg_2": 95.0,
+  "max_kg_4": 190.0,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999192",
+  "A_mm": 45.0,
+  "max_kg_2": 88.0,
+  "max_kg_4": 177.0,
+  "page": 251
+ },
+ {
+  "type": "Pentru ST 52",
+  "ref": "999191",
+  "A_mm": 47.0,
+  "max_kg_2": 82.0,
+  "max_kg_4": 163.0,
+  "page": 251
+ }
+]

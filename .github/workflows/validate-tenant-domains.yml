@@ -12,6 +12,7 @@ on:
       - 'scripts/**'
       - '*-configurator/**'
       - 'package*.json'
+      - 'website/lib/page-slugs.json'
   pull_request:
     branches: [main, tenants]
     paths:
@@ -23,6 +24,7 @@ on:
       - 'scripts/**'
       - '*-configurator/**'
       - 'package*.json'
+      - 'website/lib/page-slugs.json'
   workflow_dispatch:
 
 permissions:
@@ -66,6 +68,8 @@ jobs:
         run: npm run check:tenant-homepage:browser
       - name: Test secondary tenant branding and mobile headers
         run: npm run check:tenant-branding:browser
+      - name: Test Google Analytics consent and scope on the configurators
+        run: npm run check:site-analytics:browser
       - name: Validate static Window bundle contains tenant policy
         run: |
           npm run prepare:static --prefix window-configurator

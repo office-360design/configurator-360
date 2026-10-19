@@ -1,3 +1,5 @@
+import { reprojectRegions } from './referenceReprojection.js';
+import { REGION_LIMITS } from './pavingRegions.js';
 import { pavementCutSurfaces, curbCutSurfaces } from './surfaceLayout.js?v=tiles-ar-1';
 import { stoneAppearance } from './stoneAppearance.js';
 import { houseGeometry } from './house.js';
@@ -7,6 +9,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clipRect, polygonArea } from './area.js';
 import { COLORS, TILES, CURBS, curbLayout, areaGeometry } from './model.js';
 import { calibratePhotoCamera } from './photoCalibration.js';
+import { modelCameraMatrices, assertPhotoMatches } from './modelCamera.js';
 
 const vertexLabel = (index) => {
   let value = index + 1,
@@ -18,7 +21,7 @@ const vertexLabel = (index) => {
   }
   return label;
 };
-const snap = (value) => Math.round(value * 20) / 20;
+const snap = (value) => Math.round(value * 1000) / 1000;
 const GROUND_Y = -0.16;
 const PAVEMENT_VISUAL_THICKNESS = 0.002;
 const HANDLE_DIAMETER_PX = 34;
@@ -102,6 +105,9 @@ export function createViewer(host, callbacks = {}) {
     showDimensions = true,
     drawingArea = false,
     draftPoints = [],
+    activeBoundaryKey = '',
+    activeVertex = 0,
+    drawingOperation = 'replace',
     preserveCameraOnNextRebuild = false,
     photoMode = false,
     photoSetup = false,
@@ -109,9 +115,13 @@ export function createViewer(host, callbacks = {}) {
     photoNaturalHeight = 0,
     photoCalibrationCorners = null,
     photoCalibration = null,
+    modelPhotoCalibration = null,
+    modelPhotoOrigin = { x: 0, z: 0 },
+    photoLoadSequence = 0,
     photoWorldShift = { x: 0, z: 0 },
-    freeCameraPose = null,
-    darkMode = false;
+    preservePhotoPoseUntilInteraction = false,
+    darkMode = false,
+    debugPreviewVisible = true;
   scene.add(group, dimensions, areaHandles, areaDraft);
   const box = new THREE.BoxGeometry(1, 1, 1),
     dummy = new THREE.Object3D();
@@ -136,7 +146,10 @@ export function createViewer(host, callbacks = {}) {
   });
   function clear(g) {
     g.traverse((o) => {
-      if (o.isInstancedMesh) o.dispose();
+      if (o.isInstancedMesh) {
+        o.dispose();
+        if (o.material !== material) o.material.dispose();
+      }
       if (o.isMesh && !o.isInstancedMesh && o.geometry !== box) o.geometry.dispose();
       if (o.isLine) {
         o.geometry?.dispose?.();
@@ -179,7 +192,7 @@ export function createViewer(host, callbacks = {}) {
       ? baseY + height - renderHeight + PAVEMENT_SURFACE_OFFSET
       : baseY;
     parts.forEach((p, i) => {
-      dummy.position.set(p.x - bounds.width / 2, renderBaseY + renderHeight / 2, p.z - bounds.depth / 2);
+      dummy.position.set(p.x - bounds.centerX, renderBaseY + renderHeight / 2, p.z - bounds.centerZ);
       dummy.rotation.set(0, -THREE.MathUtils.degToRad(Number(p.rotation) || 0), 0);
       dummy.scale.set(Math.max(0.001, p.l - 0.003), renderHeight, Math.max(0.001, p.w - 0.003));
       dummy.updateMatrix();
@@ -323,39 +336,103 @@ export function createViewer(host, callbacks = {}) {
       height: photoHeight,
     };
   }
-  function snapshotFreeCamera() {
-    freeCameraPose = {
-      position: camera.position.clone(),
-      quaternion: camera.quaternion.clone(),
-      target: controls.target.clone(),
-      fov: camera.fov,
-      top,
+  function syncPhotoBackdropRect() {
+    const r = photoRect();
+    // Use the very same content rectangle for the background, masks and camera.
+    // CSS object-fit plus a different padding would cause a subtle alignment error.
+    Object.assign(photoBackdrop.style, { inset: 'auto', left: `${r.left}px`, top: `${r.top}px`,
+      width: `${r.width}px`, height: `${r.height}px`, padding: '0' });
+    host.style.backgroundColor = photoMode ? '#ffffff' : '';
+    return r;
+  }
+  function setModelProjection({ pose = false } = {}) {
+    if (!modelPhotoCalibration || !host.clientWidth || !host.clientHeight) return false;
+    const m = modelCameraMatrices(modelPhotoCalibration,
+      { width: host.clientWidth, height: host.clientHeight }, photoRect(), modelPhotoOrigin, GROUND_Y);
+    camera.near = m.near; camera.far = m.far; camera.fov = m.fov;
+    camera.aspect = host.clientWidth / host.clientHeight; camera.zoom = 1;
+    // updateProjectionMatrix() would erase unequal focal lengths / principal point.
+    camera.projectionMatrix.set(...m.projection);
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    if (pose) {
+      new THREE.Matrix4().set(...m.view).invert().decompose(camera.position, camera.quaternion, camera.scale);
+      controls.target.set(-modelPhotoOrigin.x, GROUND_Y, -modelPhotoOrigin.z);
+    }
+    camera.updateMatrixWorld(true);
+    return true;
+  }
+  function applyModelCalibration(calibration, origin = { x: 0, z: 0 }) {
+    assertPhotoMatches(calibration, { width: photoNaturalWidth, height: photoNaturalHeight });
+    // Validate viewport and origin before replacing any existing calibration.
+    modelCameraMatrices(calibration, { width: host.clientWidth, height: host.clientHeight }, photoRect(), origin, GROUND_Y);
+    modelPhotoCalibration = structuredClone(calibration); modelPhotoOrigin = { ...origin };
+    photoCalibrationCorners = null; photoCalibration = null;
+    photoWorldShift = { x: 0, z: 0 }; photoMode = true;
+    preservePhotoPoseUntilInteraction = false;
+    updatePhotoPresentation();
+    return true;
+  }
+  function capturePhotoState() {
+    return {
+      calibration: modelPhotoCalibration ? { type: 'metric_model', value: structuredClone(modelPhotoCalibration), origin: { ...modelPhotoOrigin } }
+        : photoCalibrationCorners ? { type: 'reference_square', corners: structuredClone(photoCalibrationCorners), shift: { ...photoWorldShift } } : null,
+      photoMode, photoSetup, top,
+      pose: { position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
+        target: controls.target.toArray(), projection: camera.projectionMatrix.toArray(), fov: camera.fov, aspect: camera.aspect },
     };
   }
-  function restoreFreeCamera() {
-    // Photo calibration writes directly to the camera while OrbitControls is disabled.
-    // Always re-enable and update OrbitControls after restoring a free-camera pose so
-    // its internal spherical state is synchronized with the camera again.
-    controls.enabled = true;
-    if (!freeCameraPose) {
-      top = false;
-      fit();
-      controls.enabled = true;
-      controls.update();
-      return;
+  // History snapshots are private. Persisted views must pass validateSavedView first.
+  function restorePhotoState(snapshot, { force = false } = {}) {
+    if (!snapshot) return;
+    const sameCalibration = JSON.stringify(capturePhotoState().calibration) === JSON.stringify(snapshot.calibration);
+    const sameMode = photoMode === snapshot.photoMode;
+    if (!force && sameCalibration && sameMode && photoSetup === snapshot.photoSetup) return;
+    const c = snapshot.calibration;
+    modelPhotoCalibration = c?.type === 'metric_model' ? structuredClone(c.value) : null;
+    modelPhotoOrigin = c?.type === 'metric_model' ? { ...c.origin } : { x: 0, z: 0 };
+    photoCalibrationCorners = c?.type === 'reference_square' ? structuredClone(c.corners) : null;
+    photoCalibration = null;
+    photoWorldShift = c?.type === 'reference_square' ? { ...c.shift } : { x: 0, z: 0 };
+    photoMode = snapshot.photoMode; top = snapshot.top;
+    if (photoCalibrationCorners) applyPhotoCalibrationPose();
+    setPhotoSetup(snapshot.photoSetup); updatePhotoPresentation();
+    if (!photoMode && snapshot.pose) {
+      camera.position.fromArray(snapshot.pose.position); camera.quaternion.fromArray(snapshot.pose.quaternion);
+      camera.scale.set(1, 1, 1); controls.target.fromArray(snapshot.pose.target);
+      if (modelPhotoCalibration) setModelProjection();
+      else {
+        camera.fov = snapshot.pose.fov; camera.aspect = host.clientWidth / Math.max(1, host.clientHeight);
+        camera.updateProjectionMatrix();
+      }
+      camera.updateMatrixWorld(true); preservePhotoPoseUntilInteraction = true;
     }
-    camera.position.copy(freeCameraPose.position);
-    camera.quaternion.copy(freeCameraPose.quaternion);
-    camera.fov = freeCameraPose.fov;
-    camera.aspect = Math.max(1e-6, host.clientWidth / Math.max(1, host.clientHeight));
-    camera.updateProjectionMatrix();
-    camera.updateMatrixWorld(true);
-    controls.target.copy(freeCameraPose.target);
-    top = freeCameraPose.top;
-    controls.update();
+    drawAreaHandles();
+  }
+  function syncFreeCameraFromPhotoPose() {
+    // Keep the calibrated camera transform exactly as-is when the photo disappears.
+    // OrbitControls normally runs update() every frame and can immediately re-orient
+    // the camera to its own spherical/up-vector state, which makes the free view look
+    // slightly higher even though the same calibrated pose was just applied.
+    // Set a sensible orbit target on the current view ray, but do not let OrbitControls
+    // touch the camera until the user actually starts interacting with it.
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).normalize(),
+      groundDistance =
+        Math.abs(forward.y) > 1e-6 ? (GROUND_Y - camera.position.y) / forward.y : NaN,
+      fallbackDistance = Math.max(
+        controls.minDistance,
+        camera.position.distanceTo(controls.target),
+      ),
+      orbitDistance =
+        Number.isFinite(groundDistance) && groundDistance > controls.minDistance
+          ? groundDistance
+          : fallbackDistance;
+    controls.target.copy(camera.position).addScaledVector(forward, orbitDistance);
+    top = false;
     controls.enabled = true;
+    preservePhotoPoseUntilInteraction = true;
   }
   function applyPhotoCalibrationPose() {
+    if (modelPhotoCalibration) return setModelProjection({ pose: true });
     if (!photoCalibrationCorners || !photoNaturalWidth || !photoNaturalHeight) return false;
     const width = host.clientWidth,
       height = host.clientHeight,
@@ -390,6 +467,7 @@ export function createViewer(host, callbacks = {}) {
     return true;
   }
   function updatePhotoPresentation() {
+    syncPhotoBackdropRect();
     photoBackdrop.style.display = photoMode ? 'block' : 'none';
     if (photoMode) {
       scene.background = null;
@@ -408,17 +486,17 @@ export function createViewer(host, callbacks = {}) {
   function setPhotoView(enabled) {
     enabled = Boolean(enabled);
     if (enabled) {
-      if (!photoCalibrationCorners) return false;
-      if (!photoMode && !photoSetup) snapshotFreeCamera();
+      if (!photoCalibrationCorners && !modelPhotoCalibration) return false;
+      preservePhotoPoseUntilInteraction = false;
       photoMode = true;
       updatePhotoPresentation();
-      return Boolean(photoCalibration);
+      return Boolean(photoCalibration || modelPhotoCalibration);
     }
     if (photoSetup) return false;
     if (photoMode) {
       photoMode = false;
       updatePhotoPresentation();
-      restoreFreeCamera();
+      syncFreeCameraFromPhotoPose();
       // updatePhotoPresentation() is also used during drawing/setup and can change
       // the enabled state. At this point setup is complete, so free-camera mode must
       // always be interactive.
@@ -429,44 +507,42 @@ export function createViewer(host, callbacks = {}) {
   }
   function setPhotoSetup(active) {
     photoSetup = Boolean(active);
-    group.visible = !photoSetup;
+    group.visible = !photoSetup && debugPreviewVisible;
     dimensions.visible = !photoSetup && showDimensions && !drawingArea;
     areaHandles.visible = !photoSetup && !drawingArea;
     if (photoSetup) controls.enabled = false;
     else if (photoMode) controls.enabled = false;
   }
-  function loadSitePhoto(url) {
+  function loadSitePhoto(url, { isCurrent = () => true } = {}) {
+    const sequence = ++photoLoadSequence;
     return new Promise((resolve, reject) => {
-      photoCalibrationCorners = null;
-      photoCalibration = null;
-      photoWorldShift = { x: 0, z: 0 };
-      freeCameraPose = null;
-      photoNaturalWidth = 0;
-      photoNaturalHeight = 0;
-      photoMode = true;
-      setPhotoSetup(true);
-      photoBackdrop.style.display = 'block';
-      scene.background = null;
-      renderer.setClearAlpha(0);
-      ground.visible = false;
-      grid.visible = false;
-      const cleanup = () => {
-        photoBackdrop.onload = null;
-        photoBackdrop.onerror = null;
-      };
-      photoBackdrop.onload = () => {
-        photoNaturalWidth = photoBackdrop.naturalWidth || 1;
-        photoNaturalHeight = photoBackdrop.naturalHeight || 1;
-        cleanup();
+      const image = new Image();
+      image.onload = () => {
+        image.onload = image.onerror = null;
+        if (sequence !== photoLoadSequence || !isCurrent()) { reject(new Error('stalePhoto')); return; }
+        photoCalibrationCorners = null; photoCalibration = null; modelPhotoCalibration = null;
+        modelPhotoOrigin = { x: 0, z: 0 }; photoWorldShift = { x: 0, z: 0 };
+        photoNaturalWidth = image.naturalWidth; photoNaturalHeight = image.naturalHeight;
+        photoMode = true; setPhotoSetup(true); photoBackdrop.src = url;
+        updatePhotoPresentation();
         callbacks.onPhotoRectChange?.(photoRect());
         resolve({ width: photoNaturalWidth, height: photoNaturalHeight, rect: photoRect() });
       };
-      photoBackdrop.onerror = () => {
-        cleanup();
-        reject(new Error('photoLoadFailed'));
-      };
-      photoBackdrop.src = url;
+      image.onerror = () => { image.onload = image.onerror = null; reject(new Error('photoLoadFailed')); };
+      image.src = url;
     });
+  }
+  function clearSitePhoto() {
+    photoLoadSequence++;
+    photoBackdrop.removeAttribute('src');
+    photoNaturalWidth = photoNaturalHeight = 0;
+    modelPhotoCalibration = photoCalibrationCorners = photoCalibration = null;
+    modelPhotoOrigin = {x:0,z:0}; photoWorldShift = {x:0,z:0};
+    photoMode = false; preservePhotoPoseUntilInteraction = false;
+    camera.fov = 40; camera.zoom = 1;
+    camera.aspect = host.clientWidth / Math.max(1,host.clientHeight);
+    camera.updateProjectionMatrix();
+    setPhotoSetup(false); updatePhotoPresentation();
   }
   function applyPhotoCalibration(corners) {
     if (!Array.isArray(corners) || corners.length !== 4) return false;
@@ -483,15 +559,48 @@ export function createViewer(host, callbacks = {}) {
       )
     )
       return false;
+    const r = photoRect();
+    if (!calibratePhotoCamera(normalized.map(p => ({ x: r.left + p.x*r.width, y: r.top + p.y*r.height })), host.clientWidth, host.clientHeight)) return false;
+    modelPhotoCalibration = null;
     photoCalibrationCorners = normalized;
     photoMode = true;
     updatePhotoPresentation();
     return Boolean(photoCalibration);
   }
+  function prepareReferenceRecalibration(regions, origin, corners) {
+    const before = capturePhotoState();
+    if (!before.calibration) throw new Error('A current photo calibration is required to preserve an existing design.');
+    try {
+      // Use the PHOTO pose even when the user came from free camera.
+      applyPhotoCalibrationPose();
+      const oldProjection = camera.projectionMatrix.clone(), oldView = camera.matrixWorldInverse.clone();
+      const project = p => {
+        const point = new THREE.Vector3(p.x - origin.x, GROUND_Y, p.z - origin.z).applyMatrix4(oldView);
+        if (point.z >= -camera.near) return null;
+        point.applyMatrix4(oldProjection);
+        return new THREE.Vector2(point.x, point.y);
+      };
+      photoWorldShift = { x: 0, z: 0 };
+      if (!applyPhotoCalibration(corners)) throw new Error('The reference square is invalid. Keep its four corners in order.');
+      const ray = new THREE.Raycaster(), surface = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
+      const unproject = pixel => {
+        ray.setFromCamera(pixel, camera);
+        const point = ray.ray.intersectPlane(surface, new THREE.Vector3());
+        return point && { x: point.x, z: point.z };
+      };
+      const converted = reprojectRegions(regions, project, unproject);
+      return { regions: converted, origin: { x: 0, z: 0 }, photoView: capturePhotoState() };
+    } finally { restorePhotoState(before); }
+  }
   function shiftPhotoWorld(dx, dz) {
     dx = Number(dx);
     dz = Number(dz);
     if (!Number.isFinite(dx) || !Number.isFinite(dz)) return false;
+    if (modelPhotoCalibration) {
+      modelPhotoOrigin.x -= dx; modelPhotoOrigin.z -= dz;
+      if (photoMode) applyPhotoCalibrationPose();
+      return true;
+    }
     photoWorldShift.x += dx;
     photoWorldShift.z += dz;
     if (photoMode && photoCalibrationCorners) applyPhotoCalibrationPose();
@@ -499,7 +608,7 @@ export function createViewer(host, callbacks = {}) {
   }
   function completePhotoSetup() {
     setPhotoSetup(false);
-    group.visible = true;
+    group.visible = debugPreviewVisible;
     drawAreaHandles();
     dimensions.visible = showDimensions && !drawingArea;
     setPhotoView(true);
@@ -507,16 +616,18 @@ export function createViewer(host, callbacks = {}) {
   function fit() {
     if (!state || !bounds) return;
     const size = Math.max(
-        bounds.width,
+        1, bounds.width,
         bounds.depth,
         state.houseEnabled ? state.houseHeight * 2 : 0,
       ),
       distance = (size * 1.55) / Math.min(1, camera.aspect);
-    controls.target.set(0, GROUND_Y, 0);
+    const cx = (bounds.minX + bounds.maxX) / 2 - bounds.centerX,
+      cz = (bounds.minZ + bounds.maxZ) / 2 - bounds.centerZ;
+    controls.target.set(cx, GROUND_Y, cz);
     camera.position.set(
-      top ? 0 : distance * 0.8,
+      cx + (top ? 0 : distance * 0.8),
       GROUND_Y + (top ? distance * 1.5 : distance),
-      top ? 0.001 : distance,
+      cz + (top ? 0.001 : distance),
     );
     controls.update();
   }
@@ -528,7 +639,7 @@ export function createViewer(host, callbacks = {}) {
       steps: 1,
     });
     geometry.rotateX(-Math.PI / 2);
-    geometry.translate(-bounds.width / 2, baseY, -bounds.depth / 2);
+    geometry.translate(-bounds.centerX, baseY, -bounds.centerZ);
     return geometry;
   }
   function drawPolygons(items, height, baseY, { topOnly = false } = {}) {
@@ -582,7 +693,7 @@ export function createViewer(host, callbacks = {}) {
     context.font = '800 42px sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText(vertexLabel(index), 64, 66);
+    // Unlabelled handles stay legible on dense contours; the selected vertex is identified in the panel.
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
@@ -631,8 +742,9 @@ export function createViewer(host, callbacks = {}) {
   function updateHandleScreenSizes(container) {
     if (!container?.visible || !host.clientHeight) return;
     camera.updateMatrixWorld(true);
-    const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2),
-      viewportHeight = Math.max(1, host.clientHeight);
+    const projection = camera.projectionMatrix.elements,
+      pixelsPerUnitX = Math.abs(projection[0]) * Math.max(1, host.clientWidth) / 2,
+      pixelsPerUnitY = Math.abs(projection[5]) * Math.max(1, host.clientHeight) / 2;
     container.traverse((object) => {
       const pixels = object.userData?.handlePixels;
       if (!pixels || !object.isSprite) return;
@@ -640,23 +752,43 @@ export function createViewer(host, callbacks = {}) {
       handleCameraPosition.copy(handleWorldPosition).applyMatrix4(camera.matrixWorldInverse);
       const depth = -handleCameraPosition.z;
       if (depth <= camera.near) return;
-      const worldUnitsPerPixel = (2 * depth * tanHalfFov) / viewportHeight,
-        size = pixels * worldUnitsPerPixel;
-      object.scale.set(size, size, 1);
+      object.scale.set(pixels * depth / pixelsPerUnitX, pixels * depth / pixelsPerUnitY, 1);
     });
+  }
+  function activeBoundary() {
+    return bounds?.boundaries?.find((b) => b.key === activeBoundaryKey);
   }
   function drawAreaHandles() {
     clearOverlay(areaHandles);
-    if (photoSetup || drawingArea || !state || state.shape !== 'custom' || !bounds) return;
-    bounds.points.forEach((p, i) => {
-      areaHandles.add(makeHandle(p.x - bounds.width / 2, p.z - bounds.depth / 2, i, false));
-    });
+    if (photoSetup || drawingArea || !state || !bounds) return;
+    if (!['custom', 'regions'].includes(state.shape)) return;
+    for (const boundary of bounds.boundaries) {
+      const selected = boundary.key === activeBoundaryKey;
+      const pts = [...boundary.points, boundary.points[0]].map((p) =>
+        new THREE.Vector3(p.x - bounds.centerX, GROUND_Y + .008, p.z - bounds.centerZ));
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: boundary.hole ? '#bd542f' : '#0878c9',
+          transparent: true, opacity: selected ? .95 : .45, depthTest: false }));
+      line.renderOrder = 19;
+      areaHandles.add(line);
+      if (!selected) continue;
+      // Display a bounded sample plus neighbours of the selected vertex. Geometry
+      // keeps EVERY vertex. The numeric selector exposes vertices not shown here.
+      const n = boundary.points.length, stride = Math.max(1, Math.ceil(n / 48)), indices = new Set();
+      for (let i = 0; i < n; i += stride) indices.add(i);
+      for (let d = -3; d <= 3; d++) indices.add(((activeVertex + d) % n + n) % n);
+      for (const i of indices) {
+        const p = boundary.points[i];
+        areaHandles.add(makeHandle(p.x - bounds.centerX, p.z - bounds.centerZ, i, i === activeVertex));
+      }
+    }
+    updateHandleScreenSizes(areaHandles);
   }
   function renderDraft(points, { local = false } = {}) {
     clearOverlay(areaDraft);
     if (!points.length) return;
     const world = local
-      ? points.map((p) => ({ x: p.x - bounds.width / 2, z: p.z - bounds.depth / 2 }))
+      ? points.map((p) => ({ x: p.x - bounds.centerX, z: p.z - bounds.centerZ }))
       : points;
     if (world.length > 1) {
       const linePoints = world.length >= 3 ? [...world, world[0]] : world;
@@ -665,12 +797,17 @@ export function createViewer(host, callbacks = {}) {
       );
       const line = new THREE.Line(
         geometry,
-        new THREE.LineBasicMaterial({ color: '#0878c9', depthTest: false }),
+        new THREE.LineBasicMaterial({ color: drawingOperation === 'remove' ? '#bd542f' : '#0878c9', depthTest: false }),
       );
       line.renderOrder = 19;
       areaDraft.add(line);
     }
-    world.forEach((p, i) => areaDraft.add(makeHandle(p.x, p.z, i, i === 0)));
+    const stride = local ? Math.max(1, Math.ceil(world.length / 48)) : 1;
+    world.forEach((p, i) => {
+      if (i % stride === 0 || Math.abs(i - activeVertex) <= 3)
+        areaDraft.add(makeHandle(p.x, p.z, i, local ? i === activeVertex : i === 0));
+    });
+    updateHandleScreenSizes(areaDraft);
   }
   function updateDraftCallback() {
     callbacks.onAreaDraftChange?.(draftPoints.map((p) => ({ ...p })));
@@ -683,7 +820,8 @@ export function createViewer(host, callbacks = {}) {
   }
   function rebuild(s, parts) {
     const nextBounds = areaGeometry(s),
-      changed = !bounds || JSON.stringify(bounds.points) !== JSON.stringify(nextBounds.points);
+      changed = !bounds || JSON.stringify(bounds.regions) !== JSON.stringify(nextBounds.regions),
+      firstBuild = !bounds;
     state = s;
     bounds = nextBounds;
     clear(group);
@@ -701,6 +839,7 @@ export function createViewer(host, callbacks = {}) {
       pavementBaseY,
       { topOnly: true },
     );
+    // Same cut geometry as the AR export (surfaceLayout.js).
     const cuts = pavementCutSurfaces(parts, s);
     drawPolygons(cuts, t.thickness, pavementBaseY, { topOnly: true });
     const curb = CURBS[s.curb],
@@ -740,10 +879,18 @@ export function createViewer(host, callbacks = {}) {
       group.add(roof);
     }
     const centredPoints = bounds.points.map((p) => ({
-      x: p.x - bounds.width / 2,
-      z: p.z - bounds.depth / 2,
+      x: p.x - bounds.centerX,
+      z: p.z - bounds.centerZ,
     }));
-    if (s.shape === 'rectangle') {
+    if (s.shape === 'regions') {
+      // Two overall dimensions instead of hundreds of tiny contour labels.
+      if (bounds.area > 0) {
+        const x0 = bounds.minX - bounds.centerX, x1 = bounds.maxX - bounds.centerX,
+          z0 = bounds.minZ - bounds.centerZ, z1 = bounds.maxZ - bounds.centerZ;
+        dimensionLine({ x: x0, z: z0 }, { x: x1, z: z0 }, `${bounds.width.toFixed(2)} m`, { x: 0, z: -1 });
+        dimensionLine({ x: x1, z: z0 }, { x: x1, z: z1 }, `${bounds.depth.toFixed(2)} m`, { x: 1, z: 0 });
+      }
+    } else if (s.shape === 'rectangle') {
       edgeDimension(centredPoints, bounds.lengths, 0, `${s.length.toFixed(2)} m`);
       edgeDimension(centredPoints, bounds.lengths, 1, `${s.width.toFixed(2)} m`);
     } else
@@ -757,7 +904,7 @@ export function createViewer(host, callbacks = {}) {
           `${a}${b} · ${bounds.lengths[i].toFixed(2)} m`,
         );
       });
-    if (drawingArea) setPreviousAreaVisible(false);
+    if (drawingArea) setPreviousAreaVisible(drawingOperation !== 'replace');
     else dimensions.visible = !photoSetup && showDimensions;
     drawAreaHandles();
     if (photoMode) {
@@ -765,7 +912,7 @@ export function createViewer(host, callbacks = {}) {
       applyPhotoCalibrationPose();
     } else if (changed && !drawingArea) {
       if (preserveCameraOnNextRebuild) preserveCameraOnNextRebuild = false;
-      else fit();
+      else if (firstBuild || s.shape !== 'regions') fit();
     } else if (preserveCameraOnNextRebuild && !drawingArea) {
       preserveCameraOnNextRebuild = false;
     }
@@ -781,10 +928,15 @@ export function createViewer(host, callbacks = {}) {
       h = host.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
+    syncPhotoBackdropRect();
     camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    if (modelPhotoCalibration) setModelProjection({ pose: photoMode });
+    else camera.updateProjectionMatrix();
     if (photoMode && photoCalibrationCorners) applyPhotoCalibrationPose();
-    else if (!photoSetup) fit();
+    // Once a photo-calibrated scene exists, resizing the viewer (for example when
+    // switching modes or opening/closing UI) must not call fit(), because that would
+    // replace the calibrated free-camera pose with the generic fitted overview.
+    else if (!photoSetup && !photoCalibrationCorners && !modelPhotoCalibration) fit();
     callbacks.onPhotoRectChange?.(photoRect());
   };
   new ResizeObserver(resize).observe(host);
@@ -822,6 +974,14 @@ export function createViewer(host, callbacks = {}) {
     controls.enabled = !photoMode && !photoSetup;
     renderer.domElement.style.cursor = drawingArea ? 'crosshair' : '';
   }
+  const releasePhotoPosePreservation = () => {
+    preservePhotoPoseUntilInteraction = false;
+  };
+  // Boundary drags must not release the calibrated free-camera pose.
+  renderer.domElement.addEventListener('wheel', releasePhotoPosePreservation, {
+    capture: true,
+    passive: true,
+  });
   renderer.domElement.addEventListener(
     'pointerdown',
     (event) => {
@@ -852,7 +1012,9 @@ export function createViewer(host, callbacks = {}) {
             x: event.clientX,
             y: event.clientY,
             moved: false,
+            original: { ...draftPoints[handleHit.object.userData.areaPoint] },
           };
+          preservePhotoPoseUntilInteraction = true;
           drawPointer = null;
           controls.enabled = false;
           renderer.domElement.setPointerCapture(event.pointerId);
@@ -873,15 +1035,23 @@ export function createViewer(host, callbacks = {}) {
       const hit = planeHit(event);
       if (!hit) return;
 
-      if (state?.shape === 'custom' && areaHandles.children.length) {
+      if (['custom', 'regions'].includes(state?.shape) && activeBoundary() && areaHandles.children.length) {
         ray(event);
-        const handleHit = raycaster.intersectObjects(areaHandles.children, true)[0];
+        const handleHit = raycaster.intersectObjects(areaHandles.children, true)
+          .find((hit) => Number.isInteger(hit.object.userData.areaPoint));
         if (handleHit) {
           areaDrag = {
             id: event.pointerId,
             index: handleHit.object.userData.areaPoint,
-            points: bounds.points.map((p) => ({ ...p })),
+            key: activeBoundaryKey,
+            points: activeBoundary().points.map((p) => ({ ...p })),
+            startX: event.clientX, startY: event.clientY, moved: false,
+            hitX: hit.x, hitZ: hit.z,
           };
+          preservePhotoPoseUntilInteraction = true;
+          areaDrag.original = { ...areaDrag.points[areaDrag.index] };
+          activeVertex = areaDrag.index;
+          callbacks.onAreaVertexSelect?.(activeVertex);
           controls.enabled = false;
           areaHandles.visible = false;
           renderDraft(areaDrag.points, { local: true });
@@ -893,15 +1063,14 @@ export function createViewer(host, callbacks = {}) {
         }
       }
 
-      if (!state?.houseEnabled) return;
+      if (!state?.houseEnabled) { releasePhotoPosePreservation(); return; }
       ray(event);
       if (
         !raycaster.intersectObjects(
           group.children.filter((o) => o.userData.house),
           false,
         ).length
-      )
-        return;
+      ) { releasePhotoPosePreservation(); return; }
       houseDrag = {
         id: event.pointerId,
         x: hit.x,
@@ -937,14 +1106,17 @@ export function createViewer(host, callbacks = {}) {
       }
       if (drawingArea && drawPointer && event.pointerId === drawPointer.id) {
         if (Math.hypot(event.clientX - drawPointer.x, event.clientY - drawPointer.y) > 5)
-          drawPointer.moved = true;
+          { drawPointer.moved = true; releasePhotoPosePreservation(); }
       }
       if (areaDrag && event.pointerId === areaDrag.id) {
         const hit = planeHit(event);
         if (!hit) return;
+        if (Math.hypot(event.clientX - areaDrag.startX, event.clientY - areaDrag.startY) > 3)
+          areaDrag.moved = true;
+        if (!areaDrag.moved) return;
         areaDrag.points[areaDrag.index] = {
-          x: snap(hit.x + bounds.width / 2),
-          z: snap(hit.z + bounds.depth / 2),
+          x: snap(areaDrag.original.x + hit.x - areaDrag.hitX),
+          z: snap(areaDrag.original.z + hit.z - areaDrag.hitZ),
         };
         renderDraft(areaDrag.points, { local: true });
         event.stopImmediatePropagation();
@@ -966,7 +1138,11 @@ export function createViewer(host, callbacks = {}) {
   function endDrag(event) {
     if (draftPointDrag && event.pointerId === draftPointDrag.id) {
       const finishedByFirstPoint =
-        draftPointDrag.index === 0 && !draftPointDrag.moved && draftPoints.length >= 3;
+        event.type === 'pointerup' && draftPointDrag.index === 0 && !draftPointDrag.moved && draftPoints.length >= 3;
+      if (event.type !== 'pointerup') {
+        draftPoints[draftPointDrag.index] = draftPointDrag.original;
+        renderDraft(draftPoints); updateDraftCallback();
+      }
       draftPointDrag = null;
       restorePointerInteraction();
       if (renderer.domElement.hasPointerCapture(event.pointerId))
@@ -979,20 +1155,14 @@ export function createViewer(host, callbacks = {}) {
     if (drawingArea && drawPointer && event.pointerId === drawPointer.id) {
       const candidate = drawPointer;
       drawPointer = null;
-      if (!candidate.moved) {
+      if (event.type === 'pointerup' && !candidate.moved) {
         const hit = planeHit(event);
         if (hit) {
-          if (
-            draftPoints.length >= 3 &&
-            Math.hypot(hit.x - draftPoints[0].x, hit.z - draftPoints[0].z) <=
-              handleSize() * 1.8
-          ) {
-            callbacks.onAreaFinishRequested?.();
-          } else if (draftPoints.length < 64) {
+          if (draftPoints.length < REGION_LIMITS.vertices) {
             const point = { x: snap(hit.x), z: snap(hit.z) };
             if (
               !draftPoints.length ||
-              Math.hypot(point.x - draftPoints.at(-1).x, point.z - draftPoints.at(-1).z) >= 0.1
+              Math.hypot(point.x - draftPoints.at(-1).x, point.z - draftPoints.at(-1).z) >= 0.005
             ) {
               draftPoints.push(point);
               renderDraft(draftPoints);
@@ -1004,12 +1174,14 @@ export function createViewer(host, callbacks = {}) {
       return;
     }
     if (areaDrag && event.pointerId === areaDrag.id) {
-      const points = areaDrag.points.map((p) => ({ ...p }));
+      const points = areaDrag.points.map((p) => ({ ...p })), key = areaDrag.key,
+        commit = event.type === 'pointerup' && areaDrag.moved;
       areaDrag = null;
       clearOverlay(areaDraft);
       areaHandles.visible = true;
       preserveCameraOnNextRebuild = true;
-      callbacks.onAreaPointMove?.(points);
+      if (commit) callbacks.onAreaPointMove?.(points, key);
+      else drawAreaHandles();
       restorePointerInteraction();
       if (renderer.domElement.hasPointerCapture(event.pointerId))
         renderer.domElement.releasePointerCapture(event.pointerId);
@@ -1032,7 +1204,7 @@ export function createViewer(host, callbacks = {}) {
     if (drawingArea) event.preventDefault();
   });
   renderer.setAnimationLoop(() => {
-    if (controls.enabled) controls.update();
+    if (controls.enabled && !preservePhotoPoseUntilInteraction) controls.update();
     updateHandleScreenSizes(areaHandles);
     updateHandleScreenSizes(areaDraft);
     renderer.render(scene, camera);
@@ -1042,7 +1214,8 @@ export function createViewer(host, callbacks = {}) {
       releaseBase();
       rebuild(s, p);
     },
-    startAreaDrawing() {
+    startAreaDrawing({ operation = 'replace' } = {}) {
+      drawingOperation = operation;
       drawingArea = true;
       draftPoints = [];
       drawPointer = null;
@@ -1050,7 +1223,7 @@ export function createViewer(host, callbacks = {}) {
       grid.visible = !photoMode;
       areaHandles.visible = false;
       clearOverlay(areaDraft);
-      setPreviousAreaVisible(false);
+      setPreviousAreaVisible(drawingOperation !== 'replace');
       controls.enabled = !photoMode && !photoSetup;
       renderer.domElement.style.cursor = 'crosshair';
       updateDraftCallback();
@@ -1076,9 +1249,37 @@ export function createViewer(host, callbacks = {}) {
       restorePointerInteraction();
       updateDraftCallback();
     },
+    setAreaSelection(key, vertex = 0) {
+      if (key === activeBoundaryKey && vertex === activeVertex) return;
+      activeBoundaryKey = key || ''; activeVertex = vertex;
+      drawAreaHandles();
+    },
+    preserveCamera() { preserveCameraOnNextRebuild = true; },
     loadSitePhoto,
+    clearSitePhoto,
+    fitProject() { top = false; fit(); },
     getPhotoRect: photoRect,
+    setDebugPreviewVisible(visible) {
+      debugPreviewVisible = visible !== false;
+      group.visible = !photoSetup && debugPreviewVisible;
+    },
+    getDebugView() {
+      return { photoMode, hasCalibration: Boolean(modelPhotoCalibration || photoCalibrationCorners && photoCalibration),
+        width: host.clientWidth, height: host.clientHeight, rect: photoRect(), groundY: GROUND_Y,
+        origin: { x: bounds?.centerX || 0, z: bounds?.centerZ || 0 },
+        view: camera.matrixWorldInverse.toArray(), projection: camera.projectionMatrix.toArray() };
+    },
     applyPhotoCalibration,
+    prepareReferenceRecalibration,
+    beginReferenceCalibration() {
+      photoMode = true;
+      setPhotoSetup(true);
+      updatePhotoPresentation();
+    },
+    applyModelCalibration,
+    capturePhotoState,
+    restorePhotoState,
+    getModelCalibration: () => modelPhotoCalibration ? structuredClone(modelPhotoCalibration) : null,
     shiftPhotoWorld,
     completePhotoSetup,
     setPhotoView,
@@ -1086,10 +1287,11 @@ export function createViewer(host, callbacks = {}) {
       return photoMode;
     },
     hasPhotoCalibration() {
-      return Boolean(photoCalibrationCorners && photoCalibration);
+      return Boolean(modelPhotoCalibration || photoCalibrationCorners && photoCalibration);
     },
     cycleCamera() {
       if (photoMode) setPhotoView(false);
+      preservePhotoPoseUntilInteraction = false;
       top = !top;
       fit();
       return top;

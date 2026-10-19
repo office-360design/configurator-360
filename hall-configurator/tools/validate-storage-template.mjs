@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { state, deriveHallMetrics } from '../js/state.js?v=hall-production-1';
-import { HALL_TEMPLATES, STORAGE_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=hall-production-1';
-import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=hall-production-1';
+import { state, deriveHallMetrics } from '../js/state.js?v=site-analytics-1';
+import { HALL_TEMPLATES, STORAGE_TEMPLATE_ID, createHallTemplate } from '../js/templates.js?v=site-analytics-1';
+import { normalizeOpening, normalizeOpenings, validateOpenings, openingLabel } from '../js/openings.js?v=site-analytics-1';
 import { LOGISTICS_DEFAULTS, normalizeLogistics, loadingLayout, storageRackLayout, loadingSceneryExclusions } from '../js/logistics.js?v=hall-production-1';
-import { getHallMessages } from '../js/i18n.js?v=hall-production-1';
-import { estimateHallPrice } from '../js/pricing.js?v=hall-production-1';
+import { getHallMessages } from '../js/i18n.js?v=site-analytics-1';
+import { estimateHallPrice } from '../js/pricing.js?v=site-analytics-1';
 const original=structuredClone(state);
 const t=createHallTemplate(STORAGE_TEMPLATE_ID,state), independent=createHallTemplate(STORAGE_TEMPLATE_ID,state);
 assert.deepEqual(state,original);assert.equal(HALL_TEMPLATES.length,4);
@@ -28,7 +28,7 @@ for(const template of HALL_TEMPLATES){const next=createHallTemplate(template.id,
  if(![STORAGE_TEMPLATE_ID, 'production-flow'].includes(template.id)) for(const key of Object.keys(LOGISTICS_DEFAULTS)) assert.equal(next[key],LOGISTICS_DEFAULTS[key],`${key} leaked into ${template.id}`);
  assert.equal(validateOpenings(next,'en-US').valid,true);
 }
-for(const locale of ['en-US','ro-RO','de-DE']){
+for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']){
  const strings=getHallMessages(locale);for(const item of HALL_TEMPLATES) for(const suffix of ['name','intro','previewAlt',...item.features])assert(strings[`${item.copyPrefix}.${suffix}`]);
  const quote=estimateHallPrice(structuredClone(t),null,locale);assert(Number.isFinite(quote.total)&&quote.total>0);
  assert.equal(quote.items.filter(i=>i.label.startsWith(strings['garage.sectional'])).length,6);

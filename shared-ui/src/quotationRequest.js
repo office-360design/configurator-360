@@ -1,9 +1,9 @@
-import { getFirebaseIdToken } from './firebaseAuth.js?v=platform-18';
+import { getFirebaseIdToken } from './firebaseAuth.js?v=locales-6';
 
 const FUNCTIONS_REGION = 'europe-west1';
 const PROJECT_ID = 'configurator-360';
 const QUOTATION_FUNCTION = 'requestCartQuotation';
-const SUPPORTED_LOCALES = new Set(['en-US', 'ro-RO', 'de-DE']);
+const SUPPORTED_LOCALES = new Set(['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']);
 const SUPPORTED_CURRENCIES = new Set(['USD', 'RON', 'EUR']);
 const CONTROLLER_FLAG = '__360ConfiguratorQuotationControllerV4';
 const FEEDBACK_TIMER_FLAG = '__360ConfiguratorQuotationFeedbackTimer';
@@ -30,6 +30,25 @@ const UI_TEXT = Object.freeze({
     empty: 'Ihr Warenkorb ist leer.',
     cooldown: (seconds) => `Bitte warten Sie noch ${seconds} Sekunde${seconds === 1 ? '' : 'n'}, bevor Sie eine weitere Angebotsanfrage senden.`,
   }),
+  'es-ES': Object.freeze({
+    success: 'Solicitud de presupuesto enviada.',
+    failure: 'No se ha podido enviar la solicitud de presupuesto.',
+    empty: 'Su carrito está vacío.',
+    cooldown: (seconds) => `Espere ${seconds} ${seconds === 1 ? 'segundo' : 'segundos'} antes de enviar otra solicitud de presupuesto.`,
+  }),
+  'fr-FR': Object.freeze({
+    success: 'Demande de devis envoyée.',
+    failure: 'La demande de devis n’a pas pu être envoyée.',
+    empty: 'Votre panier est vide.',
+    // French uses the singular for 0 and 1.
+    cooldown: (seconds) => `Veuillez patienter ${seconds} ${seconds < 2 ? 'seconde' : 'secondes'} avant d’envoyer une nouvelle demande de devis.`,
+  }),
+  'it-IT': Object.freeze({
+    success: 'Richiesta di preventivo inviata.',
+    failure: 'Impossibile inviare la richiesta di preventivo.',
+    empty: 'Il carrello è vuoto.',
+    cooldown: (seconds) => `Attenda ${seconds} ${seconds === 1 ? 'secondo' : 'secondi'} prima di inviare un’altra richiesta di preventivo.`,
+  }),
 });
 
 function normalizeLocale(value = '') {
@@ -40,9 +59,8 @@ function normalizeLocale(value = '') {
 function normalizeCurrency(value = '', locale = 'en-US') {
   const currency = String(value || '').trim().toUpperCase();
   if (SUPPORTED_CURRENCIES.has(currency)) return currency;
-  if (locale === 'ro-RO') return 'RON';
-  if (locale === 'de-DE') return 'EUR';
-  return 'USD';
+  const defaults = { 'en-US': 'USD', 'ro-RO': 'RON', 'de-DE': 'EUR', 'es-ES': 'EUR', 'fr-FR': 'EUR', 'it-IT': 'EUR' };
+  return defaults[locale] || 'USD';
 }
 
 function callableUrl(name) {

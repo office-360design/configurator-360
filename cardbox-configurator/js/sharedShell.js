@@ -1,9 +1,10 @@
-import { createCardboxARController } from './ar/controller.js?v=cardbox-ar-1';
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=firebase-ar-7';
+import { createCardboxARController } from './ar/controller.js?v=locales-6';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=localized-slugs-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('cardbox');
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
@@ -35,13 +36,32 @@ const TOOL_LABELS = Object.freeze({
     fold: 'Faltanimation abspielen',
     artwork: 'Grafiken ein- oder ausblenden',
   }),
+  'es-ES': Object.freeze({
+    closures: 'Abrir o cerrar los cierres superior e inferior',
+    lift: 'Elevar o bajar la caja',
+    transparent: 'Activar/desactivar vista transparente de la caja',
+    fold: 'Reproducir animación de plegado',
+    artwork: 'Mostrar u ocultar el diseño gráfico',
+  }),
+  'fr-FR': Object.freeze({
+    closures: 'Ouvrir ou fermer les fermetures supérieure et inférieure',
+    lift: 'Soulever ou abaisser la boîte',
+    transparent: 'Activer/désactiver la vue transparente de la boîte',
+    fold: 'Lancer l\'animation de pliage',
+    artwork: 'Afficher ou masquer le visuel',
+  }),
+  'it-IT': Object.freeze({
+    closures: 'Apri o chiudi le chiusure superiore e inferiore',
+    lift: 'Solleva o abbassa la scatola',
+    transparent: 'Attiva/disattiva la vista trasparente della scatola',
+    fold: 'Riproduci l\'animazione di piegatura',
+    artwork: 'Mostra o nascondi la grafica',
+  }),
 });
 
 function initialToolLocale() {
-  const host = window.location.hostname.toLowerCase();
-  if (host.includes('360configurator.ro')) return 'ro-RO';
-  if (host.includes('360konfigurator.de')) return 'de-DE';
-  return 'en-US';
+  const resolved = getLocaleForHostname(window.location.hostname);
+  return TOOL_LABELS[resolved] ? resolved : 'en-US';
 }
 
 function toolLabels(locale = initialToolLocale()) {

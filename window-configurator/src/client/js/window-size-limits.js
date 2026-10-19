@@ -2,13 +2,13 @@ import { WINDOW_SLIDER_LIMITS } from './window-settings.js';
 import {
     WINDOW_SIZE_CONTROLS,
     applyWindowSliderBounds
-} from '../../../../shared-ui/src/windowSizeSettings.js?v=1';
+} from '../../../../shared-ui/src/windowSizeSettings.js?v=size-limits-1';
 import { getGlazingBeadCode } from './config.js?v=platform-18';
 
 import {
     WINDOW_PROFILE_MANUFACTURING_DATA,
     WINDOW_PROFILE_NON_ALUMINIUM_DATA,
-} from './window-summary.js?v=platform-18';
+} from './window-summary.js?v=locales-6';
 import {
     SASH_WINDOW_TYPE,
     getWindowActualSizeInState,
@@ -142,12 +142,62 @@ function currentLocale() {
     );
 }
 
+// One message builder per language, in the shared locale order (en, ro, de, es, fr, it).
+const VIOLATION_MESSAGES = Object.freeze({
+    en: Object.freeze({
+        tooTall: (v) => `Window ${v.number} is too tall: ${v.heightMm} mm. Maximum height is ${v.maxHeightMm} mm. Reduce the height by at least ${v.reductionMm} mm before adding it to the cart.`,
+        tooWide: (v) => `Window ${v.number} is too wide: ${v.widthMm} mm. Maximum width is ${v.maxWidthMm} mm. Reduce the width by at least ${v.reductionMm} mm before adding it to the cart.`,
+        tooWideAndTall: (v) => `Window ${v.number} is too wide and too tall (${v.widthMm} × ${v.heightMm} mm). Maximum size is ${v.maxWidthMm} × ${v.maxHeightMm} mm. Reduce width by at least ${v.widthReductionMm} mm and height by at least ${v.heightReductionMm} mm.`,
+        tooHeavyReduceWidth: (v) => `Window ${v.number} is too heavy: estimated ${v.weight} kg, above the ${v.maxWeight} kg limit. At ${v.heightMm} mm high, the width must be ${v.maximumWidthMm} mm or less. Reduce the width by at least ${v.minimumReductionMm} mm.`,
+        tooHeavyReduceHeight: (v) => `Window ${v.number} is too heavy: estimated ${v.weight} kg, above the ${v.maxWeight} kg limit. At ${v.heightMm} mm high, even the configurator's minimum width is not enough; reduce the height as well.`,
+    }),
+    ro: Object.freeze({
+        tooTall: (v) => `Fereastra ${v.number} este prea înaltă: ${v.heightMm} mm. Înălțimea maximă este ${v.maxHeightMm} mm. Reduceți înălțimea cu cel puțin ${v.reductionMm} mm înainte de a o adăuga în coș.`,
+        tooWide: (v) => `Fereastra ${v.number} este prea lată: ${v.widthMm} mm. Lățimea maximă este ${v.maxWidthMm} mm. Reduceți lățimea cu cel puțin ${v.reductionMm} mm înainte de a o adăuga în coș.`,
+        tooWideAndTall: (v) => `Fereastra ${v.number} este prea lată și prea înaltă (${v.widthMm} × ${v.heightMm} mm). Limita este ${v.maxWidthMm} × ${v.maxHeightMm} mm. Reduceți lățimea cu cel puțin ${v.widthReductionMm} mm și înălțimea cu cel puțin ${v.heightReductionMm} mm.`,
+        tooHeavyReduceWidth: (v) => `Fereastra ${v.number} este prea grea: aproximativ ${v.weight} kg, peste limita de ${v.maxWeight} kg. La înălțimea de ${v.heightMm} mm, lățimea trebuie să fie de maximum ${v.maximumWidthMm} mm. Reduceți lățimea cu cel puțin ${v.minimumReductionMm} mm.`,
+        tooHeavyReduceHeight: (v) => `Fereastra ${v.number} este prea grea: aproximativ ${v.weight} kg, peste limita de ${v.maxWeight} kg. La înălțimea de ${v.heightMm} mm, reducerea doar a lățimii până la minimul configuratorului nu este suficientă; reduceți și înălțimea.`,
+    }),
+    de: Object.freeze({
+        tooTall: (v) => `Fenster ${v.number} ist zu hoch: ${v.heightMm} mm. Die maximale Höhe beträgt ${v.maxHeightMm} mm. Reduzieren Sie die Höhe um mindestens ${v.reductionMm} mm, bevor Sie das Fenster zum Warenkorb hinzufügen.`,
+        tooWide: (v) => `Fenster ${v.number} ist zu breit: ${v.widthMm} mm. Die maximale Breite beträgt ${v.maxWidthMm} mm. Reduzieren Sie die Breite um mindestens ${v.reductionMm} mm, bevor Sie das Fenster zum Warenkorb hinzufügen.`,
+        tooWideAndTall: (v) => `Fenster ${v.number} ist zu breit und zu hoch (${v.widthMm} × ${v.heightMm} mm). Zulässig sind maximal ${v.maxWidthMm} × ${v.maxHeightMm} mm. Reduzieren Sie die Breite um mindestens ${v.widthReductionMm} mm und die Höhe um mindestens ${v.heightReductionMm} mm.`,
+        tooHeavyReduceWidth: (v) => `Fenster ${v.number} ist zu schwer: geschätzt ${v.weight} kg, über dem Grenzwert von ${v.maxWeight} kg. Bei ${v.heightMm} mm Höhe darf die Breite höchstens ${v.maximumWidthMm} mm betragen. Reduzieren Sie die Breite um mindestens ${v.minimumReductionMm} mm.`,
+        tooHeavyReduceHeight: (v) => `Fenster ${v.number} ist zu schwer: geschätzt ${v.weight} kg, über dem Grenzwert von ${v.maxWeight} kg. Bei ${v.heightMm} mm Höhe reicht selbst die minimale Konfiguratorbreite nicht aus; reduzieren Sie auch die Höhe.`,
+    }),
+    es: Object.freeze({
+        tooTall: (v) => `La ventana ${v.number} es demasiado alta: ${v.heightMm} mm. La altura máxima es ${v.maxHeightMm} mm. Reduzca la altura al menos ${v.reductionMm} mm antes de añadirla al carrito.`,
+        tooWide: (v) => `La ventana ${v.number} es demasiado ancha: ${v.widthMm} mm. La anchura máxima es ${v.maxWidthMm} mm. Reduzca la anchura al menos ${v.reductionMm} mm antes de añadirla al carrito.`,
+        tooWideAndTall: (v) => `La ventana ${v.number} es demasiado ancha y demasiado alta (${v.widthMm} × ${v.heightMm} mm). El tamaño máximo es ${v.maxWidthMm} × ${v.maxHeightMm} mm. Reduzca la anchura al menos ${v.widthReductionMm} mm y la altura al menos ${v.heightReductionMm} mm.`,
+        tooHeavyReduceWidth: (v) => `La ventana ${v.number} es demasiado pesada: unos ${v.weight} kg estimados, por encima del límite de ${v.maxWeight} kg. Con ${v.heightMm} mm de altura, la anchura debe ser de ${v.maximumWidthMm} mm como máximo. Reduzca la anchura al menos ${v.minimumReductionMm} mm.`,
+        tooHeavyReduceHeight: (v) => `La ventana ${v.number} es demasiado pesada: unos ${v.weight} kg estimados, por encima del límite de ${v.maxWeight} kg. Con ${v.heightMm} mm de altura, ni siquiera la anchura mínima del configurador es suficiente; reduzca también la altura.`,
+    }),
+    fr: Object.freeze({
+        tooTall: (v) => `La fenêtre ${v.number} est trop haute : ${v.heightMm} mm. La hauteur maximale est de ${v.maxHeightMm} mm. Réduisez la hauteur d'au moins ${v.reductionMm} mm avant de l'ajouter au panier.`,
+        tooWide: (v) => `La fenêtre ${v.number} est trop large : ${v.widthMm} mm. La largeur maximale est de ${v.maxWidthMm} mm. Réduisez la largeur d'au moins ${v.reductionMm} mm avant de l'ajouter au panier.`,
+        tooWideAndTall: (v) => `La fenêtre ${v.number} est trop large et trop haute (${v.widthMm} × ${v.heightMm} mm). La taille maximale est de ${v.maxWidthMm} × ${v.maxHeightMm} mm. Réduisez la largeur d'au moins ${v.widthReductionMm} mm et la hauteur d'au moins ${v.heightReductionMm} mm.`,
+        tooHeavyReduceWidth: (v) => `La fenêtre ${v.number} est trop lourde : environ ${v.weight} kg estimés, au-delà de la limite de ${v.maxWeight} kg. Pour une hauteur de ${v.heightMm} mm, la largeur doit être de ${v.maximumWidthMm} mm au maximum. Réduisez la largeur d'au moins ${v.minimumReductionMm} mm.`,
+        tooHeavyReduceHeight: (v) => `La fenêtre ${v.number} est trop lourde : environ ${v.weight} kg estimés, au-delà de la limite de ${v.maxWeight} kg. Pour une hauteur de ${v.heightMm} mm, même la largeur minimale du configurateur ne suffit pas ; réduisez également la hauteur.`,
+    }),
+    it: Object.freeze({
+        tooTall: (v) => `La finestra ${v.number} è troppo alta: ${v.heightMm} mm. L'altezza massima è ${v.maxHeightMm} mm. Riduca l'altezza di almeno ${v.reductionMm} mm prima di aggiungerla al carrello.`,
+        tooWide: (v) => `La finestra ${v.number} è troppo larga: ${v.widthMm} mm. La larghezza massima è ${v.maxWidthMm} mm. Riduca la larghezza di almeno ${v.reductionMm} mm prima di aggiungerla al carrello.`,
+        tooWideAndTall: (v) => `La finestra ${v.number} è troppo larga e troppo alta (${v.widthMm} × ${v.heightMm} mm). La dimensione massima è ${v.maxWidthMm} × ${v.maxHeightMm} mm. Riduca la larghezza di almeno ${v.widthReductionMm} mm e l'altezza di almeno ${v.heightReductionMm} mm.`,
+        tooHeavyReduceWidth: (v) => `La finestra ${v.number} è troppo pesante: circa ${v.weight} kg stimati, oltre il limite di ${v.maxWeight} kg. Con un'altezza di ${v.heightMm} mm, la larghezza deve essere al massimo ${v.maximumWidthMm} mm. Riduca la larghezza di almeno ${v.minimumReductionMm} mm.`,
+        tooHeavyReduceHeight: (v) => `La finestra ${v.number} è troppo pesante: circa ${v.weight} kg stimati, oltre il limite di ${v.maxWeight} kg. Con un'altezza di ${v.heightMm} mm, nemmeno la larghezza minima del configuratore è sufficiente; riduca anche l'altezza.`,
+    }),
+});
+
+function violationMessagesFor(locale) {
+    const language = String(locale || '').toLowerCase().split(/[-_]/)[0];
+    return VIOLATION_MESSAGES[language] || VIOLATION_MESSAGES.en;
+}
+
 function localizedViolationMessage(violation) {
-    const locale = currentLocale();
+    const messages = violationMessagesFor(currentLocale());
     const number = violation.windowNumber;
     const widthMm = Math.round(violation.widthM * 1000);
     const heightMm = Math.round(violation.heightM * 1000);
-    const language = locale.startsWith('ro') ? 'ro' : (locale.startsWith('de') ? 'de' : 'en');
 
     if (violation.type === 'dimension') {
         const tooWide = Boolean(violation.tooWide);
@@ -157,60 +207,35 @@ function localizedViolationMessage(violation) {
 
         if (tooTall && !tooWide) {
             const reductionMm = Math.max(1, heightMm - maxHeightMm);
-            if (language === 'ro') {
-                return `Fereastra ${number} este prea înaltă: ${heightMm} mm. Înălțimea maximă este ${maxHeightMm} mm. Reduceți înălțimea cu cel puțin ${reductionMm} mm înainte de a o adăuga în coș.`;
-            }
-            if (language === 'de') {
-                return `Fenster ${number} ist zu hoch: ${heightMm} mm. Die maximale Höhe beträgt ${maxHeightMm} mm. Reduzieren Sie die Höhe um mindestens ${reductionMm} mm, bevor Sie das Fenster zum Warenkorb hinzufügen.`;
-            }
-            return `Window ${number} is too tall: ${heightMm} mm. Maximum height is ${maxHeightMm} mm. Reduce the height by at least ${reductionMm} mm before adding it to the cart.`;
+            return messages.tooTall({ number, heightMm, maxHeightMm, reductionMm });
         }
 
         if (tooWide && !tooTall) {
             const reductionMm = Math.max(1, widthMm - maxWidthMm);
-            if (language === 'ro') {
-                return `Fereastra ${number} este prea lată: ${widthMm} mm. Lățimea maximă este ${maxWidthMm} mm. Reduceți lățimea cu cel puțin ${reductionMm} mm înainte de a o adăuga în coș.`;
-            }
-            if (language === 'de') {
-                return `Fenster ${number} ist zu breit: ${widthMm} mm. Die maximale Breite beträgt ${maxWidthMm} mm. Reduzieren Sie die Breite um mindestens ${reductionMm} mm, bevor Sie das Fenster zum Warenkorb hinzufügen.`;
-            }
-            return `Window ${number} is too wide: ${widthMm} mm. Maximum width is ${maxWidthMm} mm. Reduce the width by at least ${reductionMm} mm before adding it to the cart.`;
+            return messages.tooWide({ number, widthMm, maxWidthMm, reductionMm });
         }
 
         const widthReductionMm = Math.max(1, widthMm - maxWidthMm);
         const heightReductionMm = Math.max(1, heightMm - maxHeightMm);
-        if (language === 'ro') {
-            return `Fereastra ${number} este prea lată și prea înaltă (${widthMm} × ${heightMm} mm). Limita este ${maxWidthMm} × ${maxHeightMm} mm. Reduceți lățimea cu cel puțin ${widthReductionMm} mm și înălțimea cu cel puțin ${heightReductionMm} mm.`;
-        }
-        if (language === 'de') {
-            return `Fenster ${number} ist zu breit und zu hoch (${widthMm} × ${heightMm} mm). Zulässig sind maximal ${maxWidthMm} × ${maxHeightMm} mm. Reduzieren Sie die Breite um mindestens ${widthReductionMm} mm und die Höhe um mindestens ${heightReductionMm} mm.`;
-        }
-        return `Window ${number} is too wide and too tall (${widthMm} × ${heightMm} mm). Maximum size is ${maxWidthMm} × ${maxHeightMm} mm. Reduce width by at least ${widthReductionMm} mm and height by at least ${heightReductionMm} mm.`;
+        return messages.tooWideAndTall({
+            number, widthMm, heightMm, maxWidthMm, maxHeightMm, widthReductionMm, heightReductionMm,
+        });
     }
 
-    const formattedWeight = Number(violation.weightKg).toFixed(1);
+    const weight = Number(violation.weightKg).toFixed(1);
+    const maxWeight = MAX_OPENING_SASH_WEIGHT_KG;
     const maximumWidthMm = Number.isFinite(violation.maximumWidthM)
         ? Math.floor(violation.maximumWidthM * 1000 + 1e-9)
         : null;
 
     if (maximumWidthMm !== null) {
         const minimumReductionMm = Math.max(1, widthMm - maximumWidthMm);
-        if (language === 'ro') {
-            return `Fereastra ${number} este prea grea: aproximativ ${formattedWeight} kg, peste limita de ${MAX_OPENING_SASH_WEIGHT_KG} kg. La înălțimea de ${heightMm} mm, lățimea trebuie să fie de maximum ${maximumWidthMm} mm. Reduceți lățimea cu cel puțin ${minimumReductionMm} mm.`;
-        }
-        if (language === 'de') {
-            return `Fenster ${number} ist zu schwer: geschätzt ${formattedWeight} kg, über dem Grenzwert von ${MAX_OPENING_SASH_WEIGHT_KG} kg. Bei ${heightMm} mm Höhe darf die Breite höchstens ${maximumWidthMm} mm betragen. Reduzieren Sie die Breite um mindestens ${minimumReductionMm} mm.`;
-        }
-        return `Window ${number} is too heavy: estimated ${formattedWeight} kg, above the ${MAX_OPENING_SASH_WEIGHT_KG} kg limit. At ${heightMm} mm high, the width must be ${maximumWidthMm} mm or less. Reduce the width by at least ${minimumReductionMm} mm.`;
+        return messages.tooHeavyReduceWidth({
+            number, weight, maxWeight, heightMm, maximumWidthMm, minimumReductionMm,
+        });
     }
 
-    if (language === 'ro') {
-        return `Fereastra ${number} este prea grea: aproximativ ${formattedWeight} kg, peste limita de ${MAX_OPENING_SASH_WEIGHT_KG} kg. La înălțimea de ${heightMm} mm, reducerea doar a lățimii până la minimul configuratorului nu este suficientă; reduceți și înălțimea.`;
-    }
-    if (language === 'de') {
-        return `Fenster ${number} ist zu schwer: geschätzt ${formattedWeight} kg, über dem Grenzwert von ${MAX_OPENING_SASH_WEIGHT_KG} kg. Bei ${heightMm} mm Höhe reicht selbst die minimale Konfiguratorbreite nicht aus; reduzieren Sie auch die Höhe.`;
-    }
-    return `Window ${number} is too heavy: estimated ${formattedWeight} kg, above the ${MAX_OPENING_SASH_WEIGHT_KG} kg limit. At ${heightMm} mm high, even the configurator's minimum width is not enough; reduce the height as well.`;
+    return messages.tooHeavyReduceHeight({ number, weight, maxWeight, heightMm });
 }
 
 function resolveLeafProfiles(snapshot = {}) {

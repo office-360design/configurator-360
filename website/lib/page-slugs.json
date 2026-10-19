@@ -1,0 +1,22 @@
+{
+  "_note": "Public URL slugs of the presentation pages on each country domain. English keeps the route names; the other domains use their own language. Used by lib/i18n.ts (links, canonical, hreflang), the static export and sitemaps, and the nginx 301 redirects from the old English slugs (checked by scripts/validation/website-slugs.test.mjs). Changing a slug needs a redirect from the previous one.",
+  "pages": {
+    "about":       { "en": "about",         "ro": "despre-noi",       "de": "ueber-uns",       "es": "sobre-nosotros",   "fr": "a-propos",          "it": "chi-siamo" },
+    "contact":     { "en": "contact",       "ro": "contact",          "de": "kontakt",         "es": "contacto",         "fr": "contact",           "it": "contatti" },
+    "pricing":     { "en": "pricing",       "ro": "preturi",          "de": "preise",          "es": "precios",          "fr": "tarifs",            "it": "prezzi" },
+    "book-a-demo": { "en": "book-a-demo",   "ro": "programeaza-demo", "de": "demo-buchen",     "es": "reservar-demo",    "fr": "reserver-demo",     "it": "prenota-demo" },
+    "configurators": { "en": "configurators", "ro": "configuratoare", "de": "konfiguratoren",  "es": "configuradores",   "fr": "configurateurs",    "it": "configuratori" }
+  },
+  "configurators": {
+    "window":    { "en": "window",    "ro": "ferestre",     "de": "fenster",       "es": "ventanas",      "fr": "fenetres",          "it": "finestre" },
+    "hall":      { "en": "hall",      "ro": "hale",         "de": "hallen",        "es": "naves",         "fr": "hangars",           "it": "capannoni" },
+    "fence":     { "en": "fence",     "ro": "garduri",      "de": "zaeune",        "es": "vallas",        "fr": "clotures",          "it": "recinzioni" },
+    "tiles":     { "en": "tiles",     "ro": "pavaje",       "de": "pflaster",      "es": "adoquines",     "fr": "paves",             "it": "pavimentazioni" },
+    "pergola":   { "en": "pergola",   "ro": "pergole",      "de": "pergolen",      "es": "pergolas",      "fr": "pergolas",          "it": "pergole" },
+    "roof":      { "en": "roof",      "ro": "acoperisuri",  "de": "daecher",       "es": "tejados",       "fr": "toitures",          "it": "tetti" },
+    "solar":     { "en": "solar",     "ro": "fotovoltaice", "de": "photovoltaik",  "es": "solar",         "fr": "solaire",           "it": "fotovoltaico" },
+    "chair":     { "en": "chair",     "ro": "scaune",       "de": "stuehle",       "es": "sillas",        "fr": "chaises",           "it": "sedie" },
+    "cardbox":   { "en": "cardbox",   "ro": "cutii-carton", "de": "kartons",       "es": "cajas-carton",  "fr": "cartons",           "it": "scatole" },
+    "bookshelf": { "en": "bookshelf", "ro": "biblioteci",   "de": "buecherregale", "es": "estanterias",   "fr": "bibliotheques",     "it": "librerie" }
+  }
+}

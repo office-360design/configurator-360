@@ -1,16 +1,19 @@
-# Tenant aliases on .com, .ro and .de
+# Tenant aliases on .com, .ro, .de, .es, .fr and .it
 
-One tenant slug has three generated addresses:
+One tenant slug has six generated addresses, in the shared language order:
 
-- `acme.360configurator.com`
-- `acme.360configurator.ro`
-- `acme.360konfigurator.de`
+- `acme.360configurator.com` (en-US)
+- `acme.360configurator.ro` (ro-RO)
+- `acme.360konfigurator.de` (de-DE)
+- `acme.360configurador.es` (es-ES)
+- `acme.360configurateur.fr` (fr-FR)
+- `acme.360configuratore.it` (it-IT)
 
 `tenants/acme.domain` remains `acme.360configurator.com`, the canonical identity.
 `domains` and `firebaseAuthDomains` describe the generated aliases; they are not
 customer-editable host allowlists. Legacy documents missing these arrays still
 resolve by their validated slug and canonical domain. Do not create additional
-`acme-ro` or `acme-de` tenants. An explicitly conflicting canonical domain fails
+`acme-ro`, `acme-de`, `acme-es`, `acme-fr` or `acme-it` tenants. An explicitly conflicting canonical domain fails
 validation rather than being treated as a new alias.
 
 ## Behaviour
@@ -22,7 +25,10 @@ account in the dashboard, as before. Unknown aliases are not public demo traffic
 
 Tenant configurators use the same localized paths as the corresponding public
 site. For example, Solar uses `/solar-configurator/` on `.com`,
-`/configurator-solar/` on `.ro`, and `/solar-konfigurator/` on `.de`.
+`/configurator-solar/` on `.ro`, `/solar-konfigurator/` on `.de`,
+`/configurador-solar/` on `.es`, `/configurateur-solaire/` on `.fr` and
+`/configuratore-fotovoltaico/` on `.it` (full table in
+[LOCALIZED_DOMAINS.md](deployment/LOCALIZED_DOMAINS.md)).
 Launcher links, Change Site Domain and cart-edit links use the shared public
 route catalogue. Tiles and Bookshelf keep their unchanged public paths.
 
@@ -80,7 +86,7 @@ On phone-sized configurator headers, the attribution sits below the tenant logo
 inside the existing header height, keeping the action buttons and panel controls
 in their existing positions. The mark stays readable in dark mode.
 
-The attribution opens the corresponding public .com, .ro or .de home page in a
+The attribution opens the corresponding public .com, .ro, .de, .es, .fr or .it home page in a
 new tab; it does not replace the current configuration or its browser tab.
 A tenant without an uploaded logo shows the company name in the configurator
 header instead of repeating the 360Configurator logo. Public configurators keep
@@ -91,7 +97,9 @@ change is needed: deploy the frontend for this branding update.
 ## Deployment and existing tenants
 
 The wildcard DNS, certificate-map entries and URL-map API routing must already
-cover the three roots. No new Cloud Run service or Firebase app is needed.
+cover all six roots (`.es`, `.fr` and `.it` were added later: add their
+wildcard DNS records and `*.360configurador.es`, `*.360configurateur.fr`,
+`*.360configuratore.it` certificate-map entries before release). No new Cloud Run service or Firebase app is needed.
 Merge/release through the existing process; pushing `tenants` alone does not
 publish production. Deploy the Firebase Functions and Firestore rules, Solar
 backend and frontend/nginx changes from the same revision. The deployment
@@ -110,13 +118,18 @@ bash firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh tier1-t
 bash firebase-share-backend/iam/authorize-existing-tenant-auth-domain.sh --all
 ```
 
+When new country roots are added (as for `.es`, `.fr` and `.it`), run the
+`--all --dry-run` and then the `--all` migration once after deploying the
+functions, so existing tenants get the new aliases authorized and their
+`domains`/`firebaseAuthDomains` metadata backfilled.
+
 No new IAM role is necessary: the runtime uses the existing datastore and
 `tenantAuthDomainManager` permissions. The operator running the migration needs
 Firestore and Firebase Auth config permissions plus quota-project usage access.
 The helper runs using gcloud's active account, with `configurator-360` as the
 explicit project. It never enables another Firebase app or creates tenants.
 
-Provisioning now registers the three exact Auth hostnames in one merge/update,
+Provisioning now registers the six exact Auth hostnames in one merge/update,
 preserving all other authorized domains. Provisioning and migration cooperate
 through `tenantProvisioningSystem/authDomainLock` with an expiring 120-second
 lease, so their project-level read/modify/write operations do not overwrite each
@@ -155,7 +168,7 @@ builders, owner binding, tenant save/cart/analytics scope, shared Solar quotas,
 Auth-domain merge/locking, migration dry runs/versioned writes, and cart/share
 transport. nginx tests use local fixture files and stub upstream DNS; no live
 upstream request is made. Browser smoke runs the actual launcher/dashboard/admin
-pages on all three hostnames with synthetic Firebase responses.
+pages on all six hostnames with synthetic Firebase responses.
 
 After deployment verify with the same account: save on .com and load on .ro;
 change a cart item on .de; use Solar across all aliases; change domains inside a

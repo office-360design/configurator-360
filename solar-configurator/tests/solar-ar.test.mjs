@@ -35,16 +35,16 @@ test('Solar completes the ten explicit AR adapters; unknown products and capabil
  }
 });
 test('Solar phone routes stay on their platform/tenant origin, with locale and selected mode',()=>{
- for (const [origin,path] of [['https://www.360configurator.com','/solar-configurator/'],['https://360configurator.ro','/configurator-solar/'],['https://www.360konfigurator.de','/solar-konfigurator/'],['https://client.360configurator.ro','/solar-configurator/']])
- for(const locale of ['en-US','ro-RO','de-DE'])for(const mode of ['android','ios']) {
+ for (const [origin,path] of [['https://www.360configurator.com','/solar-configurator/'],['https://360configurator.ro','/configurator-solar/'],['https://www.360konfigurator.de','/solar-konfigurator/'],['https://www.360configurador.es','/configurador-solar/'],['https://www.360configurateur.fr','/configurateur-solaire/'],['https://www.360configuratore.it','/configuratore-fotovoltaico/'],['https://client.360configurator.ro','/solar-configurator/']])
+ for(const locale of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT'])for(const mode of ['android','ios']) {
   const u=new URL(arPhoneUrl('A'.repeat(32),mode,locale,origin,'solar'));
   assert.equal(u.origin,origin);assert.equal(u.pathname,path+'ar.html');assert.equal(u.searchParams.get('mode'),mode);assert.equal(u.searchParams.get('lang'),locale);
  }
  for(const f of ['glb','usdz'])assert.match(arModelUrl('A'.repeat(32),f,'solar'),new RegExp(`/solar\\.${f}\\?`));
 });
 test('Solar dialog retains generic progress, short copy and translated readiness errors',()=>{
- for(const l of ['en-US','ro-RO','de-DE']) {
-  const c=AR_COPY.solar[l];assert.deepEqual(Object.keys(c).sort(),Object.keys(AR_COPY.solar['en-US']).sort());
+ for(const l of ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT']) {
+  const c=AR_COPY.solar[l];assert.ok(c,l);assert.deepEqual(Object.keys(c).sort(),Object.keys(AR_COPY.solar['en-US']).sort());
   for(const key of ['building','exporting','uploading','checking'])assert.doesNotMatch(c[key],/firebase|supabase|GLB|USDZ|upload/i);
   assert.equal(c.snapshot,undefined);assert.equal(c.scale,undefined);
   for(const key of ['not-ready','no-panels','roof-incomplete','textures-unavailable'])assert.notEqual(arT('solar',l,key),c.generic);
@@ -127,7 +127,7 @@ test('Entrypoints use shared Firebase dialog, pinned exporters, explicit capabil
  const shell=read('../js/sharedShell.js'),app=read('../js/app.js'),scene=read('../js/scene.js'),html=read('../index.html'),exporter=read('../js/ar/exportSolar.js');
  assert.match(shell,/viewAR: true/);assert.match(shell,/onViewAR\(\) \{ void solarAR.open/);assert.match(shell,/createSolarARController/);
  assert.match(app,/async captureARSnapshot/);assert.match(scene,/waitForSolarTextures\(\(\) => \[this.modelRoot, this.solarRoot\]/);
- assert.match(html,/sharedShell.js\?v=solar-ar-1/);assert.match(html,/app.js\?v=solar-ar-1/);assert.match(html,/three@0\.169\.0/);
+ assert.match(html,/sharedShell.js\?v=site-analytics-1/);assert.match(html,/app\.js\?v=[\w-]+"/);assert.match(html,/three@0\.169\.0/);
  for(const name of ['GLTFExporter','USDZExporter'])assert.match(exporter,new RegExp(`three/addons/exporters/${name}.js`));
  assert.doesNotMatch(exporter,/supabase|scene\.rebuild|fetch\(/i);assert.match(exporter,/quickLookCompatible: true/);
 });
