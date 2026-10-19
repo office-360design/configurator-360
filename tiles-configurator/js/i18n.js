@@ -350,6 +350,7 @@ const it = [
 ];
 const areaCopy = {
   en: {
+    striatedGrey: 'Striated gray',
     interlocking: 'Interlocking bond',
     orange: 'Orange',
     sahara: 'Sahara mix',
@@ -370,6 +371,7 @@ const areaCopy = {
       'These dimensions cross or collapse the outline, or create a degenerate corner. Adjust the sides or angle. Your previous area is kept.',
   },
   ro: {
+    striatedGrey: 'Gri striat',
     interlocking: 'Montaj autoblocant',
     orange: 'Orange',
     sahara: 'Mix Sahara',
@@ -390,6 +392,7 @@ const areaCopy = {
       'Dimensiunile intersectează sau aplatizează conturul, ori creează un colț degenerat. Ajustează laturile sau unghiul. Suprafața anterioară se păstrează.',
   },
   de: {
+    striatedGrey: 'Grau gestreift',
     interlocking: 'Verbundpflaster',
     orange: 'Orange',
     sahara: 'Sahara-Mix',
@@ -410,6 +413,7 @@ const areaCopy = {
       'Diese Maße ergeben einen gekreuzten oder flachen Umriss oder eine entartete Ecke. Seiten oder Winkel anpassen. Die vorherige Fläche bleibt erhalten.',
   },
   es: {
+    striatedGrey: 'Gris veteado',
     interlocking: 'Aparejo entrelazado',
     orange: 'Naranja',
     sahara: 'Mezcla Sahara',
@@ -428,6 +432,7 @@ const areaCopy = {
     invalidArea: 'Estas dimensiones cruzan o colapsan el contorno, o crean una esquina degenerada. Ajuste los lados o el ángulo. Se conserva la superficie anterior.',
   },
   fr: {
+    striatedGrey: 'Gris strié',
     interlocking: 'Pose autobloquante',
     orange: 'Orange',
     sahara: 'Mélange Sahara',
@@ -446,6 +451,7 @@ const areaCopy = {
     invalidArea: 'Ces dimensions croisent ou écrasent le contour, ou créent un angle dégénéré. Ajustez les côtés ou l\'angle. La surface précédente est conservée.',
   },
   it: {
+    striatedGrey: 'Grigio striato',
     interlocking: 'Posa autobloccante',
     orange: 'Arancione',
     sahara: 'Mix Sahara',

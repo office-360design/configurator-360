@@ -219,8 +219,8 @@ export function createPhotoAnalysis({
   }
   return { run, cancel, restore, checkHealth,
     getServiceStatus: () => structuredClone(serviceStatus),
-    getResultInfo: () => retained?.photoId === getPhoto()?.photoId ?
+    getResultInfo: () => retained && retained.photoId === getPhoto()?.photoId ?
       { resultId: retained.resultId, photoId: retained.photoId, targets: [...retained.targets], includeOutsideGroundSupport: retained.includeOutsideGroundSupport } : null,
     getStatus: () => structuredClone(status),
-    getResult: () => retained?.photoId === getPhoto()?.photoId ? structuredClone(retained.payload) : null };
+    getResult: () => retained && retained.photoId === getPhoto()?.photoId ? structuredClone(retained.payload) : null };
 }

@@ -1,5 +1,6 @@
 import { normalize, areaGeometry } from '../model.js';
-import { buildPavementARModel } from './pavementModel.js?v=tiles-ar-1';
+import { buildPavementARModel } from './pavementModel.js?v=tiles-striated-1';
+import { loadStriatedStone } from '../striatedStone.js';
 import { buildProductARScene } from '../../../shared-3d/src/ar/productSnapshot.js?v=ar-completeness-1';
 export const TILES_AR_LIMITS = Object.freeze({ glb: 10 * 1024 * 1024, usdz: 24 * 1024 * 1024 });
 function fail(code) { const e=new Error(code);e.code=code;throw e; }
@@ -26,6 +27,9 @@ export function buildTilesARScene(input, options = {}) {
 export async function createTilesFirebaseARAsset(snapshot,format,onProgress=()=>{}) {
   if (!Object.hasOwn(TILES_AR_LIMITS,format)) fail('invalid-format');
   onProgress('building');await new Promise(resolve=>setTimeout(resolve,30));
+  if (snapshot.color === 'striatedGrey' || snapshot.pattern === 'checker' && snapshot.accent === 'striatedGrey') {
+    try { await loadStriatedStone(); } catch { fail('export-failed'); }
+  }
   const built=buildTilesARScene(snapshot);
   try {
     onProgress('exporting');await new Promise(resolve=>setTimeout(resolve,0));
