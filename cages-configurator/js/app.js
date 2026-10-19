@@ -1,6 +1,6 @@
 import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
-import { CageScene } from './scene.js?v=cages-4';
+import { CageScene } from './scene.js?v=cages-ar-2';
 import { sectionSvg } from './section.js?v=cages-4';
 import {
   DEFAULT, LIM, PRESETS, barsFor, checks, clampState, fmt, markCode, model, sectionLabel, specText,

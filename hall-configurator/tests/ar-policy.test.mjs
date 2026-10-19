@@ -7,7 +7,7 @@ import {AR_COPY} from '../js/ar/i18n.js';
 import {qrMatrix,qrSvg} from '../js/ar/vendor/qr.js';
 test('AR policy: Hall, Window, Pergola, Fence, Pavement, Chair, Cardbox, Bookshelf, Roof and Solar opt-in only',()=>{
   for(const product of ['window','pergola','roof','fence','bookshelf','chair','solar','hall','gas','tiles','cardbox','']){
-    assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar','cages'].includes(product));
+    assert.equal(isConfiguratorAREnabled(product,{viewAR:true}),['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar','cages','curtainwall'].includes(product));
     assert.equal(isConfiguratorAREnabled(product,{viewAR:false}),false);
   }
 });

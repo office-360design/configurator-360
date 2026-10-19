@@ -169,6 +169,7 @@ export class CageScene {
 
     // Bore (pile) or panel (diaphragm wall) outline.
     this.boreGroup = new THREE.Group();
+    this.boreGroup.userData.arExclude = true;
     const bl = L + 0.6;
     let bg;
     if (M.circ) { bg = new THREE.CylinderGeometry(M.boreB / 2 * k, M.boreB / 2 * k, bl, 48, 1, true); bg.rotateZ(Math.PI / 2); }
@@ -270,6 +271,7 @@ export class CageScene {
 
     // Panel outline (wall thickness × cage width).
     this.boreGroup = new THREE.Group();
+    this.boreGroup.userData.arExclude = true;
     const panel = new THREE.BoxGeometry(L + 0.6, M.T * k, M.W * k);
     const pm = new THREE.Mesh(panel, this.mat.bore); pm.position.set(0, yc, 0); this.boreGroup.add(pm);
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(panel, 20), this.mat.boreEdge);

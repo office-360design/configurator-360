@@ -2,7 +2,7 @@ import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standalone
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
-import { createCagesARController } from './ar/controller.js?v=cages-ar-1';
+import { createCagesARController } from './ar/controller.js?v=cages-ar-2';
 
 const tenantContext = await requireTenantConfiguratorAccess('cages');
 const compactViewport = window.matchMedia('(max-width: 760px)');

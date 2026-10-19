@@ -8,9 +8,8 @@ export function captureCagesARSnapshot(root) {
   return captureProductARSnapshot(root, {
     product: 'cages',
     groundY: 0,
-    prepareClone(clone) {
-      clone.traverse(object => { if (object.userData.arExclude) object.removeFromParent(); });
-    },
+    // The shared snapshot traversal skips arExclude subtrees. Removing children
+    // inside Object3D.traverse changes its child list and crashes the traversal.
   });
 }
 
