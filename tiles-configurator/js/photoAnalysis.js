@@ -1,4 +1,4 @@
-import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js?v=tiles-area-1';
+import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js?v=tiles-request-analysis-1';
 import { prepareWorkingPhoto } from './photoPreparation.js';
 
 const abortError = () => new DOMException('Analysis cancelled.', 'AbortError');
@@ -49,12 +49,12 @@ export function createPhotoAnalysis({
       canRestore: !!(retained?.payload.geometry && retained.payload.segmentation && retained.photoId === getPhoto()?.photoId) };
     onStatus(structuredClone(status));
   }
-  async function request(path, options = {}, parentSignal) {
+  async function request(path, options = {}, parentSignal, timeoutMs = config.requestTimeoutMs ?? 45000) {
     const controller = new AbortController();
     const abort = () => controller.abort();
     if (parentSignal?.aborted) throw abortError();
     parentSignal?.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(() => controller.abort(), config.requestTimeoutMs ?? 45000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetchImpl(apiBase + path, {
         ...options, signal: controller.signal, cache: 'no-store', credentials: 'omit',
@@ -64,7 +64,7 @@ export function createPhotoAnalysis({
       if (text.length > 32 * 1024 * 1024) throw failure('responseTooLarge', 'The model response exceeds the import budget.');
       let body;
       try { body = JSON.parse(text); }
-      catch { throw failure('serviceUnavailable', 'The analysis URL did not return JSON. Start the Python service and check its API URL/proxy.'); }
+      catch { throw failure('serviceUnavailable', 'The analysis URL did not return JSON. Check its API URL, proxy and access settings.'); }
       if (!response.ok) {
         const detail = typeof body?.detail === 'string' ? body.detail : `Analysis service returned HTTP ${response.status}.`;
         throw failure(response.status === 409 || response.status === 410 ? 'superseded' :
@@ -74,7 +74,7 @@ export function createPhotoAnalysis({
     } catch (error) {
       if (parentSignal?.aborted) throw abortError();
       if (controller.signal.aborted) throw failure('requestTimeout', 'The analysis service did not respond in time. Retry or continue manually.');
-      if (error instanceof TypeError) throw failure('connectionFailed', `Cannot reach the analysis service at ${apiBase}. Start the step-3 Python service and check the API address and allowed website origin.`);
+      if (error instanceof TypeError) throw failure('connectionFailed', `Cannot reach the analysis service at ${apiBase}. Check service availability, the API address and the allowed website origin.`);
       throw error;
     } finally {
       clearTimeout(timer); parentSignal?.removeEventListener('abort', abort);
@@ -86,10 +86,10 @@ export function createPhotoAnalysis({
     if (!signal) onStatus(structuredClone(status));
     try {
       const body = await request('/health', {}, signal);
-      if (body.service !== 'paving-analysis' || body.job_api_version !== 1)
-        throw failure('serviceVersion', 'This service does not support the tiles job API. Start the step-3 segmentation service.');
+      if (body.service !== 'paving-analysis' || body.analysis_api_version !== 1)
+        throw failure('serviceVersion', 'Update the analysis service: this configurator requires request-bound analysis API version 1.');
       if (ticket === healthSequence) serviceStatus = { state: 'reachable', checkedAt: now(),
-        service: body.service, apiVersion: body.api_version, jobApiVersion: body.job_api_version,
+        service: body.service, apiVersion: body.api_version, analysisApiVersion: body.analysis_api_version, jobApiVersion: body.job_api_version,
         busy: body.busy === true, modelsLoaded: body.models_loaded || {}, limits: body.limits || {} };
       return body;
     } catch (error) {
@@ -136,7 +136,7 @@ export function createPhotoAnalysis({
     const active = () => sequence === runId && samePhoto(token) && !signal.aborted;
     const check = () => {
       if (!active()) throw abortError();
-      if (now() - start > (config.analysisTimeoutMs ?? 1200000))
+      if (now() - start >= (config.analysisTimeoutMs ?? 300000))
         throw failure('analysisTimeout', 'Analysis exceeded the configured limit. Check the server log, retry, or continue manually.');
     };
     const progress = patch => { check(); publish({ ...patch, busy: true, elapsedMs: now() - start }); };
@@ -145,31 +145,22 @@ export function createPhotoAnalysis({
       const working = await preparePhoto(getSource(), token, signal); check();
       progress({ phase: 'connecting' });
       const health = await checkHealth(signal); check();
-      if (health.service !== 'paving-analysis' || health.job_api_version !== 1)
-        throw failure('serviceVersion', 'This service does not support the tiles job API. Start the step-3 segmentation service.');
+      if (health.analysis_api_version !== 1)
+        throw failure('serviceVersion', 'Update the analysis service: request-bound analysis API version 1 is required.');
       progress({ phase: 'uploading', modelsLoaded: health.models_loaded });
       const form = new FormData();
       form.append('image_id', token.photoId); form.append('client_id', clientId);
       form.append('generation', String(job.generation)); form.append('image', working.blob, 'working-photo.jpg');
-      let reply = await request('/jobs', { method: 'POST', body: form }, signal); check();
-      validateReply(reply, token, working, job.generation);
-      if (typeof reply.job_id !== 'string' || !/^[a-f0-9]{32}$/.test(reply.job_id))
+      progress({ phase: 'analyzing' });
+      // The response stays open during queueing and both models. No polling or
+      // result fetch: the complete bundle comes back in this same HTTP request.
+      const remainingMs = (config.analysisTimeoutMs ?? 300000) - (now() - start);
+      check();
+      const payload = await request('/analyze', { method: 'POST', body: form }, signal, remainingMs); check();
+      validateReply(payload, token, working, job.generation);
+      if (typeof payload.job_id !== 'string' || !/^[a-f0-9]{32}$/.test(payload.job_id))
         throw failure('invalidResult', 'The service returned an invalid job identifier.');
-      job.jobId = reply.job_id;
-      while (true) {
-        check(); validateReply(reply, token, working, job.generation);
-        if (reply.job_id !== job.jobId) throw failure('imageMismatch', 'The analysis job changed unexpectedly.');
-        if (reply.state === 'completed') break;
-        if (['failed', 'cancelled'].includes(reply.state))
-          throw failure('analysisFailed', reply.errors?.service?.message || 'Analysis was cancelled or failed. Retry or continue manually.');
-        if (!['queued', 'running'].includes(reply.state)) throw failure('invalidResult', 'Unexpected analysis job state.');
-        progress({ phase: ['segmentation', 'camera'].includes(reply.stage) ? reply.stage : 'queued',
-          errors: reply.errors || {}, timing_s: reply.timing_s || {} });
-        await delay(config.pollIntervalMs ?? 900, signal); check();
-        reply = await request(`/jobs/${job.jobId}`, {}, signal);
-      }
-      const payload = await request(`/jobs/${job.jobId}/result`, {}, signal); check();
-      validateReply(payload, token, working);
+      job.jobId = payload.job_id;
       for (const part of [payload.geometry, payload.segmentation].filter(Boolean)) validateReply(part, token, working);
       retained = { photoId: token.photoId, resultId: `${token.photoId}:${++resultSequence}`, payload, targets: [...targets] };
       const bundle = importableBundle(payload);

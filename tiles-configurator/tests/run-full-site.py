@@ -47,7 +47,7 @@ with sync_playwright() as pw:
     check(sum(len(r['holes']) for r in expected['areaRegions'])==2,'two client-created holes and separate regions are represented')
     page.wait_for_function('TILES_CONFIGURATOR_API.getProjectStatus().cached',timeout=30000)
     record=page.evaluate('TILES_CONFIGURATOR_API.saveLocalProject("Acceptance test — edited holes")')
-    job_count=lambda:sum(method=='POST' and url.rstrip('/').endswith('/api/paving/jobs') for method,url in requests)
+    job_count=lambda:sum(method=='POST' and url.rstrip('/').endswith(('/api/paving/analyze','/api/paving/jobs')) for method,url in requests)
     before_jobs=job_count()
     page.reload();ready();page.evaluate('id=>TILES_CONFIGURATOR_API.openLocalProject(id)',record['id'])
     check(page.evaluate('TILES_CONFIGURATOR_API.captureState()')==expected,'full page reload restores the exact edited geometry, hole curbs and tile settings')

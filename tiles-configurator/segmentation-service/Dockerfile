@@ -6,7 +6,7 @@ ARG TORCHVISION_VERSION=0.25.0
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     HF_HOME=/home/paving/.cache/huggingface TORCH_HOME=/home/paving/.cache/huggingface/torch \
     XDG_CACHE_HOME=/home/paving/.cache/huggingface/runtime PAVING_HOST=0.0.0.0 PAVING_PORT=8000 \
-    PAVING_ENABLE_LEGACY_API=0
+    PAVING_ENABLE_LEGACY_API=0 PAVING_ENABLE_BACKGROUND_JOBS=0
 RUN apt-get update && apt-get install -y --no-install-recommends git libglib2.0-0 libgl1 ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 paving \
