@@ -45,3 +45,10 @@ def legacy_api_enabled(value=None):
     if raw not in ('0', '1'):
         raise ValueError('PAVING_ENABLE_LEGACY_API must be 0 or 1.')
     return raw == '1'
+
+
+def background_jobs_enabled(value=None):
+    raw = os.getenv('PAVING_ENABLE_BACKGROUND_JOBS', '0') if value is None else value
+    if raw not in ('0', '1'):
+        raise ValueError('PAVING_ENABLE_BACKGROUND_JOBS must be 0 or 1.')
+    return raw == '1'

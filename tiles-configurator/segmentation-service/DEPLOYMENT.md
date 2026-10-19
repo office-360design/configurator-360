@@ -55,6 +55,7 @@ clients' downloaded project files.
 | PAVING_RESULT_TTL_SECONDS | 900 | 60–3600 seconds; process restart also clears results |
 | PAVING_MAX_CLIENTS | 128 | 1–4096 tracked generation/ownership clients |
 | PAVING_ENABLE_LEGACY_API | 1 direct; 0 in container | 0 disables /api/segment and /api/camera; normal /api/paving jobs still work |
+| PAVING_ENABLE_BACKGROUND_JOBS | 0 | Keep 0 for request-based billing; 1 re-enables the old asynchronous POST /api/paving/jobs and requires instance-based billing |
 | PAVING_HOST / PAVING_PORT | 127.0.0.1 / 8000 direct | Listening address/port; container sets 0.0.0.0 internally |
 
 Invalid limits/host configuration fail startup. Health exposes these non-secret
@@ -64,6 +65,61 @@ production scaling requires a shared job broker/session routing design; adding
 workers is not a safe substitute.
 
 ## Hosted frontend
+
+### Cloud Run with request-based billing
+
+The new `POST /api/paving/analyze` keeps its HTTP response open until both models
+have finished. Inference does not depend on work continuing after a 202 response.
+The frontend consumes this response directly; no polling is needed. Health must
+show `analysis_api_version: 1`, `deployment.request_bound_analysis: true` and
+`deployment.background_jobs: false`.
+
+Rebuild the backend image: changing billing on the existing `cpu-test` image alone
+does not update the Python code. From the newly uploaded segmentation-service
+directory in Cloud Shell:
+
+```sh
+gcloud config set project configurator-360
+gcloud builds submit --tag europe-central2-docker.pkg.dev/configurator-360/configurators/tiles-analysis:request-analysis --timeout=30m
+gcloud run deploy tiles-analysis-test \
+  --project=configurator-360 --region=europe-central2 \
+  --image=europe-central2-docker.pkg.dev/configurator-360/configurators/tiles-analysis:request-analysis \
+  --port=8000 --cpu-throttling --min=0 --max=1 --timeout=360 \
+  --update-env-vars=PAVING_ENABLE_BACKGROUND_JOBS=0
+```
+
+This preserves the service's existing CPU, memory, allowed origins and access
+policy. In the console the equivalent billing choice is **Request-based**, with
+minimum instances **0**, maximum **1**, and timeout **360 seconds**. Keep the
+default startup probe; do not add a periodic uptime checker that wakes an idle
+service unless needed. Request processing, startup and shutdown are still billed;
+container image storage, logs and network charges can also remain.
+
+Publish the matching tiles frontend after deploying the backend. Existing tabs
+need a reload. Set `SEGMENTATION_CONFIG.apiBase` to
+`https://tiles-analysis-test-719238533149.europe-central2.run.app/api/paving` for a
+direct cloud connection; an empty value intentionally retains the local/same-origin
+proxy behavior. Do not overwrite a local-development choice when preparing a
+different release. Keep the exact live origin, such as
+`https://www.360configurator.com`, in `PAVING_ALLOWED_ORIGINS`.
+
+The browser's total analysis deadline is five minutes. Cloud Run and any reverse
+proxy must allow longer (360 seconds here), including cold model loading and the
+bounded queue. Cancellation invalidates the result and skips the next stage, but
+cannot interrupt a running PyTorch call; the handler waits for that call to drain.
+Forced process termination, a network disconnect or a platform timeout cannot
+guarantee completion. Do not add automatic retries that rerun a costly analysis
+without the user's knowledge.
+
+For acceptance, use a real yard photo on the deployed service after it scales to
+zero, then repeat while warm. Confirm DevTools shows one completed 200
+`POST /api/paving/analyze`, no POST /jobs or polling, both model results, and timing
+metadata. Also test Stop analysis, choosing another photo, and manual edits during
+the request. The deterministic tests use synthetic models and cannot measure
+real Cloud Run latency or CPU-throttling behavior.
+
+References: https://docs.cloud.google.com/run/docs/configuring/billing-settings
+and https://docs.cloud.google.com/run/docs/configuring/request-timeout
 
 Keep `../js/segmentationConfig.js` apiBase empty to use the HTTPS site's
 `/api/paving` reverse proxy. Or set an explicit HTTPS analysis prefix and allow

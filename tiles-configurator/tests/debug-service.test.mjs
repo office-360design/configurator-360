@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createPhotoAnalysis} from '../js/photoAnalysis.js';
 import {fixture} from './fixtures/model-results.mjs';
-const health={service:'paving-analysis',job_api_version:1,api_version:3,models_loaded:{camera:false,segmentation:true},limits:{max_side:1100}};
+const health={service:'paving-analysis',analysis_api_version:1,job_api_version:1,api_version:4,models_loaded:{camera:false,segmentation:true},limits:{max_side:1100}};
 function harness(fetchImpl) {
  const photo={photoId:'synthetic-metric-test',width:160,height:120,designRevision:1};let imports=0;
  const c=createPhotoAnalysis({apiBase:'http://mock.test/api/paving',config:{requestTimeoutMs:1000,pollIntervalMs:0},clientId:'debug-test',
@@ -32,9 +32,8 @@ test('result identifiers distinguish reruns; diagnostic info disappears on a dif
  let generation;const {c,photo,imports}=harness(async(url,options)=>{
   if(url.endsWith('/health'))return new Response(JSON.stringify(health));
   if(url.includes('/requests/'))return new Response('{}');
-  if(url.endsWith('/jobs'))generation=Number(options.body.get('generation'));
-  const bundle=fixture();const payload=url.endsWith('/result')?{...bundle,image_id:photo.photoId,image:{width:160,height:120}}:
-    {job_id:'a'.repeat(32),generation,image_id:photo.photoId,image:{width:160,height:120},state:'completed'};
+  generation=Number(options.body.get('generation'));
+  const bundle=fixture();const payload={...bundle,job_id:'a'.repeat(32),generation,image_id:photo.photoId,image:{width:160,height:120}};
   return new Response(JSON.stringify(payload));
  });
  await c.run();const info=c.getResultInfo();assert.ok(info.resultId);assert.equal(imports(),1);

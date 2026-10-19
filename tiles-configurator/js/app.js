@@ -1,9 +1,9 @@
 import { createProjectSession } from './projectSession.js';
 import { mountProjectPanel } from './projectPanel.js';
 import { geometryShareState, projectFileName, prepareProjectState } from './pavingProject.js';
-import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-cloud-api-1';
-import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-cloud-api-1';
-import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=locales-6';
+import { createPhotoAnalysis } from './photoAnalysis.js?v=tiles-request-analysis-1';
+import { SEGMENTATION_CONFIG } from './segmentationConfig.js?v=tiles-request-analysis-1';
+import { mountAnalysisPanel, analysisFlowText } from './analysisPanel.js?v=tiles-request-analysis-1';
 import { prepareModelImport } from './segmentationAdapter.js?v=tiles-area-1';
 import { failImport } from './modelCamera.js';
 import { mountSegmentationDebugPanel } from './segmentationDebugPanel.js?v=tiles-menu-2';

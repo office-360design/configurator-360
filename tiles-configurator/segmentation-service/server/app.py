@@ -20,7 +20,7 @@ from starlette.concurrency import run_in_threadpool
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .analysis_jobs import AnalysisJobs
-from .deployment import configured_job_options, configured_hosts, legacy_api_enabled
+from .deployment import configured_job_options, configured_hosts, legacy_api_enabled, background_jobs_enabled
 from .geometry import GeometryError, fit_camera_auto
 from .model import CameraModel, ModelUnavailable
 from .segmentation import (SurfaceSegmentationModel, SegmentationModelUnavailable,
@@ -108,11 +108,12 @@ def decode_image(data: bytes, *, mask: bool = False) -> np.ndarray:
 
 
 def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *,
-               allowed_origins=None, job_options=None) -> FastAPI:
+               allowed_origins=None, job_options=None, background_jobs=None) -> FastAPI:
     # root remains an accepted compatibility argument; no source tree is served.
     origins = configured_origins(allowed_origins)
     hosts = configured_hosts()
     enable_legacy = legacy_api_enabled()
+    enable_background_jobs = background_jobs_enabled() if background_jobs is None else background_jobs
     @asynccontextmanager
     async def lifespan(app):
         async def expire_results():
@@ -162,6 +163,8 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
                 return JSONResponse({'detail': 'Host is not allowed.'}, status_code=400)
         if not enable_legacy and request.url.path in ('/api/segment', '/api/camera'):
             return JSONResponse({'detail': 'Legacy synchronous API is disabled.'}, status_code=404)
+        if not enable_background_jobs and request.method == 'POST' and request.url.path == '/api/paving/jobs':
+            return JSONResponse({'detail': 'Background jobs are disabled. Update the configurator to use /api/paving/analyze.'}, status_code=410)
         # No wildcard CORS. A cross-site page must not consume the local GPU service.
         origin = request.headers.get('origin')
         if request.url.path.startswith('/api/') and origin and origin not in origins and origin != f'{request.url.scheme}://{request.url.netloc}':
@@ -316,7 +319,8 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
     @app.get('/api/paving/health')
     async def pipeline_health():
         jobs.prune()
-        return {'service': 'paving-analysis', 'api_version': 3, 'job_api_version': 1,
+        return {'service': 'paving-analysis', 'api_version': 4, 'job_api_version': 1,
+                'analysis_api_version': 1,
                 'busy': lock.locked(), 'models_loaded': {
                     'camera': bool(getattr(engine, '_model', None)),
                     'segmentation': bool(getattr(segmenter, '_loaded', False))},
@@ -324,11 +328,10 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
                            'min_side': 32, 'result_ttl_s': jobs.ttl_s, 'max_pending': jobs.max_pending,
                            'max_results': jobs.max_results, 'max_clients': jobs.max_clients},
                 'deployment': {'workers': 1, 'legacy_api': enable_legacy,
+                               'background_jobs': enable_background_jobs, 'request_bound_analysis': True,
                                'host_allowlist': hosts is not None, 'durable_photo_storage': False}}
 
-    @app.post('/api/paving/jobs', status_code=202)
-    async def submit_job(image_id: str = Form(...), client_id: str = Form(...),
-                         generation: int = Form(...), image: UploadFile = File(...)):
+    async def read_analysis_image(image_id, client_id, generation, image):
         try:
             valid_id(image_id); valid_id(client_id)
             if not 1 <= generation <= 9007199254740991:
@@ -340,9 +343,23 @@ def create_app(predictor=None, segmentation_predictor=None, root: Path = ROOT, *
                 rgb = await run_in_threadpool(decode_image, data)
             except GeometryError as error:
                 raise HTTPException(422, str(error)) from error
-            return jobs.submit(rgb, image_id, client_id, generation)
+            return rgb
         finally:
             await image.close()
+
+    @app.post('/api/paving/analyze')
+    async def analyze(image_id: str = Form(...), client_id: str = Form(...),
+                      generation: int = Form(...), image: UploadFile = File(...)):
+        rgb = await read_analysis_image(image_id, client_id, generation, image)
+        # Do not return 202 or move this work into FastAPI BackgroundTasks.
+        # A live request keeps CPU allocated with Cloud Run request-based billing.
+        return await jobs.analyze(rgb, image_id, client_id, generation)
+
+    @app.post('/api/paving/jobs', status_code=202)
+    async def submit_job(image_id: str = Form(...), client_id: str = Form(...),
+                         generation: int = Form(...), image: UploadFile = File(...)):
+        rgb = await read_analysis_image(image_id, client_id, generation, image)
+        return jobs.submit(rgb, image_id, client_id, generation)
 
     @app.get('/api/paving/jobs/{job_id}')
     async def job_status(job_id: str, client_id: str = Header(..., alias='X-Paving-Client')):
