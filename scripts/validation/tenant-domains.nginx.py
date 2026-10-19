@@ -40,6 +40,9 @@ def localized_page(locale, path):
     first, _, rest = path.partition('/')
     page = next(v for v in page_slugs['pages'].values() if v['en'] == first)
     return page[locale] + ('/' + page_slugs['configurators'][rest][locale] if rest else '')
+seo_products = ['window', 'pergola', 'roof', 'hall', 'solar', 'fence', 'chair', 'cardbox']
+def public_app(product, locale):
+    return f'APP {product} {locale}' if product in seo_products else f'APP {product}'
 nginx = shutil.which('nginx') or '/usr/sbin/nginx'
 if not Path(nginx).exists():
     raise SystemExit('nginx is required for route tests (install nginx, then rerun).')
@@ -78,6 +81,10 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
         fixtures[f'{product}-configurator/styles.css'] = f'CSS {product}'
         fixtures[f'{product}-configurator/models/model.glb'] = f'MODEL {product}'
         fixtures[f'{product}-configurator/shared-ui/src/config.js'] = f'SHARED {product}'
+    # Public domains get the head already in their language (scripts/seo/prerender-configurator-heads.mjs).
+    for product in seo_products:
+        for locale in domains:
+            fixtures[f'{product}-configurator/index.{locale}.html'] = f'APP {product} {locale}'
     for path, content in fixtures.items():
         target = site / path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -181,8 +188,13 @@ with tempfile.TemporaryDirectory(prefix='tenant-domains-nginx-') as work:
         for locale, suffix in domains.items():
             for product, canonical in route_catalogue[locale].items():
                 response = get(f'www.{suffix}', canonical)
-                assert response[0] == 200 and response[2] == f'APP {product}', (suffix, canonical, response)
+                assert response[0] == 200 and response[2] == public_app(product, locale), (suffix, canonical, response)
                 tested += 1
+                if product in seo_products:
+                    # App routes deeper than the entry fall back to the same localized page.
+                    response = get(f'www.{suffix}', canonical + 'saved/route')
+                    assert response[0] == 200 and response[2] == public_app(product, locale), (suffix, canonical, response)
+                    tested += 1
         for host, marker in [(f'www.{dom}', f'PUBLIC {loc.split("-")[0].upper()}') for loc, dom in domains.items()]:
             status, headers, body = get(host, '/')
             assert status == 200 and marker in body, (host, status, body)

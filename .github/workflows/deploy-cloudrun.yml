@@ -168,6 +168,9 @@ jobs:
           # Cortizo: publish the engine, the catalogue data and the logic map only.
           (cd dist/site/curtain-wall-configurator/cortizo && rm -rf docs scripts tests CLAUDE.md README.md package.json .gitignore data/*.xlsx web/app.js web/template.html)
 
+      - name: Localize configurator page heads per domain
+        run: node scripts/seo/prerender-configurator-heads.mjs dist/site
+
       - name: Verify static site
         shell: bash
         run: |
@@ -187,6 +190,11 @@ jobs:
           test -f dist/site/chair-configurator/index.html
           test -f dist/site/cages-configurator/index.html
           test -f dist/site/curtain-wall-configurator/index.html
+          for product in window pergola roof hall solar fence chair cardbox; do
+            for locale in en-US ro-RO de-DE es-ES fr-FR it-IT; do
+              grep -q 'rel="canonical"' "dist/site/${product}-configurator/index.${locale}.html"
+            done
+          done
           test -d dist/site/shared-ui
           test -d dist/site/shared-3d
           test -f dist/site/shared-ui/admin/tenant-provisioning/index.html
