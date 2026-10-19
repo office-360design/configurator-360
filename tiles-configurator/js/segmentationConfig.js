@@ -4,8 +4,8 @@
  */
 export const SEGMENTATION_CONFIG = Object.freeze({
   enabled: true,
-  // apiBase: 'https://tiles-analysis-test-719238533149.europe-central2.run.app/api/paving',
-  apiBase: '',
+  apiBase: 'https://tiles-analysis-test-719238533149.europe-central2.run.app/api/paving',
+  // apiBase: '',
   requestTimeoutMs: 45000,
   analysisTimeoutMs: 5 * 60 * 1000, // Held upload request, including cold start and queueing. Cloud Run: 360 seconds.
   targets: ['pavement'],
