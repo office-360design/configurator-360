@@ -33,7 +33,7 @@ function withoutMaps(root) {
  };o.material=Array.isArray(o.material)?o.material.map(replace):replace(o.material);});
 }
 test('Roof and Solar explicitly enabled alongside the eight earlier products',()=>{
- assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar','cages']);
+ assert.deepEqual(AR_PRODUCTS,['hall','window','pergola','fence','tiles','chair','cardbox','bookshelf','roof','solar','cages','curtainwall']);
  for(const p of [...AR_PRODUCTS,'solar','gas','']){
   assert.equal(isConfiguratorAREnabled(p,{viewAR:true}),AR_PRODUCTS.includes(p));
   assert.equal(isConfiguratorAREnabled(p,{viewAR:false}),false);assert.equal(isConfiguratorAREnabled(p),false);

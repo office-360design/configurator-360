@@ -33,6 +33,54 @@ transoms butt against mullions.
 The configurator used GUTMANN GCW 050 until October 2026. States saved with it
 still open: their GCW fields are dropped and the grid is kept.
 
+## Augmented reality
+
+The toolbar AR action uses the shared Android/iOS selector and QR dialog.
+Android exports GLB for Scene Viewer; iOS exports USDZ for Quick Look. The
+phone entry point is `/curtain-wall-configurator/ar.html` on every supported
+country domain. It preserves the selected locale and requires no account.
+
+Snapshots contain the assembled physical façade or skylight: profiles, caps,
+gaskets, glass, opaque panels and opening frames, including the configured
+finishes and skylight slope. Dimensions stay in metres. The illustrative
+building, its supports and ground are omitted. The lowest point of the exported
+assembly is placed at ground level. Capturing from exploded view restores layer
+positions on a copy, preserving the live camera, animation and editor geometry.
+Pending grid edits and loading finish textures are resolved before capture;
+incomplete or stale geometry fails before a QR can be published.
+
+The production Three.js import map remains pinned to **0.160.0**. Its USDZ
+exporter exposes asynchronous `parse()`, so the adapter uses that API. The
+test-only npm dependency pins the same version; it does not add a build step.
+
+From the repository root:
+
+```bash
+npm run check:curtain-wall
+npm ci --ignore-scripts
+npm ci --prefix curtain-wall-configurator --ignore-scripts
+npm run check:curtain-wall:ar
+npx playwright install chromium
+npm run check:curtain-wall:ar-browser
+```
+
+`CW_TEST_BROWSER` can select an installed Chromium/Edge executable. The browser
+test runs the real editor and native exporters for all seven systems, checks
+GLB dimensions by loading the result, validates both binary formats with the
+Firebase validator, and exercises QR publishing, platform switching, retries,
+locales and phone launch links against a local service. It never uploads to
+production. Reports/screenshots go to `tmp/curtain-wall-ar/`, or to the directory
+set by `CW_AR_ARTIFACTS`.
+
+Release both the frontend and the Firebase share backend changes. The existing
+`publishHallAR`, `getHallAR` and `cleanupHallAR` functions now accept
+`product=curtainwall`, with the same private bucket, format limits and 24-hour
+expiry as the other AR adapters. Deploy the Firebase backend before releasing
+the frontend so QR publication is available immediately. No new bucket or
+infrastructure provisioning is required. Tenant catalogue permissions remain
+unchanged. Test native camera placement on physical Android and iOS devices
+before releasing changes to rendering.
+
 ## Cortizo systems
 
 The configurator covers the seven systems of the Cortizo catalogue façade and skylight systems

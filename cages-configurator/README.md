@@ -77,6 +77,21 @@ npm run check:cages:browser
 - Platform domain only: `requireTenantConfiguratorAccess('cages')` blocks tenant
   domains because `cages` is not in the tenant catalogue.
 
+## AR validation
+
+The editor and phone page load `shared-ui/styles/ar.css`. AR snapshots use the
+shared product exporter to skip `arExclude` subtrees without removing nodes
+during traversal. Timber sleepers, labels and the optional bore/panel preview
+are excluded; the configured physical cage is preserved.
+
+Run `npm run check:cages` from the repository root. For the real Three.js 0.169
+browser/export test, install root dependencies plus the shared pinned fixture
+with `npm ci --prefix solar-configurator`, then run
+`npx playwright install chromium` and `npm run check:cages:ar-browser`.
+`CAGES_TEST_BROWSER` can select an installed Chromium/Edge executable. Reports
+and screenshots go to `tmp/cages-ar/` or `CAGES_TEST_SHOTS` when set. The test
+uses a local publication service and never uploads to production storage.
+
 ## Not yet done
 
 - Save, share and quotation are disabled. They need `cages` in the backend

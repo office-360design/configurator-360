@@ -1,0 +1,64 @@
+name: Validate Cages AR
+
+on:
+  pull_request:
+    paths:
+      - 'cages-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'solar-configurator/package*.json'
+      - 'solar-configurator/tests/ar-test-loader.mjs'
+      - 'package*.json'
+      - '.github/workflows/validate-cages-ar.yml'
+  push:
+    branches: [main, ar]
+    paths:
+      - 'cages-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'solar-configurator/package*.json'
+      - 'solar-configurator/tests/ar-test-loader.mjs'
+      - 'package*.json'
+      - '.github/workflows/validate-cages-ar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cages-ar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate cage geometry, helper exclusion and shared AR policy
+        run: |
+          npm run check:cages
+          node --test firebase-share-backend/functions/tests/hall-ar.test.cjs hall-configurator/tests/ar-policy.test.mjs
+      - name: Install browser and pinned production Three.js fixture
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix solar-configurator --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Test styled dialog, real GLB/USDZ exports and QR publication
+        env:
+          CAGES_TEST_SHOTS: /tmp/cages-ar
+        run: npm run check:cages:ar-browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cages-ar-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            /tmp/cages-ar/*.json
+            /tmp/cages-ar/*.png

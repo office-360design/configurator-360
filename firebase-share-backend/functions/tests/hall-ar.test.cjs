@@ -148,14 +148,14 @@ test('Pergola entitlement must be enabled for tenant publication and preflight',
   assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'pergola' } })).statusCode, 204);
   assert.equal((await h.call('publishHallAR', { origin, query: { product: 'pergola' } })).statusCode, 201);
 });
-test('Cleanup handles all eleven products without touching non-AR application objects', async () => {
+test('Cleanup handles all twelve products without touching non-AR application objects', async () => {
   const h = harness();
-  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar', 'cages']) {
+  for (const product of ['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar', 'cages', 'curtainwall']) {
     const r = await h.call('publishHallAR', { query: { product } }); assert.equal(r.statusCode, 201);
     h.docs.get(`hallARSessions/${r.jsonBody.id}`).expiresAt = h.Timestamp.fromMillis(Date.now() - 1);
   }
   h.files.set('private/application-data', { b: Buffer.from('untouched') });
-  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 11);
+  await h.exports.cleanupHallAR(); assert.equal(h.files.size, 1); assert.equal(h.deletes.length, 12);
   assert.ok(h.files.has('private/application-data'));
 });
 test('Fence GLB/USDZ: private product paths, manifests, HEAD, byte ranges and expiry', async () => {
@@ -342,4 +342,34 @@ test('Solar publication respects tenant product permission including preflight',
   h.docs.get('tenants/example').configurators.solar=true;
   assert.equal((await h.call('publishHallAR',{origin,method:'OPTIONS',query:{product:'solar'}})).statusCode,204);
   assert.equal((await h.call('publishHallAR',{origin,query:{product:'solar'}})).statusCode,201);
+});
+
+test('Curtain wall GLB/USDZ use private paths, platform MIME, manifest, HEAD, ranges and expiry', async () => {
+  for (const format of ['glb', 'usdz']) {
+    const h = harness();
+    const published = await h.call('publishHallAR', { format, body: format === 'glb' ? glb() : usdz(), query: { product: 'curtainwall' } });
+    assert.equal(published.statusCode, 201); assert.equal(published.jsonBody.product, 'curtainwall');
+    const id = published.jsonBody.id, record = h.docs.get(`hallARSessions/${id}`);
+    assert.equal(record.objectPath, `hall-ar/v1/${id}/curtainwall.${format}`);
+    const manifest = await h.call('getHallAR', { method: 'GET', query: { id } });
+    assert.equal(manifest.jsonBody.product, 'curtainwall'); assert.equal(manifest.jsonBody.format, format);
+    const head = await h.call('getHallAR', { method: 'HEAD', query: { id, asset: '1' } });
+    assert.equal(head.statusCode, 200); assert.equal(+head.headers['content-length'], published.jsonBody.byteLength);
+    assert.equal(head.headers['content-type'], format === 'glb' ? 'model/gltf-binary' : 'model/vnd.usdz+zip');
+    assert.match(head.headers['content-disposition'], new RegExp(`curtainwall\\.${format}`));
+    const range = await h.call('getHallAR', { method: 'GET', query: { id, asset: '1' }, range: 'bytes=0-63' });
+    assert.equal(range.statusCode, 206); assert.equal(range.body.length, 64);
+    record.expiresAt = h.Timestamp.fromMillis(Date.now() - 1);
+    assert.equal((await h.call('getHallAR', { method: 'GET', query: { id } })).statusCode, 410);
+    await h.exports.cleanupHallAR(); assert.equal(h.files.size, 0);
+  }
+});
+
+test('Curtain wall publication and preflight require the requested tenant entitlement', async () => {
+  const h = harness(), origin = 'https://example.360configurator.com';
+  h.docs.set('tenants/example', { slug: 'example', status: 'active', configurators: { hall: true, curtainwall: false } });
+  for (const method of ['OPTIONS', 'POST']) assert.equal((await h.call('publishHallAR', { origin, method, query: { product: 'curtainwall' } })).statusCode, 403);
+  h.docs.get('tenants/example').configurators.curtainwall = true;
+  assert.equal((await h.call('publishHallAR', { origin, method: 'OPTIONS', query: { product: 'curtainwall' } })).statusCode, 204);
+  assert.equal((await h.call('publishHallAR', { origin, query: { product: 'curtainwall' } })).statusCode, 201);
 });

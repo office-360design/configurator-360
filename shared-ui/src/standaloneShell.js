@@ -1,11 +1,11 @@
-import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-10';
+import { isConfiguratorAREnabled } from './arPolicy.js?v=curtainwall-ar-1';
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js?v=site-analytics-1';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, WEBSITE_DEMO_PATHS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=localized-slugs-1';
 import { startsWithPanelClosed } from './phoneLayout.js?v=mobile-panels-1';
 import { COUNTRY_REGION_DEFAULTS, DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=locales-6';
 import { sharedT } from './i18n.js?v=site-analytics-1';
 import { renderActionFeedback } from './components/feedback.js?v=site-analytics-1';
-import { renderTopBar } from './components/topBar.js?v=site-analytics-1';
+import { renderTopBar } from './components/topBar.js?v=curtainwall-ar-1';
 import { syncAccountIdentity } from './components/accountMenu.js?v=site-analytics-1';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=locales-6';
 import { renderToolsMenu } from './components/toolsMenu.js?v=site-analytics-1';

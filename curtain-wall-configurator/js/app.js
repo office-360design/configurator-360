@@ -15,6 +15,7 @@ const esc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const shared = await readShareState({ productType: 'curtainwall' });
 let S = normalizeState(shared && typeof shared === 'object' ? shared : DEFAULT_STATE);
 let M = null;
+let arBuiltState = '';
 let locale = resolveLocale(window.CURTAIN_WALL_PREFERENCES?.locale || getLocaleForHostname(window.location.hostname));
 let t = translator(locale);
 let tab = 'elevation';
@@ -129,6 +130,7 @@ function schedule(fit = false) {
   pending = true;
   requestAnimationFrame(() => {
     pending = false;
+    arBuiltState = '';
     const previous = M ? `${M.W}x${M.H}` : null;
     try {
       M = cortizoModel(S, CZ);
@@ -138,6 +140,7 @@ function schedule(fit = false) {
       return;
     }
     view.build(M);
+    arBuiltState = JSON.stringify(S);
     view.setNodeFocus(M);
     render(M);
     if (refit || previous !== `${M.W}x${M.H}`) view.setView('exterior');
@@ -237,6 +240,20 @@ window.addEventListener('curtainwall-preference-change', event => {
 });
 
 window.CURTAIN_WALL_API = {
+  async captureARSnapshot(options = {}) {
+    const fail = () => { const error = new Error('not-ready'); error.code = 'not-ready'; throw error; };
+    if (!await czReady) fail();
+    const { captureCurtainWallARSnapshot, waitForCurtainWallTextures } = await import('./ar/exportCurtainWall.js?v=curtainwall-ar-1');
+    // Edits rebuild on the next frame. Capture the updated physical model.
+    while (pending) {
+      if (options.signal?.aborted) throw new DOMException('AR preparation cancelled.', 'AbortError');
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+    if (!M || arBuiltState !== JSON.stringify(S)) fail();
+    await waitForCurtainWallTextures(() => pending ? null : view.root, options);
+    if (pending || arBuiltState !== JSON.stringify(S)) fail();
+    return captureCurtainWallARSnapshot(view.root);
+  },
   captureState: () => structuredClone(S),
   restoreState(snapshot) { if (!snapshot || typeof snapshot !== 'object') return false; update({ ...DEFAULT_STATE, ...snapshot }, true); return true; },
   resetConfiguration() { update(DEFAULT_STATE, true); return true; },

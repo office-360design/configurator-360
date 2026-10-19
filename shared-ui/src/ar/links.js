@@ -1,4 +1,4 @@
-export const AR_PRODUCTS = Object.freeze(['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar', 'cages']);
+export const AR_PRODUCTS = Object.freeze(['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar', 'cages', 'curtainwall']);
 export function requireProduct(value = 'hall') { if (!AR_PRODUCTS.includes(value)) throw new Error('Invalid AR product.'); return value; }
 export const AR_FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 export const AR_SESSION_ID = /^[A-Za-z0-9_-]{32}$/;
@@ -25,6 +25,7 @@ export function arPhoneUrl(id, mode, locale, origin = window.location.origin, pr
   };
   const country = countries[host.replace(/^www\./, '')] || 'en';
   const paths = {
+    curtainwall: { en: '/curtain-wall-configurator/', ro: '/curtain-wall-configurator/', de: '/curtain-wall-configurator/', es: '/curtain-wall-configurator/', fr: '/curtain-wall-configurator/', it: '/curtain-wall-configurator/' },
     solar: { en: '/solar-configurator/', ro: '/configurator-solar/', de: '/solar-konfigurator/', es: '/configurador-solar/', fr: '/configurateur-solaire/', it: '/configuratore-fotovoltaico/' },
     roof: { en: '/roof-configurator/', ro: '/configurator-acoperis/', de: '/dach-konfigurator/', es: '/configurador-tejados/', fr: '/configurateur-toiture/', it: '/configuratore-tetto/' },
     bookshelf: { en: '/bookshelf-configurator/', ro: '/bookshelf-configurator/', de: '/bookshelf-configurator/', es: '/bookshelf-configurator/', fr: '/bookshelf-configurator/', it: '/bookshelf-configurator/' },
