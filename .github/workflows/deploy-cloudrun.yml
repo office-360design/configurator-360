@@ -41,6 +41,9 @@ jobs:
             window-configurator/package-lock.json
             pergola-configurator/package-lock.json
 
+      - name: Verify Solar AR and deployment compatibility
+        run: npm run check:ar --prefix solar-configurator
+
       - name: Install window configurator dependencies
         run: npm ci --prefix window-configurator
 

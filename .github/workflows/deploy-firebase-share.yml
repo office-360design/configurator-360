@@ -56,6 +56,9 @@ jobs:
       - name: Test Hall AR validation, storage and platform policy
         run: node --test firebase-share-backend/functions/tests/hall-ar.test.cjs hall-configurator/tests/ar-policy.test.mjs
 
+      - name: Verify Solar AR and deployment compatibility
+        run: npm run check:ar --prefix solar-configurator
+
       - name: Test Hall AR infrastructure setup and read-only checks
         run: |
           bash -n firebase-share-backend/scripts/provision-hall-ar-storage.sh

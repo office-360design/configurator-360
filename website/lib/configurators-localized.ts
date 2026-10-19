@@ -1,13 +1,12 @@
-import { configurators, type Configurator, type LegacyConfiguratorSlug } from "./configurators";
+import { configurators, newConfigurator, type Configurator, type LegacyConfiguratorSlug } from "./configurators";
 import { isLiteSlug } from "./lite-products";
-import { newConfigurator } from "./new-configurators";
 import { configuratorUrl, type Locale } from "./i18n";
 
 type Translation = Pick<Configurator, "category" | "title" | "shortTitle" | "statement" | "description" | "controls" | "features" | "outputs" | "seoH1" | "seoTitle" | "seoDescription">;
 
 const ro: Record<LegacyConfiguratorSlug, Translation> = {
   pergola: {
-    category: "Amenajări exterioare", title: "Pergole bioclimatice 3D", shortTitle: "Pergole",
+    category: "Amenajări exterioare", title: "Configurator pergolă", shortTitle: "Pergolă",
     statement: "Configurează pergola. Vezi imediat lumina și umbra.",
     description: "Configurează direct în browser dimensiunile pergolei, montajul autoportant sau la perete, lamelele, închiderile laterale, iluminatul, accesoriile și prețul estimativ.",
     controls: ["Lamele 0°", "Lamele 48°", "Noapte + LED"],
@@ -25,7 +24,7 @@ const ro: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Configurează o pergolă online în 3D. Alege dimensiunile, lamelele, închiderile laterale, iluminatul, automatizarea, accesoriile și vezi prețul estimativ.",
   },
   roof: {
-    category: "Acoperișuri", title: "Acoperișuri configurabile 3D", shortTitle: "Acoperișuri",
+    category: "Acoperișuri", title: "Acoperiș și structură", shortTitle: "Acoperiș",
     statement: "Configurează forma. Obține cantitățile necesare.",
     description: "Alege forma, dimensiunile și învelitoarea acoperișului, apoi obține geometria, cantitățile și lista de materiale necesare pentru estimare.",
     controls: ["Două ape", "Metal", "Formă L"],
@@ -79,7 +78,7 @@ const ro: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Configurează o hală industrială sau un depozit în 3D. Modifică dimensiunile, cadrele portal, traveile, închiderile și golurile de acces.",
   },
   solar: {
-    category: "Energie fotovoltaică", title: "Panouri fotovoltaice și analiză energetică", shortTitle: "Sisteme fotovoltaice",
+    category: "Energie fotovoltaică", title: "Panouri solare și sistem energetic", shortTitle: "Panouri solare",
     statement: "Configurează panourile. Estimează producția și consumul.",
     description: "Configurează un sistem fotovoltaic în funcție de adresă, forma acoperișului, poziția soarelui, consumul locuinței și capacitatea bateriei.",
     controls: ["Locație", "Poziția soarelui", "Analiză energetică"],
@@ -118,7 +117,7 @@ const ro: Record<LegacyConfiguratorSlug, Translation> = {
 
 const de: Record<LegacyConfiguratorSlug, Translation> = {
   pergola: {
-    category: "Outdoor-Architektur", title: "Pergola & Outdoor-Architektur", shortTitle: "Pergola",
+    category: "Outdoor-Architektur", title: "Pergola-Konfigurator", shortTitle: "Pergola",
     statement: "Tageslicht planen. Atmosphäre konfigurieren.",
     description: "Ein browserbasierter 3D Pergola-Konfigurator für freistehende und wandmontierte Systeme mit parametrischen Maßen, Lamellensteuerung, Seitenabschlüssen, Umgebungsvorschau, Zubehör und live geschätzter Preisberechnung.",
     controls: ["Lamellen 0°", "Lamellen 48°", "Nacht + LED"],
@@ -136,7 +135,7 @@ const de: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Planen und konfigurieren Sie Ihre Pergola online in 3D. Passen Sie Maße, Lamellen, Seitenabschlüsse, Beleuchtung, Automatisierung und Zubehör an.",
   },
   roof: {
-    category: "Parametrisches Bauen", title: "Architekturdach & Tragwerk", shortTitle: "Dachsysteme",
+    category: "Parametrisches Bauen", title: "Dach & Tragwerk", shortTitle: "Dach",
     statement: "Komplexe Geometrie. Baubare Antworten.",
     description: "Ein regelbasierter Architekturkonfigurator, der Dachform, Maße und Materialsysteme in messbare Geometrie und produktionsfähige Ergebnisse übersetzt.",
     controls: ["Satteldach", "Metall", "L-Form"],
@@ -190,7 +189,7 @@ const de: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Konfigurieren Sie Industriehallen und Lagerhallen in 3D. Passen Sie Maße, Portalrahmen, Raster, Gebäudehülle und Zugangsöffnungen interaktiv an.",
   },
   solar: {
-    category: "Energiesysteme", title: "Solardach & Energiesystem", shortTitle: "Solarsysteme",
+    category: "Energiesysteme", title: "Solarmodule & Energiesystem", shortTitle: "Solarmodule",
     statement: "Das Dach modellieren. Den Energietag simulieren.",
     description: "Ein standortbezogener PV-Konfigurator, der Dachgeometrie, Modulbelegung, realen Sonnenstand, Haushaltslast und Batteriespeicher in einem visuellen Energiemodell verbindet.",
     controls: ["Standort", "Sonnenzeit", "Energiemodell"],
@@ -229,7 +228,7 @@ const de: Record<LegacyConfiguratorSlug, Translation> = {
 
 const es: Record<LegacyConfiguratorSlug, Translation> = {
   pergola: {
-    category: "Arquitectura exterior", title: "Pérgolas y arquitectura exterior", shortTitle: "Pérgolas",
+    category: "Arquitectura exterior", title: "Configurador de pérgolas", shortTitle: "Pérgolas",
     statement: "Diseñe la luz natural. Configure el ambiente.",
     description: "Un configurador 3D de pérgolas bioclimáticas en el navegador para sistemas exentos y adosados, que combina dimensiones paramétricas, control de lamas, cerramientos laterales, vista previa del entorno, accesorios y precio estimado en tiempo real.",
     controls: ["Lamas 0°", "Lamas 48°", "Noche + LED"],
@@ -247,7 +246,7 @@ const es: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Diseñe y configure pérgolas bioclimáticas online en 3D. Ajuste dimensiones, lamas, cerramientos laterales, iluminación, automatización, accesorios y precio.",
   },
   roof: {
-    category: "Construcción paramétrica", title: "Tejados y estructuras arquitectónicas", shortTitle: "Tejados",
+    category: "Construcción paramétrica", title: "Tejado y estructura", shortTitle: "Tejado",
     statement: "Geometría compleja. Respuestas construibles.",
     description: "Un configurador arquitectónico basado en reglas que convierte la forma del tejado, sus dimensiones y los sistemas de cubierta en geometría medible y resultados listos para producción.",
     controls: ["A dos aguas", "Metal", "En L"],
@@ -301,7 +300,7 @@ const es: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Configure naves industriales y almacenes en 3D. Ajuste dimensiones, pórticos, separación estructural, cerramientos, accesos y capas del edificio.",
   },
   solar: {
-    category: "Sistemas energéticos", title: "Tejado solar y sistema energético", shortTitle: "Fotovoltaica",
+    category: "Sistemas energéticos", title: "Paneles solares y sistema energético", shortTitle: "Paneles solares",
     statement: "Modele el tejado. Simule el día energético.",
     description: "Un configurador fotovoltaico según la ubicación que conecta geometría del tejado, encaje de paneles, posición solar real, consumo del hogar y baterías en un único modelo energético visual.",
     controls: ["Ubicación", "Hora solar", "Modelo energético"],
@@ -340,7 +339,7 @@ const es: Record<LegacyConfiguratorSlug, Translation> = {
 
 const fr: Record<LegacyConfiguratorSlug, Translation> = {
   pergola: {
-    category: "Architecture extérieure", title: "Pergolas et architecture extérieure", shortTitle: "Pergolas",
+    category: "Architecture extérieure", title: "Configurateur de pergola", shortTitle: "Pergola",
     statement: "Maîtrisez la lumière. Configurez l’ambiance.",
     description: "Un configurateur 3D de pergolas bioclimatiques dans le navigateur, pour systèmes autoportants et adossés, qui réunit dimensions paramétriques, pilotage des lames, fermetures latérales, aperçu de l’environnement, accessoires et prix estimé en temps réel.",
     controls: ["Lames 0°", "Lames 48°", "Nuit + LED"],
@@ -358,7 +357,7 @@ const fr: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Concevez et configurez votre pergola bioclimatique en ligne en 3D : dimensions, lames, fermetures latérales, éclairage, automatisation, accessoires et prix.",
   },
   roof: {
-    category: "Construction paramétrique", title: "Toiture et structure architecturale", shortTitle: "Toitures",
+    category: "Construction paramétrique", title: "Toiture et structure", shortTitle: "Toiture",
     statement: "Géométrie complexe. Réponses constructibles.",
     description: "Un configurateur architectural piloté par des règles, qui transforme forme de toiture, dimensions et systèmes de couverture en géométrie mesurable et en sorties prêtes pour la production.",
     controls: ["Deux pans", "Métal", "En L"],
@@ -412,7 +411,7 @@ const fr: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Configurez un bâtiment industriel ou un hangar en 3D : dimensions, portiques, entraxe structurel, bardage, ouvertures d’accès et couches du bâtiment.",
   },
   solar: {
-    category: "Systèmes énergétiques", title: "Toiture solaire et système énergétique", shortTitle: "Photovoltaïque",
+    category: "Systèmes énergétiques", title: "Panneaux solaires et système énergétique", shortTitle: "Panneaux solaires",
     statement: "Modélisez le toit. Simulez la journée énergétique.",
     description: "Un configurateur photovoltaïque géolocalisé qui relie géométrie de toiture, implantation des panneaux, position réelle du soleil, consommation du foyer et batteries dans un modèle énergétique visuel.",
     controls: ["Localisation", "Heure solaire", "Modèle énergétique"],
@@ -451,7 +450,7 @@ const fr: Record<LegacyConfiguratorSlug, Translation> = {
 
 const it: Record<LegacyConfiguratorSlug, Translation> = {
   pergola: {
-    category: "Architettura per esterni", title: "Pergole e architettura per esterni", shortTitle: "Pergole",
+    category: "Architettura per esterni", title: "Configuratore di pergole", shortTitle: "Pergole",
     statement: "Progetti la luce naturale. Configuri l’atmosfera.",
     description: "Un configuratore 3D di pergole bioclimatiche nel browser per sistemi autoportanti e addossati, che unisce dimensioni parametriche, controllo delle lamelle, chiusure laterali, anteprima ambientale, accessori e prezzo stimato in tempo reale.",
     controls: ["Lamelle 0°", "Lamelle 48°", "Notte + LED"],
@@ -469,7 +468,7 @@ const it: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Progetti e configuri pergole bioclimatiche online in 3D. Regoli dimensioni, lamelle, chiusure laterali, illuminazione, automazione, accessori e prezzo live.",
   },
   roof: {
-    category: "Costruzione parametrica", title: "Tetti e strutture architettoniche", shortTitle: "Tetti",
+    category: "Costruzione parametrica", title: "Tetto e struttura", shortTitle: "Tetto",
     statement: "Geometria complessa. Risposte costruibili.",
     description: "Un configuratore architettonico basato su regole che trasforma forma del tetto, dimensioni e sistemi di copertura in geometria misurabile e output pronti per la produzione.",
     controls: ["A due falde", "Metallo", "A L"],
@@ -523,7 +522,7 @@ const it: Record<LegacyConfiguratorSlug, Translation> = {
     seoDescription: "Configuri capannoni industriali e magazzini in 3D. Regoli dimensioni, telai a portale, interasse strutturale, rivestimenti, accessi e livelli dell’edificio.",
   },
   solar: {
-    category: "Sistemi energetici", title: "Tetto solare e sistema energetico", shortTitle: "Fotovoltaico",
+    category: "Sistemi energetici", title: "Pannelli solari e sistema energetico", shortTitle: "Pannelli solari",
     statement: "Modelli il tetto. Simuli la giornata energetica.",
     description: "Un configuratore fotovoltaico basato sulla posizione che collega geometria del tetto, disposizione dei pannelli, posizione reale del sole, consumi domestici e accumulo a batteria in un unico modello energetico visivo.",
     controls: ["Posizione", "Ora solare", "Modello energetico"],
