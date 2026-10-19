@@ -86,10 +86,12 @@ let patch='*** Begin Patch\n';
 let copyDeclaration;
 for(const statement of boxAst.statements)if(ts.isVariableStatement(statement))for(const declaration of statement.declarationList.declarations)if(declaration.name.getText(boxAst)==='PACKAGING_COPY')copyDeclaration='const '+declaration.getText(boxAst)+';';
 const native=vm.runInNewContext(constants.join('\n')+'\n'+copyDeclaration+'\n'+box.fn('packagingTypeKey')+'\n({types:PACKAGING_BOX_TYPES,copy:PACKAGING_COPY,key:packagingTypeKey})');
-native.copy={en:native.copy['en-US'],ro:native.copy['ro-RO'],de:native.copy['de-DE']};
+// Website locale → production language tag, in the contract order.
+const websiteLocales={en:'en-US',ro:'ro-RO',de:'de-DE',es:'es-ES',fr:'fr-FR',it:'it-IT'};
+native.copy=Object.fromEntries(Object.entries(websiteLocales).map(([locale,tag])=>{if(!native.copy[tag])throw new Error(`cardbox PACKAGING_COPY lacks ${tag}`);return [locale,native.copy[tag]];}));
 const html=fs.readFileSync(new URL('cardbox-configurator/index.html',root),'utf8');
-const catalog=Object.entries(native.types).map(([id,def])=>{const button=html.match(new RegExp('data-box-type="'+id+'"[^>]*>([\\s\\S]*?)</button>'))[1];return {id,...def,labels:Object.fromEntries(['en','ro','de'].map(locale=>[locale,native.copy[locale][native.key(id)]])),icon:button.match(/<svg[\s\S]*?<\/svg>/)[0]};});
-const metadata=JSON.stringify({styles:catalog,copy:Object.fromEntries(['en','ro','de'].map(locale=>[locale,Object.fromEntries(Object.entries(native.copy[locale]).filter(([key])=>key.startsWith('closure.')||key.startsWith('board.')))]))},null,2)+'\n';
+const catalog=Object.entries(native.types).map(([id,def])=>{const button=html.match(new RegExp('data-box-type="'+id+'"[^>]*>([\\s\\S]*?)</button>'))[1];return {id,...def,labels:Object.fromEntries(Object.keys(websiteLocales).map(locale=>[locale,native.copy[locale][native.key(id)]])),icon:button.match(/<svg[\s\S]*?<\/svg>/)[0]};});
+const metadata=JSON.stringify({styles:catalog,copy:Object.fromEntries(Object.keys(websiteLocales).map(locale=>[locale,Object.fromEntries(Object.entries(native.copy[locale]).filter(([key])=>key.startsWith('closure.')||key.startsWith('board.')))]))},null,2)+'\n';
 const metadataPath=new URL('../lib/cardbox-catalog.json',import.meta.url).pathname;
 if(fs.existsSync(metadataPath))patch+='*** Update File: '+metadataPath+'\n@@\n'+fs.readFileSync(metadataPath,'utf8').trimEnd().split('\n').map(l=>'-'+l).join('\n')+'\n'+metadata.trimEnd().split('\n').map(l=>'+'+l).join('\n')+'\n';
 else patch+='*** Add File: '+metadataPath+'\n'+metadata.trimEnd().split('\n').map(l=>'+'+l).join('\n')+'\n';

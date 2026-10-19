@@ -140,7 +140,11 @@ export function renderGasLayout(root) {
                 </span>
                 ${fitIcon}
               </button>
-              <div class="gas-map-layers__toggles" role="group" data-gas-i18n-aria-label="map.layersAria" aria-label="Map reference layers">
+              <button type="button" id="mapLayersExpand" class="gas-map-layers__expand" aria-expanded="false" aria-controls="mapLayersToggles">
+                <span data-gas-i18n="map.layersToggle"></span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+              </button>
+              <div id="mapLayersToggles" class="gas-map-layers__toggles" role="group" data-gas-i18n-aria-label="map.layersAria" aria-label="Map reference layers">
                 <div class="gas-map-layer-key">
                   <span class="gas-map-layer-swatch gas-map-layer-swatch--proposed" aria-hidden="true"></span>
                   <span data-gas-i18n="map.layer.proposedRoute"></span>

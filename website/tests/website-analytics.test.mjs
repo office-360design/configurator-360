@@ -128,3 +128,37 @@ test('explicit consent and withdrawal still work for this session when storage i
   assert.equal(isolated.trackWebsiteEvent('contact_intent',{method:'email'}),false);
   assert.equal(calls.length,1);
 });
+
+test('analytics language follows every public website domain', () => {
+  const expected = {
+    'www.360configurator.com': 'en', 'www.360configurator.ro': 'ro', 'www.360konfigurator.de': 'de',
+    'www.360configurador.es': 'es', 'www.360configurateur.fr': 'fr', 'www.360configuratore.it': 'it',
+  };
+  assert.deepEqual([...PUBLIC_DOMAINS].sort(), Object.keys(expected).sort());
+  for (const [hostname, language] of Object.entries(expected)) assert.equal(analyticsContext({hostname}).language, language);
+  assert.equal(analyticsContext({hostname: 'localhost'}).language, 'en');
+});
+
+test('product pages are recognised under every domain language', async () => {
+  const {PRODUCT_PAGE_SEGMENTS, isProductPagePath} = await import('../lib/website-analytics.js');
+  const slugs = JSON.parse(await readFile(new URL('../lib/page-slugs.json', import.meta.url), 'utf8'));
+  assert.deepEqual([...PRODUCT_PAGE_SEGMENTS].sort(), [...new Set(Object.values(slugs.pages.configurators))].sort());
+  assert.equal(isProductPagePath('/configuratori/finestre'), true);
+  assert.equal(isProductPagePath('/konfiguratoren/fenster'), true);
+  assert.equal(isProductPagePath('/chi-siamo'), false);
+});
+
+test('the configurators use the same Analytics property, consent key and domains as the website', async () => {
+  const site = await import('../lib/website-analytics.js');
+  const configurators = await import('../../shared-ui/src/siteAnalytics.js');
+  for (const name of ['GA_ID', 'CONSENT_KEY', 'INTERNAL_KEY']) assert.equal(configurators[name], site[name], name);
+  assert.deepEqual(configurators.PUBLIC_DOMAINS, site.PUBLIC_DOMAINS);
+});
+
+test('configurator modules that report events are imported with a cache tag', async () => {
+  // The servers send no Cache-Control, so an untagged module can stay stale after a deploy.
+  for (const file of ['standaloneShell.js', 'configurationQuotation.js']) {
+    const source = await readFile(new URL(`../../shared-ui/src/${file}`, import.meta.url), 'utf8');
+    for (const [, name] of source.matchAll(/from\s+['"]\.\/(siteAnalytics|configurationQuotation)\.js(?!\?v=)/g)) assert.fail(`${file} imports ${name}.js without ?v=`);
+  }
+});

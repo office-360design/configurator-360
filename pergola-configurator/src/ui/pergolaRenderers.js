@@ -20,7 +20,7 @@ import {
   calculatePrice,
   formatMoney,
   sideLabel,
-} from '../pricing.js?v=platform-18';
+} from '../pricing.js?v=site-analytics-1';
 import {
   canPlacePoleMount,
   countPoleMounts,
@@ -48,8 +48,8 @@ import {
   poleIsAvailable,
   segmentHasMountedItems,
   segmentIsAvailable,
-} from '../state.js?v=platform-18';
-import { escapeHtml } from '../../../shared-ui/src/index.js?v=platform-18';
+} from '../state.js?v=locales-6';
+import { escapeHtml } from '../../../shared-ui/src/index.js?v=site-analytics-1';
 import {
   localizeCatalogOptions,
   localizePoleLabel,
@@ -58,7 +58,7 @@ import {
   pergolaPlural,
   pergolaT,
   pergolaValueLabel,
-} from '../i18n.js?v=pergola-panel-1';
+} from '../i18n.js?v=site-analytics-1';
 import { optionCard, segmented, colorSwatches } from './renderHelpers.js?v=pergola-panel-1';
 
 const POLE_MOUNT_OPTIONS = [
@@ -67,6 +67,12 @@ const POLE_MOUNT_OPTIONS = [
   { value: 'hand-crank', icon: './assets/icons/automation-manual.svg' },
   { value: 'switch', icon: './assets/icons/automation-switch.svg' },
 ];
+
+// Mid-sentence the sensor name is a common noun, except in German (compound
+// "Regensensor") and English (it starts the sentence).
+function sensorNameInSentence(locale, label) {
+  return /^(en|de)\b/i.test(locale || '') ? label : label.toLocaleLowerCase(locale);
+}
 
 function poleMountLabel(type, locale) {
   return pergolaT(locale, `pole.component.${type}`) || pergolaT(locale, 'pole.component.generic');
@@ -755,7 +761,7 @@ export const pergolaRenderers = {
             }).join('')}
           </div>
           <small class="pole-top-sensor-note">${escapeHtml(poleSensor
-            ? this.t('pole.sensorOccupied', { sensor: pergolaValueLabel(locale, 'sensor', poleSensor) })
+            ? this.t('pole.sensorOccupied', { sensor: sensorNameInSentence(locale, pergolaValueLabel(locale, 'sensor', poleSensor)) })
             : this.t('pole.sensorFree'))}</small>
         </div>
 

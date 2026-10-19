@@ -16,23 +16,29 @@ export function arPhoneUrl(id, mode, locale, origin = window.location.origin, pr
   if (!AR_SESSION_ID.test(id)) throw new Error('Invalid AR session.');
   requireProduct(product);
   const host = new URL(origin).hostname.toLowerCase();
-  const country = ['360configurator.ro', 'www.360configurator.ro'].includes(host) ? 'ro'
-    : ['360konfigurator.de', 'www.360konfigurator.de'].includes(host) ? 'de' : 'en';
+  const countries = {
+    '360configurator.ro': 'ro',
+    '360konfigurator.de': 'de',
+    '360configurador.es': 'es',
+    '360configurateur.fr': 'fr',
+    '360configuratore.it': 'it',
+  };
+  const country = countries[host.replace(/^www\./, '')] || 'en';
   const paths = {
-    solar: { en: '/solar-configurator/', ro: '/configurator-solar/', de: '/solar-konfigurator/' },
-    roof: { en: '/roof-configurator/', ro: '/configurator-acoperis/', de: '/dach-konfigurator/' },
-    bookshelf: { en: '/bookshelf-configurator/', ro: '/bookshelf-configurator/', de: '/bookshelf-configurator/' },
-    cardbox: { en: '/cardbox-configurator/', ro: '/configurator-cutii-carton/', de: '/karton-konfigurator/' },
-    chair: { en: '/chair-configurator/', ro: '/configurator-scaune/', de: '/stuhl-konfigurator/' },
-    tiles: { en: '/tiles-configurator/', ro: '/tiles-configurator/', de: '/tiles-configurator/' },
-    hall: { en: '/hall-configurator/', ro: '/configurator-hala/', de: '/hallen-konfigurator/' },
-    window: { en: '/window-configurator/', ro: '/configurator-ferestre/', de: '/fenster-konfigurator/' },
-    fence: { en: '/fence-configurator/', ro: '/configurator-garduri/', de: '/zaun-konfigurator/' },
-    pergola: { en: '/pergola-configurator/', ro: '/configurator-pergola/', de: '/pergola-konfigurator/' },
+    solar: { en: '/solar-configurator/', ro: '/configurator-solar/', de: '/solar-konfigurator/', es: '/configurador-solar/', fr: '/configurateur-solaire/', it: '/configuratore-fotovoltaico/' },
+    roof: { en: '/roof-configurator/', ro: '/configurator-acoperis/', de: '/dach-konfigurator/', es: '/configurador-tejados/', fr: '/configurateur-toiture/', it: '/configuratore-tetto/' },
+    bookshelf: { en: '/bookshelf-configurator/', ro: '/bookshelf-configurator/', de: '/bookshelf-configurator/', es: '/bookshelf-configurator/', fr: '/bookshelf-configurator/', it: '/bookshelf-configurator/' },
+    cardbox: { en: '/cardbox-configurator/', ro: '/configurator-cutii-carton/', de: '/karton-konfigurator/', es: '/configurador-cajas-carton/', fr: '/configurateur-cartons/', it: '/configuratore-scatole/' },
+    chair: { en: '/chair-configurator/', ro: '/configurator-scaune/', de: '/stuhl-konfigurator/', es: '/configurador-sillas/', fr: '/configurateur-chaises/', it: '/configuratore-sedie/' },
+    tiles: { en: '/tiles-configurator/', ro: '/tiles-configurator/', de: '/tiles-configurator/', es: '/tiles-configurator/', fr: '/tiles-configurator/', it: '/tiles-configurator/' },
+    hall: { en: '/hall-configurator/', ro: '/configurator-hala/', de: '/hallen-konfigurator/', es: '/configurador-naves/', fr: '/configurateur-hangar/', it: '/configuratore-capannone/' },
+    window: { en: '/window-configurator/', ro: '/configurator-ferestre/', de: '/fenster-konfigurator/', es: '/configurador-ventanas/', fr: '/configurateur-fenetres/', it: '/configuratore-finestre/' },
+    fence: { en: '/fence-configurator/', ro: '/configurator-garduri/', de: '/zaun-konfigurator/', es: '/configurador-vallas/', fr: '/configurateur-cloture/', it: '/configuratore-recinzioni/' },
+    pergola: { en: '/pergola-configurator/', ro: '/configurator-pergola/', de: '/pergola-konfigurator/', es: '/configurador-pergolas/', fr: '/configurateur-pergola/', it: '/configuratore-pergola/' },
   };
   const url = new URL(`${paths[product][country]}ar.html`, origin);
   url.searchParams.set('id', id); url.searchParams.set('mode', normalizeMode(mode));
-  url.searchParams.set('lang', ['en-US','ro-RO','de-DE'].includes(locale) ? locale : 'en-US');
+  url.searchParams.set('lang', ['en-US','ro-RO','de-DE','es-ES','fr-FR','it-IT'].includes(locale) ? locale : 'en-US');
   return url.href;
 }
 export function sceneViewerIntent(modelUrl, fallbackUrl, title = 'Configured hall') {

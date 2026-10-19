@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
+import {pageFile} from './page-paths.mjs';
 import {analyticsChoiceBootstrap, polishStylesBootstrap} from '../lib/website-bootstrap.js';
 import {websiteProduct} from '../lib/website-analytics.js';
 
@@ -38,7 +39,7 @@ test('form product context is strictly enumerated, never free text', () => {
 });
 
 test('exported locales contain early consent, factual examples and contact paths', async () => {
-  const variants=[['','Website analytics','Discuss your configurator'],['ro/','Analiza utilizării site-ului','Solicită evaluarea proiectului'],['de/','Website-Analyse','Konfigurator-Projekt besprechen']];
+  const variants=[['','Website analytics','Discuss your configurator'],['ro/','Analiza utilizării site-ului','Solicită evaluarea proiectului'],['de/','Website-Analyse','Konfigurator-Projekt besprechen'],['es/','Analítica del sitio web','Hablemos de su configurador'],['fr/','Mesure d’audience','Parler de votre configurateur'],['it/','Analisi del sito web','Parliamo del Suo configuratore']];
   for (const [prefix,title,action] of variants) {
     const html=await readFile(new URL(`../outputs/exported-pages/${prefix}index.html`,import.meta.url),'utf8');
     assert.equal((html.match(/id="analytics-preferences-title"/g) || []).length,1);
@@ -52,7 +53,7 @@ test('exported locales contain early consent, factual examples and contact paths
     assert.match(html,/project=custom-system/);
     assert.match(html,/rel="canonical"/);
     assert.match(html,/hrefLang="x-default"/);
-    const product=await readFile(new URL(`../outputs/exported-pages/${prefix}configurators/cardbox/index.html`,import.meta.url),'utf8');
+    const product=await readFile(new URL(`../outputs/exported-pages/${pageFile(prefix,'/configurators/cardbox')}`,import.meta.url),'utf8');
     const questions=product.match(/<div class="project-questions">([\s\S]*?)<\/div>/)?.[1];
     assert.ok(questions);
     assert.equal((questions.match(/<details>/g) || []).length,3);

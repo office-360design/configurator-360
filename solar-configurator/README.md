@@ -27,6 +27,57 @@ Then open `http://localhost:8000/solar-configurator/`.
 
 No build step is required. Three.js 0.169.0 is loaded through the same import-map/CDN pattern as the roof configurator.
 
+## Augmented reality
+
+The shared toolbar's AR action captures the configured house, roof and fitted
+solar panels at their physical dimensions in metres. Terrain, mapped buildings,
+Google reference layouts and analysis overlays are excluded. Android uses GLB
+and Scene Viewer; iOS uses USDZ and Quick Look. Select the phone platform before
+scanning the QR code. The phone opens a launch page with an explicit **Open AR**
+button. No account is required on the phone.
+
+Both formats use the shared Firebase `publishHallAR` / `getHallAR` backend with
+`product=solar`, private storage and 24-hour session expiry. The dialog displays
+the QR only after the exported file has been published and its size checked via
+HEAD. An empty fitted array or incomplete roof fails before publication.
+
+### Validation and deployment
+
+Run from the repository root:
+
+```bash
+npm run check:ar --prefix solar-configurator
+npm ci --ignore-scripts
+npm ci --prefix solar-configurator --ignore-scripts
+npx playwright install chromium
+npm run check:ar:browser --prefix solar-configurator
+```
+
+`CHROMIUM_PATH` can select an installed Chromium or Edge executable. Browser
+reports and desktop/mobile screenshots are written to `tmp/solar-ar-runtime/`,
+or `SOLAR_AR_ARTIFACTS` when set. The browser suite uses the exact Three.js
+version in the production import map, a real WebGL renderer and real GLB/USDZ
+exporters. It validates 18 configurations in both formats, round-trips GLBs to
+check scale/grounding, and tests QR generation, platform switching, retry and
+both native launch links. A local service validates the uploaded bytes with the
+Firebase backend validator; the test never requires production storage.
+
+The original Solar AR Firebase deployment on October 12, 2026
+[failed before deployment](https://github.com/office-360design/configurator-360/actions/runs/38243013988)
+because the tenant usage validator requires a **numeric** `./js/app.js?v=...`
+cache version. The AR change had used `v=solar-ar-1`. The subsequent numeric
+version fix is already present. Keep this version numeric when changing the
+entry point. Solar AR CI and both production deployment workflows now run the
+same compatibility check. Frontend and Firebase deployments are separate;
+after a failed Firebase release, a frontend-only fix does not automatically
+rerun it. Use the Firebase workflow's manual dispatch for the corrected commit
+when a backend retry is needed.
+
+Before releasing changes to native rendering, check both Scene Viewer on an
+AR-capable Android phone and Quick Look in Safari on an iPhone/iPad. Desktop
+automation verifies exports and launch pages, while camera placement and native
+viewer rendering require a physical device.
+
 ## Included functionality
 
 - Real-time Three.js roof + solar module rendering.

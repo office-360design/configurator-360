@@ -4,6 +4,7 @@ import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { CONFIGURATOR_PUBLIC_PATHS, getLocaleForHostname } from '../../shared-ui/src/config.js';
+import { TENANT_DOMAIN_ROOTS } from '../../shared-ui/src/tenantDomains.js';
 
 // Exercise the actual pages with synthetic Firebase responses. Nothing is sent
 // to production, and no real account or tenant is created by this smoke test.
@@ -95,7 +96,7 @@ try {
 
   await page.goto(`${tenantOrigin}/dashboard/`);
   await page.waitForSelector('#dashboardWorkspace:not([hidden])');
-  assert.equal(await page.locator('#dashboardDomainLinks a').count(), 3);
+  assert.equal(await page.locator('#dashboardDomainLinks a').count(), Object.keys(TENANT_DOMAIN_ROOTS).length);
   assert.equal(await page.locator('#dashboardDomainLinks [aria-current="page"]').getAttribute('href'), `${tenantOrigin}/dashboard/`);
   assert.equal(await page.locator('input[name="configurator"]').count(), 10);
   assert.equal(await page.locator('input[name="configurator"]:checked').count(), 4);

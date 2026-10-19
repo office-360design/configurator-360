@@ -1,4 +1,4 @@
-import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=firebase-ar-7';
+import { createFirebaseARDialog } from '../../../shared-ui/src/ar/dialog.js?v=locales-6';
 
 export function createChairARController({ getSnapshot, getLocale, onFeedback = () => {} } = {}) {
   return createFirebaseARDialog({

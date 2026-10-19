@@ -7,8 +7,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildRoofModel } from './roofFactory.js?v=roof-ar-1';
-import { createDimensions } from './dimensions.js?v=platform-18';
-import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=restore-1';
+import { createDimensions } from './dimensions.js?v=locales-6';
+import { getRoofCompassLabels, resolveRoofLocale } from './i18n.js?v=site-analytics-1';
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 

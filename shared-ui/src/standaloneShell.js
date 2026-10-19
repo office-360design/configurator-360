@@ -1,24 +1,26 @@
 import { isConfiguratorAREnabled } from './arPolicy.js?v=firebase-ar-10';
-import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js';
-import { LANGUAGE_PROFILES, LOCALE_HOSTS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=tenant-routes-1';
-import { DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=platform-21';
-import { sharedT } from './i18n.js?v=platform-21';
-import { renderActionFeedback } from './components/feedback.js?v=platform-21';
-import { renderTopBar } from './components/topBar.js?v=firebase-ar-10';
-import { syncAccountIdentity } from './components/accountMenu.js?v=platform-21';
-import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=platform-19';
-import { renderToolsMenu } from './components/toolsMenu.js?v=platform-19';
-import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=platform-19';
-import { renderProfileDialog } from './components/profileDialog.js?v=platform-19';
-import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=platform-19';
+import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js?v=site-analytics-1';
+import { LANGUAGE_PROFILES, LOCALE_HOSTS, WEBSITE_DEMO_PATHS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=localized-slugs-1';
+import { startsWithPanelClosed } from './phoneLayout.js?v=mobile-panels-1';
+import { COUNTRY_REGION_DEFAULTS, DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=locales-6';
+import { sharedT } from './i18n.js?v=site-analytics-1';
+import { renderActionFeedback } from './components/feedback.js?v=site-analytics-1';
+import { renderTopBar } from './components/topBar.js?v=site-analytics-1';
+import { syncAccountIdentity } from './components/accountMenu.js?v=site-analytics-1';
+import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=locales-6';
+import { renderToolsMenu } from './components/toolsMenu.js?v=site-analytics-1';
+import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=site-analytics-1';
+import { renderProfileDialog } from './components/profileDialog.js?v=site-analytics-1';
+import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=site-analytics-1';
 import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=quotation-1';
-import { renderCartMenu } from './components/cartMenu.js?v=platform-19';
-import { getUserCart, mutateUserCart } from './userCart.js?v=platform-19';
-import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=platform-19';
-import { readShareState } from './shareState.js?v=platform-19';
-import { currentTenantContext, getTenantSlugForHostname } from './tenantBootstrap.js?v=tenant-domains-1';
-import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=platform-19';
-import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=platform-19';
+import { renderCartMenu } from './components/cartMenu.js?v=site-analytics-1';
+import { getUserCart, mutateUserCart } from './userCart.js?v=locales-6';
+import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=locales-6';
+import { readShareState } from './shareState.js?v=locales-6';
+import { currentTenantContext, getTenantSlugForHostname } from './tenantBootstrap.js?v=locales-6';
+import { recordConfiguratorAccessOnce, recordConfiguratorAnalyticsEvent } from './configuratorAnalytics.js?v=locales-6';
+import { openAnalyticsPreferences, setSiteAnalyticsLocale, startSiteAnalytics, trackConfiguratorEvent } from './siteAnalytics.js?v=site-analytics-1';
+import { deleteUserAccount, exportUserProfileData, getUserProfile, updateUserProfile } from './userProfile.js?v=locales-6';
 
 const MAX_PROJECT_NUMBER = 1000;
 const MAX_LOCAL_DRAFT_BYTES = 1_250_000;
@@ -173,10 +175,10 @@ function currentBrowserTimeZone() {
 }
 
 function currentDomainPreference() {
+  // Profile domain keys: 'com' for the English site, the language code
+  // ('ro', 'de', 'es', 'fr', 'it') for every country domain.
   const locale = getLocaleForHostname(window.location.hostname);
-  if (locale === 'ro-RO') return 'ro';
-  if (locale === 'de-DE') return 'de';
-  return 'com';
+  return locale === 'en-US' ? 'com' : locale.slice(0, 2).toLowerCase();
 }
 
 function profileAvatarUrl(profile, auth) {
@@ -281,6 +283,10 @@ export class StandaloneConfiguratorShell {
       // the configurator in place instead of navigating to another country site.
       locale: preferredLocale,
     };
+
+    // Google Analytics (website property): public domains only, after consent,
+    // never inside the website's embedded previews.
+    if (!this.embedPreview) startSiteAnalytics({ productId: this.productId, locale: this.state.locale });
 
     // Guests always start in their own unsaved book. Do not hydrate the previous
     // account's project name/id before Firebase tells us which user is active.
@@ -583,6 +589,7 @@ export class StandaloneConfiguratorShell {
       this.renderHost();
       this.sync();
       this.showFeedback(sharedT(this.state.locale, 'feedback.addedToCart'), 'success', CART_SUCCESS_FEEDBACK_MS);
+      trackConfiguratorEvent('add_to_cart');
       this.options.callbacks.onAddToCart?.(result.addedItem ? { ...result.addedItem } : { ...item });
       return true;
     } catch (error) {
@@ -1276,7 +1283,8 @@ export class StandaloneConfiguratorShell {
 
     this.onSettingsToggle = () => this.setSettingsPanelCollapsed(!this.settingsPanelCollapsed);
     this.settingsToggle.addEventListener('click', this.onSettingsToggle);
-    this.setSettingsPanelCollapsed(Boolean(config.initiallyCollapsed), { silent: true });
+    // On a phone the model comes first: the panel opens only when the visitor asks for it.
+    this.setSettingsPanelCollapsed(Boolean(config.initiallyCollapsed) || startsWithPanelClosed(), { silent: true });
   }
 
   setSettingsPanelCollapsed(collapsed, { silent = false } = {}) {
@@ -1477,6 +1485,7 @@ export class StandaloneConfiguratorShell {
         window.sessionStorage.setItem(initialSessionKey, '1');
       } catch { /* analytics remains best effort when storage is unavailable */ }
     }
+    trackConfiguratorEvent('configuration_created');
     void recordConfiguratorAnalyticsEvent({
       productType: this.productId,
       eventType: 'configuration_created',
@@ -1530,6 +1539,15 @@ export class StandaloneConfiguratorShell {
         region = { countryCode: '', locale, currency, units };
       } else {
         region = await fetchGuestRegion();
+        // A country without its own profile (or a failed lookup) keeps the
+        // language of the country domain instead of falling back to English.
+        if (!COUNTRY_REGION_DEFAULTS[region.countryCode]) {
+          const locale = getLocaleForHostname(window.location.hostname);
+          if (locale !== DEFAULT_GUEST_REGION.locale) {
+            const { currency, units } = getLanguageProfile(locale);
+            region = { ...region, locale, currency, units };
+          }
+        }
       }
       region = this.persistGuestRegionPreference(region, tenantSlug ? 'domain' : 'ip');
     }
@@ -1748,6 +1766,7 @@ export class StandaloneConfiguratorShell {
       const user = await signInWithGoogle();
       if (user) {
         await this.handleAuthStateChange(user);
+        trackConfiguratorEvent('login');
         void recordConfiguratorAnalyticsEvent({
           productType: this.productId,
           eventType: 'login',
@@ -2193,12 +2212,13 @@ export class StandaloneConfiguratorShell {
     if (action === 'book-demo') {
       const resolvedLocale = LANGUAGE_PROFILES[this.state.locale] ? this.state.locale : 'en-US';
       const host = LOCALE_HOSTS[resolvedLocale] || LOCALE_HOSTS['en-US'];
-      const target = new URL(`https://${host}/book-a-demo/`);
+      const target = new URL(`https://${host}${WEBSITE_DEMO_PATHS[resolvedLocale] || '/book-a-demo'}`);
       target.searchParams.set('configurator', this.productId);
       const source = new URL(window.location.href);
       source.search = '';
       source.hash = '';
       target.searchParams.set('source', source.href);
+      trackConfiguratorEvent('demo_request_open');
       window.location.assign(target.href);
       return;
     } else if (action === 'save') {
@@ -2211,6 +2231,7 @@ export class StandaloneConfiguratorShell {
       void this.resetConfiguration();
     } else if (action === 'view-ar') {
       if (actionTarget.disabled || !isConfiguratorAREnabled(this.productId, this.options.capabilities)) return;
+      trackConfiguratorEvent('view_ar');
       this.options.callbacks.onViewAR?.();
     } else if (action === 'share') {
       this.share(actionTarget);
@@ -2370,6 +2391,8 @@ export class StandaloneConfiguratorShell {
     } else if (action === 'account-support-email') {
       void this.requestSupport(actionTarget);
     } else if (action === 'cookies-placeholder') {
+      // Settings › Cookies › Manage reopens the analytics choice.
+      openAnalyticsPreferences();
       this.options.callbacks.onAccountAction?.('cookies');
     } else if (action === 'account-signout') {
       this.logoutFromGoogle();
@@ -2734,6 +2757,7 @@ export class StandaloneConfiguratorShell {
       textarea.remove();
     }
     if (!copied) return;
+    trackConfiguratorEvent('share_configuration');
     button.classList.add('is-success');
     this.showFeedback(sharedT(this.state.locale, 'feedback.linkCopied'));
     window.setTimeout(() => button.classList.remove('is-success'), 1050);
@@ -2796,6 +2820,7 @@ export class StandaloneConfiguratorShell {
 
   sync() {
     this.host.classList.toggle('is-dark-mode', Boolean(this.state.darkMode));
+    setSiteAnalyticsLocale(this.state.locale);
     this.syncDirty();
     this.syncProjectNameWidth();
     this.syncMenus();

@@ -26,7 +26,7 @@ import {
     setWindowSizeInState,
     setOverallWindowSizeInState,
 } from './window-layout-state.js?v=platform-18';
-import { getWindowLocale, localizeLayoutLabel } from './i18n.js?v=platform-18';
+import { getWindowLocale, localizeLayoutLabel } from './i18n.js?v=locales-6';
 
 export const DEFAULT_WINDOW_LAYOUT_ID = 'single';
 export const DEFAULT_DIVIDER_PROFILE_ID = '575800';

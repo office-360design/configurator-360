@@ -1,0 +1,24 @@
+{
+  "id": "TPH52", "name": "TPH 52", "pages": "757–984",
+  "principle": "Sistem mixt TP + SG: pe rosturile orizontale (traverse) presor + capac ca la TP 52; pe laturile verticale sticla e prinsă cu cleme SG și profil U, iar rostul vertical se siliconează.",
+  "edges": { "vertical": "clip", "horizontal": "pressure" },
+  "max_glass_mm": 64,
+  "tests": { "air": "AE", "water": "RE1500", "wind": "2000 Pa", "pages": [767, 769] },
+  "deductions": { "transom": 22, "rpt_horizontal": 22, "pressure_horizontal": 58, "cap_horizontal": 53, "glass_w": 22, "glass_h": 22, "_note": "Laturile orizontale urmează TP 52 (pag. 379); profilul U și clemele urmează SG 52 (pag. 887–892)." },
+  "pressure_plate": "COR-9914", "pressure_plate_alt": "COR-9920 (pag. 899)",
+  "caps": [ { "code": "COR-9142", "label": "Capac 14 mm" }, { "code": "COR-9143", "label": "Capac 19 mm" }, { "code": "COR-9198", "label": "Capac aripă de avion" } ],
+  "glazing_variants": [
+    { "variant": "Standard – nivel 1", "pages": [777, 778, 779], "sealing": "silicone" },
+    { "variant": "Standard – nivel 2", "pages": [783], "sealing": "silicone" },
+    { "variant": "Fără siliconare (garnitură uscată) – nivel 1", "pages": [795, 796, 797], "sealing": "dry" },
+    { "variant": "Fără siliconare (garnitură uscată) – nivel 2", "pages": [801], "sealing": "dry" }
+  ],
+  "supports_from": { "system": "TP 52", "variant": "Standard – nivel 1", "_note": "Tabelele TPH nu conțin suporți și cale; pe traverse se folosește tabelul principal TP 52 (presor pe orizontală)." },
+  "clips": { "double_slot": "3a", "single_slot": "3b", "screw_slot": "4", "vertical_end_from_axis_mm": 70, "pages": [891, 892] },
+  "awning_window": {
+    "page": 904, "max_kg": 80, "Lm": [500, 1500], "Hm": [650, 1500], "glass": { "w": "L-59", "h": "H-84", "thickness_mm": 28 },
+    "profiles": [ { "code": "COR-9976", "role": "toc", "cuts": [["L-22", 2], ["H-22", 2]] }, { "code": "COR-9975", "role": "cercevea", "cuts": [["L-85", 2], ["H-84", 2]] }, { "code": "COR-9968", "role": "ramă exterioară", "cuts": [["L-22", 2], ["H-22", 2]] }, { "code": "770287", "role": "profil U", "cuts": [["L-25", 2]] } ],
+    "accessories": [ ["222085", 4], ["920135", 4], ["222085", 4], ["999121", 2], ["259101", 1], ["329811", 1], ["323003", 1], ["313016", 2] ],
+    "gaskets": [ ["253010", "2L+2H"], ["999118", "2L+2H"], ["999117", "2L+2H"], ["999003", "2L+2H"], ["999001", "2L"], ["999004", "2H"] ]
+  }
+}

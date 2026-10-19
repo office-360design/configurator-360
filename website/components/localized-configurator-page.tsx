@@ -3,7 +3,7 @@ import { NewProductSeo } from "./new-product-seo";
 import { ConfiguratorProjectBrief } from "./configurator-project-brief";
 import { RoofTechnicalExample } from "./roof-technical-example";
 import { isLiteSlug } from "../lib/lite-products";
-import { newProductCopy } from "../lib/new-configurators";
+import { newProductCopy } from "../lib/configurators";
 import { SiteHeader } from "./site-header";
 import { SiteFooter } from "./site-footer";
 import { SmoothScroll } from "./smooth-scroll";

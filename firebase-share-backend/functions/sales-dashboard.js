@@ -35,6 +35,12 @@ const DEMO_ATTACH_ORIGINS = Object.freeze([
   'https://www.360configurator.ro',
   'https://360konfigurator.de',
   'https://www.360konfigurator.de',
+  'https://360configurador.es',
+  'https://www.360configurador.es',
+  'https://360configurateur.fr',
+  'https://www.360configurateur.fr',
+  'https://360configuratore.it',
+  'https://www.360configuratore.it',
   'https://aks.360configurator.com',
   /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/,
 ]);

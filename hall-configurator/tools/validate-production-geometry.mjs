@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as THREE from 'three';
-import { state } from '../js/state.js?v=hall-production-1';
-import { createHallTemplate, PRODUCTION_TEMPLATE_ID } from '../js/templates.js?v=hall-production-1';
-import { buildHallModel, applyExplodedView } from '../js/hallFactory.js?v=hall-production-1';
+import { state } from '../js/state.js?v=site-analytics-1';
+import { createHallTemplate, PRODUCTION_TEMPLATE_ID } from '../js/templates.js?v=site-analytics-1';
+import { buildHallModel, applyExplodedView } from '../js/hallFactory.js?v=site-analytics-1';
 import { productionLayout, footprint } from '../js/production.js?v=hall-production-1';
-import { normalizeOpenings } from '../js/openings.js?v=hall-production-1';
-import { buildBom } from '../js/bom.js?v=hall-production-1';
+import { normalizeOpenings } from '../js/openings.js?v=site-analytics-1';
+import { buildBom } from '../js/bom.js?v=site-analytics-1';
 globalThis.window={location:{hostname:'localhost'}};
 const t=createHallTemplate(PRODUCTION_TEMPLATE_ID,state),build=buildHallModel(t),plan=productionLayout(t);
 build.root.updateMatrixWorld(true);

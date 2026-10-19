@@ -8,6 +8,9 @@ export const DEFAULT_GUEST_REGION = Object.freeze({
 export const COUNTRY_REGION_DEFAULTS = Object.freeze({
   RO: Object.freeze({ countryCode: 'RO', locale: 'ro-RO', currency: 'RON', units: 'metric' }),
   DE: Object.freeze({ countryCode: 'DE', locale: 'de-DE', currency: 'EUR', units: 'metric' }),
+  ES: Object.freeze({ countryCode: 'ES', locale: 'es-ES', currency: 'EUR', units: 'metric' }),
+  FR: Object.freeze({ countryCode: 'FR', locale: 'fr-FR', currency: 'EUR', units: 'metric' }),
+  IT: Object.freeze({ countryCode: 'IT', locale: 'it-IT', currency: 'EUR', units: 'metric' }),
   US: Object.freeze({ countryCode: 'US', locale: 'en-US', currency: 'USD', units: 'imperial' }),
 });
 

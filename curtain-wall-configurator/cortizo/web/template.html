@@ -1,0 +1,143 @@
+<title>Configurator fațade Cortizo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: o foaie de atelier — bandă de titlu, două file (Hartă logică / Configurator), desen de fațadă lângă rezultate */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --ink:#18212b; --muted:#5b6876; --line:#d3dae1;
+  --steel:#2f5f8a; --steel-soft:#e3ecf5; --ok:#2e7d4f; --ok-soft:#e2f2e8; --warn:#b26a00; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#f9e1df;
+  --glass:#cfe3f1; --alu:#8a96a3;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif; --f-body:"Source Sans 3","Segoe UI",Arial,sans-serif; --f-mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171d; --panel:#1a2129; --ink:#e6ebf0; --muted:#9aa7b4; --line:#2e3944;
+  --steel:#7fb0dc; --steel-soft:#1f3245; --ok:#6cc792; --ok-soft:#173326; --warn:#f0b04a; --warn-soft:#3a2b12; --bad:#f08a80; --bad-soft:#3d1c1a;
+  --glass:#2b4659; --alu:#7b8794; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171d; --panel:#1a2129; --ink:#e6ebf0; --muted:#9aa7b4; --line:#2e3944;
+  --steel:#7fb0dc; --steel-soft:#1f3245; --ok:#6cc792; --ok-soft:#173326; --warn:#f0b04a; --warn-soft:#3a2b12; --bad:#f08a80; --bad-soft:#3d1c1a;
+  --glass:#2b4659; --alu:#7b8794; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+header.band{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:2px solid var(--ink);padding-bottom:12px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4vw,40px);line-height:1;letter-spacing:.01em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:6px 0 0;max-width:70ch}
+.stamp{font-family:var(--f-mono);font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 10px;line-height:1.5}
+nav.tabs{display:flex;gap:4px;margin:18px 0 18px;border-bottom:1px solid var(--line)}
+nav.tabs button{font-family:var(--f-display);font-size:19px;font-weight:600;letter-spacing:.02em;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:6px 14px;cursor:pointer}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--steel)}
+nav.tabs button:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+h2{font-family:var(--f-display);font-weight:600;font-size:24px;margin:0 0 8px;text-wrap:balance}
+h3{font-family:var(--f-display);font-weight:600;font-size:18px;letter-spacing:.03em;text-transform:uppercase;margin:0 0 8px;color:var(--muted)}
+p{margin:0 0 10px;max-width:72ch}
+.figwrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);padding:12px}
+figure{margin:0}
+figcaption{color:var(--muted);font-size:14px;margin-top:10px;max-width:90ch}
+svg.map{display:block;width:100%;min-width:900px;height:auto;color:var(--ink);font-family:var(--f-body)}
+.legend-row{display:flex;flex-wrap:wrap;gap:18px;margin-top:10px;font-size:13px;color:var(--muted)}
+.legend-row span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border:1.5px solid currentColor;display:inline-block}
+.grid2{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);padding:14px}
+.form{display:grid;gap:10px}
+.form label{display:grid;gap:3px;font-size:13px;color:var(--muted)}
+.form input,.form select{font:inherit;font-family:var(--f-mono);font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);padding:6px 8px;width:100%}
+.form .hint{font-size:12px;color:var(--muted)}
+.form fieldset{border:0;border-top:1px solid var(--line);margin:4px 0 0;padding:10px 0 0;display:grid;gap:10px}
+.form legend{font-family:var(--f-display);font-size:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);padding:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);padding:10px 12px}
+.kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi .v{font-family:var(--f-display);font-size:26px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .s{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.res{display:grid;gap:14px;min-width:0}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.03em;text-align:left;color:var(--muted);border-bottom:1.5px solid var(--ink);padding:6px 8px;white-space:nowrap}
+td{border-bottom:1px solid var(--line);padding:5px 8px;vertical-align:top}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.code{font-family:var(--f-mono);white-space:nowrap}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.note{font-size:13px;color:var(--muted);border-left:3px solid var(--line);padding-left:10px;max-width:90ch}
+svg.elev{display:block;width:100%;height:auto;max-height:560px;color:var(--ink);font-family:var(--f-mono)}
+.flex{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--steel)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.sysbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.sysbar button{font-family:var(--f-display);font-size:17px;font-weight:600;letter-spacing:.02em;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);padding:5px 12px;cursor:pointer}
+.sysbar button[aria-pressed="true"]{background:var(--steel);border-color:var(--steel);color:var(--bg)}
+.principle{background:var(--steel-soft);border-left:4px solid var(--steel);padding:10px 14px;margin-bottom:14px;max-width:none}
+.principle b{font-family:var(--f-display);font-size:18px;letter-spacing:.02em}
+.edges{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;font-size:13px}
+.edges span{border:1px solid var(--line);background:var(--panel);padding:2px 8px}
+svg.elev .cell{cursor:pointer}
+svg.elev .cell:hover rect{stroke:var(--steel);stroke-width:2}
+.hint-inline{font-size:12.5px;color:var(--muted)}
+.cmp td,.cmp th{white-space:normal}
+.sys-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:16px}
+.sys-cards .panel h3{color:var(--ink)}
+.sys-cards ul{margin:6px 0 0;padding-left:18px}
+.sys-cards li{margin-bottom:4px}
+.diff{font-size:13.5px;color:var(--muted);margin-top:8px}
+.toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;font-size:14px}
+textarea.copy{width:100%;height:120px;font-family:var(--f-mono);font-size:12px;background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.res > *{min-width:0}
+.two > *{min-width:0}
+.form select{min-width:0;max-width:100%}
+nav.tabs{flex-wrap:wrap}
+.sys-cards > *{min-width:0}
+</style>
+<div class="wrap">
+<header class="band">
+  <div>
+    <h1>Configurator fațade Cortizo</h1>
+    <p class="sub">Șapte sisteme de pereți cortină și luminatoare din catalogul Cortizo 2026, cu același motor de calcul: montant, traversă, sticlă și suporți, prinderea specifică fiecărui sistem, îmbinări, ancoraje, debitare și listă de materiale.</p>
+  </div>
+  <div class="stamp">Catalog v26.04.01 · 04/2026<br>Concept Media · 360design.ro</div>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" id="t-cfg" aria-selected="true" aria-controls="p-cfg">Configurator</button>
+  <button role="tab" id="t-sys" aria-selected="false" aria-controls="p-sys">Sisteme și metodologie</button>
+  <button role="tab" id="t-map" aria-selected="false" aria-controls="p-map">Hartă logică</button>
+</nav>
+
+<section id="p-cfg" role="tabpanel" aria-labelledby="t-cfg">
+  <div class="sysbar" id="sysbar" role="group" aria-label="Sistem"></div>
+  <div class="principle" id="principle"></div>
+  <div class="grid2">
+    <form class="panel form" id="f" autocomplete="off"></form>
+    <div class="res" id="out"></div>
+  </div>
+</section>
+
+<section id="p-sys" role="tabpanel" aria-labelledby="t-sys" hidden>
+  <h2>Ce e comun și ce diferă</h2>
+  <p>Toate sistemele folosesc aceeași structură de montanți și traverse, deci aceeași statică, aceleași suporți de sticlă, îmbinări și ancoraje. Diferă felul în care sticla e prinsă de structură pe fiecare direcție, și de aici rezultă componentele, verificările și debitările specifice.</p>
+  <div class="tbl panel"><table class="cmp" id="cmp"></table></div>
+  <div class="sys-cards" id="cards"></div>
+  <p class="note" style="margin-top:16px">Metodologia completă, cu formulele și paginile din catalog, e în docs/METODOLOGIE.md din proiect.</p>
+</section>
+
+<section id="p-map" role="tabpanel" aria-labelledby="t-map" hidden>
+  <h2>Cum curg datele prin configurator</h2>
+  <p>Opt etape sunt comune tuturor sistemelor. Etapa a cincea se ramifică după sistem: presor, cleme cu profil U, ramă proprie sau silicon.</p>
+  <!--MAP-->
+  <div class="legend-row">
+    <span><i class="sw" style="color:var(--steel);background:var(--steel-soft)"></i>etapă comună</span>
+    <span><i class="sw" style="color:var(--steel);background:var(--steel)"></i>etapă specifică sistemului</span>
+    <span><i class="sw"></i>foaie de date sau rezultat</span>
+    <span style="color:var(--warn)">- - - buclă de corecție</span>
+  </div>
+</section>
+</div>
+<script type="application/json" id="data">/*DATA*/</script>
+<script>
+/*ENGINE*/
+/*APP*/
+</script>

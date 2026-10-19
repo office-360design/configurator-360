@@ -9,6 +9,9 @@ const FIRST_PARTY_AUTH_DOMAINS = new Set([
   'www.360configurator.com',
   'www.360configurator.ro',
   'www.360konfigurator.de',
+  'www.360configurador.es',
+  'www.360configurateur.fr',
+  'www.360configuratore.it',
   'aks.360configurator.com',
 ]);
 const REDIRECT_PENDING_STORAGE_KEY = '360-configurator:google-redirect-pending';

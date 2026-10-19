@@ -54,6 +54,18 @@ for (const [relativePath, needles] of checks) {
 }
 
 const functions = read('firebase-share-backend/functions/index.js');
+
+// Every public country domain must be accepted by the first-party auth helpers
+// and the configurator backend, in the shared language order.
+const publicHosts = ['www.360configurator.com', 'www.360configurator.ro', 'www.360konfigurator.de',
+  'www.360configurador.es', 'www.360configurateur.fr', 'www.360configuratore.it'];
+for (const file of ['shared-ui/src/firebaseAuth.js', 'shared-ui/src/firebaseAppCheck.js']) {
+  const content = read(file);
+  for (const host of publicHosts) if (!content.includes(`'${host}'`)) failures.push(`${file}: missing first-party auth domain ${host}`);
+}
+for (const host of publicHosts) {
+  if (!functions.includes(`'https://${host}'`)) failures.push(`firebase-share-backend/functions/index.js: missing origin https://${host}`);
+}
 if (functions.includes("ALLOWED_CONFIGURATOR_ORIGINS.add('*.360configurator.com')")) {
   failures.push('Tenant origins must be validated against Firestore, not trusted as a blanket wildcard origin.');
 }

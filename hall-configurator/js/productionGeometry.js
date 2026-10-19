@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { productionLayout } from './production.js?v=hall-production-1';
-import { hallT, resolveHallLocale } from './i18n.js?v=hall-production-1';
+import { hallT, resolveHallLocale } from './i18n.js?v=site-analytics-1';
 
 function mat(color, options = {}) { return new THREE.MeshStandardMaterial({ color, roughness: .58, metalness: .22, ...options }); }
 function box(parent, name, w, h, d, x, y, z, material) {

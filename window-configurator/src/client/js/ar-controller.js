@@ -1,5 +1,5 @@
 import { createFirebaseARDialog } from '../shared-ui/src/ar/dialog.js?v=firebase-ar-5';
-import { getWindowLocale } from './i18n.js?v=platform-18';
+import { getWindowLocale } from './i18n.js?v=locales-6';
 import { captureWindowARSnapshot, createWindowFirebaseARAsset } from './ar/exportWindow.js?v=window-ar-3';
 
 /** Window adapter for the same Firebase dialog/native viewers used by Hall. */

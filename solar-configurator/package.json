@@ -1,0 +1,12 @@
+{
+  "name": "solar-configurator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:ar": "node ../scripts/validation/validate_tenant_usage_metering.mjs && node tools/validate-i18n.mjs && node --no-warnings --experimental-loader ./tests/ar-test-loader.mjs --test tests/solar-ar.test.mjs",
+    "check:ar:browser": "node tests/ar-runtime.mjs"
+  },
+  "devDependencies": {
+    "three": "0.169.0"
+  }
+}

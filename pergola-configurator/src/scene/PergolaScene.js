@@ -3,9 +3,9 @@ import { createSurfaceSystem, disposeObjectResources } from '../../../shared-3d/
 import { createPergolaGeometry } from './pergolaGeometry.js?v=platform-18';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
-import { buildPergola } from './buildPergola.js?v=platform-18';
+import { buildPergola } from './buildPergola.js?v=locales-6';
 import { AssetLibrary, fitAssetToBox } from './AssetLibrary.js?v=platform-18';
-import { pergolaT } from '../i18n.js?v=platform-18';
+import { pergolaT } from '../i18n.js?v=site-analytics-1';
 
 function disposeObject(object) {
   // Rebuilds own their materials, but PBR texture maps are library-owned.
@@ -148,6 +148,9 @@ export class PergolaScene {
       this.buildEnvironment();
       this.rebuildPergola();
       this.lastStructuralSignature = this.structuralSignature(this.state);
+      // Newly loaded accessory materials must inherit the current day/night light.
+      this.updateEnvironment();
+      this.surfaceSystem.invalidate();
     });
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -375,6 +378,8 @@ export class PergolaScene {
       poleMounts: state.poleMounts,
       sideSegments: state.sideSegments,
       accessories: state.accessories,
+      // Accessory light intensities are assigned when the model is built.
+      night: state.environment.night,
       units: state.units,
     });
   }
@@ -394,6 +399,8 @@ export class PergolaScene {
     if (meta.path === 'view.cameraPreset') {
       this.setCameraPreset(state.view.cameraPreset);
     }
+    // State changes also affect lights, shadows and CSS dimension labels.
+    this.surfaceSystem.invalidate();
   }
 
   rebuildPergola() {
