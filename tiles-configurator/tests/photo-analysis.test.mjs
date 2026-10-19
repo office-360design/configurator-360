@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createPhotoAnalysis, importableBundle, abortableDelay } from '../js/photoAnalysis.js';
 import { workingImageSize } from '../js/photoPreparation.js';
 import { resolveAnalysisBase } from '../js/segmentationConfig.js';
-import { fixture } from './fixtures/model-results.mjs';
+import { fixture, binaryRLE } from './fixtures/model-results.mjs';
 import { prepareModelImport } from '../js/segmentationAdapter.js';
 
 const respond=(data,status=200)=>({ok:status>=200&&status<300,status,text:async()=>JSON.stringify(data)});
@@ -140,6 +140,29 @@ test('restoring detected area does not rerun or upload to models',async()=>{
  const {ctl,env}=setup();await ctl.run();const count=env.requests.length;
  ctl.restore({replaceExisting:true,targets:['pavement']});assert.equal(env.requests.length,count);
  assert.equal(env.imports.length,2);assert.equal(env.imports[1].value.regions.length,0);
+});
+
+test('ground support inclusion defaults on; restoring can turn it off and back on without inference',async()=>{
+ const {ctl,env}=setup({payload:p=>{p.geometry.ground_support=binaryRLE(new Uint8Array(160*120));}});
+ await ctl.run();
+ assert.equal(env.imports[0].token.includeOutsideGroundSupport,true);
+ assert.ok(env.imports[0].value.diagnostics.extrapolatedPixels>0);
+ const requests=env.requests.length;
+ ctl.restore({replaceExisting:true,includeOutsideGroundSupport:false});
+ assert.equal(env.imports[1].value.regions.length,0);
+ assert.equal(ctl.getResultInfo().includeOutsideGroundSupport,false);
+ ctl.restore({replaceExisting:true});
+ assert.equal(env.imports[2].token.includeOutsideGroundSupport,false);
+ ctl.restore({replaceExisting:true,includeOutsideGroundSupport:true});
+ assert.ok(env.imports[3].value.regions.length>0);
+ assert.equal(env.requests.length,requests);
+});
+
+test('analysis respects an unchecked ground support option and configured defaults',async()=>{
+ const first=setup({config:{includeOutsideGroundSupport:false}});
+ await first.ctl.run();assert.equal(first.env.imports[0].token.includeOutsideGroundSupport,false);
+ const second=setup();await second.ctl.run({includeOutsideGroundSupport:false});
+ assert.equal(second.env.imports[0].token.includeOutsideGroundSupport,false);
 });
 
 test('analysis and retained-result restore pass corner and area settings to the importer',async()=>{

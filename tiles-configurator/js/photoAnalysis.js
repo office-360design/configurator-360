@@ -1,4 +1,4 @@
-import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js?v=tiles-request-analysis-1';
+import { SEGMENTATION_CONFIG, resolveAnalysisBase } from './segmentationConfig.js?v=tiles-ground-support-1';
 import { prepareWorkingPhoto } from './photoPreparation.js';
 
 const abortError = () => new DOMException('Analysis cancelled.', 'AbortError');
@@ -121,7 +121,8 @@ export function createPhotoAnalysis({
         jobGeneration !== undefined && reply.generation !== jobGeneration)
       throw failure('imageMismatch', 'The service returned a result for a different upload. It was not applied.');
   }
-  async function run({ replaceExisting = false, targets = config.targets || ['grass', 'dirt'] } = {}) {
+  async function run({ replaceExisting = false, targets = config.targets || ['grass', 'dirt'],
+    includeOutsideGroundSupport = config.includeOutsideGroundSupport ?? true } = {}) {
     const token = getPhoto();
     if (!token || !getSource()) throw failure('noPhoto', 'Load a photograph first.');
     if (token.drawing || token.draftVertices) throw failure('unfinishedDrawing', 'Finish or cancel the current outline before analysis.');
@@ -162,7 +163,7 @@ export function createPhotoAnalysis({
         throw failure('invalidResult', 'The service returned an invalid job identifier.');
       job.jobId = payload.job_id;
       for (const part of [payload.geometry, payload.segmentation].filter(Boolean)) validateReply(part, token, working);
-      retained = { photoId: token.photoId, resultId: `${token.photoId}:${++resultSequence}`, payload, targets: [...targets] };
+      retained = { photoId: token.photoId, resultId: `${token.photoId}:${++resultSequence}`, payload, targets: [...targets], includeOutsideGroundSupport };
       const bundle = importableBundle(payload);
       if (!bundle) {
         publish({ phase: 'manual_required', busy: false, errors: payload.errors || {}, timing_s: payload.timing_s || {},
@@ -184,7 +185,7 @@ export function createPhotoAnalysis({
         publish({ phase: 'review', busy: false }); return { applied: false, reason: 'edited' };
       }
       const summary = importResult(bundle, { photoId: token.photoId, designRevision: token.designRevision,
-        replaceExisting, targets, analysisResultId: retained.resultId, tolerancePx: config.tolerancePx ?? .75,
+        replaceExisting, targets, includeOutsideGroundSupport, analysisResultId: retained.resultId, tolerancePx: config.tolerancePx ?? .75,
         maxCornersPerBoundary: config.maxCornersPerBoundary, minRegionAreaM2: config.minRegionAreaM2 });
       publish({ phase: payload.segmentation ? 'ready' : 'camera_only', busy: false, summary,
         errors: payload.errors || {}, timing_s: payload.timing_s || {}, error: null, elapsedMs: now() - start });
@@ -197,7 +198,8 @@ export function createPhotoAnalysis({
       return { applied: false, reason: 'error' };
     } finally { if (current === job) current = null; }
   }
-  function restore({ replaceExisting = false, targets = retained?.targets || config.targets } = {}) {
+  function restore({ replaceExisting = false, targets = retained?.targets || config.targets,
+    includeOutsideGroundSupport = retained?.includeOutsideGroundSupport ?? config.includeOutsideGroundSupport ?? true } = {}) {
     const token = getPhoto();
     if (!token || !retained || retained.photoId !== token.photoId || !retained.payload.geometry)
       throw failure('noResult', 'There is no retained camera/suggestion for this photograph.');
@@ -205,10 +207,11 @@ export function createPhotoAnalysis({
     cancel({ notify: false });
     const summary = importResult(importableBundle(retained.payload), {
       photoId: token.photoId, designRevision: token.designRevision, replaceExisting,
-      targets, analysisResultId: retained.resultId, tolerancePx: config.tolerancePx ?? .75,
+      targets, includeOutsideGroundSupport, analysisResultId: retained.resultId, tolerancePx: config.tolerancePx ?? .75,
       maxCornersPerBoundary: config.maxCornersPerBoundary,
       minRegionAreaM2: config.minRegionAreaM2,
     });
+    retained.includeOutsideGroundSupport = includeOutsideGroundSupport;
     publish({ phase: retained.payload.segmentation ? 'ready' : 'camera_only', busy: false,
       photoId: token.photoId, summary, error: null, errors: retained.payload.errors || {} });
     return summary;
@@ -216,7 +219,7 @@ export function createPhotoAnalysis({
   return { run, cancel, restore, checkHealth,
     getServiceStatus: () => structuredClone(serviceStatus),
     getResultInfo: () => retained?.photoId === getPhoto()?.photoId ?
-      { resultId: retained.resultId, photoId: retained.photoId, targets: [...retained.targets] } : null,
+      { resultId: retained.resultId, photoId: retained.photoId, targets: [...retained.targets], includeOutsideGroundSupport: retained.includeOutsideGroundSupport } : null,
     getStatus: () => structuredClone(status),
     getResult: () => retained?.photoId === getPhoto()?.photoId ? structuredClone(retained.payload) : null };
 }

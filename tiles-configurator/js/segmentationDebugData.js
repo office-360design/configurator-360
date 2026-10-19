@@ -1,4 +1,4 @@
-import { decodeBinaryRLE, decodeUint8RLE, GROUND_LABELS } from './segmentationAdapter.js';
+import { decodeBinaryRLE, decodeUint8RLE, GROUND_LABELS } from './segmentationAdapter.js?v=tiles-ground-support-1';
 import { assertPhotoMatches, assertSameImage } from './modelCamera.js';
 import { ringArea } from './pavingRegions.js';
 
@@ -74,8 +74,8 @@ export function inspectDebugSource(source, photo) {
   if (!masks.requested && masks.selection) masks.requested = masks.selection.slice();
   if (masks.selection && masks.groundSupport) {
     masks.supportedSelection = Uint8Array.from(masks.selection, (v, i) => v && masks.groundSupport[i] ? 1 : 0);
-    masks.unsupported = Uint8Array.from(masks.selection, (v, i) => v && !masks.groundSupport[i] ? 1 : 0);
-    if (masks.effective) masks.projectionRejected = Uint8Array.from(masks.supportedSelection, (v, i) => v && !masks.effective[i] ? 1 : 0);
+    masks.unsupported ??= Uint8Array.from(masks.selection, (v, i) => v && !masks.groundSupport[i] ? 1 : 0);
+    if (masks.effective) masks.projectionRejected ??= Uint8Array.from(masks.supportedSelection, (v, i) => v && !masks.effective[i] ? 1 : 0);
   }
   const classes = masks.labels ? DEBUG_CLASSES.map(c => ({ ...c, pixels: 0, percentage: 0 })) : null;
   if (classes) {

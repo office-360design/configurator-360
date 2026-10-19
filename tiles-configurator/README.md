@@ -15,6 +15,12 @@ Run `npm run check:tiles` from the repository root for the model regression test
 
 ## Features
 
+- Automatic paving suggestions include selected areas outside the estimated ground
+  plane by default. The checkbox in Automatic paving suggestion restores strict
+  ground-support filtering when disabled. Changes apply on Analyze or Restore
+  detected area; Restore reuses the retained result without another model run.
+  Included areas use the same estimated plane, with approximate scale and quantities.
+  Horizon, distance and pixel-area projection checks still apply.
 - Synchronized sliders, value readouts and numeric fields for rectangle dimensions,
   custom sides (5 cm steps), angle B and house controls. Pointer drags are grouped
   as one undo operation; keyboard and numeric edits are also supported.

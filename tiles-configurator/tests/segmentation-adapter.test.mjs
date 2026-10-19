@@ -56,8 +56,42 @@ test('saved sample-yard model export reduces its dense outer boundary to 20 actu
 test('ground support clips suggestions without rewriting semantic labels',()=>{
  const b=fixture(),size=b.geometry.image.width*b.geometry.image.height,before=JSON.stringify(b.segmentation.labels);
  b.geometry.ground_support=binaryRLE(new Uint8Array(size));
- const a=prepareModelImport(b);assert.equal(a.regions.length,0);assert.ok(a.diagnostics.unsupportedPixels>0);
+ const a=prepareModelImport(b,{includeOutsideGroundSupport:false});assert.equal(a.regions.length,0);assert.ok(a.diagnostics.unsupportedPixels>0);
  assert.equal(JSON.stringify(b.segmentation.labels),before);assert.ok(a.camera); // Empty selection still has a usable camera.
+});
+
+test('detected pavement outside support is included by default with holes and source masks preserved',()=>{
+ const b=fixture(),size=b.geometry.image.width*b.geometry.image.height;
+ const labels=decodeUint8RLE(b.segmentation.labels,size).map(v=>v===10?4:v);
+ b.segmentation.labels=uint8RLE(labels);
+ const supported=prepareModelImport(b,{targets:['pavement']});
+ b.geometry.ground_support=binaryRLE(new Uint8Array(size));
+ const before=structuredClone(b),included=prepareModelImport(b,{targets:['pavement']}),
+   strict=prepareModelImport(b,{targets:['pavement'],includeOutsideGroundSupport:false});
+ assert.deepEqual(b,before);
+ assert.deepEqual(included.regions,supported.regions);
+ assert.equal(included.diagnostics.holes,1);
+ assert.equal(included.diagnostics.includeOutsideGroundSupport,true);
+ assert.equal(included.diagnostics.extrapolatedPixels,included.diagnostics.pavingPixels);
+ assert.ok(included.diagnostics.extrapolatedPixels>0);
+ assert.ok(included.warnings.some(w=>w.includes('outside fitted ground support')));
+ assert.equal(sum(included.masks.unsupported),0);
+ assert.equal(strict.regions.length,0);
+ assert.equal(sum(strict.masks.unsupported),strict.diagnostics.selectedPixels);
+ for(let i=0;i<size;i++) if(labels[i]!==4) assert.equal(included.masks.effective[i],0);
+});
+
+test('including unsupported ground still rejects horizon, range and oversized pixel projections',()=>{
+ const b=fixture({pitch:0,roll:0}),size=b.geometry.image.width*b.geometry.image.height;
+ b.geometry.ground_support=binaryRLE(new Uint8Array(size));
+ b.segmentation.labels=uint8RLE(new Uint8Array(size).fill(4));
+ const included=prepareModelImport(b,{targets:['pavement']});
+ assert.ok(included.diagnostics.extrapolatedPixels>0);
+ assert.ok(included.diagnostics.projectionRejectedPixels>0);
+ assert.equal(sum(included.masks.projectionRejected),included.diagnostics.projectionRejectedPixels);
+ assert.equal(included.diagnostics.pavingPixels+included.diagnostics.projectionRejectedPixels,size);
+ for(let y=0;y<b.geometry.image.height;y++)for(let x=0;x<b.geometry.image.width;x++)if(included.masks.effective[y*b.geometry.image.width+x])
+  assert.ok(imageToGround(included.camera,x+.5,y+.5));
 });
 test('occlusion metadata is separate, never an automatic design subtraction',()=>{
  const b=fixture(),before=prepareModelImport(b),size=b.geometry.image.width*b.geometry.image.height;
@@ -103,6 +137,7 @@ test('strict RLE bounds and encodings',()=>{
 });
 test('invalid options are rejected, not clamped into a different suggestion',()=>{
  for(const o of [{maxRangeM:81},{maxRangeM:-1},{maxPixelAreaM2:2},{targets:['trees']},{targets:'grass'},{tolerancePx:NaN},
+   {includeOutsideGroundSupport:'false'},{includeOutsideGroundSupport:0},
    {minRegionAreaM2:-1},{minRegionAreaM2:NaN},{minRegionAreaM2:Infinity},{minRegionAreaM2:'0.5'},{minRegionAreaM2:null}])
   assert.throws(()=>prepareModelImport(fixture(),o));
 });
