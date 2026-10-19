@@ -9,7 +9,7 @@ const site=fileURLToPath(new URL('../',import.meta.url)),temp=mkdtempSync(join(t
 try{
   const bundled=join(site,'node_modules/typescript/bin/tsc');
   const command=existsSync(bundled)?process.execPath:'tsc';
-  const args=[...(existsSync(bundled)?[bundled]:[]),'--target','ES2022','--module','commonjs','--moduleResolution','node','--resolveJsonModule','--esModuleInterop','--skipLibCheck','--outDir',temp,'--noEmit','false','lib/configurators.ts','lib/configurators-localized.ts','lib/new-configurators.ts','lib/lite-products.ts','lib/i18n.ts'];
+  const args=[...(existsSync(bundled)?[bundled]:[]),'--target','ES2022','--module','commonjs','--moduleResolution','node','--resolveJsonModule','--esModuleInterop','--skipLibCheck','--outDir',temp,'--noEmit','false','lib/configurators.ts','lib/configurators-localized.ts','lib/lite-products.ts','lib/i18n.ts'];
   const result=spawnSync(command,args,{cwd:site,encoding:'utf8'});if(result.status!==0)throw new Error(result.error?.message||result.stdout+result.stderr);
   writeFileSync(join(temp,'package.json'),'{"type":"commonjs"}');
   const require=createRequire(import.meta.url),{getLocalizedConfigurators}=require(join(temp,'configurators-localized.js'));

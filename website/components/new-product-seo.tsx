@@ -1,4 +1,4 @@
-import { newProductCopy } from "../lib/new-configurators";
+import { newProductCopy } from "../lib/configurators";
 import type { LiteSlug } from "../lib/lite-products";
 import type { Locale } from "../lib/i18n";
 
