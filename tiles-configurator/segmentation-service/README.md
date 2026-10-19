@@ -85,7 +85,27 @@ are deployment work, not provided by CORS alone. Put a trusted authenticated,
 rate-limited gateway in front of a public inference service. Do not expose the
 repository root with a generic static-file mount.
 
-## Job API
+## Request-bound analysis API
+
+The frontend sends one multipart `POST /api/paving/analyze`. That HTTP request
+stays open while waiting for the model lock and running both models; its HTTP 200
+response contains the full segmentation/camera bundle, `errors`, `timing_s`,
+`job_id` and `generation`. There is no status polling or separate result fetch.
+Health advertises `api_version: 4` and `analysis_api_version: 1`.
+
+Use Cloud Run **request-based billing**, minimum instances **0**, maximum **1**,
+and a request timeout of **360 seconds** after deploying this version. The
+frontend allows up to five minutes for preparation, connection, queueing and
+analysis; ordinary health/cancellation requests retain their shorter timeout.
+The UI shows an indeterminate analysis indicator rather than guessing model
+stages while awaiting the response. See `DEPLOYMENT.md` for the rollout commands.
+
+The previous asynchronous upload route is **disabled by default** with HTTP 410,
+so stale frontends cannot accidentally start inference after a response has
+already ended. Deploy the new backend before the new frontend. The new frontend
+rejects an old backend before uploading; old open tabs must reload. For explicit
+legacy operation only, `PAVING_ENABLE_BACKGROUND_JOBS=1` restores the old upload
+route and requires instance-based billing.
 
 All API responses are `no-store`. Send a unique per-tab `client_id` and a strictly
 increasing integer `generation` for that tab. The frontend handles both.
@@ -93,7 +113,8 @@ increasing integer `generation` for that tab. The frontend handles both.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/paving/health` | Job API version and model-loaded state; does not load weights. |
-| POST | `/api/paving/jobs` | Multipart `image_id`, `client_id`, `generation`, `image`; returns 202 and job ID. |
+| POST | `/api/paving/analyze` | Multipart `image_id`, `client_id`, `generation`, `image`; returns the completed bundle in the same request. |
+| POST | `/api/paving/jobs` | Legacy background upload, disabled unless explicitly enabled; returns 202. |
 | GET | `/api/paving/jobs/{id}` | State and stage; requires `X-Paving-Client`. |
 | GET | `/api/paving/jobs/{id}/result` | Original segmentation/camera bundle, per-stage errors and timing. |
 | DELETE | `/api/paving/jobs/{id}` | Cancel one owned job. |
@@ -118,9 +139,10 @@ site assets. No photo archive or database is created. The optional original MoGe
 prediction cache remains governed by `MOGE_CACHE_TTL_SECONDS`.
 
 Cancellation cannot interrupt a running PyTorch call. Its result is invalidated
-immediately; the lock remains held until that call returns, then the next stage is
-skipped. This is why manual editing can be available while the service is still
-finishing an abandoned inference.
+immediately; the analysis handler drains that call with the lock held before
+returning, then skips the next stage. Manual editing becomes available immediately
+in the browser. A forced process termination or a platform timeout can still lose
+in-memory work; configure the platform timeout longer than the frontend deadline.
 
 ## Existing model environment variables
 
@@ -134,7 +156,7 @@ runs with an empty semantic hint when segmentation fails.
 
 ```sh
 python -m pip install -r requirements-test.txt
-python -m unittest server.test_camera server.test_segmentation server.test_jobs -v
+python -m unittest discover -s server -t . -p 'test_*.py'
 ```
 
 These tests use synthetic/mocked predictors and do not download models. They do
