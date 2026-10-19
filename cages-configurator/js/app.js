@@ -161,6 +161,7 @@ $('#copyBtn').addEventListener('click', async () => {
 // Small API for tests and future shell integration.
 window.CAGES_CONFIGURATOR_API = {
   captureState: () => ({ ...S }),
+  getARAssembly: () => view.cage,
   restoreState(snapshot) { if (!snapshot || typeof snapshot !== 'object') return false; update({ ...DEFAULT, ...snapshot }, true); return true; },
   resetConfiguration() { update(DEFAULT, true); return true; },
   cycleCamera() { viewIndex = (viewIndex + 1) % VIEWS.length; view.fit(VIEWS[viewIndex]); return VIEWS[viewIndex]; },

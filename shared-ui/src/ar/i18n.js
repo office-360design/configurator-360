@@ -1145,6 +1145,17 @@ export const AR_COPY = Object.freeze({
   fence: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...FENCE_OVERRIDES[locale] }])),
   pergola: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...PERGOLA_OVERRIDES[locale] }])),
   window: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, { ...copy, ...WINDOW_OVERRIDES[locale] }])),
+  cages: Object.fromEntries(Object.entries(HALL_COPY).map(([locale, copy]) => [locale, {
+    ...copy,
+    title: locale === 'ro-RO' ? 'Vezi carcasa în AR' : 'View this rebar cage in AR',
+    description: locale === 'ro-RO' ? 'Scanează codul QR cu telefonul selectat, apoi apasă „Deschide AR” pentru a plasa carcasa configurată.' : 'Scan the QR code with the selected phone, then tap “Open AR” to place the configured rebar cage.',
+    regenerate: locale === 'ro-RO' ? 'Regenerează carcasa curentă' : 'Regenerate from current rebar cage',
+    phoneTitle: locale === 'ro-RO' ? 'Carcasa configurată' : 'Your configured rebar cage',
+    phoneNote: locale === 'ro-RO' ? 'Permite accesul la cameră când este solicitat, mișcă telefonul pentru a detecta solul și plasează carcasa. Redimensionează cu două degete dacă este necesar.' : 'Allow camera access when prompted, move the phone to detect the ground and place the rebar cage. Pinch to resize if needed.',
+    back: locale === 'ro-RO' ? 'Configurator carcase' : 'Rebar cage configurator',
+    expired: locale === 'ro-RO' ? 'Acest cod QR a expirat. Deschide configuratorul de carcase și creează unul nou.' : 'This QR code has expired. Open the rebar cage configurator and create a new one.',
+    'not-found': locale === 'ro-RO' ? 'Linkul AR nu a fost găsit. Creează un cod QR nou în configuratorul de carcase.' : 'This AR link was not found. Create a new QR code in the rebar cage configurator.',
+  }])),
 });
 export function arLocale(value) { return Object.prototype.hasOwnProperty.call(HALL_COPY, value) ? value : 'en-US'; }
 export function arT(product, locale, key, variables = {}) {

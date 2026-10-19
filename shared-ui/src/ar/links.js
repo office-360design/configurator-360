@@ -1,4 +1,4 @@
-export const AR_PRODUCTS = Object.freeze(['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar']);
+export const AR_PRODUCTS = Object.freeze(['hall', 'window', 'pergola', 'fence', 'tiles', 'chair', 'cardbox', 'bookshelf', 'roof', 'solar', 'cages']);
 export function requireProduct(value = 'hall') { if (!AR_PRODUCTS.includes(value)) throw new Error('Invalid AR product.'); return value; }
 export const AR_FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 export const AR_SESSION_ID = /^[A-Za-z0-9_-]{32}$/;
@@ -35,6 +35,7 @@ export function arPhoneUrl(id, mode, locale, origin = window.location.origin, pr
     window: { en: '/window-configurator/', ro: '/configurator-ferestre/', de: '/fenster-konfigurator/', es: '/configurador-ventanas/', fr: '/configurateur-fenetres/', it: '/configuratore-finestre/' },
     fence: { en: '/fence-configurator/', ro: '/configurator-garduri/', de: '/zaun-konfigurator/', es: '/configurador-vallas/', fr: '/configurateur-cloture/', it: '/configuratore-recinzioni/' },
     pergola: { en: '/pergola-configurator/', ro: '/configurator-pergola/', de: '/pergola-konfigurator/', es: '/configurador-pergolas/', fr: '/configurateur-pergola/', it: '/configuratore-pergola/' },
+    cages: { en: '/cages-configurator/', ro: '/cages-configurator/', de: '/cages-configurator/', es: '/cages-configurator/', fr: '/cages-configurator/', it: '/cages-configurator/' },
   };
   const url = new URL(`${paths[product][country]}ar.html`, origin);
   url.searchParams.set('id', id); url.searchParams.set('mode', normalizeMode(mode));

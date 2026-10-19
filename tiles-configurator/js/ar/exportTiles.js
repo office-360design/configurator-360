@@ -4,12 +4,13 @@ import { buildProductARScene } from '../../../shared-3d/src/ar/productSnapshot.j
 export const TILES_AR_LIMITS = Object.freeze({ glb: 10 * 1024 * 1024, usdz: 24 * 1024 * 1024 });
 function fail(code) { const e=new Error(code);e.code=code;throw e; }
 export function captureTilesARSnapshot(input) {
-  if (!input || input.version!==1) fail('not-ready');
+  if (!input || typeof input !== 'object') fail('not-ready');
+  const snapshot=normalize(structuredClone(input));
+  if (![1, 2].includes(snapshot.version)) fail('not-ready');
   try {
-    const area=areaGeometry(input);
+    const area=areaGeometry(snapshot);
     if (![area.width,area.depth,area.area].every(n=>Number.isFinite(n)&&n>0)) fail('invalid-configuration');
   } catch { fail('invalid-configuration'); }
-  const snapshot=normalize(structuredClone(input));
   try { areaGeometry(snapshot); } catch { fail('invalid-configuration'); }
   // Location lookup metadata is not part of the product and is not exported.
   snapshot.houseLocation=null;
