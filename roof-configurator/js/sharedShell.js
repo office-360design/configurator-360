@@ -1,8 +1,11 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
+import { startsWithPanelClosed } from '../../shared-ui/src/phoneLayout.js?v=mobile-panels-1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=sketch-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applyRoofTranslations, roofT, resolveRoofLocale } from './i18n.js?v=site-analytics-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
+
+import { createRoofARController } from './ar/controller.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('roof');
 
@@ -45,6 +48,16 @@ const tools = [
   },
 ];
 
+const roofAR = createRoofARController({
+  getLocale: () => window.ROOF_CONFIGURATOR_SHARED_SHELL?.state?.locale || initialLocale,
+  getSnapshot: async (options) => {
+    const api = window.ROOF_CONFIGURATOR_API;
+    if (!api?.captureARSnapshot) { const error = new Error('not-ready'); error.code = 'not-ready'; throw error; }
+    return api.captureARSnapshot(options);
+  },
+  onFeedback: (message, type, duration) => window.ROOF_CONFIGURATOR_SHARED_SHELL?.showFeedback(message, type, duration),
+});
+
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Roof',
   productId: 'roof',
@@ -52,7 +65,7 @@ const shell = mountStandaloneConfiguratorShell({
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
-    viewAR: false,
+    viewAR: true,
     save: true,
     undo: false,
     reset: true,
@@ -72,6 +85,7 @@ const shell = mountStandaloneConfiguratorShell({
     priceSelector: '#headerEstimateTotal',
   },
   callbacks: {
+    onViewAR() { void roofAR.open(); },
     async resetConfiguration() {
       const api = window.ROOF_CONFIGURATOR_API;
       if (!api?.resetConfiguration) return false;
@@ -121,7 +135,7 @@ function setSidebarCollapsed(collapsed) {
 sidebarToggle?.addEventListener('click', () => {
   setSidebarCollapsed(!sidebar?.classList.contains('is-collapsed'));
 });
-setSidebarCollapsed(window.matchMedia('(max-width: 760px)').matches || Boolean(sidebar?.classList.contains('is-collapsed')));
+setSidebarCollapsed(startsWithPanelClosed() || Boolean(sidebar?.classList.contains('is-collapsed')));
 document.body.classList.add('roof-sidebar-ready');
 window.addEventListener('roof-locale-applied', () => {
   setSidebarCollapsed(Boolean(sidebar?.classList.contains('is-collapsed')));

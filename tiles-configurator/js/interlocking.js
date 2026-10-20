@@ -1,4 +1,5 @@
-import { cross, polygonArea, triangulate } from './area.js';
+import { triangleIndex, REGION_LIMITS } from './pavingRegions.js';
+import { cross, polygonArea, triangulate, triangulateArea } from './area.js';
 
 // Clip a polygon against a CCW convex polygon (the site's triangles).
 export function clipConvex(points, boundary) {
@@ -55,8 +56,9 @@ export function interlockingLayout(s, t, area) {
     [0, w],
   ].map(([x, z]) => ({ x, z }));
   const base = triangulate(outline),
-    site = triangulate(area.points).map((tri) => tri.map(toGrid)),
-    sitePoints = area.points.map(toGrid),
+    site = triangulateArea(area).map((tri) => tri.map(toGrid)),
+    nearby = triangleIndex(site),
+    sitePoints = area.regions.flatMap((r) => r.outer).map(toGrid),
     minX = Math.min(...sitePoints.map((p) => p.x)),
     maxX = Math.max(...sitePoints.map((p) => p.x)),
     minZ = Math.min(...sitePoints.map((p) => p.z)),
@@ -67,22 +69,29 @@ export function interlockingLayout(s, t, area) {
     i0 = Math.floor((minX - l) / l) - 1,
     i1 = Math.ceil(maxX / l) + 1;
 
+  let clipWork = 0, fragmentCount = 0;
   for (let j = j0; j < j1; j++)
     for (let i = i0; i < i1; i++) {
       const x = i * l + ((Math.abs(j) % 2) * l) / 2,
         z = j * pitch;
       if (x + l <= minX || x >= maxX || z + w <= minZ || z >= maxZ) continue;
       const whole = outline.map((p) => ({ x: p.x + x, z: p.z + z }));
+      const localSite = nearby(x, z, l, w);
+      clipWork += localSite.length * base.length;
+      if (clipWork > REGION_LIMITS.clipWork) throw new Error('areaTooComplex');
       const fragments = base
         .flatMap((tri) => {
           const polygon = tri.map((p) => ({ x: p.x + x, z: p.z + z }));
-          return site.map((boundary) => clipConvex(polygon, boundary));
+          return localSite.map((boundary) => clipConvex(polygon, boundary));
         })
         .filter((p) => p.length >= 3 && polygonArea(p) > 1e-10);
       const net = fragments.reduce((sum, p) => sum + polygonArea(p), 0);
       if (net < 1e-8) continue;
       const cut = net < 1 / t.piecesPerM2 - 1e-8,
         center = toWorld({ x: x + l / 2, z: z + w / 2 });
+      fragmentCount += cut ? fragments.length : 1;
+      if (result.length >= REGION_LIMITS.pieces || fragmentCount > REGION_LIMITS.fragments)
+        throw new Error('areaTooComplex');
       result.push({
         x: center.x,
         z: center.z,

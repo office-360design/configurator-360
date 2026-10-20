@@ -30,7 +30,7 @@ import {
     SASH_WINDOW_TYPE,
     getDividerConnectionVariantKey,
 } from './window-layout-state.js?v=platform-18';
-import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
+import { getWindowLocale, windowT } from './i18n.js?v=locales-6';
 import {
     finishCadLoadingTrace,
     markCadLoading,
@@ -670,7 +670,7 @@ export function createProfileController({
                     && ['sash', 'bead'].includes(getProfileGroup(profile)),
             },
             {
-                name: 'Seals',
+                name: windowT(getWindowLocale(), 'profile.filter.seals'),
                 match: profile => isSealProfile(profile),
             },
             {
@@ -699,7 +699,7 @@ export function createProfileController({
                 match: profile => getAccessoryType(profile) === 'locking-bar',
             },
             {
-                name: 'Gaskets',
+                name: windowT(getWindowLocale(), 'profile.filter.gasketsOnly'),
                 match: profile => isGasketProfile(profile),
             },
         ];
@@ -1543,6 +1543,11 @@ export function createProfileController({
     }
 
     async function refreshProfileMaterials() {
+        // The builder is owned by main.js and obtained through this controller's
+        // accessor. loadProfileSelection() has its own local builder variable;
+        // it is not in scope here. Reusing the loaded profiles (restore/Undo)
+        // must rebuild successfully so applyConfiguration can become ready again.
+        const windowBuilder = getWindowBuilder();
         profilesData.forEach(profile => {
             profile.material = getMaterialForProfile(profile);
         });

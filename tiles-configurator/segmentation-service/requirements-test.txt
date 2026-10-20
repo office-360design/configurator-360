@@ -1,0 +1,7 @@
+# Geometry/API tests do not require downloading MoGe weights.
+fastapi>=0.115,<1
+httpx>=0.27,<1
+python-multipart>=0.0.20,<1
+Pillow>=11,<13
+numpy>=1.26,<3
+scipy>=1.13,<2

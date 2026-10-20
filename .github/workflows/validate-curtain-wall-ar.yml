@@ -1,0 +1,66 @@
+name: Validate Curtain Wall AR
+
+on:
+  pull_request:
+    paths:
+      - 'curtain-wall-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - 'bookshelf-configurator/tests/camera-guard.mjs'
+      - 'package*.json'
+      - '.github/workflows/validate-curtain-wall-ar.yml'
+  push:
+    branches: [main, ar]
+    paths:
+      - 'curtain-wall-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - 'bookshelf-configurator/tests/camera-guard.mjs'
+      - 'package*.json'
+      - '.github/workflows/validate-curtain-wall-ar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curtain-wall-ar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser and exact production Three.js version
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix curtain-wall-configurator --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Validate façade models, native geometry and shared backend
+        run: |
+          npm run check:curtain-wall
+          npm run check:curtain-wall:ar
+          node --test firebase-share-backend/functions/tests/hall-ar.test.cjs hall-configurator/tests/ar-policy.test.mjs scripts/validation/tenant-branding.test.mjs
+          for file in curtain-wall-configurator/js/ar/*.js shared-ui/src/ar/*.js; do node --check "$file"; done
+      - name: Test all seven systems with real GLB/USDZ, styled QR, mobile and phone launchers
+        env:
+          CW_AR_ARTIFACTS: /tmp/curtain-wall-ar
+        run: npm run check:curtain-wall:ar-browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: curtain-wall-ar-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            /tmp/curtain-wall-ar/*.json
+            /tmp/curtain-wall-ar/*.png

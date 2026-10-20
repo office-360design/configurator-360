@@ -51,7 +51,7 @@ function validate(filePath, label) {
     return;
   }
   if (threeEntry.endsWith("three-mesh-reuse.js")
-      && !fs.readFileSync(moduleFile, "utf8").includes("export * from '../lib/three.module.js'")) {
+      && !/export\s+\*\s+from\s+[\"']\.\.\/lib\/three\.module\.js(?:\?[^\"']*)?[\"']/.test(fs.readFileSync(moduleFile, "utf8"))) {
     fail(`${label}: mesh-reuse adapter must re-export the same vendored Three.js engine.`);
     return;
   }

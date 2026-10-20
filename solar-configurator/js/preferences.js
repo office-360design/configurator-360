@@ -94,10 +94,14 @@ export function displayLengthInputConfig(minMeters, maxMeters, stepMeters, units
   };
 }
 
-export function formatCurrency(value, currency) {
+const CURRENCY_FALLBACK_LOCALES = Object.freeze({ RON: 'ro-RO', EUR: 'de-DE', USD: 'en-US' });
+
+// Number formatting follows the active configurator locale (es-ES, fr-FR, it-IT … format EUR their own way).
+// Callers without a locale keep the previous per-currency formatting.
+export function formatCurrency(value, currency, locale = null) {
   const normalizedCurrency = normalizeCurrency(currency);
-  const locale = normalizedCurrency === 'RON' ? 'ro-RO' : normalizedCurrency === 'EUR' ? 'de-DE' : 'en-US';
-  return new Intl.NumberFormat(locale, {
+  const formatLocale = locale || CURRENCY_FALLBACK_LOCALES[normalizedCurrency] || 'en-US';
+  return new Intl.NumberFormat(formatLocale, {
     style: 'currency',
     currency: normalizedCurrency,
     minimumFractionDigits: 2,

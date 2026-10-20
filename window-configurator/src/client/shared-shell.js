@@ -1,9 +1,10 @@
-import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { arT as firebaseART } from './shared-ui/src/ar/i18n.js?v=firebase-ar-5';
+import { convertCartMoneyAmount, mountStandaloneConfiguratorShell } from './shared-ui/src/standaloneShell.js?v=firebase-ar-5';
 import { SharedUndoManager } from './shared-ui/src/history/undoManager.js?v=1';
 import { createShareUrl } from './shared-ui/src/shareState.js?v=5';
 import { resolveSharedTools } from './shared-ui/src/tools/registry.js?v=13';
-import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=platform-18';
-import { mountWindowTemplates } from './js/window-templates.js?v=templates-shared-1';
+import { applyWindowTranslations, resolveWindowLocale, windowT } from './js/i18n.js?v=locales-6';
+import { mountWindowTemplates } from './js/window-templates.js?v=locales-6';
 import { requireTenantConfiguratorAccess } from './shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('window');
@@ -16,6 +17,9 @@ const CAMERA_VIEW_TEXT = Object.freeze({
   'en-US': Object.freeze({ outside: 'Outside', inside: 'Inside', prefix: 'Camera' }),
   'ro-RO': Object.freeze({ outside: 'Exterior', inside: 'Interior', prefix: 'Cameră' }),
   'de-DE': Object.freeze({ outside: 'Außen', inside: 'Innen', prefix: 'Kamera' }),
+  'es-ES': Object.freeze({ outside: 'Exterior', inside: 'Interior', prefix: 'Cámara' }),
+  'fr-FR': Object.freeze({ outside: 'Extérieur', inside: 'Intérieur', prefix: 'Caméra' }),
+  'it-IT': Object.freeze({ outside: 'Esterno', inside: 'Interno', prefix: 'Camera' }),
 });
 
 let shell = null;
@@ -162,7 +166,7 @@ shell = mountStandaloneConfiguratorShell({
   brandSrc: tenantContext?.logoUrl || './shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
-    viewAR: false,
+    viewAR: true,
     save: true,
     undo: true,
     reset: true,
@@ -209,7 +213,8 @@ shell = mountStandaloneConfiguratorShell({
   },
   callbacks: {
     onViewAR() {
-      document.querySelector('#qr-ar-button')?.click();
+      if (window.WINDOW_AR_API) window.WINDOW_AR_API.open();
+      else shell?.showFeedback?.(firebaseART('window', shell?.state.locale || initialLocale, 'not-ready'), 'error', 5000);
     },
     captureState() {
       return window.WINDOW_CONFIGURATOR_API?.captureState?.();
@@ -229,9 +234,7 @@ shell = mountStandaloneConfiguratorShell({
       if (path === 'locale') {
         applyWindowTranslations(value);
       }
-      if (path === 'defaultArPlatform') {
-        document.querySelector(`.ar-platform-option[data-platform="${value}"]`)?.click();
-      }
+      // The QR dialog starts on Android; its platform switch is session-local.
       window.dispatchEvent(new CustomEvent('window-preference-change', {
         detail: { name: path, value, preferences: { ...preferences } },
       }));
@@ -280,13 +283,6 @@ if (controls) {
   controls.addEventListener('click', markDirty, true);
   controls.addEventListener('input', markDirty, true);
   controls.addEventListener('change', markDirty, true);
-}
-
-const preferredPlatform = shell.state?.defaultArPlatform;
-if (preferredPlatform) {
-  window.setTimeout(() => {
-    document.querySelector(`.ar-platform-option[data-platform="${preferredPlatform}"]`)?.click();
-  }, 0);
 }
 
 window.WINDOW_CONFIGURATOR_SHARED_SHELL = shell;

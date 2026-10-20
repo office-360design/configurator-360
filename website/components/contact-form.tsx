@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Locale } from "../lib/i18n";
+import { trackWebsiteEvent, websiteProduct } from "../lib/website-analytics.js";
 
 const FIREBASE_SDK_VERSION = "12.17.1";
 const FIREBASE_APP_MODULE_URL = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`;
@@ -89,38 +90,8 @@ function firebaseErrorCode(error: unknown) {
   return String((error as { code?: unknown }).code || "").toLowerCase();
 }
 
-export function ContactForm({ locale }: { locale: Locale }) {
-  const [state, setState] = useState<SubmissionState>("idle");
-  const [projectPath, setProjectPath] = useState("");
-  const copy = locale === "ro" ? {
-    name: "Nume",
-    workEmail: "Email profesional",
-    company: "Companie",
-    phone: "Telefon (opțional)",
-    product: "Configurator de interes (opțional)",
-    message: "Descrieți produsul, regulile și rezultatul dorit",
-    submit: "Trimite solicitarea",
-    submitting: "Se trimite…",
-    note: "Mesajul este trimis direct către echipa 360Configurator. Nu se va deschide aplicația de email.",
-    ready: "Mesajul a fost trimis. Revenim cât mai curând.",
-    error: "Mesajul nu a putut fi trimis. Verificați conexiunea și încercați din nou.",
-    rateLimited: "Au fost prea multe încercări într-un timp scurt. Încercați din nou mai târziu.",
-    path: "Traseu comercial selectat",
-  } : locale === "de" ? {
-    name: "Name",
-    workEmail: "Geschäftliche E-Mail",
-    company: "Unternehmen",
-    phone: "Telefon (optional)",
-    product: "Interessanter Konfigurator (optional)",
-    message: "Beschreiben Sie Produkt, Regeln und gewünschtes Ergebnis",
-    submit: "Anfrage senden",
-    submitting: "Wird gesendet…",
-    note: "Ihre Nachricht wird direkt an das 360Configurator-Team gesendet. Es wird keine E-Mail-App geöffnet.",
-    ready: "Ihre Nachricht wurde gesendet. Wir melden uns so bald wie möglich.",
-    error: "Ihre Nachricht konnte nicht gesendet werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
-    rateLimited: "Zu viele Versuche in kurzer Zeit. Bitte versuchen Sie es später erneut.",
-    path: "Gewählter Implementierungsweg",
-  } : {
+const contactCopy: Record<Locale, Record<"name" | "workEmail" | "company" | "phone" | "product" | "message" | "submit" | "submitting" | "note" | "ready" | "error" | "rateLimited" | "path", string>> = {
+  en: {
     name: "Name",
     workEmail: "Work email",
     company: "Company",
@@ -134,7 +105,88 @@ export function ContactForm({ locale }: { locale: Locale }) {
     error: "Your message could not be sent. Check your connection and try again.",
     rateLimited: "Too many attempts were made in a short time. Please try again later.",
     path: "Selected commercial path",
-  };
+  },
+  ro: {
+    name: "Nume",
+    workEmail: "Email profesional",
+    company: "Companie",
+    phone: "Telefon (opțional)",
+    product: "Configurator de interes (opțional)",
+    message: "Descrieți produsul, regulile și rezultatul dorit",
+    submit: "Trimite solicitarea",
+    submitting: "Se trimite…",
+    note: "Mesajul este trimis direct către echipa 360Configurator. Nu se va deschide aplicația de email.",
+    ready: "Mesajul a fost trimis. Revenim cât mai curând.",
+    error: "Mesajul nu a putut fi trimis. Verificați conexiunea și încercați din nou.",
+    rateLimited: "Au fost prea multe încercări într-un timp scurt. Încercați din nou mai târziu.",
+    path: "Traseu comercial selectat",
+  },
+  de: {
+    name: "Name",
+    workEmail: "Geschäftliche E-Mail",
+    company: "Unternehmen",
+    phone: "Telefon (optional)",
+    product: "Interessanter Konfigurator (optional)",
+    message: "Beschreiben Sie Produkt, Regeln und gewünschtes Ergebnis",
+    submit: "Anfrage senden",
+    submitting: "Wird gesendet…",
+    note: "Ihre Nachricht wird direkt an das 360Configurator-Team gesendet. Es wird keine E-Mail-App geöffnet.",
+    ready: "Ihre Nachricht wurde gesendet. Wir melden uns so bald wie möglich.",
+    error: "Ihre Nachricht konnte nicht gesendet werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    rateLimited: "Zu viele Versuche in kurzer Zeit. Bitte versuchen Sie es später erneut.",
+    path: "Gewählter Implementierungsweg",
+  },
+  es: {
+    name: "Nombre",
+    workEmail: "Correo profesional",
+    company: "Empresa",
+    phone: "Teléfono (opcional)",
+    product: "Configurador de interés (opcional)",
+    message: "Describa el producto, sus reglas y el resultado que necesita",
+    submit: "Enviar consulta",
+    submitting: "Enviando…",
+    note: "Su mensaje se envía directamente al equipo de 360Configurator. No se abrirá su aplicación de correo.",
+    ready: "Su mensaje se ha enviado. Le responderemos lo antes posible.",
+    error: "No se ha podido enviar su mensaje. Compruebe su conexión e inténtelo de nuevo.",
+    rateLimited: "Se han realizado demasiados intentos en poco tiempo. Inténtelo de nuevo más tarde.",
+    path: "Opción comercial seleccionada",
+  },
+  fr: {
+    name: "Nom",
+    workEmail: "E-mail professionnel",
+    company: "Entreprise",
+    phone: "Téléphone (facultatif)",
+    product: "Configurateur concerné (facultatif)",
+    message: "Décrivez le produit, ses règles et le résultat attendu",
+    submit: "Envoyer la demande",
+    submitting: "Envoi…",
+    note: "Votre message est envoyé directement à l’équipe 360Configurator. Votre messagerie ne s’ouvrira pas.",
+    ready: "Votre message a été envoyé. Nous vous répondrons dans les meilleurs délais.",
+    error: "Votre message n’a pas pu être envoyé. Vérifiez votre connexion et réessayez.",
+    rateLimited: "Trop de tentatives en peu de temps. Veuillez réessayer plus tard.",
+    path: "Offre commerciale sélectionnée",
+  },
+  it: {
+    name: "Nome",
+    workEmail: "Email aziendale",
+    company: "Azienda",
+    phone: "Telefono (facoltativo)",
+    product: "Configuratore di interesse (facoltativo)",
+    message: "Descriva il prodotto, le sue regole e il risultato desiderato",
+    submit: "Invia richiesta",
+    submitting: "Invio…",
+    note: "Il Suo messaggio viene inviato direttamente al team di 360Configurator. La Sua app di posta non si aprirà.",
+    ready: "Il Suo messaggio è stato inviato. La ricontatteremo il prima possibile.",
+    error: "Non è stato possibile inviare il messaggio. Verifichi la connessione e riprovi.",
+    rateLimited: "Troppi tentativi in poco tempo. Riprovi più tardi.",
+    path: "Percorso commerciale selezionato",
+  },
+};
+
+export function ContactForm({ locale }: { locale: Locale }) {
+  const [state, setState] = useState<SubmissionState>("idle");
+  const [projectPath, setProjectPath] = useState("");
+  const copy = contactCopy[locale];
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -151,7 +203,7 @@ export function ContactForm({ locale }: { locale: Locale }) {
         ? copy.error
         : copy.note;
 
-  return <form className="contact-form" onSubmit={async (event) => {
+  return <form className="contact-form" onFocus={() => trackWebsiteEvent('lead_form_start', {form_id: 'marketing_contact'}, true)} onSubmit={async (event) => {
     event.preventDefault();
     if (state === "submitting") return;
 
@@ -179,14 +231,15 @@ export function ContactForm({ locale }: { locale: Locale }) {
       form.reset();
 
       if (response.data.delivered) {
-        window.gtag?.("event", "generate_lead", {
+        trackWebsiteEvent("generate_lead", {
           form_id: "marketing_contact",
-          language: locale,
+          product: websiteProduct(String(data.get("configuratorInterest") || projectPath)),
         });
       }
     } catch (error) {
       console.error("Contact form submission failed.", error);
       const code = firebaseErrorCode(error);
+      trackWebsiteEvent('form_error', {form_id: 'marketing_contact', error_code: code.includes('resource-exhausted') ? 'rate_limited' : 'network_or_service'});
       setState(code.includes("resource-exhausted") ? "rate-limited" : "error");
     }
   }}>

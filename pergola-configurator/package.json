@@ -8,8 +8,9 @@
     "start": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "check": "node --check src/main.js && node --check src/layout.js && node --check src/state.js && node --check src/catalog.js && node --check src/pricing.js && node --check src/scene/AssetLibrary.js && node --check src/scene/PergolaScene.js && node --check src/scene/buildPergola.js && node --check src/scene/pergolaGeometry.js && node --check src/ui/ConfiguratorUI.js && node --check src/ui/pergolaRenderers.js && node --check src/i18n.js && node tools/validate-i18n.mjs",
-    "generate-assets": "python tools/generate_demo_assets.py"
+    "check": "node --check src/main.js && node --check src/layout.js && node --check src/state.js && node --check src/catalog.js && node --check src/pricing.js && node --check src/scene/AssetLibrary.js && node --check src/scene/PergolaScene.js && node --check src/scene/buildPergola.js && node --check src/scene/pergolaGeometry.js && node --check src/ui/ConfiguratorUI.js && node --check src/ui/pergolaRenderers.js && node --check src/i18n.js && node --check src/ar/controller.js && node --check src/ar/exportPergola.js && node --check src/ar/phone.js && node --check src/ui/pergolaSharedShell.js && node --check src/scene/pergolaMaterials.js && node --check vite.config.js && node tools/validate-i18n.mjs",
+    "generate-assets": "python tools/generate_demo_assets.py",
+    "test:ar": "node --test tools/pergola-ar.test.mjs"
   },
   "dependencies": {
     "three": "0.185.1"

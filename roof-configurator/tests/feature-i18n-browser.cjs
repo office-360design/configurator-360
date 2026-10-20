@@ -2,6 +2,16 @@ const { clickTool } = require('./editor-tools.cjs');
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
+const EXPECT = {
+  csv: { "en-US": /Slope,Piece/, "ro-RO": /Apă,Piesă/, "de-DE": /Dachfläche,Teil/, "es-ES": /Faldón,Pieza/, "fr-FR": /Pan,Pièce/, "it-IT": /Falda,Pezzo/ },
+  svg: { "en-US": /Unfolded/, "ro-RO": /Plan desfășurat/, "de-DE": /Abgewickelter/, "es-ES": /Plan de corte desplegado/, "fr-FR": /Plan de découpe déplié/, "it-IT": /Piano di taglio sviluppato/ },
+  print: { "en-US": /Combined order list/, "ro-RO": /Listă de comandă cumulată/, "de-DE": /Zusammengefasste Bestellliste/, "es-ES": /Lista de pedido combinada/, "fr-FR": /Liste de commande globale/, "it-IT": /Distinta d'ordine complessiva/ },
+  sheetButton: { "en-US": /Sheet cutting plan/, "ro-RO": /Plan de debitare/, "de-DE": /Zuschnittplan/, "es-ES": /Plan de corte de chapas/, "fr-FR": /Plan de découpe des tôles/, "it-IT": /Piano di taglio delle lamiere/ },
+  layoutCard: { "en-US": "Draw whole roof", "ro-RO": "Desenează întregul acoperiș", "de-DE": "Ganzes Dach zeichnen", "es-ES": "Dibujar el tejado", "fr-FR": "Dessiner la toiture", "it-IT": "Disegnare il tetto" },
+  layoutTitle: { "en-US": "Draw your roof", "ro-RO": "Desenează acoperișul", "de-DE": "Dach zeichnen", "es-ES": "Dibuje su tejado", "fr-FR": "Dessinez votre toiture", "it-IT": "Disegni il Suo tetto" },
+  estimate: { "en-US": "Not estimated", "ro-RO": "Neestimat", "de-DE": "Nicht geschätzt", "es-ES": "Sin estimar", "fr-FR": "Non estimé", "it-IT": "Non stimato" },
+};
+const LOCALES = ["ro-RO", "de-DE", "es-ES", "fr-FR", "it-IT", "en-US"];
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.ROOF_TEST_BROWSER,
     args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -68,14 +78,14 @@ const fs = require('node:fs/promises');
   assert.match(await page.locator('.sheet-diagram').first().getAttribute('aria-label'), /Abgewickelter Zuschnittplan/);
   assert.match(await page.locator('.sheet-diagram title').first().textContent(), /Bestelllänge/);
   assert.match(await page.locator('.sheet-stats article').nth(2).innerText(), /\d,\d/);
-  for (const locale of ['ro-RO', 'de-DE', 'en-US']) {
+  for (const locale of LOCALES) {
     await page.evaluate(locale => changeLocale(locale), locale);
     const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-sheet=csv]').click()]);
     const csv = await fs.readFile(await download.path(), 'utf8');
-    assert.match(csv, locale === 'ro-RO' ? /Apă,Piesă/ : locale === 'de-DE' ? /Dachfläche,Teil/ : /Slope,Piece/);
+    assert.match(csv, EXPECT.csv[locale]);
     const [svgDownload] = await Promise.all([page.waitForEvent('download'), page.locator('[data-slope-svg]').first().click()]);
     const svg = await fs.readFile(await svgDownload.path(), 'utf8');
-    assert.match(svg, locale === 'ro-RO' ? /Plan desfășurat/ : locale === 'de-DE' ? /Abgewickelter/ : /Unfolded/);
+    assert.match(svg, EXPECT.svg[locale]);
     await page.evaluate(() => {
       planner.print();
       window.printCalled = false;
@@ -84,7 +94,7 @@ const fs = require('node:fs/promises');
     await page.waitForFunction(() => window.printCalled);
     const printed = await page.locator('iframe').evaluate(frame => ({ lang: frame.contentDocument.documentElement.lang, text: frame.contentDocument.body.textContent }));
     assert.equal(printed.lang, locale);
-    assert.match(printed.text, locale === 'ro-RO' ? /Listă de comandă cumulată/ : locale === 'de-DE' ? /Zusammengefasste Bestellliste/ : /Combined order list/);
+    assert.match(printed.text, EXPECT.print[locale]);
     await page.evaluate(() => document.querySelector('iframe').remove());
   }
   // Switching while closed must translate on reopening, without resetting the roof.
@@ -98,19 +108,23 @@ const fs = require('node:fs/promises');
   await page.route('https://cdn.jsdelivr.net/npm/three@0.169.0/**', route => route.fulfill({
     path: require('node:path').join(process.env.ROOF_TEST_THREE, route.request().url().split('three@0.169.0/')[1]), contentType: 'text/javascript',
   }));
+  // The guest region lookup resolves late and would reapply its default locale
+  // over the synthetic preference events below.
+  await page.route('**/api/region-defaults**', route => route.abort());
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('http://127.0.0.1:8080/roof-configurator/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.ROOF_CONFIGURATOR_API && window.ROOF_SHELL_PREFERENCES);
-  for (const locale of ['ro-RO', 'de-DE', 'en-US']) {
+  await page.waitForLoadState('networkidle');
+  for (const locale of LOCALES) {
     await page.evaluate(locale => window.dispatchEvent(new CustomEvent('roof-preference-change', { detail: { preferences: { locale } } })), locale);
-    assert.match(await page.locator('#sheetPlanOpenButton').textContent(), locale === 'ro-RO' ? /Plan de debitare/ : locale === 'de-DE' ? /Zuschnittplan/ : /Sheet cutting plan/);
-    assert.equal(await page.locator('[data-roof-type=layout] span').innerText(), locale === 'ro-RO' ? 'Desenează întregul acoperiș' : locale === 'de-DE' ? 'Ganzes Dach zeichnen' : 'Draw whole roof');
+    assert.match(await page.locator('#sheetPlanOpenButton').textContent(), EXPECT.sheetButton[locale]);
+    assert.equal(await page.locator('[data-roof-type=layout] span').innerText(), EXPECT.layoutCard[locale]);
     await page.locator('#editRoofLayout').click();
-    assert.equal(await page.locator('#layoutTitle').innerText(), locale === 'ro-RO' ? 'Desenează acoperișul' : locale === 'de-DE' ? 'Dach zeichnen' : 'Draw your roof');
+    assert.equal(await page.locator('#layoutTitle').innerText(), EXPECT.layoutTitle[locale]);
     await page.locator('.roof-layout-dialog [data-action=apply]').click();
-    assert.equal(await page.locator('#headerEstimateTotal').innerText(), locale === 'ro-RO' ? 'Neestimat' : locale === 'de-DE' ? 'Nicht geschätzt' : 'Not estimated');
+    assert.equal(await page.locator('#headerEstimateTotal').innerText(), EXPECT.estimate[locale]);
   }
   assert.deepEqual(errors, []);
   await browser.close();
-  console.log('Feature i18n browser checks passed: RO/DE/EN, live drafts, sliders, errors, stale plans, CSV/SVG/print, mobile.');
+  console.log('Feature i18n browser checks passed: RO/DE/ES/FR/IT/EN, live drafts, sliders, errors, stale plans, CSV/SVG/print, mobile.');
 })().catch(error => { console.error(error); process.exit(1); });

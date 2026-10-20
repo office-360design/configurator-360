@@ -1,4 +1,5 @@
-import { getFirebaseIdToken } from '../firebaseAuth.js?v=platform-18';
+import { getFirebaseIdToken } from '../firebaseAuth.js?v=locales-6';
+import { getLocaleForHostname } from '../config.js?v=localized-slugs-1';
 
 const FUNCTIONS_REGION = 'europe-west1';
 const PROJECT_ID = 'configurator-360';
@@ -64,22 +65,92 @@ const COPY = Object.freeze({
       window: 'Fenster', roof: 'Dach', pergola: 'Pergola', hall: 'Halle', solar: 'Solar', fence: 'Zaun', cardbox: 'Kartonbox', bookshelf: 'Bücherregal', chair: 'Stuhl',
     }),
   }),
+  'es-ES': Object.freeze({
+    menu: 'Pedidos',
+    title: 'Pedidos',
+    subtitle: 'Configuraciones incluidas en sus pedidos anteriores.',
+    loading: 'Cargando pedidos…',
+    empty: 'Todavía no tiene pedidos.',
+    error: 'No se han podido cargar sus pedidos. Vuelva a intentarlo.',
+    order: 'Pedido',
+    items: 'artículos',
+    item: 'artículo',
+    view: 'Ver configuración',
+    opening: 'Abriendo…',
+    unavailable: 'Configuración no disponible',
+    close: 'Cerrar pedidos',
+    retry: 'Reintentar',
+    products: Object.freeze({
+      window: 'Ventana', roof: 'Tejado', pergola: 'Pérgola', hall: 'Nave', solar: 'Solar', fence: 'Valla', cardbox: 'Caja de cartón', bookshelf: 'Estantería', chair: 'Silla',
+    }),
+  }),
+  'fr-FR': Object.freeze({
+    menu: 'Commandes',
+    title: 'Commandes',
+    subtitle: 'Configurations incluses dans vos commandes précédentes.',
+    loading: 'Chargement des commandes…',
+    empty: 'Vous n’avez encore passé aucune commande.',
+    error: 'Vos commandes n’ont pas pu être chargées. Veuillez réessayer.',
+    order: 'Commande',
+    items: 'articles',
+    item: 'article',
+    view: 'Voir la configuration',
+    opening: 'Ouverture…',
+    unavailable: 'Configuration indisponible',
+    close: 'Fermer les commandes',
+    retry: 'Réessayer',
+    products: Object.freeze({
+      window: 'Fenêtre', roof: 'Toiture', pergola: 'Pergola', hall: 'Hangar', solar: 'Solaire', fence: 'Clôture', cardbox: 'Carton', bookshelf: 'Bibliothèque', chair: 'Chaise',
+    }),
+  }),
+  'it-IT': Object.freeze({
+    menu: 'Ordini',
+    title: 'Ordini',
+    subtitle: 'Configurazioni incluse nei Suoi ordini precedenti.',
+    loading: 'Caricamento degli ordini…',
+    empty: 'Non ha ancora effettuato ordini.',
+    error: 'Impossibile caricare gli ordini. Riprovi.',
+    order: 'Ordine',
+    items: 'articoli',
+    item: 'articolo',
+    view: 'Visualizza configurazione',
+    opening: 'Apertura…',
+    unavailable: 'Configurazione non disponibile',
+    close: 'Chiudi ordini',
+    retry: 'Riprova',
+    products: Object.freeze({
+      window: 'Finestra', roof: 'Tetto', pergola: 'Pergola', hall: 'Capannone', solar: 'Fotovoltaico', fence: 'Recinzione', cardbox: 'Scatola di cartone', bookshelf: 'Libreria', chair: 'Sedia',
+    }),
+  }),
 });
 
+// Locale lookup derived from COPY: an exact code ("fr-FR") or a language
+// prefix ("fr", "fr-CA") resolves to the matching COPY entry.
+function localeFromLanguageTag(value = '') {
+  const tag = String(value || '').trim().replace('_', '-');
+  if (COPY[tag]) return tag;
+  const language = tag.split('-')[0].toLowerCase();
+  if (!language) return null;
+  return Object.keys(COPY).find((code) => code.split('-')[0].toLowerCase() === language) || null;
+}
+
 function normalizedLocale(value = '') {
-  const locale = String(value || '').trim();
-  if (COPY[locale]) return locale;
-  if (locale.toLowerCase().startsWith('ro')) return 'ro-RO';
-  if (locale.toLowerCase().startsWith('de')) return 'de-DE';
-  return 'en-US';
+  return localeFromLanguageTag(value) || 'en-US';
 }
 
 function currentLocale() {
-  const htmlLang = String(document.documentElement.lang || '').trim();
-  const host = String(location.hostname || '').toLowerCase();
-  if (htmlLang.toLowerCase().startsWith('ro') || host.includes('360configurator.ro')) return 'ro-RO';
-  if (htmlLang.toLowerCase().startsWith('de') || host.includes('360konfigurator.de')) return 'de-DE';
-  return 'en-US';
+  const fromLang = localeFromLanguageTag(document.documentElement.lang);
+  if (fromLang && fromLang !== 'en-US') return fromLang;
+  // Public hosts and tenant domains map to their locale in config.js.
+  const fromHost = getLocaleForHostname(location.hostname || '');
+  return COPY[fromHost] ? fromHost : 'en-US';
+}
+
+function itemCountLabel(count, locale) {
+  const copy = c(locale);
+  let category = count === 1 ? 'one' : 'other';
+  try { category = new Intl.PluralRules(normalizedLocale(locale)).select(count); } catch { /* keep fallback */ }
+  return `${count} ${category === 'one' ? copy.item : copy.items}`;
 }
 
 function c(locale = currentLocale()) {
@@ -211,7 +282,7 @@ function renderOrders(orders, locale) {
           <strong class="cfg360-order-total">${escapeHtml(total)}</strong>
           <span class="cfg360-order-chevron" aria-hidden="true">›</span>
         </summary>
-        <div class="cfg360-order-items" aria-label="${escapeHtml(`${itemCount} ${itemCount === 1 ? copy.item : copy.items}`)}">${items}</div>
+        <div class="cfg360-order-items" aria-label="${escapeHtml(itemCountLabel(itemCount, locale))}">${items}</div>
       </details>`;
   }).join('');
 }

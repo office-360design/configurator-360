@@ -1,4 +1,4 @@
-import { tenantDomainContext } from './tenantDomains.js?v=tenant-domains-1';
+import { tenantDomainContext } from './tenantDomains.js?v=locales-6';
 
 const FIREBASE_PROJECT_ID = 'configurator-360';
 const FIREBASE_DATABASE_ID = '(default)';

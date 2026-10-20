@@ -1,7 +1,9 @@
+import { normalizeRegions, triangleIndex, REGION_LIMITS } from './pavingRegions.js';
+import { STRIATED_GREY } from './striatedStone.js';
 import { normalizeFootprint } from './footprint.js';
 import { interlockingLayout } from './interlocking.js';
 import { excludeHouse } from './house.js';
-import { areaGeometry, triangulate, clipRect, polygonArea, polygonCurbs } from './area.js';
+import { areaGeometry, triangulateArea, clipRect, polygonArea, polygonCurbs } from './area.js';
 export { areaGeometry } from './area.js';
 // Nominal WISE formats. Rates are editable demo values in RON, not supplier prices.
 export const COLORS = {
@@ -16,6 +18,7 @@ export const COLORS = {
   sahara: ['#c9b796', '#ac885d', '#ded0ad'],
   whiteMix: ['#d8d5ca', '#969a98', '#414748'],
   shellBrown: ['#806453', '#aa927b', '#c6b5a0'],
+  striatedGrey: STRIATED_GREY,
 };
 export const TILES = {
   hbeton: {
@@ -46,7 +49,7 @@ export const TILES = {
     width: 0.2,
     thickness: 0.06,
     price: 115,
-    colors: ['noir', 'sahara', 'whiteMix', 'shellBrown'],
+    colors: ['noir', 'sahara', 'whiteMix', 'shellBrown', 'striatedGrey'],
     patterns: ['running', 'stack', 'checker'],
     source: 'https://wise.ro/produs/pavaj-premium-rezidential/',
   },
@@ -117,6 +120,8 @@ export const DEFAULTS = Object.freeze({
   houseRotation: 0,
   shape: 'rectangle',
   areaPoints: null,
+  areaRegions: null,
+  areaOrigin: null,
   runA: 6,
   runB: 4,
   runC: 4,
@@ -156,11 +161,19 @@ export function normalize(input = {}) {
   s.curbRate = number(s.curbRate, CURBS[s.curb].price, 0, 10000);
   s.areaPoints = normalizeFootprint(s.areaPoints);
   s.shape =
+    s.shape === 'regions' ? 'regions' :
     s.shape === 'custom' && s.areaPoints
       ? 'custom'
       : ['rectangle', 'closed4', 'closed5'].includes(s.shape)
         ? s.shape
         : 'rectangle';
+  if (s.shape === 'regions') {
+    s.areaRegions = normalizeRegions(s.areaRegions);
+    s.areaOrigin = s.areaOrigin == null ? { x: 0, z: 0 } : { x: s.areaOrigin.x, z: s.areaOrigin.z };
+    // Validation includes the fixed origin. Empty regions must NOT fall back to a rectangle.
+    areaGeometry(s);
+    s.areaPoints = null;
+  } else { s.areaRegions = null; s.areaOrigin = null; }
   for (const key of ['runA', 'runB', 'runC', 'runD']) s[key] = number(s[key], DEFAULTS[key], 1, 20);
   s.angleB = number(s.angleB, 90, 30, 150);
   s.houseEnabled = s.houseEnabled === true;
@@ -195,11 +208,11 @@ export function normalize(input = {}) {
   s.houseRotation = number(s.houseRotation, 0, 0, 360);
   s.rotation = number(s.rotation, 0, 0, 360);
   const edgeCount =
-    s.shape === 'custom' ? s.areaPoints.length : s.shape === 'closed5' ? 5 : 4;
+    s.shape === 'regions' ? 0 : s.shape === 'custom' ? s.areaPoints.length : s.shape === 'closed5' ? 5 : 4;
   s.edges = Array.from({ length: edgeCount }, (_, i) =>
     Array.isArray(s.edges) && typeof s.edges[i] === 'boolean' ? s.edges[i] : true,
   );
-  return Object.fromEntries(Object.keys(DEFAULTS).map((k) => [k, k === 'version' ? 1 : s[k]]));
+  return Object.fromEntries(Object.keys(DEFAULTS).map((k) => [k, k === 'version' ? (s.shape === 'regions' ? 2 : 1) : s[k]]));
 }
 
 export function layout(input) {
@@ -211,18 +224,27 @@ export function layout(input) {
     sin = Math.sin(angle),
     toGrid = (p) => ({ x: p.x * cos + p.z * sin, z: -p.x * sin + p.z * cos }),
     toWorld = (p) => ({ x: p.x * cos - p.z * sin, z: p.x * sin + p.z * cos }),
-    site = triangulate(area.points).map((tri) => tri.map(toGrid)),
-    sitePoints = area.points.map(toGrid),
+    site = triangulateArea(area).map((tri) => tri.map(toGrid)),
+    nearby = triangleIndex(site),
+    sitePoints = area.regions.flatMap((r) => r.outer).map(toGrid),
     minX = Math.min(...sitePoints.map((p) => p.x)),
     maxX = Math.max(...sitePoints.map((p) => p.x)),
     minZ = Math.min(...sitePoints.map((p) => p.z)),
     maxZ = Math.max(...sitePoints.map((p) => p.z)),
     result = [];
 
+  if (!sitePoints.length) return [];
+  if ((maxX - minX + 2 * t.length) * (maxZ - minZ + 2 * t.width) / (t.length * t.width) > REGION_LIMITS.candidates)
+    throw new Error('areaTooComplex');
+
   if (t.profile === 'h') return excludeHouse(interlockingLayout(s, t, area), s);
 
+  let clipWork = 0, fragmentCount = 0;
   const add = (x, z, l, w, accent = false, shadeRole) => {
-    const fragments = site
+    const candidates = nearby(x, z, l, w);
+    clipWork += candidates.length;
+    if (clipWork > REGION_LIMITS.clipWork) throw new Error('areaTooComplex');
+    const fragments = candidates
       .map((tri) => clipRect(tri, x, z, l, w))
       .filter((poly) => poly.length >= 3 && polygonArea(poly) > 1e-8);
     const netArea = fragments.reduce((sum, poly) => sum + polygonArea(poly), 0);
@@ -237,6 +259,9 @@ export function layout(input) {
         { x, z: z + w },
       ].map(toWorld);
 
+    if (cut) fragmentCount += fragments.length;
+    if (result.length >= REGION_LIMITS.pieces || fragmentCount > REGION_LIMITS.fragments)
+      throw new Error('areaTooComplex');
     result.push({
       ...(shadeRole === undefined ? {} : { shadeRole }),
       shadeX: center.x,

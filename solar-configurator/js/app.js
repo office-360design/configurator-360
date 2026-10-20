@@ -1,9 +1,9 @@
-import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=platform-18';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { RoofScene } from './scene.js?v=platform-18';
-import { SolarUI } from './ui.js?v=solar-mobile-2';
-import { fetchPvgisSiteEstimate } from './energyModel.js?v=platform-18';
-import { loadGeographicEnvironment } from './environmentLoader.js?v=platform-18';
+import { DEFAULT_SOLAR_SHARE_STATE, applySolarShareState, captureSolarShareState, state } from './state.js?v=site-analytics-1';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { RoofScene } from './scene.js?v=site-analytics-1';
+import { SolarUI } from './ui.js?v=site-analytics-1';
+import { fetchPvgisSiteEstimate } from './energyModel.js?v=site-analytics-1';
+import { loadGeographicEnvironment } from './environmentLoader.js?v=site-analytics-1';
 import {
   analyzeGoogleSolar,
   clearGoogleSolarSession,
@@ -19,15 +19,15 @@ import {
   getSunTimes,
   getTodayInTimeZone,
   nearestRegionKey,
-} from './solarPosition.js?v=platform-18';
+} from './solarPosition.js?v=site-analytics-1';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=platform-18';
-import { solarT, resolveSolarLocale } from './i18n.js?v=solar-panel-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+} from './preferences.js?v=locales-6';
+import { solarT, resolveSolarLocale } from './i18n.js?v=site-analytics-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 await requireTenantConfiguratorAccess('solar');
 
@@ -949,7 +949,20 @@ function resetConfiguration() {
   return true;
 }
 
+function assertARConfigurationReady() {
+  const code = !lastMetrics || !scene.modelRoot.children.length ? 'not-ready'
+    : !['gable', 'hip', 'shed'].includes(state.roofType) || !(lastMetrics.roofArea > 0) ? 'roof-incomplete'
+      : !(lastMetrics.placedPanels > 0) ? 'no-panels' : null;
+  if (code) { const error = new Error(code); error.code = code; throw error; }
+}
+
 const configuratorApi = {
+  async captureARSnapshot(options = {}) {
+    assertARConfigurationReady();
+    const snapshot = await scene.captureARSnapshot(options);
+    assertARConfigurationReady();
+    return snapshot;
+  },
   getState() {
     return toolsSnapshot();
   },

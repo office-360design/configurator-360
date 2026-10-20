@@ -8,11 +8,6 @@
         content="Configure windows online in 3D. Adjust dimensions, layout, profiles and opening types in an interactive window configurator.">
     <meta name="robots" content="index, follow">
     <meta name="app-build" content="unprepared-main-ar-merge">
-    <script>
-        if (new URLSearchParams(window.location.search).get('ar') === '1') {
-            document.documentElement.classList.add('ar-mode');
-        }
-    </script>
     <title>3D Window Configurator | 360Configurator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +16,7 @@
          it here prevents the shell from replacing an active stylesheet at mount. -->
     <link rel="stylesheet" href="./shared-ui/styles/standalone.css?v=tenant-branding-1">
     <link rel="stylesheet" href="./shared-shell.css?v=platform-18">
+    <link rel="stylesheet" href="./shared-ui/styles/ar.css?v=firebase-ar-5">
     <link rel="stylesheet" href="./css/styles.css?v=platform-18">
     <style>
         /* Keep selected-window dimension values visually consistent with the
@@ -41,10 +37,10 @@
             "three": "./js/three-mesh-reuse.js?v=1",
             "three/addons/": "./lib/",
             "./js/window-builder.js": "./js/window-builder-dimensions.js?v=2",
-            "./js/window-builder.js?v=contact-5": "./js/window-builder-dimensions.js?v=2",
-            "./js/window-builder.js?v=uv-8": "./js/window-builder-dimensions.js?v=2",
-            "./js/window-builder.js?v=handle-fix-12": "./js/window-builder-dimensions.js?v=3",
-            "./js/window-builder.js?v=perf-15": "./js/window-builder-dimensions.js?v=perf-15"
+            "./js/window-builder.js?v=locales-6": "./js/window-builder-dimensions.js?v=2",
+            "./js/window-builder.js?v=locales-6": "./js/window-builder-dimensions.js?v=2",
+            "./js/window-builder.js?v=locales-6": "./js/window-builder-dimensions.js?v=3",
+            "./js/window-builder.js?v=locales-6": "./js/window-builder-dimensions.js?v=perf-15"
         }
     }
     </script>
@@ -54,7 +50,7 @@
         applyConfiguratorSeo('window');
     </script>
 
-    <script type="module" src="./shared-shell.js?v=templates-shared-1"></script>
+    <script type="module" src="./shared-shell.js?v=locales-6"></script>
 </head>
 
 <body class="shared-ui-mounted">
@@ -604,22 +600,6 @@
         <button id="qr-ar-button" type="button">Generate AR QR</button>
     </div>
 
-    <div id="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qr-title">
-        <div class="qr-dialog">
-            <button id="qr-close" type="button" aria-label="Close">×</button>
-            <h3 id="qr-title">Export and view this window in AR</h3>
-            <p id="qr-description">Android selected: the browser will generate a GLB for Google Scene Viewer.</p>
-            <div id="qr-status">Preparing the optimized AR export…</div>
-            <pre id="qr-export-stats"></pre>
-            <div id="qr-publish-help"></div>
-            <div id="qr-code"></div>
-            <a id="qr-launch-link" href="#" target="_blank" rel="noopener">Open phone launcher page</a>
-            <button id="qr-download-model" type="button" disabled>Download optimized model</button>
-            <button id="qr-check-published" type="button" disabled>Check published model and create QR</button>
-            <div id="qr-error"></div>
-        </div>
-    </div>
-
     <div id="cad-reference-modal" role="dialog" aria-modal="true" aria-labelledby="cad-reference-title">
         <div class="cad-reference-dialog">
             <button id="cad-reference-close" type="button" aria-label="Close">×</button>
@@ -640,20 +620,8 @@
         </div>
     </div>
 
-    <div id="ar-launch">
-        <div class="ar-launch-card">
-            <h1>Window AR view</h1>
-            <p>The configured window is ready. Tap once to allow the browser to open the camera and place it
-                automatically.</p>
-            <button id="ar-start-button" type="button" disabled>Preparing AR…</button>
-            <div id="ar-status">Loading the selected profile…</div>
-        </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
-    <script src="./ar-upload-config.js?v=platform-18"></script>
-    <script type="module" src="./js/window-size-limits.js?v=platform-18"></script>
-    <script type="module" src="./js/main.js?v=tenant-domains-1"></script>
+    <script type="module" src="./js/window-size-limits.js?v=locales-6"></script>
+    <script type="module" src="./js/main.js?v=mobile-panels-1"></script>
 </body>
 
 </html>

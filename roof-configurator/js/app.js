@@ -3,17 +3,17 @@ import { validateSheetProfile } from './sheetPlanner.js?v=sketch-47';
 import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=layout-21';
 import { defaultSketch, sketchArea, validateSketch } from './slopeSketch.js?v=sketch-1';
 import { state, pitchRules, roofNames } from './state.js?v=drainage-48';
-import { RoofScene } from './scene.js?v=drainage-50';
-import { RoofUI } from './ui.js?v=drainage-49';
+import { RoofScene } from './scene.js?v=site-analytics-1';
+import { RoofUI } from './ui.js?v=site-analytics-1';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,
   normalizeUnits,
   resolveCurrencyRate,
-} from './preferences.js?v=platform-18';
-import { readShareState } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=sketch-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+} from './preferences.js?v=locales-6';
+import { readShareState } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applyRoofTranslations, resolveRoofLocale } from './i18n.js?v=site-analytics-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 await requireTenantConfiguratorAccess('roof');
 
@@ -254,7 +254,21 @@ function resetConfiguration() {
   return true;
 }
 
+function assertARConfigurationReady() {
+  const code = ui?.layoutEditor?.dialog?.open ? 'editing-in-progress'
+    : !lastMetrics || !scene.modelRoot.children.length ? 'not-ready'
+      : state.roofType === 'custom' || !(lastMetrics.roofArea > 0) ? 'roof-incomplete' : null;
+  if (code) { const error = new Error(code); error.code = code; throw error; }
+}
+
 const configuratorApi = {
+  async captureARSnapshot(options = {}) {
+    assertARConfigurationReady();
+    const snapshot = await scene.captureARSnapshot(options);
+    // A layout editor may have opened while finish images were loading.
+    assertARConfigurationReady();
+    return snapshot;
+  },
   getState() {
     return {
       roofType: state.roofType,

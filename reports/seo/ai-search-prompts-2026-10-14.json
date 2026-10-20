@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "purpose": "Discovery of B2B configuration software, not suppliers of physical products",
+  "firstReview": "2026-10-28",
+  "protocol": {
+    "engines": ["ChatGPT web search", "Perplexity Search"],
+    "repetitionsPerPrompt": 3,
+    "session": "Fresh conversation per response; ChatGPT Temporary + Unpersonalized; Perplexity Incognito",
+    "location": "Europe/Bucharest browser context; actual engine retrieval country and exact model version may be unknown",
+    "exclude": ["Brand-primed prompts", "Personalized or unverified-personalization sessions", "Incomplete responses", "Follow-up answers in the same conversation"],
+    "fields": ["timestamp", "promptId", "engine", "run", "mode", "modelIfVisible", "searchEvidence", "mentioned", "ownDomainLinked", "ownSourceCitationVerified", "recommended", "descriptionAccuracy", "sourceUrls", "evidencePath", "status"],
+    "unknown": "null, never false or zero; only completed controlled samples enter denominators",
+    "success": "Valid distinct human contacts and suitable opportunities, not mention rate alone",
+    "privacy": "Keep observations, private account URLs and commercial metrics in ignored website/outputs; no PII or account history",
+    "interpretation": "Report numerator and denominator for each prompt/engine/condition. Three runs are a directional pilot, not a representative market share or causal growth result. Do not pool languages or report unrun prompts as zero.",
+    "attribution": "Use consent-observed GA4 source/medium and hostname, then reconcile qualified contacts with private inbox/vendor aggregates. Probe responses do not measure leads. GSC beta AI impressions do not measure all ChatGPT/Perplexity citations."
+  },
+  "initialPilot": ["ro-01", "en-01", "de-01"],
+  "prompts": [
+    {"id":"ro-01","language":"ro","intent":"provider-discovery","prompt":"Ce companii dezvoltă configuratoare 3D în browser pentru producători, cu reguli de produs și liste de materiale? Caută pe web și oferă surse."},
+    {"id":"ro-02","language":"ro","intent":"roof-software","prompt":"Caut un furnizor pentru dezvoltarea unui configurator de acoperișuri pentru un producător, cu dimensiuni parametrice și listă de materiale CSV. Ce soluții merită evaluate? Caută pe web și oferă surse."},
+    {"id":"ro-03","language":"ro","intent":"implementation-pricing","prompt":"Cum estimez costul implementării unui configurator 3D pentru catalogul unui producător și ce date trebuie pregătite pentru ofertă? Caută pe web și oferă surse."},
+    {"id":"ro-04","language":"ro","intent":"catalogue-adaptation","prompt":"Pentru un producător de pergole, când merită adaptat un configurator 3D existent și când este necesară dezvoltarea unuia personalizat? Caută pe web și oferă surse."},
+    {"id":"en-01","language":"en","intent":"provider-discovery","prompt":"Which companies develop browser-based 3D product configurators for manufacturers, with product rules and bills of materials? Search the web and cite sources."},
+    {"id":"en-02","language":"en","intent":"roof-software","prompt":"I need a developer for a roof configurator for a manufacturer, with parametric dimensions and CSV bills of materials. Which solutions should I evaluate? Search the web and cite sources."},
+    {"id":"en-03","language":"en","intent":"implementation-pricing","prompt":"How should a manufacturer estimate the implementation cost of a 3D product configurator, and what catalogue data is needed for a proposal? Search the web and cite sources."},
+    {"id":"de-01","language":"de","intent":"provider-discovery","prompt":"Welche Unternehmen entwickeln browserbasierte 3D-Produktkonfiguratoren für Hersteller mit Produktregeln und Stücklisten? Suche im Web und nenne Quellen."},
+    {"id":"de-02","language":"de","intent":"roof-software","prompt":"Ich suche einen Entwickler für einen Dachkonfigurator für einen Hersteller, mit parametrischen Maßen und CSV-Stücklisten. Welche Lösungen sollte ich prüfen? Suche im Web und nenne Quellen."},
+    {"id":"de-03","language":"de","intent":"implementation-pricing","prompt":"Wie kalkuliert ein Hersteller die Implementierung eines 3D-Produktkonfigurators und welche Katalogdaten benötigt der Anbieter für ein Angebot? Suche im Web und nenne Quellen."}
+  ]
+}

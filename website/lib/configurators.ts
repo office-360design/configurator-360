@@ -1,5 +1,214 @@
-import { newConfigurator } from "./new-configurators";
 import { liteSlugs, type LiteSlug } from "./lite-products";
+import type { Locale } from "./i18n";
+
+type ProductCopy = {
+  name: string; category: string; statement: string; description: string;
+  features: [string, string][]; outputs: string[]; questions: [string, string][];
+};
+
+export const newProductCopy: Record<Locale, Record<LiteSlug, ProductCopy>> = {
+  en: {
+    chair: {
+      name: "Chair Configurator", category: "Furniture & materials", statement: "Find the finish. See the whole chair.",
+      description: "Compare wood colours and upholstery on a furnished 3D chair. Explore the material combination from every angle, then open the full configurator for more wood and fabric options.",
+      features: [["Wood finishes", "Compare warm oak, darker timber and painted tones across the chair frame."], ["Upholstery", "Change fabric colour and compare woven and velvet-inspired surface treatments."], ["Coordinated materials", "Judge the frame and cushions together before choosing a finish combination."], ["Original geometry", "Inspect the procedural chair model, including fitted arm joints and upholstered seat and back."], ["Fixed proportions", "The chair has a fixed 500 × 470 × 790 mm envelope. This preview changes finishes, not product dimensions."], ["Full material selection", "Continue to the full application to explore its wood species, fabric categories and saved configurations."]],
+      outputs: ["Wood colour", "Upholstery colour", "Material combination", "3D product view"],
+      questions: [["Can I change the chair dimensions?", "No. This chair uses fixed dimensions. The website preview lets you compare frame and upholstery finishes."], ["Are the textures supplier samples?", "No. Geometry and surface patterns are generated for visual comparison. Confirm the physical finish with the supplier."], ["Will my preview transfer to the full configurator?", "The full configurator opens separately with its own initial state. Website preview choices are not transferred."]],
+    },
+    cardbox: {
+      name: "Cardboard Box Configurator", category: "Packaging systems", statement: "Size the box. Explore the closure.",
+      description: "Explore corrugated packaging in 3D. Adjust box dimensions, compare shipping and lid styles, and inspect the opening before continuing to board specification and decoration in the full configurator.",
+      features: [["Box structures", "Explore all nine original box styles, with their FEFCO references, dimensions and compatible closures."], ["Parametric dimensions", "Adjust width, depth and height independently to judge the proportions of your package."], ["Closure preview", "Inspect the top panel using the original opening motion and select compatible top and bottom closures."], ["Board appearance", "Compare the original TFT, AFT and AFA paper presets with natural or white inner and outer liners."], ["Packaging catalogue", "The full application includes nine structures with relevant FEFCO style or family references."], ["Artwork & specification", "Use the full application for board layers, handles, cut-outs, surface colours, text and image placement."]],
+      outputs: ["Box dimensions", "Structure selection", "Internal volume estimate", "Closure preview"],
+      questions: [["Which box types can I try here?", "All nine original styles: shipping, full-overlap, telescope, archive, pizza, mailer, self-erecting, two-point glued and sleeve/drawer boxes. Each starts with its original dimensions and closures."], ["Is this a manufacturing dieline?", "No. The lite model illustrates dimensions and closure motion. Confirm the exact construction, material and production drawing with your packaging supplier."], ["Can I add a logo or specify the corrugated board?", "Yes, in the full configurator. Open it for image and text decoration, board construction, flute profiles and paper layers."]],
+    },
+    bookshelf: {
+      name: "Modular Bookshelf Configurator", category: "Modular furniture", statement: "Build the run. Turn the corner.",
+      description: "Arrange connected bookshelf modules in a straight or L-shaped run. Compare two dimensional families, wood finishes and door options using geometry adapted from the client-specific modular system.",
+      features: [["Connected modules", "Choose a bounded run of two to four modules in this preview. Connections follow the module sequence."], ["L-shaped layouts", "Add a 90° corner with the same shelf and upright construction as the full system."], ["Dimensional families", "Choose compact or tall proportions. All connected modules use one family."], ["Door options", "Compare open shelves, lower solid doors and full-height glazed doors on straight modules."], ["Wood finishes", "Compare natural, mahogany and wenge colour directions across the whole preview."], ["Component logic", "Inspect modules and their connection count. Detailed per-module editing remains available in the full configurator."]],
+      outputs: ["Module layout", "Dimensional family", "Door & finish selection", "Connection count"],
+      questions: [["What are the module dimensions?", "Compact straight modules are 800 × 350 × 2150 mm, with 750 × 750 mm corners. Tall straight modules are 900 × 350 × 2300 mm, with 850 × 850 mm corners."], ["Can corner modules have doors?", "Corner modules remain open. Lower and glazed door options apply to straight modules."], ["Does this include a price or manufacturing BOM?", "No price is shown. This client-specific system reports modules and connection sets; it does not claim a complete manufacturing bill of materials."]],
+    },
+    tiles: {
+      name: "Tiles Configurator", category: "Landscape & paving", statement: "Choose the pattern. Measure the surface.",
+      description: "Compare paving formats, patterns and colours on a bounded rectangular area. The website uses a lightweight photo/2D illustration and reports area. Open the full 3D prototype for house exclusions and installed-piece quantities.",
+      features: [["Measured area", "Adjust length from 1 to 4 m and width from 1 to 3 m. The website reports the rectangular area, not a purchasing quantity."], ["Laying patterns", "Choose from three paving formats. Parket supports running bond, herringbone and basket weave; the other formats offer running and stack bonds."], ["Pattern rotation", "Rotate the illustrated pattern and compare how its joints meet the rectangular boundary. This is not a native 3D piece-layout inspection."], ["Colour selection", "Compare grey, terracotta and charcoal over an illustrative photograph and pattern overlay. These are not supplier material samples."], ["Border curbs", "Switch border curbs on or off in the website illustration. House footprints and installed-piece counts are available in the full prototype, not this preview."], ["Extended planning", "Open the full 3D prototype for custom outlines, rectangular or L-shaped houses, quantity calculations, editable demo rates and CSV output."]],
+      outputs: ["Rectangular area", "Illustrated laying pattern", "Border curb preview", "Colour selection"],
+      questions: [["Are the quantities a supplier quote?", "No. The website reports rectangular area, not installed-piece or purchasing quantities. The full prototype uses editable demo rates; confirm quantities and prices with your supplier."], ["Can I include curbs or a house footprint?", "Border curbs can be shown here. A configurable rectangular or L-shaped house and its paving exclusions require the full 3D prototype."], ["Is the pavement configurator a finished commercial product?", "The full application is a working prototype. The website is a lightweight photo/2D illustration, not the full 3D editor or a manufacturing specification."]],
+    },
+  },
+  ro: {
+    chair: {
+      name: "Configurator scaune", category: "Mobilier și materiale", statement: "Alege finisajul. Vezi scaunul complet.",
+      description: "Compară culorile lemnului și tapițeriei pe un scaun 3D. Examinează combinația din orice unghi, apoi deschide configuratorul complet pentru mai multe esențe și materiale.",
+      features: [["Finisaje din lemn", "Compară tonuri naturale, închise sau vopsite pe cadrul scaunului."], ["Tapițerie", "Schimbă culoarea și compară suprafețe inspirate de țesătură și catifea."], ["Materiale coordonate", "Vezi cadrul și pernele împreună înainte de alegerea finisajelor."], ["Geometrie originală", "Examinează modelul procedural, îmbinările brațelor, șezutul și spătarul tapițat."], ["Proporții fixe", "Dimensiunile sunt 500 × 470 × 790 mm. Previzualizarea schimbă finisajele, nu dimensiunile."], ["Selecție completă", "În aplicația completă poți explora esențe, categorii de țesături și configurații salvate."]],
+      outputs: ["Culoare lemn", "Culoare tapițerie", "Combinație de materiale", "Vedere 3D"],
+      questions: [["Pot modifica dimensiunile scaunului?", "Nu. Modelul are dimensiuni fixe. Previzualizarea permite compararea finisajelor cadrului și tapițeriei."], ["Texturile sunt mostre de furnizor?", "Nu. Suprafețele sunt generate pentru comparație vizuală. Confirmă finisajul fizic cu furnizorul."], ["Alegerile se transferă în aplicația completă?", "Nu. Configuratorul complet se deschide separat, cu propria configurație inițială."]],
+    },
+    cardbox: {
+      name: "Configurator cutii din carton", category: "Sisteme de ambalare", statement: "Dimensionează cutia. Explorează închiderea.",
+      description: "Explorează ambalaje din carton ondulat în 3D. Reglează dimensiunile, compară clapele și capacul, apoi continuă cu materialele și personalizarea în configuratorul complet.",
+      features: [["Tipuri de cutii", "Explorează toate cele nouă tipuri originale, cu referințe FEFCO, dimensiuni și închideri compatibile."], ["Dimensiuni parametrice", "Reglează independent lățimea, adâncimea și înălțimea ambalajului."], ["Previzualizare închidere", "Inspectează panoul superior folosind mișcarea originală și alege închiderile compatibile."], ["Aspect carton", "Compară rețetele originale TFT, AFT și AFA, cu hârtie natur sau albă la exterior și interior."], ["Catalog de ambalaje", "Aplicația completă include nouă structuri cu referințe FEFCO de tip sau familie."], ["Grafică și specificații", "Folosește aplicația completă pentru straturi de carton, mânere, decupaje, text și imagini."]],
+      outputs: ["Dimensiuni cutie", "Tip de structură", "Volum interior estimat", "Previzualizare închidere"],
+      questions: [["Ce tipuri de cutii pot testa aici?", "Toate cele nouă tipuri originale: standard, suprapuse, telescopice, arhivare, pizza, poștale, autoformare, lipite în două puncte și manșon cu sertar. Fiecare pornește cu dimensiunile și închiderile originale."], ["Este un desen pentru producție?", "Nu. Modelul ilustrează dimensiunile și mișcarea închiderii. Confirmă construcția, materialul și desenul de producție cu furnizorul."], ["Pot adăuga un logo?", "Da, în aplicația completă, unde sunt disponibile imagini, text și configurarea cartonului ondulat."]],
+    },
+    bookshelf: {
+      name: "Configurator biblioteci modulare", category: "Mobilier modular", statement: "Construiește șirul. Continuă după colț.",
+      description: "Aranjează module de bibliotecă în linie sau în L. Compară două familii dimensionale, finisaje și uși folosind geometria adaptată din sistemul modular dedicat clientului.",
+      features: [["Module conectate", "Alege între două și patru module în previzualizare, cu îmbinări consecutive."], ["Configurație în L", "Adaugă un colț de 90° cu rafturi și montanți din sistemul complet."], ["Familii dimensionale", "Alege varianta compactă sau înaltă pentru toate modulele conectate."], ["Opțiuni de uși", "Compară rafturi deschise, uși inferioare pline sau uși vitrate pe modulele drepte."], ["Finisaje lemn", "Compară nuanțele natur, mahon și wenge pe întreaga configurație."], ["Componente", "Vezi numărul de module și conexiuni. Editarea individuală este disponibilă în aplicația completă."]],
+      outputs: ["Dispunere module", "Familie dimensională", "Uși și finisaje", "Număr de conexiuni"],
+      questions: [["Ce dimensiuni au modulele?", "Varianta compactă: module drepte de 800 × 350 × 2150 mm și colțuri de 750 × 750 mm. Varianta înaltă: 900 × 350 × 2300 mm și colțuri de 850 × 850 mm."], ["Modulele de colț pot avea uși?", "Nu. Modulele de colț rămân deschise; ușile se aplică modulelor drepte."], ["Este inclus un preț?", "Nu se afișează prețuri. Sistemul raportează module și seturi de conexiuni, nu o listă completă de producție."]],
+    },
+    tiles: {
+      name: "Configurator dale și pavaje", category: "Amenajări și pavaje", statement: "Alege modelul. Măsoară suprafața.",
+      description: "Compară formate, modele și culori de pavaj pe o zonă dreptunghiulară limitată. Website-ul folosește o ilustrație foto/2D și raportează suprafața. Casa și cantitățile de pavele sunt în prototipul 3D complet.",
+      features: [["Suprafață măsurată", "Reglează lungimea între 1 și 4 m și lățimea între 1 și 3 m. Website-ul raportează suprafața dreptunghiului, nu necesarul pentru achiziție."], ["Modele de montaj", "Alege dintre trei formate. Parket permite montaj decalat, os de pește și împletit; celelalte formate permit montaj decalat și aliniat."], ["Rotația modelului", "Rotește modelul ilustrat și compară rosturile la marginea dreptunghiului. Nu este inspecția pieselor din editorul 3D nativ."], ["Culori", "Compară gri, teracotă și antracit peste fotografia și modelul ilustrativ. Nu sunt mostre de material de la furnizor."], ["Borduri", "Afișează sau ascunde bordurile în ilustrația website-ului. Casa și numărul de piese montate sunt în prototipul complet, nu în această previzualizare."], ["Planificare extinsă", "Deschide prototipul 3D complet pentru contururi personalizate, case dreptunghiulare sau în L, cantități, prețuri demo editabile și export CSV."]],
+      outputs: ["Suprafață dreptunghiulară", "Model de montaj ilustrat", "Previzualizare borduri", "Culoare"],
+      questions: [["Cantitățile reprezintă o ofertă?", "Nu. Website-ul raportează suprafața dreptunghiului, nu piese montate sau cantități de achiziție. Prototipul complet folosește tarife demo editabile; confirmă cantitățile și prețurile cu furnizorul."], ["Pot adăuga borduri sau o casă?", "Bordurile pot fi afișate aici. O casă dreptunghiulară sau în L, configurabilă, și excluderea amprentei ei din pavaj necesită prototipul 3D complet."], ["Configuratorul este un produs comercial final?", "Aplicația completă este un prototip funcțional. Website-ul este o ilustrație foto/2D lite, nu editorul 3D complet sau o specificație de fabricație."]],
+    },
+  },
+  de: {
+    chair: {
+      name: "Stuhl-Konfigurator", category: "Möbel & Materialien", statement: "Oberfläche wählen. Den ganzen Stuhl sehen.",
+      description: "Vergleichen Sie Holzfarben und Polster an einem 3D-Stuhl. Prüfen Sie die Kombination aus jedem Blickwinkel und öffnen Sie den vollständigen Konfigurator für weitere Holz- und Stoffoptionen.",
+      features: [["Holzoberflächen", "Vergleichen Sie natürliche, dunkle und lackierte Farbtöne am Stuhlrahmen."], ["Polster", "Ändern Sie die Farbe und vergleichen Sie gewebte sowie samtartige Oberflächen."], ["Materialkombination", "Beurteilen Sie Rahmen und Polster gemeinsam vor der Auswahl."], ["Originalgeometrie", "Prüfen Sie das prozedurale Modell mit Armverbindungen, Sitzpolster und Rückenlehne."], ["Feste Proportionen", "Der Stuhl misst 500 × 470 × 790 mm. Die Vorschau verändert Oberflächen, keine Produktmaße."], ["Weitere Materialien", "Die vollständige Anwendung bietet Holzarten, Stoffkategorien und gespeicherte Konfigurationen."]],
+      outputs: ["Holzfarbe", "Polsterfarbe", "Materialkombination", "3D-Produktansicht"],
+      questions: [["Kann ich die Stuhlmaße ändern?", "Nein. Das Modell hat feste Maße. Die Vorschau dient dem Vergleich von Rahmen- und Polsteroberflächen."], ["Sind die Texturen Lieferantenmuster?", "Nein. Die Muster werden für den visuellen Vergleich erzeugt. Bestätigen Sie das tatsächliche Material beim Lieferanten."], ["Werden meine Einstellungen übernommen?", "Nein. Der vollständige Konfigurator öffnet separat mit seinem eigenen Ausgangszustand."]],
+    },
+    cardbox: {
+      name: "Karton-Konfigurator", category: "Verpackungssysteme", statement: "Karton bemessen. Verschluss erkunden.",
+      description: "Erkunden Sie Wellpappverpackungen in 3D. Ändern Sie die Maße, vergleichen Sie Klappen und Deckel und wechseln Sie zur vollständigen Anwendung für Materialaufbau und Gestaltung.",
+      features: [["Kartontypen", "Entdecken Sie alle neun Originaltypen mit FEFCO-Referenzen, Maßen und passenden Verschlüssen."], ["Parametrische Maße", "Passen Sie Breite, Tiefe und Höhe unabhängig an."], ["Verschlussansicht", "Prüfen Sie die obere Platte mit der originalen Öffnungsbewegung und wählen Sie passende Verschlüsse."], ["Kartonoberfläche", "Vergleichen Sie die originalen TFT-, AFT- und AFA-Papieraufbauten mit naturfarbenen oder weißen Innen- und Außenseiten."], ["Verpackungskatalog", "Die vollständige Anwendung umfasst neun Konstruktionen mit FEFCO-Typ- oder Familienreferenzen."], ["Grafik & Spezifikation", "Die vollständige Anwendung bietet Papierlagen, Griffe, Ausschnitte, Texte und Bilder."]],
+      outputs: ["Kartonmaße", "Konstruktionsauswahl", "Geschätztes Innenvolumen", "Verschlussansicht"],
+      questions: [["Welche Kartons kann ich hier testen?", "Alle neun Originaltypen: Standard, Vollüberlappung, Teleskop, Archiv, Pizza, Versand, Automatikboden, Zweipunkt-Klebung und Schuber mit Schublade. Jeder Typ startet mit den ursprünglichen Maßen und Verschlüssen."], ["Ist das eine Fertigungszeichnung?", "Nein. Die Vorschau zeigt Maße und Verschlussbewegung. Konstruktion, Material und Fertigungszeichnung müssen mit dem Lieferanten abgestimmt werden."], ["Kann ich ein Logo hinzufügen?", "Ja, in der vollständigen Anwendung mit Bild- und Textgestaltung sowie Wellpappspezifikation."]],
+    },
+    bookshelf: {
+      name: "Bücherregal-Konfigurator", category: "Modulare Möbel", statement: "Die Reihe planen. Um die Ecke weiterbauen.",
+      description: "Ordnen Sie verbundene Regalmodule gerade oder in L-Form an. Vergleichen Sie zwei Größenfamilien, Holzfarben und Türen mit Geometrie aus dem kundenspezifischen Modulsystem.",
+      features: [["Verbundene Module", "Wählen Sie zwei bis vier Module in der Vorschau mit aufeinanderfolgenden Verbindungen."], ["L-förmiger Aufbau", "Fügen Sie eine 90°-Ecke mit Böden und Pfosten des vollständigen Systems hinzu."], ["Größenfamilien", "Wählen Sie kompakte oder hohe Proportionen für alle verbundenen Module."], ["Türoptionen", "Vergleichen Sie offene Böden, untere Holztüren und durchgehende Glastüren an geraden Modulen."], ["Holzfarben", "Vergleichen Sie Natur-, Mahagoni- und Wenge-Farbrichtungen am gesamten Aufbau."], ["Komponenten", "Sehen Sie Module und Verbindungen. Einzelbearbeitung erfolgt in der vollständigen Anwendung."]],
+      outputs: ["Modulanordnung", "Größenfamilie", "Türen & Oberflächen", "Verbindungsanzahl"],
+      questions: [["Welche Maße haben die Module?", "Kompakt: gerade Module 800 × 350 × 2150 mm, Ecken 750 × 750 mm. Hoch: 900 × 350 × 2300 mm, Ecken 850 × 850 mm."], ["Können Eckmodule Türen haben?", "Nein. Eckmodule bleiben offen. Die Türauswahl gilt für gerade Module."], ["Wird ein Preis berechnet?", "Nein. Das kundenspezifische System zeigt Module und Verbindungssätze, keine vollständige Fertigungsstückliste."]],
+    },
+    tiles: {
+      name: "Pflaster-Konfigurator", category: "Außenanlagen & Pflaster", statement: "Verband wählen. Fläche messen.",
+      description: "Vergleichen Sie Pflasterformate, Muster und Farben auf einer begrenzten rechteckigen Fläche. Die Website nutzt eine Foto/2D-Illustration und zeigt die Fläche. Hausflächen und Stückzahlen bietet der vollständige 3D-Prototyp.",
+      features: [["Gemessene Fläche", "Wählen Sie 1 bis 4 m Länge und 1 bis 3 m Breite. Die Website zeigt die Rechteckfläche, keine Bestellmenge."], ["Verlegemuster", "Drei Formate stehen zur Wahl. Parket bietet Läuferverband, Fischgrät und Flechtverband; die übrigen Formate bieten Läufer- und Kreuzverband."], ["Musterdrehung", "Drehen Sie das illustrierte Muster und prüfen Sie die Fugen am Rechteckrand. Dies ist keine Stückprüfung im nativen 3D-Editor."], ["Farbauswahl", "Vergleichen Sie Grau, Terrakotta und Anthrazit mit einem illustrativen Foto und Muster. Dies sind keine Lieferantenmuster."], ["Randsteine", "Blenden Sie Randsteine in der Website-Illustration ein oder aus. Hausgrundrisse und verlegte Stückzahlen gehören zum vollständigen Prototyp, nicht zu dieser Vorschau."], ["Erweiterte Planung", "Öffnen Sie den vollständigen 3D-Prototyp für individuelle Konturen, rechteckige oder L-förmige Häuser, Mengen, editierbare Demopreise und CSV-Export."]],
+      outputs: ["Rechteckfläche", "Illustriertes Verlegemuster", "Randsteinvorschau", "Farbauswahl"],
+      questions: [["Sind die Mengen ein Lieferantenangebot?", "Nein. Die Website zeigt die Rechteckfläche, keine verlegten Stückzahlen oder Bestellmengen. Der vollständige Prototyp nutzt editierbare Demopreise. Prüfen Sie Mengen und Preise beim Lieferanten."], ["Kann ich Randsteine oder ein Haus ergänzen?", "Randsteine lassen sich hier anzeigen. Ein konfigurierbares rechteckiges oder L-förmiges Haus samt Pflasterausschluss erfordert den vollständigen 3D-Prototyp."], ["Ist der Konfigurator ein fertiges Handelsprodukt?", "Die vollständige Anwendung ist ein funktionsfähiger Prototyp. Die Website ist eine Foto/2D-Lite-Illustration, nicht der vollständige 3D-Editor oder eine Fertigungsspezifikation."]],
+    },
+  },
+  es: {
+    chair: {
+      name: "Configurador de sillas", category: "Mobiliario y materiales", statement: "Elija el acabado. Vea la silla completa.",
+      description: "Compare colores de madera y tapicerías en una silla 3D. Explore la combinación de materiales desde cualquier ángulo y abra el configurador completo para más opciones de madera y tela.",
+      features: [["Acabados de madera", "Compare roble cálido, maderas oscuras y tonos lacados en la estructura de la silla."], ["Tapicería", "Cambie el color de la tela y compare acabados tejidos y de inspiración aterciopelada."], ["Materiales coordinados", "Valore estructura y cojines a la vez antes de elegir una combinación de acabados."], ["Geometría original", "Examine el modelo procedural de la silla, con uniones de brazos ajustadas y asiento y respaldo tapizados."], ["Proporciones fijas", "La silla tiene unas dimensiones fijas de 500 × 470 × 790 mm. Esta vista previa cambia los acabados, no las dimensiones del producto."], ["Selección completa de materiales", "Continúe en la aplicación completa para explorar especies de madera, categorías de tela y configuraciones guardadas."]],
+      outputs: ["Color de la madera", "Color de la tapicería", "Combinación de materiales", "Vista 3D del producto"],
+      questions: [["¿Puedo cambiar las dimensiones de la silla?", "No. Esta silla tiene dimensiones fijas. La vista previa del sitio web permite comparar los acabados de la estructura y la tapicería."], ["¿Las texturas son muestras de proveedor?", "No. La geometría y los patrones de superficie se generan para una comparación visual. Confirme el acabado físico con el proveedor."], ["¿Mi vista previa se traslada al configurador completo?", "El configurador completo se abre por separado con su propio estado inicial. Las opciones elegidas en la vista previa del sitio web no se transfieren."]],
+    },
+    cardbox: {
+      name: "Configurador de cajas de cartón", category: "Sistemas de embalaje", statement: "Dimensione la caja. Explore el cierre.",
+      description: "Explore embalajes de cartón ondulado en 3D. Ajuste las dimensiones de la caja, compare estilos de envío y de tapa e inspeccione la apertura antes de pasar a la especificación del cartón y la decoración en el configurador completo.",
+      features: [["Estructuras de caja", "Explore los nueve estilos de caja originales, con sus referencias FEFCO, dimensiones y cierres compatibles."], ["Dimensiones paramétricas", "Ajuste ancho, fondo y alto de forma independiente para valorar las proporciones de su embalaje."], ["Vista previa del cierre", "Inspeccione la solapa superior con el movimiento de apertura original y elija cierres superiores e inferiores compatibles."], ["Aspecto del cartón", "Compare los preajustes de papel originales TFT, AFT y AFA con caras interior y exterior en color natural o blanco."], ["Catálogo de embalajes", "La aplicación completa incluye nueve estructuras con sus referencias de estilo o familia FEFCO."], ["Diseño y especificación", "Use la aplicación completa para capas de cartón, asas, troquelados, colores de superficie y colocación de textos e imágenes."]],
+      outputs: ["Dimensiones de la caja", "Estructura seleccionada", "Volumen interior estimado", "Vista previa del cierre"],
+      questions: [["¿Qué tipos de caja puedo probar aquí?", "Los nueve estilos originales: caja de envío, solapas solapadas, telescópica, de archivo, para pizza, mailer, de montaje automático, de fondo pegado en dos puntos y de funda/cajón. Cada una parte de sus dimensiones y cierres originales."], ["¿Es un troquel de fabricación?", "No. El modelo lite ilustra dimensiones y movimiento de cierre. Confirme la construcción exacta, el material y el plano de producción con su proveedor de embalaje."], ["¿Puedo añadir un logotipo o especificar el cartón ondulado?", "Sí, en el configurador completo. Ábralo para decorar con imágenes y textos y definir la construcción del cartón, los perfiles de onda y las capas de papel."]],
+    },
+    bookshelf: {
+      name: "Configurador de estanterías modulares", category: "Mobiliario modular", statement: "Monte la composición. Gire la esquina.",
+      description: "Combine módulos de estantería conectados en línea recta o en L. Compare dos familias dimensionales, acabados de madera y opciones de puertas con una geometría adaptada del sistema modular específico del cliente.",
+      features: [["Módulos conectados", "En esta vista previa elija una composición de dos a cuatro módulos. Las conexiones siguen la secuencia de módulos."], ["Composiciones en L", "Añada una esquina de 90° con la misma construcción de baldas y montantes que el sistema completo."], ["Familias dimensionales", "Elija proporciones compactas o altas. Todos los módulos conectados usan una misma familia."], ["Opciones de puertas", "Compare baldas abiertas, puertas inferiores macizas y puertas acristaladas de altura completa en módulos rectos."], ["Acabados de madera", "Compare tonos natural, caoba y wengué en toda la vista previa."], ["Lógica de componentes", "Revise los módulos y su número de conexiones. La edición detallada por módulo sigue disponible en el configurador completo."]],
+      outputs: ["Disposición de módulos", "Familia dimensional", "Puertas y acabado", "Número de conexiones"],
+      questions: [["¿Cuáles son las dimensiones de los módulos?", "Los módulos rectos compactos miden 800 × 350 × 2150 mm, con esquinas de 750 × 750 mm. Los módulos rectos altos miden 900 × 350 × 2300 mm, con esquinas de 850 × 850 mm."], ["¿Pueden llevar puertas los módulos de esquina?", "Los módulos de esquina quedan abiertos. Las puertas inferiores y acristaladas se aplican a los módulos rectos."], ["¿Incluye precio o lista de materiales de fabricación?", "No se muestra precio. Este sistema específico del cliente indica módulos y juegos de conexión; no pretende ser una lista de materiales de fabricación completa."]],
+    },
+    tiles: {
+      name: "Configurador de pavimentos y adoquines", category: "Paisajismo y pavimentos", statement: "Elija el aparejo. Mida la superficie.",
+      description: "Compare formatos, aparejos y colores de pavimento en una superficie rectangular. El sitio web usa una ilustración ligera de foto/2D e indica la superficie. Abra el prototipo 3D completo para excluir la vivienda y calcular piezas colocadas.",
+      features: [["Superficie medida", "Ajuste el largo de 1 a 4 m y el ancho de 1 a 3 m. El sitio web indica la superficie rectangular, no una cantidad de compra."], ["Aparejos de colocación", "Elija entre tres formatos de pavimento. Parket admite aparejo a soga, espiga y cestería; los demás formatos ofrecen aparejo a soga y a hueso."], ["Rotación del aparejo", "Gire el aparejo ilustrado y compare cómo encuentran sus juntas el borde rectangular. No es una inspección nativa en 3D de la colocación de piezas."], ["Selección de color", "Compare gris, terracota y antracita sobre una fotografía ilustrativa con el aparejo superpuesto. No son muestras de material del proveedor."], ["Bordillos", "Active o desactive los bordillos en la ilustración del sitio web. La huella de la vivienda y el recuento de piezas colocadas están en el prototipo completo, no en esta vista previa."], ["Planificación ampliada", "Abra el prototipo 3D completo para contornos personalizados, viviendas rectangulares o en L, cálculo de cantidades, tarifas de demostración editables y exportación CSV."]],
+      outputs: ["Superficie rectangular", "Aparejo ilustrado", "Vista previa de bordillos", "Selección de color"],
+      questions: [["¿Las cantidades son un presupuesto del proveedor?", "No. El sitio web indica la superficie rectangular, no piezas colocadas ni cantidades de compra. El prototipo completo usa tarifas de demostración editables; confirme cantidades y precios con su proveedor."], ["¿Puedo incluir bordillos o la huella de la vivienda?", "Los bordillos pueden mostrarse aquí. Una vivienda rectangular o en L configurable y sus exclusiones de pavimento requieren el prototipo 3D completo."], ["¿El configurador de pavimentos es un producto comercial terminado?", "La aplicación completa es un prototipo funcional. El sitio web es una ilustración ligera de foto/2D, no el editor 3D completo ni una especificación de fabricación."]],
+    },
+  },
+  fr: {
+    chair: {
+      name: "Configurateur de chaises", category: "Mobilier et matériaux", statement: "Choisissez la finition. Voyez toute la chaise.",
+      description: "Comparez les teintes de bois et les garnissages sur une chaise 3D. Observez la combinaison de matériaux sous tous les angles, puis ouvrez le configurateur complet pour plus d’options de bois et de tissu.",
+      features: [["Finitions bois", "Comparez chêne chaleureux, bois foncés et teintes laquées sur la structure de la chaise."], ["Garnissage", "Changez la couleur du tissu et comparez des aspects tissés ou d’inspiration velours."], ["Matériaux coordonnés", "Évaluez ensemble la structure et les coussins avant de choisir une combinaison de finitions."], ["Géométrie d’origine", "Examinez le modèle procédural de la chaise, avec assemblages d’accoudoirs ajustés et assise et dossier garnis."], ["Proportions fixes", "La chaise a un encombrement fixe de 500 × 470 × 790 mm. Cet aperçu modifie les finitions, pas les dimensions du produit."], ["Sélection complète des matériaux", "Poursuivez dans l’application complète pour explorer essences de bois, catégories de tissus et configurations enregistrées."]],
+      outputs: ["Teinte du bois", "Couleur du garnissage", "Combinaison de matériaux", "Vue 3D du produit"],
+      questions: [["Puis-je modifier les dimensions de la chaise ?", "Non. Cette chaise a des dimensions fixes. L’aperçu du site permet de comparer les finitions de la structure et du garnissage."], ["Les textures sont-elles des échantillons fournisseur ?", "Non. La géométrie et les motifs de surface sont générés pour une comparaison visuelle. Confirmez la finition réelle auprès du fournisseur."], ["Mon aperçu est-il repris dans le configurateur complet ?", "Le configurateur complet s’ouvre séparément avec son propre état initial. Les choix faits dans l’aperçu du site ne sont pas transférés."]],
+    },
+    cardbox: {
+      name: "Configurateur de boîtes en carton", category: "Systèmes d’emballage", statement: "Dimensionnez la boîte. Explorez la fermeture.",
+      description: "Explorez des emballages en carton ondulé en 3D. Ajustez les dimensions, comparez styles d’expédition et de couvercle et observez l’ouverture avant de passer à la spécification du carton et au décor dans le configurateur complet.",
+      features: [["Structures de boîte", "Explorez les neuf styles de boîte d’origine, avec leurs références FEFCO, dimensions et fermetures compatibles."], ["Dimensions paramétriques", "Ajustez indépendamment largeur, profondeur et hauteur pour juger des proportions de votre emballage."], ["Aperçu de la fermeture", "Observez le rabat supérieur avec le mouvement d’ouverture d’origine et choisissez des fermetures haute et basse compatibles."], ["Aspect du carton", "Comparez les préréglages papier d’origine TFT, AFT et AFA avec couvertures intérieure et extérieure naturelles ou blanches."], ["Catalogue d’emballages", "L’application complète comprend neuf structures avec leurs références de style ou de famille FEFCO."], ["Visuel et spécification", "Utilisez l’application complète pour les couches de carton, poignées, découpes, couleurs de surface et placement des textes et images."]],
+      outputs: ["Dimensions de la boîte", "Structure choisie", "Volume intérieur estimé", "Aperçu de la fermeture"],
+      questions: [["Quels types de boîtes puis-je tester ici ?", "Les neuf styles d’origine : caisse américaine, rabats chevauchants, télescopique, archive, pizza, boîte d’expédition e-commerce, montage automatique, fond collé deux points et fourreau/tiroir. Chacun démarre avec ses dimensions et fermetures d’origine."], ["S’agit-il d’un plan de découpe de fabrication ?", "Non. Le modèle lite illustre les dimensions et le mouvement de fermeture. Confirmez la construction exacte, le matériau et le plan de production avec votre fournisseur d’emballages."], ["Puis-je ajouter un logo ou spécifier le carton ondulé ?", "Oui, dans le configurateur complet. Ouvrez-le pour le décor image et texte, la construction du carton, les profils de cannelure et les couches de papier."]],
+    },
+    bookshelf: {
+      name: "Configurateur de bibliothèques modulaires", category: "Mobilier modulaire", statement: "Composez la ligne. Tournez l’angle.",
+      description: "Assemblez des modules de bibliothèque reliés en ligne droite ou en L. Comparez deux familles de dimensions, des finitions bois et des options de portes avec une géométrie adaptée du système modulaire propre au client.",
+      features: [["Modules reliés", "Dans cet aperçu, choisissez une composition de deux à quatre modules. Les liaisons suivent la séquence des modules."], ["Compositions en L", "Ajoutez un angle à 90° avec la même construction d’étagères et de montants que le système complet."], ["Familles de dimensions", "Choisissez des proportions compactes ou hautes. Tous les modules reliés utilisent une même famille."], ["Options de portes", "Comparez étagères ouvertes, portes basses pleines et portes vitrées toute hauteur sur les modules droits."], ["Finitions bois", "Comparez les teintes naturel, acajou et wengé sur l’ensemble de l’aperçu."], ["Logique des composants", "Examinez les modules et leur nombre de liaisons. L’édition détaillée module par module reste disponible dans le configurateur complet."]],
+      outputs: ["Disposition des modules", "Famille de dimensions", "Portes et finition", "Nombre de liaisons"],
+      questions: [["Quelles sont les dimensions des modules ?", "Les modules droits compacts mesurent 800 × 350 × 2150 mm, avec des angles de 750 × 750 mm. Les modules droits hauts mesurent 900 × 350 × 2300 mm, avec des angles de 850 × 850 mm."], ["Les modules d’angle peuvent-ils avoir des portes ?", "Les modules d’angle restent ouverts. Les portes basses et vitrées s’appliquent aux modules droits."], ["Un prix ou une nomenclature de fabrication est-il inclus ?", "Aucun prix n’est affiché. Ce système propre au client indique les modules et les jeux de liaison ; il ne prétend pas fournir une nomenclature de fabrication complète."]],
+    },
+    tiles: {
+      name: "Configurateur de pavés et dallages", category: "Aménagement paysager et pavage", statement: "Choisissez le motif. Mesurez la surface.",
+      description: "Comparez formats, motifs de pose et couleurs de pavés sur une surface rectangulaire. Le site utilise une illustration légère photo/2D et indique la surface. Ouvrez le prototype 3D complet pour exclure la maison et compter les pièces posées.",
+      features: [["Surface mesurée", "Réglez la longueur de 1 à 4 m et la largeur de 1 à 3 m. Le site indique la surface rectangulaire, pas une quantité d’achat."], ["Motifs de pose", "Choisissez parmi trois formats de pavés. Parket permet la pose à joints décalés, en chevrons et en vannerie ; les autres formats proposent joints décalés et joints alignés."], ["Rotation du motif", "Faites pivoter le motif illustré et comparez la rencontre des joints avec le bord rectangulaire. Il ne s’agit pas d’un contrôle 3D natif du calepinage."], ["Choix de la couleur", "Comparez gris, terre cuite et anthracite sur une photographie illustrative avec motif superposé. Ce ne sont pas des échantillons fournisseur."], ["Bordures", "Activez ou désactivez les bordures dans l’illustration du site. L’emprise de la maison et le nombre de pièces posées sont disponibles dans le prototype complet, pas dans cet aperçu."], ["Planification avancée", "Ouvrez le prototype 3D complet pour des contours personnalisés, des maisons rectangulaires ou en L, le calcul des quantités, des tarifs de démonstration modifiables et l’export CSV."]],
+      outputs: ["Surface rectangulaire", "Motif de pose illustré", "Aperçu des bordures", "Choix de la couleur"],
+      questions: [["Les quantités sont-elles un devis fournisseur ?", "Non. Le site indique la surface rectangulaire, pas le nombre de pièces posées ni les quantités d’achat. Le prototype complet utilise des tarifs de démonstration modifiables ; confirmez quantités et prix auprès de votre fournisseur."], ["Puis-je inclure des bordures ou l’emprise de la maison ?", "Les bordures peuvent être affichées ici. Une maison rectangulaire ou en L configurable et ses exclusions de pavage nécessitent le prototype 3D complet."], ["Le configurateur de pavés est-il un produit commercial finalisé ?", "L’application complète est un prototype fonctionnel. Le site propose une illustration légère photo/2D, pas l’éditeur 3D complet ni une spécification de fabrication."]],
+    },
+  },
+  it: {
+    chair: {
+      name: "Configuratore di sedie", category: "Arredo e materiali", statement: "Scelga la finitura. Veda l’intera sedia.",
+      description: "Confronti colori del legno e rivestimenti su una sedia 3D. Esplori la combinazione di materiali da ogni angolazione, poi apra il configuratore completo per altre opzioni di legno e tessuto.",
+      features: [["Finiture in legno", "Confronti rovere caldo, legni scuri e tinte laccate sul telaio della sedia."], ["Rivestimento", "Cambi il colore del tessuto e confronti finiture intrecciate e di ispirazione vellutata."], ["Materiali coordinati", "Valuti insieme telaio e cuscini prima di scegliere una combinazione di finiture."], ["Geometria originale", "Esamini il modello procedurale della sedia, con giunzioni dei braccioli e seduta e schienale imbottiti."], ["Proporzioni fisse", "La sedia ha un ingombro fisso di 500 × 470 × 790 mm. Questa anteprima cambia le finiture, non le dimensioni del prodotto."], ["Selezione completa dei materiali", "Prosegua nell’applicazione completa per esplorare essenze di legno, categorie di tessuto e configurazioni salvate."]],
+      outputs: ["Colore del legno", "Colore del rivestimento", "Combinazione di materiali", "Vista 3D del prodotto"],
+      questions: [["Posso modificare le dimensioni della sedia?", "No. Questa sedia ha dimensioni fisse. L’anteprima del sito consente di confrontare le finiture di telaio e rivestimento."], ["Le texture sono campioni del fornitore?", "No. Geometria e motivi superficiali sono generati per un confronto visivo. Verifichi la finitura reale con il fornitore."], ["La mia anteprima passa al configuratore completo?", "Il configuratore completo si apre separatamente con un proprio stato iniziale. Le scelte fatte nell’anteprima del sito non vengono trasferite."]],
+    },
+    cardbox: {
+      name: "Configuratore di scatole di cartone", category: "Sistemi di imballaggio", statement: "Dimensioni la scatola. Esplori la chiusura.",
+      description: "Esplori imballaggi in cartone ondulato in 3D. Regoli le dimensioni della scatola, confronti stili di spedizione e coperchi e osservi l’apertura prima di passare alla specifica del cartone e alla decorazione nel configuratore completo.",
+      features: [["Strutture di scatola", "Esplori tutti i nove stili di scatola originali, con riferimenti FEFCO, dimensioni e chiusure compatibili."], ["Dimensioni parametriche", "Regoli larghezza, profondità e altezza in modo indipendente per valutare le proporzioni dell’imballaggio."], ["Anteprima della chiusura", "Osservi il lembo superiore con il movimento di apertura originale e scelga chiusure superiori e inferiori compatibili."], ["Aspetto del cartone", "Confronti i preset di carta originali TFT, AFT e AFA con copertine interna ed esterna avana o bianche."], ["Catalogo imballaggi", "L’applicazione completa comprende nove strutture con i relativi riferimenti di stile o famiglia FEFCO."], ["Grafica e specifica", "Usi l’applicazione completa per strati di cartone, maniglie, fustellature, colori di superficie e posizionamento di testi e immagini."]],
+      outputs: ["Dimensioni della scatola", "Struttura scelta", "Volume interno stimato", "Anteprima della chiusura"],
+      questions: [["Quali tipi di scatola posso provare qui?", "Tutti i nove stili originali: scatola americana, a lembi sovrapposti, telescopica, archivio, pizza, mailer, ad autoformazione, con fondo incollato a due punti e a fodero/cassetto. Ognuna parte con le sue dimensioni e chiusure originali."], ["È una fustella di produzione?", "No. Il modello lite illustra dimensioni e movimento di chiusura. Verifichi costruzione esatta, materiale e disegno di produzione con il suo fornitore di imballaggi."], ["Posso aggiungere un logo o specificare il cartone ondulato?", "Sì, nel configuratore completo. Lo apra per decorazioni con immagini e testi, costruzione del cartone, profili d’onda e strati di carta."]],
+    },
+    bookshelf: {
+      name: "Configuratore di librerie modulari", category: "Arredo modulare", statement: "Componga la parete. Giri l’angolo.",
+      description: "Componga moduli di libreria collegati in linea retta o a L. Confronti due famiglie dimensionali, finiture in legno e opzioni di ante con una geometria adattata dal sistema modulare specifico del cliente.",
+      features: [["Moduli collegati", "In questa anteprima scelga una composizione da due a quattro moduli. I collegamenti seguono la sequenza dei moduli."], ["Composizioni a L", "Aggiunga un angolo a 90° con la stessa costruzione di ripiani e montanti del sistema completo."], ["Famiglie dimensionali", "Scelga proporzioni compatte o alte. Tutti i moduli collegati usano un’unica famiglia."], ["Opzioni di ante", "Confronti ripiani a giorno, ante basse piene e ante in vetro a tutta altezza sui moduli lineari."], ["Finiture in legno", "Confronti le tonalità naturale, mogano e wengé su tutta l’anteprima."], ["Logica dei componenti", "Esamini i moduli e il numero di collegamenti. La modifica dettagliata per modulo resta disponibile nel configuratore completo."]],
+      outputs: ["Disposizione dei moduli", "Famiglia dimensionale", "Ante e finitura", "Numero di collegamenti"],
+      questions: [["Quali sono le dimensioni dei moduli?", "I moduli lineari compatti misurano 800 × 350 × 2150 mm, con angoli da 750 × 750 mm. I moduli lineari alti misurano 900 × 350 × 2300 mm, con angoli da 850 × 850 mm."], ["I moduli d’angolo possono avere ante?", "I moduli d’angolo restano a giorno. Le ante basse e in vetro si applicano ai moduli lineari."], ["Sono inclusi un prezzo o una distinta di produzione?", "Non viene mostrato alcun prezzo. Questo sistema specifico del cliente indica moduli e set di collegamento; non pretende di fornire una distinta materiali di produzione completa."]],
+    },
+    tiles: {
+      name: "Configuratore di pavimentazioni", category: "Paesaggio e pavimentazioni", statement: "Scelga lo schema. Misuri la superficie.",
+      description: "Confronti formati, schemi di posa e colori di pavimentazione su un’area rettangolare. Il sito usa un’illustrazione leggera foto/2D e indica la superficie. Apra il prototipo 3D completo per escludere la casa e contare i pezzi posati.",
+      features: [["Superficie misurata", "Regoli la lunghezza da 1 a 4 m e la larghezza da 1 a 3 m. Il sito indica la superficie rettangolare, non una quantità d’acquisto."], ["Schemi di posa", "Scelga tra tre formati di pavimentazione. Parket supporta posa sfalsata, a spina di pesce e a cesto; gli altri formati offrono posa sfalsata e a correre."], ["Rotazione dello schema", "Ruoti lo schema illustrato e confronti come le fughe incontrano il bordo rettangolare. Non è un controllo 3D nativo della posa dei pezzi."], ["Scelta del colore", "Confronti grigio, cotto e antracite su una fotografia illustrativa con schema sovrapposto. Non sono campioni di materiale del fornitore."], ["Cordoli", "Attivi o disattivi i cordoli nell’illustrazione del sito. L’ingombro della casa e il conteggio dei pezzi posati sono disponibili nel prototipo completo, non in questa anteprima."], ["Pianificazione estesa", "Apra il prototipo 3D completo per contorni personalizzati, case rettangolari o a L, calcolo delle quantità, tariffe dimostrative modificabili ed esportazione CSV."]],
+      outputs: ["Superficie rettangolare", "Schema di posa illustrato", "Anteprima dei cordoli", "Scelta del colore"],
+      questions: [["Le quantità sono un preventivo del fornitore?", "No. Il sito indica la superficie rettangolare, non i pezzi posati né le quantità d’acquisto. Il prototipo completo usa tariffe dimostrative modificabili; verifichi quantità e prezzi con il suo fornitore."], ["Posso includere cordoli o l’ingombro della casa?", "I cordoli possono essere mostrati qui. Una casa rettangolare o a L configurabile e le relative esclusioni di pavimentazione richiedono il prototipo 3D completo."], ["Il configuratore di pavimentazioni è un prodotto commerciale finito?", "L’applicazione completa è un prototipo funzionante. Il sito è un’illustrazione leggera foto/2D, non l’editor 3D completo né una specifica di produzione."]],
+    },
+  },
+};
+
+const indices = { chair: "07", cardbox: "08", bookshelf: "09", tiles: "10" };
+const seoNames: Record<Locale, Record<LiteSlug, string>> = {
+  en: { chair: "Chair Configurator", cardbox: "Cardboard Box Configurator", bookshelf: "Modular Bookshelf Configurator", tiles: "Tiles Configurator" },
+  ro: { chair: "Configurator scaune", cardbox: "Configurator cutii din carton", bookshelf: "Configurator biblioteci modulare", tiles: "Configurator dale și pavaje" },
+  de: { chair: "Stuhl-Konfigurator", cardbox: "Karton-Konfigurator", bookshelf: "Bücherregal-Konfigurator", tiles: "Pflaster-Konfigurator" },
+  es: { chair: "Configurador de sillas", cardbox: "Configurador de cajas de cartón", bookshelf: "Configurador de estanterías modulares", tiles: "Configurador de pavimentos y adoquines" },
+  fr: { chair: "Configurateur de chaises", cardbox: "Configurateur de boîtes en carton", bookshelf: "Configurateur de bibliothèques modulaires", tiles: "Configurateur de pavés et dallages" },
+  it: { chair: "Configuratore di sedie", cardbox: "Configuratore di scatole di cartone", bookshelf: "Configuratore di librerie modulari", tiles: "Configuratore di pavimentazioni" },
+};
+export function newConfigurator(slug: LiteSlug, locale: Locale = "en"): Configurator {
+  const copy = newProductCopy[locale][slug];
+  return {
+    slug, index: indices[slug], category: copy.category, title: seoNames[locale][slug], shortTitle: copy.name,
+    statement: copy.statement, description: copy.description, launchUrl: `https://www.360configurator.com/${slug}-configurator/`,
+    accent: "#359CE7", controls: [], features: copy.features.map(([title, body]) => ({ title, short: title, body })),
+    outputs: copy.outputs, seoH1: seoNames[locale][slug], seoTitle: seoNames[locale][slug], seoDescription: copy.description,
+  };
+}
+
+
 export type LegacyConfiguratorSlug = "pergola" | "roof" | "window" | "hall" | "solar" | "fence";
 export type ConfiguratorSlug = LegacyConfiguratorSlug | LiteSlug;
 
@@ -21,13 +230,13 @@ export type Configurator = {
   seoDescription: string;
 };
 
-export const configurators: Configurator[] = [
+const configuratorCatalog: Configurator[] = [
   {
     slug: "pergola",
     index: "01",
     category: "Outdoor architecture",
-    title: "Pergola & Outdoor Architecture",
-    shortTitle: "Pergola",
+    title: "Pergola Configurator",
+    shortTitle: "Pergola Configurator",
     statement: "Engineer daylight. Configure atmosphere.",
     description:
       "A browser-based 3D pergola configurator for freestanding and wall-mounted systems, combining parametric dimensions, louver control, side enclosures, environmental preview, accessories and live estimated pricing.",
@@ -51,8 +260,8 @@ export const configurators: Configurator[] = [
     slug: "roof",
     index: "02",
     category: "Parametric construction",
-    title: "Architectural Roof & Structure",
-    shortTitle: "Roof systems",
+    title: "Roof & Structure",
+    shortTitle: "Roof & Structure",
     statement: "Complex geometry. Buildable answers.",
     description:
       "A rule-driven architectural configurator that turns roof shape, dimensions and material systems into measurable geometry and production-ready outputs.",
@@ -61,7 +270,7 @@ export const configurators: Configurator[] = [
     controls: ["Gable", "Metal", "L-shape"],
     features: [
       { title: "Five roof typologies", short: "Roof forms", body: "Move between two-slope, four-slope, single-slope, L-shaped and dormer roof families inside one rule-driven scene. Each typology is generated as meaningful geometry, allowing the same configurator to resolve very different architectural conditions without relying on a fixed model library." },
-      { title: "Custom-plan intake", short: "Plan intake", body: "Bring PDF, image, DWG or DXF references into the workflow when a project falls outside the standard parametric families. The intake path creates a clear bridge between conventional architectural documentation and a future configurable, measurable roof state." },
+      { title: "Custom-plan intake", short: "Plan intake", body: "The full application accepts PDF, image, DWG or DXF references in its proof-of-concept intake. Uploading a reference does not automatically generate 3D geometry or a bill of materials. Non-standard projects need a separate technical review." },
       { title: "Five-axis dimension control", short: "Dimensions", body: "Tune length, depth, wall height, roof pitch and eaves overhang independently while the entire roof envelope rebuilds in real time. The result remains visually coherent and measurable, making dimensional exploration useful for both customer decisions and technical estimation." },
       { title: "Covering-aware geometry", short: "Materials", body: "Apply metal and mineral covering presets with their own surface behavior and minimum-pitch rules. Material selection affects more than appearance: it informs compatible geometry, quantity logic and the commercial interpretation of the roof being configured." },
       { title: "Measured construction output", short: "Quantities", body: "Derive roof area, ridge length, eaves, valleys, flashings, gutters and associated component quantities directly from the generated geometry. Complex forms such as L-shaped roofs and dormers remain connected to measurable construction data as dimensions change." },
@@ -125,8 +334,8 @@ export const configurators: Configurator[] = [
     slug: "solar",
     index: "05",
     category: "Energy systems",
-    title: "Solar Roof & Energy System",
-    shortTitle: "Solar systems",
+    title: "Solar Panels & Energy System",
+    shortTitle: "Solar Panels & Energy System",
     statement: "Model the roof. Simulate the energy day.",
     description: "A location-aware photovoltaic configurator connecting roof geometry, panel fit, real solar position, household demand and battery storage in one visual energy model.",
     launchUrl: "https://www.360configurator.com/solar-configurator/",
@@ -171,6 +380,14 @@ export const configurators: Configurator[] = [
   },
   ...liteSlugs.map(slug => newConfigurator(slug)),
 ];
+
+// One order feeds the header, homepage, footer, pricing and related lists.
+export const CONFIGURATOR_ORDER: ConfiguratorSlug[] = ["window", "hall", "fence", "tiles", "pergola", "roof", "solar", "chair", "cardbox", "bookshelf"];
+export const configurators: Configurator[] = CONFIGURATOR_ORDER.map((slug, index) => {
+  const entry = configuratorCatalog.find(item => item.slug === slug);
+  if (!entry) throw new Error(`Missing configurator metadata: ${slug}`);
+  return { ...entry, index: String(index + 1).padStart(2, "0") };
+});
 
 export function getConfigurator(slug: string) {
   return configurators.find((item) => item.slug === slug);

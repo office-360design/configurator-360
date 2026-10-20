@@ -635,12 +635,14 @@ function addPerimeterTrim(group, segments, materials, thickness = 0.095) {
 
 function addBase(group, state, materials, length = state.length, depth = state.depth, x = 0, z = 0) {
   const slab = new THREE.Mesh(new THREE.BoxGeometry(length + 0.28, 0.2, depth + 0.28), materials.slab);
+  slab.name = 'house-base-slab';
   slab.position.set(x, -0.1, z);
   slab.castShadow = true;
   slab.receiveShadow = true;
   group.add(slab);
 
   const walls = new THREE.Mesh(new THREE.BoxGeometry(length, state.wallHeight, depth), materials.wall);
+  walls.name = 'house-walls';
   walls.position.set(x, state.wallHeight / 2, z);
   walls.castShadow = true;
   walls.receiveShadow = true;
@@ -1176,9 +1178,11 @@ function addExactRoofEnvelope(group, xCoordinates, zCoordinates, planes, materia
       fadeAtBoundary: false,
     });
     const baseIndex = positions.length / 3;
-    positions.push(...geometry.getAttribute('position').array);
-    normals.push(...geometry.getAttribute('normal').array);
-    uvs.push(...geometry.getAttribute('uv').array);
+    // Detailed slate pieces exceed the engine's function-argument limit.
+    // Append scalars instead of spreading the complete vertex buffers.
+    for (const value of geometry.getAttribute('position').array) positions.push(value);
+    for (const value of geometry.getAttribute('normal').array) normals.push(value);
+    for (const value of geometry.getAttribute('uv').array) uvs.push(value);
     const polygonIndices = geometry.getIndex().array;
     for (let index = 0; index < polygonIndices.length; index += 1) {
       indices.push(baseIndex + polygonIndices[index]);
@@ -1854,11 +1858,13 @@ function addFacadeDetails(group, state) {
   const dark = new THREE.MeshStandardMaterial({ color: 0x37434c, roughness: 0.62, metalness: 0.2 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x8eb0bc, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.72 });
   const door = new THREE.Mesh(new THREE.BoxGeometry(1.25, Math.min(2.2, state.wallHeight * 0.72), 0.06), dark);
+  door.name = 'house-entrance';
   door.position.set(-state.length * 0.18, Math.min(2.2, state.wallHeight * 0.72) / 2, -state.depth / 2 - 0.031);
   group.add(door);
 
   const windowWidth = Math.min(2.4, state.length * 0.24);
   const window = new THREE.Mesh(new THREE.BoxGeometry(windowWidth, 1.25, 0.065), glass);
+  window.name = 'house-window';
   window.position.set(state.length * 0.2, Math.min(1.65, state.wallHeight * 0.55), -state.depth / 2 - 0.034);
   group.add(window);
 }
@@ -1884,6 +1890,7 @@ function addLShapeFacadeDetails(group, state) {
     new THREE.BoxGeometry(wingWindowWidth, wingWindowHeight, 0.065),
     glass,
   );
+  wingWindow.name = 'house-wing-window';
   wingWindow.position.set(
     -state.length * 0.29,
     Math.min(1.65, state.wallHeight * 0.55),

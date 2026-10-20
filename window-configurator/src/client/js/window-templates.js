@@ -1,4 +1,5 @@
 import { mountTemplatesMenu } from '../shared-ui/src/components/templatesMenu.js?v=templates-1';
+import { getWindowLocale, windowT } from './i18n.js?v=locales-6';
 
 const WINDOW_TEMPLATES = Object.freeze([
     {
@@ -39,6 +40,20 @@ const WINDOW_TEMPLATES = Object.freeze([
     },
 ]);
 
+
+// Names and menu labels follow the active language.
+function templateItems(locale) {
+    return WINDOW_TEMPLATES.map((template) => ({ ...template, name: windowT(locale, `templates.${template.id}`) }));
+}
+
+function templateLabels(locale) {
+    return {
+        launcher: windowT(locale, 'templates.launcher'),
+        title: windowT(locale, 'templates.title'),
+        close: windowT(locale, 'templates.close'),
+        empty: windowT(locale, 'templates.empty'),
+    };
+}
 
 let menu = null;
 let sidebarObserver = null;
@@ -82,8 +97,8 @@ export function mountWindowTemplates() {
     menu = mountTemplatesMenu({
         enabled: true,
         idPrefix: 'window',
-        items: WINDOW_TEMPLATES,
-        labels: { launcher: 'Templates', title: 'Window templates', close: 'Close window templates' },
+        items: templateItems(getWindowLocale()),
+        labels: templateLabels(getWindowLocale()),
         cardDataKey: 'windowTemplate',
         // Preserve existing selectors used by the window's mobile editor.
         classes: {
@@ -99,6 +114,12 @@ export function mountWindowTemplates() {
         },
         onSelect: applyTemplate,
         onError(error) { console.error('Could not apply window template:', error); },
+    });
+
+    window.addEventListener('window-preference-change', (event) => {
+        if (event.detail?.name !== 'locale') return;
+        menu?.setLabels(templateLabels(event.detail.value));
+        menu?.setItems(templateItems(event.detail.value));
     });
 
     if (!sidebarObserver) {

@@ -1,9 +1,11 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { createSolarARController } from './ar/controller.js?v=locales-6';
+import { startsWithPanelClosed } from '../../shared-ui/src/phoneLayout.js?v=mobile-panels-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { getSeasonForDate } from './solarPosition.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=solar-panel-1';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { getSeasonForDate } from './solarPosition.js?v=site-analytics-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applySolarTranslations, solarFormatAzimuth, solarRegionCity, solarT, resolveSolarLocale } from './i18n.js?v=site-analytics-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('solar');
 
@@ -51,6 +53,16 @@ const tools = [
   },
 ];
 
+const solarAR = createSolarARController({
+  getLocale: () => window.SOLAR_CONFIGURATOR_SHARED_SHELL?.state?.locale || initialLocale,
+  getSnapshot: async (options) => {
+    const api = window.SOLAR_CONFIGURATOR_API;
+    if (!api?.captureARSnapshot) { const error = new Error('not-ready'); error.code = 'not-ready'; throw error; }
+    return api.captureARSnapshot(options);
+  },
+  onFeedback: (message, type, duration) => window.SOLAR_CONFIGURATOR_SHARED_SHELL?.showFeedback(message, type, duration),
+});
+
 const shell = mountStandaloneConfiguratorShell({
   productType: 'Solar',
   productId: 'solar',
@@ -58,7 +70,7 @@ const shell = mountStandaloneConfiguratorShell({
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
-    viewAR: false,
+    viewAR: true,
     save: true,
     undo: false,
     reset: true,
@@ -73,6 +85,7 @@ const shell = mountStandaloneConfiguratorShell({
     priceSelector: '#headerEstimateTotal',
   },
   callbacks: {
+    onViewAR() { void solarAR.open(); },
     async resetConfiguration() {
       const api = window.SOLAR_CONFIGURATOR_API;
       if (!api?.resetConfiguration) return false;
@@ -155,8 +168,8 @@ simulationPanelToggle?.addEventListener('click', () => {
 
 function syncMobileLayout() {
   document.body.classList.toggle('solar-mobile-layout', mobileLayoutQuery.matches);
-  setSidebarCollapsed(mobileLayoutQuery.matches);
-  setSimulationPanelCollapsed(mobileLayoutQuery.matches);
+  setSidebarCollapsed(mobileLayoutQuery.matches || startsWithPanelClosed());
+  setSimulationPanelCollapsed(mobileLayoutQuery.matches || startsWithPanelClosed());
 }
 
 syncMobileLayout();
@@ -464,7 +477,7 @@ function syncToolsState(detail = getApi()?.getState?.()) {
     title: t(detail.simulationPlaying ? 'tools.simulation.pause' : 'tools.simulation.run'),
   });
   const order = ['perspective', 'front', 'top'];
-  const names = { perspective: '3D', front: shell.state.locale === 'ro-RO' ? 'Față' : shell.state.locale === 'de-DE' ? 'Vorne' : 'Front', top: shell.state.locale === 'ro-RO' ? 'Sus' : shell.state.locale === 'de-DE' ? 'Oben' : 'Top' };
+  const names = { perspective: '3D', front: t('view.front'), top: t('view.top') };
   const index = Math.max(0, order.indexOf(detail.currentView));
   const nextView = order[(index + 1) % order.length];
   setToolState('camera', { title: t('tools.cameraNext', { view: names[nextView] }) });
@@ -1233,21 +1246,35 @@ function renderSearchResults(items) {
   locationSearchResults.hidden = false;
 }
 
+// Nominatim search per locale. Results are localized through Accept-Language. The search country stays
+// 'ro' for every locale because the picker only accepts points inside ROMANIA_BOUNDS (regional yields,
+// PVGIS fallbacks and prices are Romanian); a country-scoped es/fr/it search would only return rejected
+// points. Widen countryCodes together with the bounds when other markets become selectable.
+const LOCATION_SEARCH_REGIONS = Object.freeze({
+  'en-US': Object.freeze({ countryCodes: 'ro', acceptLanguage: 'en,ro;q=0.9' }),
+  'ro-RO': Object.freeze({ countryCodes: 'ro', acceptLanguage: 'en,ro;q=0.9' }),
+  'de-DE': Object.freeze({ countryCodes: 'ro', acceptLanguage: 'en,ro;q=0.9' }),
+  'es-ES': Object.freeze({ countryCodes: 'ro', acceptLanguage: 'es,en;q=0.9,ro;q=0.8' }),
+  'fr-FR': Object.freeze({ countryCodes: 'ro', acceptLanguage: 'fr,en;q=0.9,ro;q=0.8' }),
+  'it-IT': Object.freeze({ countryCodes: 'ro', acceptLanguage: 'it,en;q=0.9,ro;q=0.8' }),
+});
+
 async function searchLocation() {
   const query = String(locationSearchInput?.value || '').trim();
   if (!query) return;
   if (locationSearchButton) locationSearchButton.disabled = true;
   if (locationSelectionLabel) locationSelectionLabel.textContent = t('location.searching');
+  const searchRegion = LOCATION_SEARCH_REGIONS[resolveSolarLocale(shell?.state?.locale)] ?? LOCATION_SEARCH_REGIONS['en-US'];
   try {
     const params = new URLSearchParams({
       q: query,
       format: 'jsonv2',
       limit: '5',
-      countrycodes: 'ro',
+      countrycodes: searchRegion.countryCodes,
       addressdetails: '1',
     });
     const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-      headers: { Accept: 'application/json', 'Accept-Language': 'en,ro;q=0.9' },
+      headers: { Accept: 'application/json', 'Accept-Language': searchRegion.acceptLanguage },
     });
     if (!response.ok) throw new Error(`Search HTTP ${response.status}`);
     renderSearchResults(await response.json());

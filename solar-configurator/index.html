@@ -23,6 +23,7 @@
     window.SOLAR_PVGIS_PROXY_ENDPOINT =
       new URL('/api/solar/pvgis', window.location.href).toString();
   </script>
+  <link rel="stylesheet" href="../shared-ui/styles/ar.css?v=firebase-ar-10" />
   <script type="importmap">
     {
       "imports": {
@@ -32,7 +33,7 @@
     }
   </script>
   <script type="module">
-    import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js?v=platform-18';
+    import { applyConfiguratorSeo } from '../shared-ui/src/configuratorSeo.js?v=localized-slugs-1';
     applyConfiguratorSeo('solar');
   </script>
 </head>
@@ -728,8 +729,8 @@
     window.SOLAR_GOOGLE_SOLAR_ENDPOINT = window.SOLAR_GOOGLE_SOLAR_ENDPOINT || new URL('/api/solar/google-solar', window.location.href).toString();
   </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./js/sharedShell.js?v=solar-mobile-2"></script>
-  <script type="module" src="./js/app.js?v=34"></script>
+  <script type="module" src="./js/sharedShell.js?v=site-analytics-1"></script>
+  <script type="module" src="./js/app.js?v=38"></script>
   <script type="module" src="./js/sidebarAccordion.js?v=solar-panel-1"></script>
   <script type="module" src="./js/viewerHeader.js?v=platform-18"></script>
   <script type="module" src="./js/stageOverlays.js?v=platform-18"></script>

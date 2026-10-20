@@ -1,7 +1,8 @@
 import { cp, mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { localizedMachineContext, localizedFullContext } from "./localized-machine-context.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { pageRoutes, configurators as marketingConfiguratorSlugs } from "./static-routes.mjs";
+import { pageRoutes, localizedRoutePath, configurators as marketingConfiguratorSlugs } from "./static-routes.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const websiteRoot = path.resolve(scriptDirectory, "..");
@@ -13,6 +14,9 @@ const localizedOrigins = {
   en: "https://www.360configurator.com",
   ro: "https://www.360configurator.ro",
   de: "https://www.360konfigurator.de",
+  es: "https://www.360configurador.es",
+  fr: "https://www.360configurateur.fr",
+  it: "https://www.360configuratore.it",
 };
 
 // Full bookshelf/tiles apps remain noindex; their new marketing pages are indexed.
@@ -53,6 +57,39 @@ const externalConfiguratorPaths = {
     chair: "/stuhl-konfigurator/",
     bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
   },
+  es: {
+    window: "/configurador-ventanas/",
+    pergola: "/configurador-pergolas/",
+    roof: "/configurador-tejados/",
+    solar: "/configurador-solar/",
+    hall: "/configurador-naves/",
+    fence: "/configurador-vallas/",
+    cardbox: "/configurador-cajas-carton/",
+    chair: "/configurador-sillas/",
+    bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
+  },
+  fr: {
+    window: "/configurateur-fenetres/",
+    pergola: "/configurateur-pergola/",
+    roof: "/configurateur-toiture/",
+    solar: "/configurateur-solaire/",
+    hall: "/configurateur-hangar/",
+    fence: "/configurateur-cloture/",
+    cardbox: "/configurateur-cartons/",
+    chair: "/configurateur-chaises/",
+    bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
+  },
+  it: {
+    window: "/configuratore-finestre/",
+    pergola: "/configuratore-pergola/",
+    roof: "/configuratore-tetto/",
+    solar: "/configuratore-fotovoltaico/",
+    hall: "/configuratore-capannone/",
+    fence: "/configuratore-recinzioni/",
+    cardbox: "/configuratore-scatole/",
+    chair: "/configuratore-sedie/",
+    bookshelf: "/bookshelf-configurator/", tiles: "/tiles-configurator/",
+  },
 };
 
 function xmlEscape(value) {
@@ -66,13 +103,15 @@ function xmlEscape(value) {
 
 function sitemapUrls(locale) {
   const origin = localizedOrigins[locale];
+  // Each domain lists its pages under its own language slugs.
+  const page = (route) => `${origin}${localizedRoutePath(locale, route)}`;
   return [
     `${origin}/`,
-    `${origin}/about`,
-    `${origin}/contact`,
-    `${origin}/pricing`,
-    `${origin}/book-a-demo`,
-    ...marketingConfiguratorSlugs.map((slug) => `${origin}/configurators/${slug}`),
+    page("/about"),
+    page("/contact"),
+    page("/pricing"),
+    page("/book-a-demo"),
+    ...marketingConfiguratorSlugs.map((slug) => page(`/configurators/${slug}`)),
     ...indexedExternalSlugs.map((slug) => `${origin}${externalConfiguratorPaths[locale][slug]}`),
   ];
 }
@@ -102,6 +141,11 @@ await writeFile(path.join(releaseRoot, ".nojekyll"), "");
 
 for (const locale of Object.keys(localizedOrigins)) {
   await writeFile(path.join(releaseRoot, `sitemap-${locale}.xml`), sitemapXml(locale));
+  const context = await localizedMachineContext(releaseRoot, locale, localizedOrigins[locale], marketingConfiguratorSlugs);
+  const fullContext = await localizedFullContext(releaseRoot, locale, localizedOrigins[locale], marketingConfiguratorSlugs);
+  const suffix=locale==='en'?'':`-${locale}`;
+  await writeFile(path.join(releaseRoot, `llms${suffix}.txt`), context);
+  await writeFile(path.join(releaseRoot, `llms-full${suffix}.txt`), fullContext);
 }
 // Keep the static/default sitemap coherent for direct previews and non-Nginx hosting.
 await writeFile(path.join(releaseRoot, "sitemap.xml"), sitemapXml("en"));

@@ -24,6 +24,15 @@ function FullscreenGlyph({ active }: { active: boolean }) {
   );
 }
 
+const mobileSceneCopy: Record<Locale, { interact: string; release: string; enter: string; exit: string }> = {
+  en: { interact: "Interact 3D", release: "Scroll Page", enter: "Enter fullscreen", exit: "Exit fullscreen" },
+  ro: { interact: "Interacționează 3D", release: "Derulează pagina", enter: "Ecran complet", exit: "Ieși din ecran complet" },
+  de: { interact: "3D bedienen", release: "Seite scrollen", enter: "Vollbild", exit: "Vollbild beenden" },
+  es: { interact: "Interactuar 3D", release: "Desplazar página", enter: "Pantalla completa", exit: "Salir de pantalla completa" },
+  fr: { interact: "Manipuler en 3D", release: "Faire défiler", enter: "Plein écran", exit: "Quitter le plein écran" },
+  it: { interact: "Interagisci 3D", release: "Scorri pagina", enter: "Schermo intero", exit: "Esci da schermo intero" },
+};
+
 export function MobileSceneActions({
   active,
   onToggle,
@@ -35,11 +44,7 @@ export function MobileSceneActions({
 }) {
   const [fullscreen, setFullscreen] = useState(false);
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
-  const text = locale === "ro"
-    ? { interact: "Interacționează 3D", release: "Derulează pagina", enter: "Ecran complet", exit: "Ieși din ecran complet" }
-    : locale === "de"
-      ? { interact: "3D bedienen", release: "Seite scrollen", enter: "Vollbild", exit: "Vollbild beenden" }
-      : { interact: "Interact 3D", release: "Scroll Page", enter: "Enter fullscreen", exit: "Exit fullscreen" };
+  const text = mobileSceneCopy[locale];
 
   useEffect(() => {
     const documentWithPrefix = document as FullscreenDocument;

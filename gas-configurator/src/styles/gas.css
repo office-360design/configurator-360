@@ -365,6 +365,8 @@ summary:focus-visible {
   stroke-linejoin: round;
 }
 
+.gas-map-layers__expand { display: none; }
+
 .gas-map-layers__toggles {
   display: grid;
   padding: 4px;
@@ -2694,6 +2696,27 @@ summary:focus-visible {
   html,
   body,
   #app { overflow: hidden; }
+
+  /* The layer list folds under its heading so the map is not covered. */
+  .gas-map-layers__expand {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border: 0;
+    border-top: 1px solid rgba(32, 52, 65, 0.1);
+    color: var(--gas-blue-dark);
+    background: #fff;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 760;
+    cursor: pointer;
+  }
+  .gas-map-layers__expand svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform 160ms ease; }
+  .gas-map-layers.is-open .gas-map-layers__expand svg { transform: rotate(180deg); }
+  .gas-map-layers:not(.is-open) .gas-map-layers__toggles,
+  .gas-map-layers:not(.is-open) > p { display: none; }
 
   .gas-app { display: block; }
   .gas-workspace {

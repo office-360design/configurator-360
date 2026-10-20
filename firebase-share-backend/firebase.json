@@ -7,5 +7,11 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
-  }
+  },
+  "storage": [
+    {
+      "target": "hall-ar",
+      "rules": "hall-ar.storage.rules"
+    }
+  ]
 }

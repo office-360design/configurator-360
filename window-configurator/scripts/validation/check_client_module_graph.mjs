@@ -48,6 +48,8 @@ async function loadModule(moduleUrl) {
     if (filePath.startsWith(shared3dPrefix)) {
         filePath = path.join(projectRoot, '..', 'shared-3d', filePath.slice(shared3dPrefix.length));
     }
+    const sharedUiPrefix = path.join(clientRoot, 'shared-ui') + path.sep;
+    if (filePath.startsWith(sharedUiPrefix)) filePath = path.join(projectRoot, '..', 'shared-ui', filePath.slice(sharedUiPrefix.length));
     const source = fs.readFileSync(filePath, 'utf8');
     const module = new vm.SourceTextModule(source, {
         context,
@@ -85,6 +87,8 @@ const targetFiles = [
     'js/window-geometry.js',
     'js/mesh-joint-geometry.js',
     'js/window-summary.js',
+    'js/ar-controller.js',
+    'js/ar/exportWindow.js',
 ];
 
 for (const relativePath of targetFiles) {

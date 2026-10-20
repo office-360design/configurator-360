@@ -1,12 +1,19 @@
 import * as THREE from 'three';
 import { applyGeometrySurfaceUVs } from '../../../shared-3d/src/geometry/surfaceMapping.js?v=platform-18';
 
-export const PERGOLA_MATERIALS_VERSION = '20260910-pergola-materials-17';
+export const PERGOLA_MATERIALS_VERSION = '20261011-pergola-materials-ar-1';
 
 // Render roles, not manufacturing BOM assignments. Material variants are lazy,
 // per-build; images/maps remain owned by the scene's shared MaterialLibrary.
 export function createPergolaMaterialAdapter(surfaces) {
   if (!surfaces) return null;
+  // The legacy fabric.screen preset names fabric.woven, while the local
+  // provider is registered as fabric.weave. Resolve the alias only in this
+  // pergola scene, so textured side screens can rebuild and be exported to AR.
+  const providers = surfaces.textures?.providers;
+  if (providers?.has('fabric.weave') && !providers.has('fabric.woven')) {
+    surfaces.textures.register('fabric.woven', providers.get('fabric.weave'));
+  }
   const cache = new Map();
   let importedFlags = null; // Synchronous per-adapter scope, never shared by scenes.
   const get = (id, options = {}) => {

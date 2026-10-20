@@ -1,7 +1,7 @@
 // This relative import resolves from both the source tree and the domain-root
 // static releases (combined site or standalone window build). Node validators
 // can load the same pure schema without preparing browser assets first.
-import { DEFAULT_WINDOW_SIZE_LIMITS, validateWindowSizeLimits, applyWindowSliderBounds } from '../../../../shared-ui/src/windowSizeSettings.js?v=1';
+import { DEFAULT_WINDOW_SIZE_LIMITS, validateWindowSizeLimits, applyWindowSliderBounds } from '../../../../shared-ui/src/windowSizeSettings.js?v=size-limits-1';
 import {
     markCadLoading,
     measureCadLoading,

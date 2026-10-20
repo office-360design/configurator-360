@@ -1,0 +1,18 @@
+/* Match 360design's compact launcher; SwiftCallback still owns its native panel. */
+.callback-launcher { position: fixed; z-index: 60; right: 20px; bottom: max(20px, env(safe-area-inset-bottom)); }
+.callback-button { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 17px; border: 1px solid #a7cfff; border-radius: 12px; background: #0656ad; color: #fff; font: 600 14px/1.2 var(--font-geist-sans), system-ui, sans-serif; box-shadow: 0 8px 24px #071a3820; cursor: pointer; text-decoration: none; }
+.callback-button svg { flex: 0 0 20px; }
+.callback-button:hover { background: #0b65c3; border-color: #fff; }
+.callback-button:focus-visible { outline: 3px solid var(--brand); outline-offset: 4px; }
+.callback-button:disabled { opacity: .75; cursor: wait; }
+.swift-widget-button_wrapper { display: none !important; }
+html.show--consent .callback-launcher, html.show--preferences .callback-launcher,
+body:has(dialog[open]) .callback-launcher, body:has(.mobile-navigation[open]) .callback-launcher,
+body:has(.cookie-preferences-error) .callback-launcher { display: none; }
+@media (max-width: 620px) {
+  .callback-launcher { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .callback-button { width: 52px; height: 52px; padding: 0; justify-content: center; }
+  .callback-button span { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  body:has(input:focus) .callback-launcher, body:has(textarea:focus) .callback-launcher { display: none; }
+  .site-footer { padding-bottom: 76px; }
+}

@@ -1,0 +1,40 @@
+/* CookieConsent is bundled locally and inherits the website theme. */
+#cc-main {
+  --cc-font-family: var(--font-geist-sans), system-ui, sans-serif;
+  --cc-font-size: 16px;
+  --cc-bg: var(--panel);
+  --cc-primary-color: var(--ink);
+  --cc-secondary-color: var(--ink-soft);
+  --cc-btn-primary-bg: var(--brand-core);
+  --cc-btn-primary-color: #fff;
+  --cc-btn-primary-hover-bg: #0656ad;
+  --cc-btn-primary-hover-color: #fff;
+  --cc-btn-secondary-bg: var(--panel);
+  --cc-btn-secondary-color: var(--ink);
+  --cc-btn-secondary-border-color: var(--line-strong);
+  --cc-btn-secondary-hover-bg: var(--canvas);
+  --cc-btn-secondary-hover-color: var(--ink);
+  --cc-separator-border-color: var(--line-strong);
+  --cc-cookie-category-block-bg: var(--canvas);
+  --cc-cookie-category-block-hover-bg: var(--canvas);
+  --cc-cookie-category-block-border: var(--line-strong);
+  --cc-cookie-category-block-hover-border: var(--brand);
+  --cc-cookie-category-expanded-block-bg: var(--panel);
+  --cc-toggle-on-bg: var(--brand-core);
+  --cc-toggle-off-bg: var(--ink-faint);
+  --cc-toggle-readonly-bg: var(--ink-faint);
+  --cc-toggle-readonly-knob-bg: var(--panel);
+  --cc-link-color: var(--brand);
+  --cc-modal-border-radius: 14px;
+  --cc-btn-border-radius: 7px;
+  --cc-overlay-bg: rgba(0, 0, 0, .55);
+  --cc-modal-box-shadow: 0 12px 40px rgba(0, 0, 0, .2);
+}
+#cc-main .cm__btn, #cc-main .pm__btn { min-height: 48px; }
+#cc-main .cm__desc, #cc-main .pm__section-desc { font-size: 16px; line-height: 1.5; }
+#cc-main .cm__title, #cc-main .pm__title { letter-spacing: normal; }
+#cc-main button:focus-visible, #cc-main a:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.cookie-preferences-link { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; min-height: 44px; }
+.cookie-preferences-error { position: fixed; z-index: 10001; left: 20px; bottom: 20px; width: min(480px, calc(100vw - 40px)); padding: 20px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+.cookie-preferences-error p { margin: 0 0 16px; font-size: 16px; line-height: 1.5; }
+.cookie-preferences-error button { min-height: 48px; padding: 8px 16px; border: 1px solid var(--line-strong); background: var(--brand-core); color: #fff; cursor: pointer; }

@@ -1,5 +1,5 @@
 import { SheetPartitionUI } from './sheetPartitionUI.js?v=history-38';
-import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=sketch-47';
+import { localizeFeature, featureText, featureLocale, translatedMarkup } from './featureI18n.js?v=locales-6';
 import { planRoofSheets, planSketchSheets, sheetProfiles, sheetPlanCsv } from './sheetPlanner.js?v=sketch-47';
 import { edgeTypes, defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { presetRoofLayout } from './presetLayout.js?v=layout-21';

@@ -164,11 +164,12 @@ export class CageScene {
     // Timber sleepers.
     const sleeper = new THREE.BoxGeometry(0.14, 0.12, Math.max(M.B, M.H) * k + 0.5);
     (L > 14 ? [-0.36 * L, 0, 0.36 * L] : [-0.3 * L, 0.3 * L]).forEach(x => {
-      const b = new THREE.Mesh(sleeper, this.mat.wood); b.position.set(x, 0.06, 0); cage.add(b);
+      const b = new THREE.Mesh(sleeper, this.mat.wood); b.userData.arExclude = true; b.position.set(x, 0.06, 0); cage.add(b);
     });
 
     // Bore (pile) or panel (diaphragm wall) outline.
     this.boreGroup = new THREE.Group();
+    this.boreGroup.userData.arExclude = true;
     const bl = L + 0.6;
     let bg;
     if (M.circ) { bg = new THREE.CylinderGeometry(M.boreB / 2 * k, M.boreB / 2 * k, bl, 48, 1, true); bg.rotateZ(Math.PI / 2); }
@@ -185,7 +186,7 @@ export class CageScene {
     // End labels.
     const head = labelSprite('CAP'), tip = labelSprite('VÂRF');
     const ls = Math.max(0.14, Math.min(0.45, cage.userData.R * 1.1, L * 0.03));
-    [head, tip].forEach(s => s.scale.set(ls * 2.67 / 2, ls / 2, 1));
+    [head, tip].forEach(s => { s.userData.arExclude = true; s.scale.set(ls * 2.67 / 2, ls / 2, 1); });
     head.position.set(L / 2 + ls * 0.9, yc + halfH + ls * 0.5, 0);
     tip.position.set(-L / 2 - ls * 0.9, yc + halfH + ls * 0.5, 0);
     cage.add(head, tip);
@@ -265,11 +266,12 @@ export class CageScene {
     // Timber sleepers under the panel.
     const sleeper = new THREE.BoxGeometry(0.14, 0.12, M.W * k + 0.5);
     (L > 14 ? [-0.36 * L, 0, 0.36 * L] : [-0.3 * L, 0.3 * L]).forEach(x => {
-      const b = new THREE.Mesh(sleeper, this.mat.wood); b.position.set(x, 0.06, 0); cage.add(b);
+      const b = new THREE.Mesh(sleeper, this.mat.wood); b.userData.arExclude = true; b.position.set(x, 0.06, 0); cage.add(b);
     });
 
     // Panel outline (wall thickness × cage width).
     this.boreGroup = new THREE.Group();
+    this.boreGroup.userData.arExclude = true;
     const panel = new THREE.BoxGeometry(L + 0.6, M.T * k, M.W * k);
     const pm = new THREE.Mesh(panel, this.mat.bore); pm.position.set(0, yc, 0); this.boreGroup.add(pm);
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(panel, 20), this.mat.boreEdge);
@@ -279,7 +281,7 @@ export class CageScene {
 
     const head = labelSprite('CAP'), tip = labelSprite('VÂRF');
     const ls = Math.max(0.14, Math.min(0.45, L * 0.03));
-    [head, tip].forEach(sp => sp.scale.set(ls * 2.67 / 2, ls / 2, 1));
+    [head, tip].forEach(sp => { sp.userData.arExclude = true; sp.scale.set(ls * 2.67 / 2, ls / 2, 1); });
     head.position.set(L / 2 + ls * 0.9, yc + M.Tc / 2 * k + ls * 0.5, 0);
     tip.position.set(-L / 2 - ls * 0.9, yc + M.Tc / 2 * k + ls * 0.5, 0);
     cage.add(head, tip);

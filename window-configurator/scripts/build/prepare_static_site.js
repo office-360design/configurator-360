@@ -95,9 +95,9 @@ if (fs.existsSync(headersSource)) {
 const version = {
     build,
     baseCommit: hash,
-    channel: 'production-dual-platform-supabase-ar',
+    channel: 'production-firebase-ar',
     generatedAt: generatedAt.toISOString(),
-    architecture: 'production configurator -> selected GLB or USDZ browser export -> Netlify upload ticket -> direct Supabase Storage upload -> Scene Viewer or Quick Look'
+    architecture: 'window snapshot -> GLB or USDZ -> Firebase AR service -> expiring QR -> Scene Viewer or Quick Look'
 };
 fs.writeFileSync(path.join(distRoot, 'version.json'), `${JSON.stringify(version, null, 2)}\n`);
 fs.writeFileSync(path.join(distRoot, '.nojekyll'), '');

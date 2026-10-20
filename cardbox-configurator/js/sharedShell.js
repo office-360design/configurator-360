@@ -1,8 +1,10 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { createCardboxARController } from './ar/controller.js?v=locales-6';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
+import { getLocaleForHostname } from '../../shared-ui/src/config.js?v=localized-slugs-1';
 
 const tenantContext = await requireTenantConfiguratorAccess('cardbox');
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
@@ -34,13 +36,32 @@ const TOOL_LABELS = Object.freeze({
     fold: 'Faltanimation abspielen',
     artwork: 'Grafiken ein- oder ausblenden',
   }),
+  'es-ES': Object.freeze({
+    closures: 'Abrir o cerrar los cierres superior e inferior',
+    lift: 'Elevar o bajar la caja',
+    transparent: 'Activar/desactivar vista transparente de la caja',
+    fold: 'Reproducir animación de plegado',
+    artwork: 'Mostrar u ocultar el diseño gráfico',
+  }),
+  'fr-FR': Object.freeze({
+    closures: 'Ouvrir ou fermer les fermetures supérieure et inférieure',
+    lift: 'Soulever ou abaisser la boîte',
+    transparent: 'Activer/désactiver la vue transparente de la boîte',
+    fold: 'Lancer l\'animation de pliage',
+    artwork: 'Afficher ou masquer le visuel',
+  }),
+  'it-IT': Object.freeze({
+    closures: 'Apri o chiudi le chiusure superiore e inferiore',
+    lift: 'Solleva o abbassa la scatola',
+    transparent: 'Attiva/disattiva la vista trasparente della scatola',
+    fold: 'Riproduci l\'animazione di piegatura',
+    artwork: 'Mostra o nascondi la grafica',
+  }),
 });
 
 function initialToolLocale() {
-  const host = window.location.hostname.toLowerCase();
-  if (host.includes('360configurator.ro')) return 'ro-RO';
-  if (host.includes('360konfigurator.de')) return 'de-DE';
-  return 'en-US';
+  const resolved = getLocaleForHostname(window.location.hostname);
+  return TOOL_LABELS[resolved] ? resolved : 'en-US';
 }
 
 function toolLabels(locale = initialToolLocale()) {
@@ -71,6 +92,16 @@ const toolItems = [
 const CARD_BOX_TOOL_IDS = Object.freeze(toolItems.map((item) => item.id));
 
 let shell;
+const ar = createCardboxARController({
+  getSnapshot: (options) => {
+    const api = window.CARDBOX_CONFIGURATOR_API;
+    if (!api?.captureARSnapshot) { const error = new Error('not-ready'); error.code = 'not-ready'; throw error; }
+    return api.captureARSnapshot(options);
+  },
+  getLocale: () => shell?.state?.locale || initialToolLocale(),
+  onFeedback: (...args) => shell?.showFeedback?.(...args),
+});
+window.addEventListener('beforeunload', () => ar.destroy(), { once: true });
 
 function updateToolLabels(locale) {
   if (!shell) return;
@@ -99,7 +130,7 @@ shell = mountStandaloneConfiguratorShell({
   storagePrefix: '360-configurator:cardbox',
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
-  capabilities: { viewAR: false, save: true, undo: true, reset: true, share: true },
+  capabilities: { viewAR: true, save: true, undo: true, reset: true, share: true },
   tools: { items: toolItems, placement: { side: 'left', direction: 'down', offsetX: 12, offsetY: 12 } },
   settingsPanel: {
     panelSelector: '.sidebar', toggleSelector: '#cardboxSidebarToggle', collapsedClass: 'is-collapsed',
@@ -107,6 +138,7 @@ shell = mountStandaloneConfiguratorShell({
   },
   configuratorPanel: { panelSelector: '.sidebar', priceSelector: '#summaryTotal', geometry: 'floating-right' },
   callbacks: {
+    onViewAR() { ar.open(); },
     onUndo() { history.undo(); },
     async resetConfiguration() { return (await window.CARDBOX_CONFIGURATOR_API?.resetConfiguration?.()) !== false; },
     captureState() { return window.CARDBOX_CONFIGURATOR_API?.captureState?.(); },
@@ -120,6 +152,7 @@ shell = mountStandaloneConfiguratorShell({
       if (path === 'locale') {
         window.CARDBOX_CONFIGURATOR_API?.setLocale?.(preferences.locale);
         updateToolLabels(preferences.locale);
+        ar.refresh();
       }
       if (path === 'units') window.CARDBOX_CONFIGURATOR_API?.setUnits?.(preferences.units);
       if (path === 'currency') window.CARDBOX_CONFIGURATOR_API?.setCurrency?.(preferences.currency);

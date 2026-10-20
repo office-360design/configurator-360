@@ -1,11 +1,11 @@
-import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=tenant-domains-1';
-import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=tenant-domains-1';
+import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=locales-6';
+import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=locales-6';
 import {
   getFirebaseIdToken,
   observeGoogleAuth,
   signInWithGoogle,
   signOutGoogle,
-} from './firebaseAuth.js?v=platform-18';
+} from './firebaseAuth.js?v=locales-6';
 
 const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 const FUNCTION_URLS = Object.freeze({

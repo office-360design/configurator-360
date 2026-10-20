@@ -82,7 +82,7 @@ For localhost development, `debugOnLocalhost` uses the Firebase App Check debug 
 
 The top-bar **Save** action stores the active configurator state in the signed-in Google user's private Firebase area. These records are persistent account data and are separate from the 90-day public `sharedConfigurations` links.
 
-- Public 360Configurator domains keep the existing account-wide path: `users/{uid}/savedConfigurations/{product}/items/{configurationId}`. This preserves existing `.com/.ro/.de` saves and their cross-domain behavior.
+- Public 360Configurator domains keep the existing account-wide path: `users/{uid}/savedConfigurations/{product}/items/{configurationId}`. This preserves existing `.com/.ro/.de/.es/.fr/.it` saves and their cross-domain behavior.
 - Tier-1 customer domains use a tenant-isolated path: `users/{uid}/tenantSavedConfigurations/{tenantSlug}/products/{product}/items/{configurationId}`. A save created under one customer tenant is not visible, loadable, overwriteable, or deletable from another tenant.
 - The browser never supplies a trusted tenant id. Each callable derives the tenant from the HTTPS `Origin`, validates the private `tenants/{slug}` record and its enabled configurator entitlement, then chooses the storage path server-side.
 - Saved configuration operations require Firebase Authentication and use `request.auth.uid` server-side.
@@ -100,7 +100,7 @@ Functions: `saveUserConfiguration`, `listUserConfigurations`, `getUserConfigurat
 
 The shared **Ask for quotation** action always saves the current configuration first, then creates a separate immutable Firestore shopping-cart snapshot for the signed-in user. Cart rows do not point at live saved configurations, so later edits to a source save cannot change an item that is already in the cart.
 
-- Public `.com/.ro/.de` domains share `users/{uid}/shoppingCart/{product}/items/{cartItemId}`.
+- Public `.com/.ro/.de/.es/.fr/.it` domains share `users/{uid}/shoppingCart/{product}/items/{cartItemId}`.
 - Tier-1 customer domains use `users/{uid}/tenantShoppingCart/{tenantSlug}/products/{product}/items/{cartItemId}` so customer carts remain isolated from the public platform and from other tenants.
 - Each cart document stores a copy of the serialized saved state plus the source save id, source name, cart display name, snapshot price/currency and creation timestamp.
 - Adding the same save repeatedly always creates a new cart document. Display names follow the normal duplicate convention: `ABC`, `ABC (1)`, `ABC (2)`, and so on.
@@ -112,14 +112,14 @@ Functions: `getUserCart` and `mutateUserCart`.
 
 ## Cross-domain authentication handoff
 
-**Change site domain** keeps the Firebase Authentication state synchronized between the `.com`, `.ro`, `.de`, and active Tier-1 customer sites without placing Google credentials, Firebase ID tokens, refresh tokens, or passwords in the URL.
+**Change site domain** keeps the Firebase Authentication state synchronized between the `.com`, `.ro`, `.de`, `.es`, `.fr`, `.it`, and active Tier-1 customer sites without placing Google credentials, Firebase ID tokens, refresh tokens, or passwords in the URL.
 
 - A signed-in source site creates a random 256-bit handoff id through `createDomainAuthHandoff`.
 - The handoff is bound to the destination origin, expires after 5 minutes, is stored in the server-only `domainAuthHandoffs` collection, and is deleted when redeemed.
 - The destination sends that opaque id to `redeemDomainAuthHandoff` over HTTPS and receives a Firebase custom token in the response body. The custom token is immediately exchanged by the Firebase Auth SDK and is never placed in browser history or the URL.
 - A guest source carries only a `guest` marker; the destination signs out any pre-existing local Firebase session before initializing the guest configuration.
 - Browser Firestore access to `domainAuthHandoffs` is explicitly denied.
-- Active `*.360configurator.com` tenant origins are validated server-side against the private `tenants/{slug}` record before they can create or redeem a handoff; arbitrary wildcard hostnames are not trusted just because DNS resolves.
+- Active tenant origins on every country root (`*.360configurator.com`, `*.360configurator.ro`, `*.360konfigurator.de`, `*.360configurador.es`, `*.360configurateur.fr`, `*.360configuratore.it`) are validated server-side against the private `tenants/{slug}` record before they can create or redeem a handoff; arbitrary wildcard hostnames are not trusted just because DNS resolves.
 
 The runtime service account needs `roles/iam.serviceAccountTokenCreator` on itself so Firebase Admin can sign the short-lived custom token. The IAM bootstrap script enables the IAM Service Account Credentials API and grants this binding.
 
@@ -271,7 +271,7 @@ Google Solar Building Insights and Data Layers counters are reserved only when t
 
 ### Configurator product analytics
 
-`recordConfiguratorAnalyticsEvent` records non-billable product analytics for the standard configurator catalogue. The browser can submit only the fixed events `access`, `login`, and `configuration_created`; the backend derives the analytics scope from the request origin. Public `.com/.ro/.de` configurators are grouped under the `platform` scope, while a Tier-1 hostname is accepted only when its private tenant is active and the requested configurator entitlement is enabled. Development/AKS traffic is ignored.
+`recordConfiguratorAnalyticsEvent` records non-billable product analytics for the standard configurator catalogue. The browser can submit only the fixed events `access`, `login`, and `configuration_created`; the backend derives the analytics scope from the request origin. Public `.com/.ro/.de/.es/.fr/.it` configurators are grouped under the `platform` scope, while a Tier-1 hostname is accepted only when its private tenant is active and the requested configurator entitlement is enabled. Development/AKS traffic is ignored.
 
 Aggregates are stored only server-side under `configuratorAnalytics/{scopeId}` in three granularities: `summary/all`, `months/{YYYY-MM}`, and `days/{YYYY-MM-DD}`. No raw visitor event stream or user identity is retained. Firestore browser rules deny direct access to the aggregate collection.
 
@@ -336,5 +336,5 @@ behavioural checks and `npm run check:tenant-catalogue:browser` for UI smoke tes
 
 ### Country-domain tenant aliases
 
-See [Tenant aliases on .com, .ro and .de](../docs/tenant-country-domains.md) for
+See [Tenant aliases on .com, .ro, .de, .es, .fr and .it](../docs/tenant-country-domains.md) for
 deployment order, existing-tenant Auth migration and browser verification.

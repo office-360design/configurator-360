@@ -1,0 +1,52 @@
+name: Validate Chair AR
+
+on:
+  pull_request:
+    paths:
+      - 'chair-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - '.github/workflows/validate-chair-ar.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'chair-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - '.github/workflows/validate-chair-ar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chair-ar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Chair is static, with a vendored runtime. Installing a root Three.js
+      # package would mask an incorrect import map / missing local exporter.
+      - name: Validate Chair geometry and AR adapter
+        run: |
+          node --no-warnings --experimental-loader ./chair-configurator/tests/ar-test-loader.mjs --test chair-configurator/tests/chair-ar.test.mjs chair-configurator/tests/front-arm-joint.test.mjs
+          node --check chair-configurator/js/app.js
+          node --check chair-configurator/js/scene.js
+          node --check chair-configurator/js/sharedShell.js
+          node --check chair-configurator/js/ar/controller.js
+          node --check chair-configurator/js/ar/exportChair.js
+          node --check chair-configurator/js/ar/phone.js
+      - name: Validate shared policy, tenant branding and Firebase AR contracts
+        run: |
+          node --test hall-configurator/tests/ar-policy.test.mjs scripts/validation/tenant-branding.test.mjs firebase-share-backend/functions/tests/hall-ar.test.cjs
