@@ -142,7 +142,7 @@ export async function resolveSolarRequestContext(request) {
 
     if (
       !snapshot.exists
-      || tenant.plan !== 'go_live_now'
+      || !['go_live_now', 'go_live_custom'].includes(tenant.plan)
       || tenant.status !== 'active'
       || !tenantRecordMatchesHost(tenant, requestHostname(request))
       || configurators.solar !== true
@@ -229,3 +229,4 @@ export function quotaErrorPayload(error) {
     },
   };
 }
+

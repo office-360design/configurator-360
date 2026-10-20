@@ -16,7 +16,7 @@ const checks = [
     'exports.setTenantSubscriptionState = onCall(',
     'transaction.update(privateRef',
     'transaction.update(publicRef, synchronizedFields)',
-    "data.plan !== TENANT_PLAN_GO_LIVE_NOW",
+    "!isManagedTenant(data)",
     "logoMode === 'remove'",
     "logoMode === 'replace'",
     'lastUpdatedByUid: admin.uid',
@@ -79,3 +79,4 @@ if (failures.length) {
 }
 
 console.log('Tenant lifecycle validation passed.');
+

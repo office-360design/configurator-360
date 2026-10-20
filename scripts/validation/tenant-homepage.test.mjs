@@ -104,6 +104,9 @@ function backendHarness({ existing = true, initial = {}, failAudit = false } = {
     Buffer, URL, console, process: { env: {} }, exports: {}, mockDb: db, authCalls: 0,
     require(name) {
       if (name === './tenantDomains.cjs') return policy;
+      if (['./tenant-plans.cjs', './tenant-customization.cjs'].includes(name)) {
+        return require(`../../firebase-share-backend/functions/${name.slice(2)}`);
+      }
       if (name === 'node:crypto') return require(name);
       assert.ok(adapters[name], `Unexpected dependency: ${name}`);
       return adapters[name];
@@ -282,4 +285,29 @@ test('audit failure rolls back both private and public preference changes', asyn
     await assert.rejects(h.api[operation](operation === 'updateTenant' ? adminRequest(data) : ownerRequest(data)), /Synthetic audit failure/);
     assert.deepEqual(plain([...h.documents]), before);
   }
+});
+
+
+test('custom tier provisions and remains manageable through owner updates and plan changes', async () => {
+  const h = backendHarness({ existing: false });
+  await h.api.provisionTenant(adminRequest({ companyName: 'ACME', ownerEmail: 'owner@example.test',
+    configurators: { solar: true }, planId: 'go_live_custom_1' }));
+  assert.equal(h.privateData().plan, 'go_live_custom');
+  assert.equal(h.publicData().capabilities.customization, true);
+  await h.api.updateTenantDashboard(ownerRequest({ companyName: 'Custom Acme' }));
+  assert.equal(h.publicData().companyName, 'Custom Acme');
+  const published = { schemaVersion: 1, revision: 4, enabled: true,
+    settings: { schemaVersion: 1, theme: { primary: '#123456' } } };
+  h.publicData().customization = published;
+  await h.api.updateTenantDashboard(ownerRequest({ planId: 'go_live_now_1' }));
+  assert.equal(h.publicData().customization.enabled, true, 'pending downgrade must not apply yet');
+  await h.api.resolveTenantPlanChange(adminRequest({ decision: 'approve' }));
+  assert.equal(h.privateData().plan, 'go_live_now');
+  assert.equal(h.publicData().capabilities.customization, false);
+  assert.equal(h.publicData().customization.enabled, false);
+  assert.equal(h.publicData().customization.revision, 4);
+  await h.api.updateTenant(adminRequest({ planId: 'go_live_custom_1' }));
+  assert.equal(h.privateData().plan, 'go_live_custom');
+  assert.equal(h.publicData().capabilities.customization, true);
+  assert.equal(h.publicData().customization.enabled, false, 'upgrade requires an explicit restore');
 });

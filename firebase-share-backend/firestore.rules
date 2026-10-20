@@ -16,7 +16,7 @@ service cloud.firestore {
     
     // Private tenant configuration.
     // Provisioning/backend functions use the Admin SDK, which bypasses Security Rules.
-    match /tenants/{tenantSlug} {
+    match /tenants/{tenantSlug}/{document=**} {
       allow read, write: if false;
     }
 
@@ -315,3 +315,4 @@ service cloud.firestore {
     }
   }
 }
+

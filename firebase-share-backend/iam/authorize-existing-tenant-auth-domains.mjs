@@ -17,7 +17,7 @@ function readTenant(document) {
   const slug = document.name?.split('/').at(-1) || '';
   const fields = document.fields || {};
   const domain = fields.domain?.stringValue || '';
-  if (!validTenantSlug(slug) || fields.plan?.stringValue !== 'go_live_now'
+  if (!validTenantSlug(slug) || !['go_live_now', 'go_live_custom'].includes(fields.plan?.stringValue)
     || !['active', 'suspended'].includes(fields.status?.stringValue)
     || (fields.slug?.stringValue && fields.slug.stringValue !== slug)
     || (domain && domain !== tenantDomainsForSlug(slug)[0])) {
@@ -41,7 +41,7 @@ export async function migrateTenantDomains({ args, request, now = Date.now, log 
       url.searchParams.set('pageSize', '100');
       if (pageToken) url.searchParams.set('pageToken', pageToken);
       const page = await request(url.href);
-      tenants.push(...(page.documents || []).filter((doc) => doc.fields?.plan?.stringValue === 'go_live_now').map(readTenant));
+      tenants.push(...(page.documents || []).filter((doc) => ['go_live_now', 'go_live_custom'].includes(doc.fields?.plan?.stringValue)).map(readTenant));
       pageToken = page.nextPageToken || '';
     } while (pageToken);
   } else {
@@ -140,3 +140,4 @@ async function main() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => { console.error(error.message); process.exitCode = 1; });
 }
+
