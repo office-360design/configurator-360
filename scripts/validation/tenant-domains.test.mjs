@@ -79,6 +79,9 @@ function backendHarness() {
     Buffer, URL, console, process: { env: {} }, exports: {}, mockDb: db,
     require(name) {
       if (name === './tenantDomains.cjs') return policy;
+      if (['./tenant-plans.cjs', './tenant-customization.cjs'].includes(name)) {
+        return require(`../../firebase-share-backend/functions/${name.slice(2)}`);
+      }
       if (name === 'node:crypto') return require(name);
       assert.ok(adapters[name], name); return adapters[name];
     },
@@ -235,9 +238,10 @@ test('Auth update failures release owned lease and do not clear existing domains
   assert.equal(documents.has('/tenantProvisioningSystem/authDomainLock'), false);
   await assert.rejects(() => api.ensureFirebaseAuthorizedDomain('unknown.evil.test'));
 });
-test('Solar aliases use one shared monthly quota and reject cross-tenant origins', async () => {
+for (const plan of ['go_live_now', 'go_live_custom']) {
+test(`${plan}: Solar aliases share quotas and reject cross-tenant origins`, async () => {
   const { db, documents } = memoryDb();
-  documents.set('/tenants/acme', tenant());
+  documents.set('/tenants/acme', { ...tenant(), plan });
   const context = vm.createContext({ ...policy, Firestore: class { constructor() { return db; } }, process: { env: {} }, URL });
   const source = read('solar-google-api/src/tenantUsage.mjs').replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
   vm.runInContext(source, context);
@@ -259,13 +263,15 @@ test('Solar aliases use one shared monthly quota and reject cross-tenant origins
   }
 });
 
-function migrationHarness({ status = 'active', domain = hosts[0], duplicateDomains = false } = {}) {
+}
+
+function migrationHarness({ status = 'active', domain = hosts[0], duplicateDomains = false, plan = 'go_live_now' } = {}) {
   let config = { authorizedDomains: duplicateDomains ? [hosts[0], hosts[0], hosts[0], 'legacy.test'] : [hosts[0], 'legacy.test'] };
   let lock = null;
   const calls = [];
   const document = {
     name: 'projects/configurator-360/databases/(default)/documents/tenants/acme', updateTime: '2026-09-01T00:00:00Z',
-    fields: { slug: { stringValue: 'acme' }, status: { stringValue: status }, plan: { stringValue: 'go_live_now' }, ...(domain ? { domain: { stringValue: domain } } : {}) },
+    fields: { slug: { stringValue: 'acme' }, status: { stringValue: status }, plan: { stringValue: plan }, ...(domain ? { domain: { stringValue: domain } } : {}) },
   };
   const call = async (url, opts = {}) => {
     const parsed = new URL(url); calls.push({ url: parsed, ...opts });
@@ -339,4 +345,13 @@ test('cart editing and share transport preserve the customer when changing domai
   assert.equal(share.hostname, hosts[1]);
   assert.equal(share.pathname, '/configurator-acoperis/');
   assert.equal(share.hash, '#s=test-snapshot');
+});
+
+
+
+test('Auth repair includes custom-tier tenants in the all-tenant scan', async () => {
+  const harness = migrationHarness({ plan: 'go_live_custom' });
+  await migrateTenantDomains({ args: ['--all'], request: harness.call, log() {} });
+  assert.ok(hosts.every(host => harness.config().authorizedDomains.includes(host)));
+  assert.equal(harness.locked(), false);
 });

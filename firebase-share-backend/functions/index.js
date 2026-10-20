@@ -54,13 +54,14 @@ const TENANT_AUDIT_SCHEMA_VERSION = 1;
 const TENANT_AUDIT_ADMIN_LIMIT = 100;
 const TENANT_AUDIT_DASHBOARD_LIMIT = 25;
 const TENANT_SCHEMA_VERSION = 1;
-const TENANT_PLAN_GO_LIVE_NOW = 'go_live_now';
+const { buildTenantPlanCatalog, isManagedTenant, tenantPublicPolicy } = require('./tenant-plans.cjs');
+const { createTenantCustomizationHandlers } = require('./tenant-customization.cjs');
 const TENANT_SUBSCRIPTION_SCHEMA_VERSION = 1;
 const TENANT_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due', 'suspended', 'cancelled']);
 const TENANT_ACCESSIBLE_SUBSCRIPTION_STATUSES = new Set(['trialing', 'active', 'past_due']);
 const TENANT_PLAN_CHANGE_SCHEMA_VERSION = 1;
 const TENANT_PLAN_CHANGE_STATUS_PENDING = 'pending';
-const TENANT_PLAN_CATALOG = Object.freeze({
+const TENANT_PLAN_CATALOG = buildTenantPlanCatalog({
   go_live_now_1: Object.freeze({
     id: 'go_live_now_1',
     name: 'Go Live Now — 1 configurator',
@@ -1570,7 +1571,9 @@ function validateTenantPlanId(value, configurators = null) {
   const fallback = configurators ? inferredTenantPlanId(configurators) : '';
   const planId = String(value || fallback).trim().toLowerCase();
   const plan = TENANT_PLAN_CATALOG[planId];
-  if (!plan) throw new HttpsError('invalid-argument', 'Unsupported Go Live Now plan.');
+  if (!Object.hasOwn(TENANT_PLAN_CATALOG, planId)) {
+    throw new HttpsError('invalid-argument', 'Unsupported tenant plan.');
+  }
   return planId;
 }
 
@@ -1601,6 +1604,9 @@ function publicTenantPlanCatalog() {
       shortName: plan.shortName,
       description: plan.description,
       maxConfigurators: plan.maxConfigurators,
+      tier: plan.tier,
+      deploymentMode: plan.deploymentMode,
+      capabilities: { ...plan.capabilities },
       displayOrder: plan.displayOrder,
       recommended: plan.recommended,
       features: [...plan.features],
@@ -1645,6 +1651,9 @@ function tenantPendingPlanChangeView(value, { includeActor = false } = {}) {
     planId: pending.planId,
     planName: plan.name,
     maxConfigurators: plan.maxConfigurators,
+    tier: plan.tier,
+    deploymentMode: plan.deploymentMode,
+    capabilities: { ...plan.capabilities },
     configurators: pending.configurators,
     requestedAtMs: tenantTimestampMs(pending.requestedAt),
   };
@@ -2112,6 +2121,9 @@ function tenantAdminSummaryFromSnapshot(snapshot) {
     planId,
     planName: plan.name,
     maxConfigurators: plan.maxConfigurators,
+    tier: plan.tier,
+    deploymentMode: plan.deploymentMode,
+    capabilities: { ...plan.capabilities },
     subscription,
     pendingPlanChange: tenantPendingPlanChangeView(data.pendingPlanChange, { includeActor: true }),
     configurators,
@@ -2144,11 +2156,11 @@ function tenantAdminDetailFromSnapshot(snapshot, usage = null, analytics = null,
   };
 }
 
-async function requireGoLiveNowTenant(slug) {
+async function requireManagedTenant(slug) {
   const snapshot = await db.collection(TENANTS_COLLECTION).doc(slug).get();
   const data = snapshot.data() || {};
-  if (!snapshot.exists || data.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-    throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+  if (!snapshot.exists || !isManagedTenant(data)) {
+    throw new HttpsError('not-found', 'Managed tenant not found.');
   }
   return snapshot;
 }
@@ -2170,8 +2182,8 @@ async function requireTenantDashboardOwner(request) {
   const ref = db.collection(TENANTS_COLLECTION).doc(slug);
   let snapshot = await ref.get();
   let tenant = snapshot.data() || {};
-  if (!snapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-    throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+  if (!snapshot.exists || !isManagedTenant(tenant)) {
+    throw new HttpsError('not-found', 'Managed tenant not found.');
   }
 
   if (!tenantRecordMatchesHost(tenant, new URL(origin).hostname)) {
@@ -2198,8 +2210,8 @@ async function requireTenantDashboardOwner(request) {
     await db.runTransaction(async (transaction) => {
       const currentSnapshot = await transaction.get(ref);
       const current = currentSnapshot.data() || {};
-      if (!currentSnapshot.exists || current.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      if (!currentSnapshot.exists || !isManagedTenant(current)) {
+        throw new HttpsError('not-found', 'Managed tenant not found.');
       }
       const currentOwnerEmail = String(current.ownerEmail || '').trim().toLowerCase();
       const currentOwnerUid = String(current.ownerUid || '').trim();
@@ -2243,6 +2255,9 @@ function tenantDashboardViewFromSnapshot(snapshot, analytics = null, usage = nul
     planId,
     planName: plan.name,
     maxConfigurators: plan.maxConfigurators,
+    tier: plan.tier,
+    deploymentMode: plan.deploymentMode,
+    capabilities: { ...plan.capabilities },
     subscription: {
       status: subscription.status,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
@@ -2738,8 +2753,8 @@ exports.updateTenantDashboard = onCall(
       const privateSnapshot = await transaction.get(access.ref);
       const publicSnapshot = await transaction.get(publicRef);
       const tenant = privateSnapshot.data() || {};
-      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW || !publicSnapshot.exists) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      if (!privateSnapshot.exists || !isManagedTenant(tenant) || !publicSnapshot.exists) {
+        throw new HttpsError('not-found', 'Managed tenant not found.');
       }
       if (String(tenant.ownerUid || '') !== access.uid) {
         throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
@@ -2896,8 +2911,8 @@ exports.cancelTenantPlanChange = onCall(
     await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(access.ref);
       const tenant = snapshot.data() || {};
-      if (!snapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      if (!snapshot.exists || !isManagedTenant(tenant)) {
+        throw new HttpsError('not-found', 'Managed tenant not found.');
       }
       if (String(tenant.ownerUid || '') !== access.uid) {
         throw new HttpsError('permission-denied', 'This account is not authorized to manage this tenant.');
@@ -3021,7 +3036,7 @@ exports.provisionTenant = onCall(
         domains,
         companyName,
         autoOpenSingleConfigurator,
-        plan: TENANT_PLAN_GO_LIVE_NOW,
+        plan: plan.family,
         planId,
         status: tenantRuntimeStatusForSubscription(subscription.status),
         subscription,
@@ -3040,6 +3055,7 @@ exports.provisionTenant = onCall(
       });
 
       transaction.create(publicRef, {
+        ...tenantPublicPolicy(plan),
         schemaVersion: TENANT_SCHEMA_VERSION,
         slug,
         companyName,
@@ -3105,7 +3121,7 @@ exports.listTenants = onCall(
 
     const snapshot = await db.collection(TENANTS_COLLECTION).limit(TENANT_ADMIN_LIST_LIMIT).get();
     const tenants = snapshot.docs
-      .filter((doc) => (doc.data() || {}).plan === TENANT_PLAN_GO_LIVE_NOW)
+      .filter((doc) => isManagedTenant(doc.data()))
       .map(tenantAdminSummaryFromSnapshot)
       .sort((a, b) => {
         const byCompany = a.companyName.localeCompare(b.companyName, 'en', { sensitivity: 'base' });
@@ -3122,7 +3138,7 @@ exports.getTenant = onCall(
     requireTenantAdminOrigin(request);
     await requireTenantProvisioningAdmin(request);
     const slug = validateTenantSlug(request.data?.slug);
-    const snapshot = await requireGoLiveNowTenant(slug);
+    const snapshot = await requireManagedTenant(slug);
     const [usage, analytics, auditEvents] = await Promise.all([
       tenantUsageForMonth(slug),
       configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
@@ -3151,8 +3167,8 @@ exports.updateTenant = onCall(
       const publicSnapshot = await transaction.get(publicRef);
       const tenant = privateSnapshot.data() || {};
 
-      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      if (!privateSnapshot.exists || !isManagedTenant(tenant)) {
+        throw new HttpsError('not-found', 'Managed tenant not found.');
       }
       if (!publicSnapshot.exists) {
         throw new HttpsError('failed-precondition', 'The public tenant document is missing.');
@@ -3209,6 +3225,7 @@ exports.updateTenant = onCall(
       }
 
       const synchronizedFields = {
+        ...tenantPublicPolicy(tenantPlan(planId), publicSnapshot.data()),
         companyName,
         autoOpenSingleConfigurator,
         status,
@@ -3224,6 +3241,7 @@ exports.updateTenant = onCall(
       const privateUpdate = {
         ...synchronizedFields,
         planId,
+        plan: tenantPlan(planId).family,
         subscription,
         solarUsageLimits,
         domain: expectedDomain,
@@ -3361,8 +3379,8 @@ exports.resolveTenantPlanChange = onCall(
       const privateSnapshot = await transaction.get(privateRef);
       const publicSnapshot = await transaction.get(publicRef);
       const tenant = privateSnapshot.data() || {};
-      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW || !publicSnapshot.exists) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      if (!privateSnapshot.exists || !isManagedTenant(tenant) || !publicSnapshot.exists) {
+        throw new HttpsError('not-found', 'Managed tenant not found.');
       }
 
       const pending = normalizedTenantPendingPlanChange(tenant.pendingPlanChange);
@@ -3376,6 +3394,7 @@ exports.resolveTenantPlanChange = onCall(
         const targetConfigurators = validateConfiguratorsForPlan(pending.configurators, targetPlanId);
         transaction.update(privateRef, {
           planId: targetPlanId,
+          plan: tenantPlan(targetPlanId).family,
           configurators: targetConfigurators,
           pendingPlanChange: FieldValue.delete(),
           updatedAt: now,
@@ -3383,6 +3402,7 @@ exports.resolveTenantPlanChange = onCall(
           lastUpdatedByEmail: admin.email,
         });
         transaction.update(publicRef, {
+          ...tenantPublicPolicy(tenantPlan(targetPlanId), publicSnapshot.data()),
           configurators: targetConfigurators,
           updatedAt: now,
         });
@@ -3425,7 +3445,7 @@ exports.resolveTenantPlanChange = onCall(
       }
     });
 
-    const snapshot = await requireGoLiveNowTenant(slug);
+    const snapshot = await requireManagedTenant(slug);
     const [usage, analytics, auditEvents] = await Promise.all([
       tenantUsageForMonth(slug),
       configuratorAnalyticsForScope(analyticsScopeIdForTenant(slug)),
@@ -3453,8 +3473,8 @@ exports.setTenantSubscriptionState = onCall(
       const privateSnapshot = await transaction.get(privateRef);
       const publicSnapshot = await transaction.get(publicRef);
       const tenant = privateSnapshot.data() || {};
-      if (!privateSnapshot.exists || tenant.plan !== TENANT_PLAN_GO_LIVE_NOW) {
-        throw new HttpsError('not-found', 'Tier-1 tenant not found.');
+      if (!privateSnapshot.exists || !isManagedTenant(tenant)) {
+        throw new HttpsError('not-found', 'Managed tenant not found.');
       }
       if (!publicSnapshot.exists) {
         throw new HttpsError('failed-precondition', 'The public tenant document is missing.');
@@ -3990,3 +4010,32 @@ exports.enforceSharedConfigurationQuota = onDocumentCreated(
     }
   },
 );
+
+
+// Tenant customization foundation: owner requests derive identity from the host;
+// internal admins explicitly select a slug and must pass the existing allowlist.
+async function authorizeTenantCustomization(request) {
+  if (Object.prototype.hasOwnProperty.call(request.data || {}, 'tenantSlug')) {
+    requireTenantAdminOrigin(request);
+    const admin = await requireTenantProvisioningAdmin(request);
+    return { ...admin, slug: validateTenantSlug(request.data.tenantSlug), actorType: 'admin' };
+  }
+  const owner = await requireTenantDashboardOwner(request);
+  return { ...owner, actorType: 'tenant_owner' };
+}
+
+const customizationHandlers = createTenantCustomizationHandlers({
+  getDb: () => db,
+  HttpsError,
+  Timestamp,
+  authorize: authorizeTenantCustomization,
+  isManagedTenant,
+  tenantPlan,
+  validateTenantPlanId,
+  tenantPublicPolicy,
+  createAudit: createTenantAuditPayload,
+  auditRef: tenantAuditEventRef,
+});
+for (const [name, handler] of Object.entries(customizationHandlers)) {
+  exports[name] = onCall(TENANT_DASHBOARD_CALLABLE_OPTIONS, handler);
+}

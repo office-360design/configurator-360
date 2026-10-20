@@ -46,7 +46,7 @@ jobs:
       - name: Tenant and configurator regression tests
         run: |
           set -euo pipefail
-          for check in tenant tenant-branding tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+          for check in tenant tenant-customization tenant-branding tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
             npm run "check:$check"
           done
           node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs scripts/validation/configurator-seo-heads.test.mjs
@@ -73,6 +73,7 @@ jobs:
       - name: Validate static Window bundle contains tenant policy
         run: |
           npm run prepare:static --prefix window-configurator
+          test -f window-configurator/dist/site/shared-ui/src/tenantCustomization.js
           test -f window-configurator/dist/site/shared-ui/src/tenantDomains.js
           test -f window-configurator/dist/site/shared-ui/src/tenantHomepage.js
           test -f window-configurator/dist/site/shared-ui/src/tenantBranding.js
@@ -93,3 +94,4 @@ jobs:
             artifacts/tenant-homepage*.png
             artifacts/tenant-domains-source.sha256
           retention-days: 7
+

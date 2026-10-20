@@ -1,3 +1,4 @@
+import * as customization from '../../shared-ui/src/tenantCustomization.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -48,6 +49,9 @@ function backendHarness() {
     Buffer, URL, console, process: { env: {} }, exports: {}, mockDb,
     require(name) {
       if (name === './tenantDomains.cjs') return tenantDomainPolicy;
+      if (['./tenant-plans.cjs', './tenant-customization.cjs'].includes(name)) {
+        return require(`../../firebase-share-backend/functions/${name.slice(2)}`);
+      }
       if (name === 'node:crypto') return require(name);
       assert.ok(adapters[name], `Unexpected backend dependency: ${name}`);
       return adapters[name];
@@ -72,13 +76,13 @@ function bootstrapHarness({ hostname = 'acme.360configurator.com', fields = {}, 
   const node = () => ({ dataset: {}, classList: { add() {} }, append(value) { elements.push(value); } });
   const document = { documentElement: node(), head: node(), body: node(), createElement: node };
   const context = vm.createContext({
-    document, location: { hostname }, URL, ...tenantDomainPolicy,
+    document, location: { hostname }, URL, ...tenantDomainPolicy, ...customization,
     fetch: async () => {
       requests += 1;
       return { ok: status === 200, status, json: async () => ({ fields }) };
     },
   });
-  const source = read('shared-ui/src/tenantBootstrap.js').replace(/^import .*tenantDomains.*;\n/gm, '').replace(/^export /gm, '');
+  const source = read('shared-ui/src/tenantBootstrap.js').replace(/^import .*tenant(?:Domains|Customization).*;\n/gm, '').replace(/^export /gm, '');
   vm.runInContext(source, context);
   const api = vm.runInContext('({ requireTenantConfiguratorAccess, resolveTenantContext })', context);
   return { api, document, elements, requests: () => requests };
@@ -233,3 +237,4 @@ test('analytics totals and read/create share rules cover the entire supported ca
     assert.deepEqual(sorted([...list.matchAll(/'([^']+)'/g)].map((match) => match[1])), sorted(products));
   }
 });
+

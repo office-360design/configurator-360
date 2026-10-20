@@ -1,3 +1,4 @@
+import { normalizePublishedCustomization, resolveCustomization } from './tenantCustomization.js?v=foundation-1';
 import { tenantDomainContext } from './tenantDomains.js?v=locales-6';
 
 const FIREBASE_PROJECT_ID = 'configurator-360';
@@ -87,6 +88,14 @@ function normalizeConfigurators(value) {
 }
 
 function normalizeTenantRecord(slug, data = {}) {
+  const capabilities = Object.freeze(Object.fromEntries(
+    ['customization', 'theme', 'layout', 'features', 'defaults', 'limits', 'catalogue']
+      .map(key => [key, data.capabilities?.[key] === true]),
+  ));
+  const customization = normalizePublishedCustomization(data.customization);
+  if (customization.enabled && !capabilities.customization) {
+    throw new Error('Published customization is not allowed by the tenant plan.');
+  }
   return Object.freeze({
     isTenant: true,
     exists: true,
@@ -96,6 +105,9 @@ function normalizeTenantRecord(slug, data = {}) {
     logoUrl: safeLogoUrl(data.logoUrl),
     autoOpenSingleConfigurator: data.autoOpenSingleConfigurator === true,
     configurators: Object.freeze(normalizeConfigurators(data.configurators)),
+    capabilities,
+    customization,
+
   });
 }
 
@@ -136,7 +148,12 @@ async function fetchTenantRecord(slug) {
     });
   }
 
-  return normalizeTenantRecord(slug, decodeFirestoreFields(payload?.fields || {}));
+  try {
+    return normalizeTenantRecord(slug, decodeFirestoreFields(payload?.fields || {}));
+  } catch (error) {
+    // Never fall back to unrestricted defaults for an invalid tenant policy.
+    return Object.freeze({ isTenant: true, exists: false, slug, error: 'configuration', cause: error });
+  }
 }
 
 export async function resolveTenantContext({ hostname } = {}) {
@@ -260,4 +277,17 @@ export async function requireTenantConfiguratorAccess(productId) {
 
   renderTenantAccessState(context, { productId: normalizedProduct });
   return blockModuleForever();
+}
+
+
+// Product adapters call this before constructing state, UI or geometry. The
+// existing access gate remains authoritative for tenant/product availability.
+export async function resolveTenantConfiguratorSettings(productId, options = {}) {
+  const tenant = await requireTenantConfiguratorAccess(productId);
+  return resolveCustomization({
+    ...options,
+    productId,
+    published: tenant?.customization,
+    capabilities: tenant?.capabilities || {},
+  });
 }
