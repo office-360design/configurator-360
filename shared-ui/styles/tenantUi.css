@@ -1,0 +1,96 @@
+/* Published settings affect common UI only. No overrides without an opt-in. */
+body[data-tenant-theme] .shared-panel-controls {
+  --shared-panel-accent: var(--tenant-primary, #1188d1);
+  --shared-panel-accent-dark: var(--tenant-primary, #075f96);
+}
+body[data-tenant-theme] :is(.shared-ui-host, .shared-configurator-panel) {
+  font-family: var(--tenant-font, "Axiforma", "Avenir Next", "Segoe UI", sans-serif);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) :is(
+  .shared-ui-host .site-header, .shared-configurator-panel,
+  .shared-configurator-panel > .shared-configurator-panel__footer
+) {
+  background: var(--tenant-surface, #fff) !important;
+  color: var(--tenant-text, #172027) !important;
+  border-color: var(--tenant-border, #dbe3e7) !important;
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-configurator-panel__price strong {
+  color: var(--tenant-text, #172027);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-configurator-panel__price small {
+  color: var(--tenant-muted, #6f7f8a);
+}
+body[data-tenant-theme] :is(.shared-configurator-panel, .shared-configurator-panel__add-button) {
+  border-radius: var(--tenant-radius, 12px) !important;
+}
+body[data-tenant-theme] .shared-configurator-panel__add-button,
+body[data-tenant-theme] .shared-ui-host .tool-launcher {
+  background: var(--tenant-primary, #0878c9);
+  color: var(--tenant-primary-text, #fff);
+  border-color: var(--tenant-primary, #0878c9);
+}
+body[data-tenant-theme] .shared-configurator-panel__add-button:hover:not(:disabled) {
+  background: var(--tenant-primary, #0878c9);
+  color: var(--tenant-primary-text, #fff);
+  border-color: var(--tenant-primary, #0878c9);
+  filter: brightness(.92);
+}
+body[data-tenant-theme] .shared-configurator-panel__add-button:focus-visible {
+  outline: 2px solid var(--tenant-primary, #0878c9);
+  outline-offset: 3px;
+}
+[data-tenant-price-hidden],
+.shared-configurator-panel__footer[hidden],
+.shared-configurator-panel__footer [hidden] { display: none !important; }
+
+/* Desktop positioning only: retain the tested phone drawer and toggle behavior. */
+@media (min-width: 761px) {
+  .shared-configurator-panel[data-tenant-panel-side="left"] {
+    left: 20px !important;
+    right: auto !important;
+  }
+  .shared-configurator-panel[data-tenant-panel-side="left"].is-collapsed {
+    transform: translateX(calc(-100% - 20px)) !important;
+  }
+  .shared-configurator-panel__toggle--floating-right[data-tenant-panel-side="left"] svg {
+    scale: -1 1;
+  }
+  body[data-tenant-tools-position] [data-shared-tools] {
+    position: fixed !important;
+    margin: 0 !important;
+    transform: none !important;
+    max-height: calc(100vh - 120px);
+  }
+  body[data-tenant-tools-position^="top"] [data-shared-tools] {
+    top: calc(var(--shared-topbar-height, 47px) + 24px) !important;
+    bottom: auto !important;
+  }
+  body[data-tenant-tools-position^="bottom"] [data-shared-tools] {
+    top: auto !important;
+    bottom: 24px !important;
+    flex-direction: column-reverse;
+  }
+  body[data-tenant-tools-position$="left"] [data-shared-tools] {
+    left: 24px !important;
+    right: auto !important;
+  }
+  body[data-tenant-tools-position$="right"] [data-shared-tools] {
+    right: 24px !important;
+    left: auto !important;
+  }
+  body[data-tenant-tools-position$="left"]:has(.shared-configurator-panel[data-tenant-panel-side="left"]:not(.is-collapsed)) [data-shared-tools] {
+    left: 424px !important;
+  }
+  body[data-tenant-tools-position$="right"]:has(.shared-configurator-panel[data-shared-panel-geometry="floating-right"]:not([data-tenant-panel-side="left"]):not(.is-collapsed)) [data-shared-tools] {
+    right: 424px !important;
+  }
+}
+
+/* The expanded floating panel is the phone's active editing surface. Keep the
+   toolbar from covering its title; collapsing the panel restores the tools. */
+@media (max-width: 760px) {
+  body[data-tenant-ui]:has(.shared-configurator-panel__toggle--floating-right[aria-expanded="true"]) [data-shared-tools] {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}

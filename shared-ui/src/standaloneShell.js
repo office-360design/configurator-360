@@ -1,18 +1,19 @@
+import { resolveTenantShellOptions, applyTenantShellTheme, loadTenantShellStyles } from './tenantShellCustomization.js?v=shared-ui-1';
 import { isConfiguratorAREnabled } from './arPolicy.js?v=curtainwall-ar-1';
-import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js?v=site-analytics-1';
+import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js?v=tenant-ui-1';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, WEBSITE_DEMO_PATHS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=localized-slugs-1';
 import { startsWithPanelClosed } from './phoneLayout.js?v=mobile-panels-1';
 import { COUNTRY_REGION_DEFAULTS, DEFAULT_GUEST_REGION, fetchGuestRegion, guestRegionForCountry } from './regionDefaults.js?v=locales-6';
 import { sharedT } from './i18n.js?v=site-analytics-1';
 import { renderActionFeedback } from './components/feedback.js?v=site-analytics-1';
-import { renderTopBar } from './components/topBar.js?v=curtainwall-ar-1';
+import { renderTopBar } from './components/topBar.js?v=tenant-ui-1';
 import { syncAccountIdentity } from './components/accountMenu.js?v=site-analytics-1';
 import { createDomainAuthHandoff, observeGoogleAuth, redeemDomainAuthHandoff, signInWithDomainCustomToken, signInWithGoogle, signOutGoogle } from './firebaseAuth.js?v=locales-6';
 import { renderToolsMenu } from './components/toolsMenu.js?v=site-analytics-1';
 import { renderSavedConfigurationsDialog } from './components/savedConfigurationsDialog.js?v=site-analytics-1';
 import { renderProfileDialog } from './components/profileDialog.js?v=site-analytics-1';
 import { renderLanguageSwitchLoading } from './components/languageSwitchLoading.js?v=site-analytics-1';
-import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=quotation-1';
+import { renderConfiguratorPanelFooter } from './components/configuratorPanel.js?v=tenant-ui-1';
 import { renderCartMenu } from './components/cartMenu.js?v=site-analytics-1';
 import { getUserCart, mutateUserCart } from './userCart.js?v=locales-6';
 import { deleteUserConfiguration, getUserConfiguration, listUserConfigurations, saveUserConfiguration } from './savedConfigurations.js?v=locales-6';
@@ -249,6 +250,11 @@ export class StandaloneConfiguratorShell {
 
     this.storagePrefix = this.options.storagePrefix;
     this.productId = normalizeProductId(this.options.productId || this.options.productType);
+    const resolved = resolveTenantShellOptions(this.options, currentTenantContext(), this.productId);
+    this.options = resolved.options;
+    this.tenantCustomization = resolved.customization;
+    if (this.tenantCustomization) loadTenantShellStyles();
+    this.restoreTenantTheme = applyTenantShellTheme(document.body, this.tenantCustomization);
     this.embedPreview = new URLSearchParams(window.location.search).get('embed') === 'preview';
     document.body.classList.toggle('configurator-embed-preview', this.embedPreview);
     if (!this.embedPreview) {
@@ -549,6 +555,8 @@ export class StandaloneConfiguratorShell {
     return Boolean(
       this.authUser?.uid
       && this.options.capabilities.save !== false
+      && this.options.capabilities.cart !== false
+      && this.productId !== 'bookshelf'
       && !this.saveBusy
       && !this.cartBusy
       && !this.savedLoadBlocked
@@ -625,6 +633,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async editCartItem(key, button = null) {
+    if (this.options.capabilities.cart === false) return false;
     const itemKey = String(key || '');
     if (!this.authUser?.uid || this.cartBusy || !CART_EDIT_ITEM_ID_PATTERN.test(itemKey)) return false;
     const item = this.cartItems.find((candidate) => candidate.key === itemKey);
@@ -678,6 +687,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async removeCartItem(key, button = null) {
+    if (this.options.capabilities.cart === false) return false;
     const itemKey = String(key || '');
     if (!itemKey || !this.authUser?.uid || this.cartBusy) return;
     const index = this.cartItems.findIndex((item) => item.key === itemKey);
@@ -705,6 +715,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async emptyCart() {
+    if (this.options.capabilities.cart === false) return false;
     if (!this.authUser?.uid || this.cartBusy || !this.cartItems.length) return false;
     this.cartBusy = true;
     this.renderHost();
@@ -834,6 +845,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async restoreCartEditTransport(user) {
+    if (this.options.capabilities.cart === false) return false;
     const transport = this.pendingCartEditTransport || this.readCartEditTransport();
     const uid = String(user?.uid || '');
     if (!transport?.key || !uid) return false;
@@ -1108,6 +1120,8 @@ export class StandaloneConfiguratorShell {
 
     if (config.geometry === 'floating-right') {
       panel.dataset.sharedPanelGeometry = 'floating-right';
+      const side = this.tenantCustomization?.layout?.desktop?.panelSide;
+      if (side) panel.dataset.tenantPanelSide = side;
       this.configuratorPanelHost = panel.closest('.app-shell');
       this.configuratorPanelHost?.classList.add('shared-configurator-panel-host--floating-right');
 
@@ -1155,7 +1169,10 @@ export class StandaloneConfiguratorShell {
     this.configuratorPanelFooter = footer;
 
     this.onConfiguratorPanelFooterClick = (event) => {
-      if (event.target.closest('[data-shared-panel-quotation]')) { void openConfigurationQuotation(this); return; }
+      if (event.target.closest('[data-shared-panel-quotation]')) {
+        if (this.options.capabilities.quotation !== false) void openConfigurationQuotation(this);
+        return;
+      }
       const button = event.target.closest('[data-shared-panel-add-to-cart]');
       if (!button || button.disabled) return;
       void this.addCurrentConfigurationToCart(button);
@@ -1178,12 +1195,15 @@ export class StandaloneConfiguratorShell {
       ? 'auto'
       : 'calc(var(--shared-topbar-height, 47px) + 34px)', 'important');
     toggle.style.setProperty('bottom', compact ? 'var(--shared-mobile-panel-toggle-bottom)' : 'auto', 'important');
-    toggle.style.setProperty('right', right, 'important');
-    toggle.style.setProperty('left', 'auto', 'important');
+    const leftSide = !compact && this.tenantCustomization?.layout?.desktop?.panelSide === 'left';
+    if (leftSide) toggle.dataset.tenantPanelSide = 'left';
+    else delete toggle.dataset.tenantPanelSide;
+    toggle.style.setProperty('right', leftSide ? 'auto' : right, 'important');
+    toggle.style.setProperty('left', leftSide ? right : 'auto', 'important');
     toggle.style.setProperty('width', '34px', 'important');
     toggle.style.setProperty('height', '42px', 'important');
     toggle.style.setProperty('margin', '0', 'important');
-    toggle.style.setProperty('border-radius', '10px 0 0 10px', 'important');
+    toggle.style.setProperty('border-radius', leftSide ? '0 10px 10px 0' : '10px 0 0 10px', 'important');
   }
 
   formatConfiguratorPanelPrice(value, currency = this.state.currency, locale = this.state.locale) {
@@ -1267,8 +1287,10 @@ export class StandaloneConfiguratorShell {
       priceText: this.resolveConfiguratorPanelPriceText(),
       addToCartLabel: sharedT(this.state.locale, 'panel.addToCart'),
       addToCartDisabled: !this.canAddToCart(),
-      showAddToCart: this.options.capabilities.save !== false,
-      quotationLabel: this.productId === 'bookshelf' ? '' : quotationLabel(this.state.locale),
+      showAddToCart: this.productId !== 'bookshelf'
+        && this.options.capabilities.save !== false && this.options.capabilities.cart !== false,
+      showPrice: this.options.capabilities.price !== false,
+      quotationLabel: this.productId === 'bookshelf' ? '' : (this.options.capabilities.quotation === false ? '' : quotationLabel(this.state.locale)),
     });
   }
 
@@ -2208,6 +2230,8 @@ export class StandaloneConfiguratorShell {
     const actionTarget = event.target.closest('[data-action]');
     if (!actionTarget) return;
     const action = actionTarget.dataset.action;
+    if (actionTarget.disabled) return;
+    if (action.startsWith('cart') && this.options.capabilities.cart === false) return;
 
     if (action === 'book-demo') {
       const resolvedLocale = LANGUAGE_PROFILES[this.state.locale] ? this.state.locale : 'en-US';
@@ -2465,6 +2489,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async saveCartEditedConfiguration(button, { suppressFeedback = false } = {}) {
+    if (this.options.capabilities.cart === false) return false;
     if (this.saveBusy || !this.currentCartEdit || !this.authUser?.uid) return false;
     const configuration = this.options.callbacks.captureState?.();
     if (configuration === undefined || configuration === null) {
@@ -2517,6 +2542,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async save(button, { suppressFeedback = false } = {}) {
+    if (this.options.capabilities.save === false) return false;
     if (this.currentCartEdit) return this.saveCartEditedConfiguration(button, { suppressFeedback });
     if (this.saveBusy) return false;
     if (this.savedLoadBlocked) {
@@ -2733,6 +2759,7 @@ export class StandaloneConfiguratorShell {
   }
 
   async share(button) {
+    if (this.options.capabilities.share === false) return;
     let url;
     try {
       url = await Promise.resolve(this.options.callbacks.getShareUrl?.() || window.location.href);
@@ -2991,6 +3018,9 @@ export class StandaloneConfiguratorShell {
   }
 
   destroy() {
+    this.restoreTenantTheme?.();
+    if (this.configuratorPanel) delete this.configuratorPanel.dataset.tenantPanelSide;
+    if (this.configuratorPanelToggle) delete this.configuratorPanelToggle.dataset.tenantPanelSide;
     this.authUnsubscribe?.();
     document.removeEventListener('click', this.onDocumentClick);
     document.removeEventListener('keydown', this.onKeyDown);
@@ -3025,3 +3055,4 @@ export class StandaloneConfiguratorShell {
 export function mountStandaloneConfiguratorShell(options) {
   return new StandaloneConfiguratorShell(options);
 }
+

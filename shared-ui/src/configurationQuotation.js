@@ -10,6 +10,7 @@ const COPY={
 export const quotationLabel=locale=>(COPY[locale]||COPY['en-US']).title;
 let busy=false,cooldown=0;
 export async function openConfigurationQuotation(shell){
+  if(shell.options?.capabilities?.quotation===false)return;
  if(document.querySelector('[data-configuration-quotation]'))return;
  const text=COPY[shell.state.locale]||COPY['en-US'];
  if(busy||Date.now()<cooldown){shell.showFeedback(text.wait,'error');return;}
@@ -46,3 +47,4 @@ export async function openConfigurationQuotation(shell){
   }catch{error.textContent=text.failure;submit.disabled=false;}finally{busy=false;}
  });
 }
+

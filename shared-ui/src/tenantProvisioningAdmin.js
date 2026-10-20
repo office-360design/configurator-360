@@ -1,3 +1,4 @@
+import { mountTenantCustomizationEditor } from './tenantCustomizationEditor.js?v=shared-ui-1';
 import { renderTenantDomainLinks } from './tenantDomainLinks.js?v=locales-6';
 import { TENANT_CONFIGURATORS } from './tenantBootstrap.js?v=locales-6';
 import {
@@ -9,6 +10,11 @@ import {
 
 const FUNCTION_BASE = 'https://europe-west1-configurator-360.cloudfunctions.net';
 const FUNCTION_URLS = Object.freeze({
+  getTenantCustomization: `${FUNCTION_BASE}/getTenantCustomization`,
+  saveTenantCustomizationDraft: `${FUNCTION_BASE}/saveTenantCustomizationDraft`,
+  previewTenantCustomization: `${FUNCTION_BASE}/previewTenantCustomization`,
+  publishTenantCustomization: `${FUNCTION_BASE}/publishTenantCustomization`,
+  rollbackTenantCustomization: `${FUNCTION_BASE}/rollbackTenantCustomization`,
   provisionTenant: `${FUNCTION_BASE}/provisionTenant`,
   listTenants: `${FUNCTION_BASE}/listTenants`,
   getTenant: `${FUNCTION_BASE}/getTenant`,
@@ -686,9 +692,20 @@ function populateTenantEditor(tenant) {
   tenantStatusButton.classList.toggle('button--success', tenant.status !== 'active');
   setStatus(manageStatus);
   tenantEditorCard.hidden = false;
+  customizationEditor.setTenant(tenant);
 }
 
+const customizationRoot = document.createElement('section');
+customizationRoot.className = 'tenant-customization-editor';
+customizationRoot.hidden = true;
+tenantEditorCard.append(customizationRoot);
+const customizationEditor = mountTenantCustomizationEditor(customizationRoot, {
+  call: callAdminFunction,
+  products: TENANT_CONFIGURATORS,
+});
+
 async function openTenantEditor(slug) {
+  customizationEditor.setTenant(null);
   tenantEditorCard.hidden = false;
   tenantEditorTitle.textContent = 'Loading tenant…';
   tenantEditorMeta.textContent = slug;
@@ -1008,6 +1025,7 @@ closeTenantEditorButton.addEventListener('click', () => {
   tenantEditorCard.hidden = true;
   tenantEditorForm.hidden = false;
   currentManagedTenant = null;
+  customizationEditor.setTenant(null);
   clearManageLogoPreview();
 });
 
@@ -1049,3 +1067,4 @@ await observeGoogleAuth(async (user) => {
 });
 
 updateSlugState();
+

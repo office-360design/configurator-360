@@ -46,7 +46,7 @@ jobs:
       - name: Tenant and configurator regression tests
         run: |
           set -euo pipefail
-          for check in tenant tenant-customization tenant-branding tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
+          for check in tenant tenant-customization tenant-ui tenant-branding tenant-homepage tenant-catalogue tenant-domains tenant-provisioning tenant-auth tenant-saves tenant-lifecycle tenant-subscription tenant-plan-changes tenant-usage analytics tenant-dashboard tenant-audit google-solar-cloudrun tiles; do
             npm run "check:$check"
           done
           node --test scripts/validation/configuration-quotation.test.cjs scripts/validation/configurator-color-editor.test.mjs scripts/validation/configurator-seo-heads.test.mjs
@@ -60,6 +60,8 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get update
           sudo apt-get install -y nginx
+      - name: Test tenant shared UI customization
+        run: npm run check:tenant-ui:browser
       - name: Test localized public and tenant routing
         run: npm run check:tenant-domains:nginx
       - name: Test localized launcher links, dashboard and admin on all three aliases
@@ -92,6 +94,7 @@ jobs:
             artifacts/tenant-catalogue-dashboard*.png
             artifacts/tenant-branding*.png
             artifacts/tenant-homepage*.png
+            artifacts/tenant-ui-*.png
             artifacts/tenant-domains-source.sha256
           retention-days: 7
 

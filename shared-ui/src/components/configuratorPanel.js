@@ -4,6 +4,7 @@ export function renderConfiguratorPanelFooter(root, {
   addToCartLabel = 'Add to cart',
   addToCartDisabled = false,
   showAddToCart = true,
+  showPrice = true,
   quotationLabel = '',
 } = {}) {
   if (!root) return;
@@ -17,6 +18,7 @@ export function renderConfiguratorPanelFooter(root, {
 
     const priceWrap = document.createElement('div');
     priceWrap.className = 'shared-configurator-panel__price';
+    priceWrap.dataset.sharedPanelPriceWrap = '';
 
     label = document.createElement('small');
     label.dataset.sharedPanelPriceLabel = '';
@@ -34,7 +36,9 @@ export function renderConfiguratorPanelFooter(root, {
     root.append(priceWrap, button);
   }
 
+  root.querySelector('[data-shared-panel-price-wrap]').hidden = !showPrice;
   button.hidden = !showAddToCart;
+  root.hidden = !showPrice && !showAddToCart && !quotationLabel;
   let quote = root.querySelector('[data-shared-panel-quotation]');
   if (quotationLabel && !quote) {
     quote = document.createElement('button');
@@ -54,3 +58,4 @@ export function renderConfiguratorPanelFooter(root, {
   button.disabled = Boolean(addToCartDisabled);
   button.setAttribute('aria-disabled', String(Boolean(addToCartDisabled)));
 }
+

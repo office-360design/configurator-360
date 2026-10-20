@@ -4,7 +4,7 @@
   "description": "Cross-configurator validation, SEO, and website release checks.",
   "scripts": {
     "check:pergola:environment": "node pergola-configurator/tools/validate-browser-environment.mjs",
-    "check": "npm run check:website-hydration && npm run check:website-route-isolation && npm run check:configurator-notfound && npm run check:tenant && npm run check:tenant-customization && npm run check:tenant-homepage && npm run check:tenant-branding && npm run check:tenant-domains && npm run check:tenant-catalogue && npm run check:tenant-provisioning && npm run check:tenant-auth && npm run check:tenant-saves && npm run check:tenant-lifecycle && npm run check:tenant-subscription && npm run check:tenant-plan-changes && npm run check:tenant-usage && npm run check:analytics && npm run check:tenant-dashboard && npm run check:tenant-audit && npm run check:gas && node --check shared-ui/src/standaloneShell.js && node --check shared-ui/src/components/topBar.js && node --check roof-configurator/js/sharedShell.js",
+    "check": "npm run check:website-hydration && npm run check:website-route-isolation && npm run check:configurator-notfound && npm run check:tenant && npm run check:tenant-customization && npm run check:tenant-ui && npm run check:tenant-homepage && npm run check:tenant-branding && npm run check:tenant-domains && npm run check:tenant-catalogue && npm run check:tenant-provisioning && npm run check:tenant-auth && npm run check:tenant-saves && npm run check:tenant-lifecycle && npm run check:tenant-subscription && npm run check:tenant-plan-changes && npm run check:tenant-usage && npm run check:analytics && npm run check:tenant-dashboard && npm run check:tenant-audit && npm run check:gas && node --check shared-ui/src/standaloneShell.js && node --check shared-ui/src/components/topBar.js && node --check roof-configurator/js/sharedShell.js",
     "check:tiles": "npm run check --prefix tiles-configurator",
     "check:gas": "npm run check --prefix gas-configurator && npm run build --prefix gas-configurator",
     "check:website-hydration": "node scripts/validation/validate_website_release_hydration.mjs",
@@ -58,7 +58,9 @@
     "check:curtain-wall:browser": "node curtain-wall-configurator/tests/curtain-wall-browser.cjs",
     "check:curtain-wall:ar": "node --no-warnings --experimental-loader ./curtain-wall-configurator/tests/ar-test-loader.mjs --test curtain-wall-configurator/tests/curtain-wall-ar.test.mjs",
     "check:curtain-wall:ar-browser": "node curtain-wall-configurator/tests/curtain-wall-ar-browser.cjs",
-    "check:tenant-customization": "node scripts/build/sync-tenant-customization.mjs --check && node --test scripts/validation/tenant-customization.test.mjs scripts/validation/tenant-customization-backend.test.cjs"
+    "check:tenant-customization": "node scripts/build/sync-tenant-customization.mjs --check && node --test scripts/validation/tenant-customization.test.mjs scripts/validation/tenant-customization-backend.test.cjs",
+    "check:tenant-ui": "node --test scripts/validation/tenant-ui.test.mjs",
+    "check:tenant-ui:browser": "node scripts/validation/tenant-ui.browser.mjs"
   },
   "dependencies": {
     "playwright": "^1.54.1"

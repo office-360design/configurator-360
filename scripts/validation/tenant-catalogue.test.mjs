@@ -194,7 +194,7 @@ test('renderer entry points are gated independently; bookshelf remains quotation
   const bookshelfShell = read('bookshelf-configurator/js/sharedShell.js');
   assert.match(bookshelfShell, /requestBookshelfQuotation/);
   assert.match(bookshelfShell, /Ask for quotation/);
-  assert.match(read('shared-ui/src/standaloneShell.js'), /quotationLabel: this\.productId === 'bookshelf' \? '' : quotationLabel/);
+  assert.match(read('shared-ui/src/standaloneShell.js'), /quotationLabel: this\.productId === 'bookshelf' \? '' : \(this\.options\.capabilities\.quotation === false \? '' : quotationLabel/);
 });
 
 test('save and analytics backend scopes accept only enabled products on active tenants', async () => {
