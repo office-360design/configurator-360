@@ -112,7 +112,7 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
         ${iconButton({ action: 'undo', label: labels.undo, icon: sharedIcon('undo'), disabled: !canUndo })}
         ${iconButton({ action: 'reset', label: labels.reset, icon: sharedIcon('reset'), disabled: !canReset })}
         ${shareButton(locale, !canShare)}
-        ${cartButton(locale, state.cartCount, state.cartOpen)}
+        ${capabilities.cart === false ? '' : cartButton(locale, state.cartCount, state.cartOpen)}
         ${iconButton({ action: 'account', label: labels.account, icon: sharedIcon('account') })}
         <button class="topbar-icon-button language-button" type="button" data-action="language" data-tooltip="${escapeHtml(language.nativeName)}" aria-label="${escapeHtml(language.nativeName)}" aria-expanded="false">
           <span class="language-flag" data-language-button-flag aria-hidden="true">${language.flag}</span>
@@ -124,3 +124,4 @@ export function renderTopBar({ brandSrc, brandAlt, projectName, state, capabilit
     </header>
   `;
 }
+

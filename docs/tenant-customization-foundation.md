@@ -1,10 +1,13 @@
 # Tenant customization foundation
 
-This release adds the configuration contract and lifecycle for a customizable
-shared-cloud tier. It does **not** yet apply theme/layout settings to product UIs
-or enforce product feature/default/limit overrides. Those integrations and the
-visual dashboard editor are the next phase. Do not market the customization UI
-as available until adapters and their end-to-end tests ship.
+The foundation now includes an internal appearance editor in tenant administration
+and a shared-shell integration. Published theme tokens, shared action visibility,
+desktop toolbar placement and shared floating-panel side settings apply on reload.
+The editor has private drafts, a panel-style sample preview, publication and
+revision restoration. The preview is a style sample, not a full 3D preview.
+
+Product-specific defaults, geometry limits, catalogue restrictions, mobile layout
+presets and the customer self-service editor remain subsequent adapter work.
 
 ## Plans and compatibility
 
@@ -83,8 +86,8 @@ All responses/errors use the existing Firebase callable transport. Owners omit
 
 Initial revision and draftVersion are both 0. Save replaces the complete draft;
 clients should edit the retrieved draft, not send a partial patch. Refresh after
-`aborted` conflicts. The preview endpoint supplies data for a future authenticated
-preview UI; it is not a public preview link and does not yet render a configurator.
+`aborted` conflicts. The preview endpoint supplies the authenticated editor sample; it is not a
+public preview link and does not render the complete 3D configurator.
 
 Publish revalidates current plan, tenant status, enabled products and schema.
 Publication, immutable revision creation and audit are one transaction. Rollback
@@ -106,11 +109,40 @@ a previous revision after reviewing it against current permissions.
    static bundle check now also requires `tenantCustomization.js`.
 4. Deploy Solar API with the managed-family compatibility change before enabling
    the new tier for a Solar tenant. No dedicated hosting is required.
-5. Existing tenants require no data migration. Add customization UI and product
-   adapters in subsequent releases, starting with shared UI, Roof and Pergola.
+5. Existing tenants require no data migration. Use the internal appearance editor
+   for shared UI settings. Product adapters for Roof and Pergola follow next.
 
 Tests cover schema validation, permissions, precedence, immutable resolution,
 legacy bootstrap, invalid-policy blocking, draft privacy, stale-edit conflicts,
 owner changes, downgrade/restore and the real provisioning/plan-change handlers.
 Backend tests use transactional in-memory adapters; they do not deploy services
 or replace a staging Firebase smoke test.
+
+## Shared UI phase: visual checks
+
+Use tenant administration → open a custom-plan tenant → **Configurator appearance**.
+Choose a tenant-wide or per-configurator scope, edit settings and save a draft.
+Preview the saved panel style, then publish and reload the actual configurator.
+The editor disables publishing while there are unsaved changes. Revision restore
+uses the foundation's conflict checks and creates a new publication.
+
+- Primary/surface/text/muted/border/radius affect the shared shell and panel footer;
+  shared panel controls inherit the accent. Product-native styling and 3D materials
+  remain unchanged. Existing dark-mode surfaces are preserved.
+- Cart can be hidden while Save remains available. Cart still depends on Save for
+  its immutable snapshots. Bookshelf never gains an Add to cart button.
+- Quotation visibility applies to the shared quotation action, not Bookshelf's
+  native quotation flow. Price visibility applies only to the shared footer.
+  These display choices do not hide all product estimates or replace server-side
+  authorization/pricing policy.
+- Left/right placement applies to panels declaring `geometry: 'floating-right'`,
+  including Pergola. Other panels require their product adapters. Mobile panel placement
+  stays unchanged; the toolbar hides while a shared floating panel is expanded
+  so it cannot cover the panel title. Custom toolbar corners apply on desktop only.
+- Layout and theme changes clean up when the shared shell is destroyed.
+
+Run `npm run check:tenant-ui` and `npm run check:tenant-ui:browser`. The browser
+suite mounts the real shared shell with inert authentication, checks desktop and
+mobile placement and the draft/preview/publish editor, and writes screenshots to
+`artifacts/tenant-ui-*.png` for the tenant CI artifact. Production deployment is
+still a separate step.
