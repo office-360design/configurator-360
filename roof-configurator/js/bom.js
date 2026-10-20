@@ -1,3 +1,5 @@
+import { featureText } from './featureI18n.js?v=custom-bom-1';
+import { customBomGeometry } from './customBomGeometry.js?v=custom-bom-1';
 import { normalizeCurrency } from './preferences.js?v=locales-6';
 import { roofRateSource, roofT } from './i18n.js?v=site-analytics-1';
 
@@ -139,7 +141,7 @@ function addLine(lines, state, key, nameKey, unitKey, quantity, unitPrice, noteK
 
 export function calculateBom(state, metrics) {
   const locale = state.locale || 'en-US';
-  if (['custom', 'layout', 'sketch'].includes(state.roofType)) {
+  if (state.roofType === 'custom') {
     return {
       lines: [],
       subtotal: 0,
@@ -164,8 +166,9 @@ export function calculateBom(state, metrics) {
     };
   }
 
-  const lengths = roofLengths(state);
-  const roofArea = Math.max(0, metrics.roofArea);
+  const custom = ['layout', 'sketch'].includes(state.roofType) ? customBomGeometry(state) : null;
+  const lengths = custom?.lengths || roofLengths(state);
+  const roofArea = Math.max(0, custom?.roofArea ?? metrics.roofArea);
   const tileQuantity = clampQuantity((roofArea * PANEL_WASTE_FACTOR) / PANEL_EFFECTIVE_AREA);
   const screwBoxes = clampQuantity(tileQuantity / 44);
   const membraneRolls = clampQuantity((roofArea * MEMBRANE_WASTE_FACTOR) / MEMBRANE_ROLL_AREA);
@@ -178,7 +181,7 @@ export function calculateBom(state, metrics) {
   const gutterJoints = Math.max(0, gutterPieces - lengths.gutterRuns);
   const gutterCaps = lengths.gutterRuns * 2;
   const hangers = clampQuantity(lengths.eaves / 0.55);
-  const downspouts = Math.max(1, clampQuantity(lengths.eaves / 5));
+  const downspouts = clampQuantity(lengths.eaves / 5);
   const downpipePieces = downspouts * Math.max(1, clampQuantity(state.wallHeight / 3));
   const downpipeBrackets = downspouts * Math.max(1, clampQuantity(state.wallHeight / 1.8));
 
@@ -221,6 +224,8 @@ export function calculateBom(state, metrics) {
   const vat = subtotal * VAT_RATE;
   return {
     lines: convertedLines,
+    customEstimate: Boolean(custom),
+    estimateNote: custom ? featureText(locale, 'Custom roof estimate: gross surface area, 5% panel waste and generic unit prices. Drainage is estimated from eaves, not the placed pipes. Check trims and openings before ordering.') : '',
     subtotal,
     vat,
     total: subtotal + vat,
@@ -273,6 +278,8 @@ export function bomToCsv(bom, locale = bom?.locale || 'en-US') {
     ['', roofT(locale, 'csv.rateAgainstRon'), '', '', bom.exchangeRate.toFixed(6), '', ''],
     ['', roofT(locale, 'csv.rateSource'), '', '', roofRateSource(locale, bom.exchangeRateSource), bom.exchangeRateDate || '', ''],
   ];
+
+  if (bom.estimateNote) rows.push([], ['', bom.estimateNote]);
 
   return rows.map((row) => row.map((cell) => {
     const value = String(cell ?? '');

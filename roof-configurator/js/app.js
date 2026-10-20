@@ -4,7 +4,7 @@ import { defaultLayout, validateLayout, layoutBounds } from './roofLayout.js?v=l
 import { defaultSketch, sketchArea, validateSketch } from './slopeSketch.js?v=sketch-1';
 import { state, pitchRules, roofNames } from './state.js?v=drainage-48';
 import { RoofScene } from './scene.js?v=site-analytics-1';
-import { RoofUI } from './ui.js?v=site-analytics-1';
+import { RoofUI } from './ui.js?v=custom-bom-1';
 import {
   getFallbackCurrencyRate,
   normalizeCurrency,

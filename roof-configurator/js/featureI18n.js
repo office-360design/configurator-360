@@ -620,3 +620,7 @@ export function translatedMarkup(markup, locale) {
   translation.dispose();
   return result;
 }
+
+entries(`
+Custom roof estimate: gross surface area, 5% panel waste and generic unit prices. Drainage is estimated from eaves, not the placed pipes. Check trims and openings before ordering.|Estimare acoperiș personalizat: suprafață brută, pierderi de panouri de 5% și prețuri unitare orientative. Drenajul este estimat din streșini, nu din burlanele amplasate. Verificați accesoriile și golurile înainte de comandă.|Schätzung für individuelle Dächer: Bruttofläche, 5% Plattenverschnitt und allgemeine Stückpreise. Die Entwässerung wird anhand der Traufen geschätzt, nicht anhand der platzierten Fallrohre. Prüfen Sie Abschlüsse und Öffnungen vor der Bestellung.|Estimación de cubierta personalizada: superficie bruta, 5% de desperdicio y precios unitarios orientativos. El drenaje se estima a partir de los aleros, no de las bajantes colocadas. Revise remates y huecos antes de pedir.|Estimation de toiture personnalisée : surface brute, 5% de chutes et prix unitaires indicatifs. Le drainage est estimé à partir des égouts, pas des descentes placées. Vérifiez les finitions et ouvertures avant commande.|Stima tetto personalizzato: superficie lorda, 5% di sfrido e prezzi unitari indicativi. Il drenaggio è stimato dalle gronde, non dai pluviali posizionati. Verificare finiture e aperture prima di ordinare.
+`);
