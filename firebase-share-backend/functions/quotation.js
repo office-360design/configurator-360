@@ -25,7 +25,7 @@ const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const PRODUCTS = Object.freeze(['window', 'roof', 'pergola', 'hall', 'solar', 'fence', 'cardbox']);
 const PRODUCT_SET = new Set(PRODUCTS);
 const CURRENCIES = new Set(['USD', 'RON', 'EUR']);
-const LOCALES = new Set(['en-US', 'ro-RO', 'de-DE']);
+const LOCALES = new Set(['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']);
 const FX_RATES_FROM_EUR = Object.freeze({ EUR: 1, USD: 1.09, RON: 4.98 });
 const MAX_CART_ITEMS = 100;
 
@@ -36,6 +36,12 @@ const PUBLIC_ORIGINS = new Set([
   'https://www.360configurator.ro',
   'https://360konfigurator.de',
   'https://www.360konfigurator.de',
+  'https://360configurador.es',
+  'https://www.360configurador.es',
+  'https://360configurateur.fr',
+  'https://www.360configurateur.fr',
+  'https://360configuratore.it',
+  'https://www.360configuratore.it',
   'https://aks.360configurator.com',
 ]);
 const DEVELOPMENT_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
@@ -45,6 +51,9 @@ const LOCALE_HOSTS = Object.freeze({
   'en-US': 'www.360configurator.com',
   'ro-RO': 'www.360configurator.ro',
   'de-DE': 'www.360konfigurator.de',
+  'es-ES': 'www.360configurador.es',
+  'fr-FR': 'www.360configurateur.fr',
+  'it-IT': 'www.360configuratore.it',
 });
 const CONFIGURATOR_PATHS = Object.freeze({
   'en-US': Object.freeze({
@@ -73,6 +82,33 @@ const CONFIGURATOR_PATHS = Object.freeze({
     solar: '/solar-konfigurator/',
     fence: '/zaun-konfigurator/',
     cardbox: '/karton-konfigurator/',
+  }),
+  'es-ES': Object.freeze({
+    pergola: '/configurador-pergolas/',
+    roof: '/configurador-tejados/',
+    window: '/configurador-ventanas/',
+    hall: '/configurador-naves/',
+    solar: '/configurador-solar/',
+    fence: '/configurador-vallas/',
+    cardbox: '/configurador-cajas-carton/',
+  }),
+  'fr-FR': Object.freeze({
+    pergola: '/configurateur-pergola/',
+    roof: '/configurateur-toiture/',
+    window: '/configurateur-fenetres/',
+    hall: '/configurateur-hangar/',
+    solar: '/configurateur-solaire/',
+    fence: '/configurateur-cloture/',
+    cardbox: '/configurateur-cartons/',
+  }),
+  'it-IT': Object.freeze({
+    pergola: '/configuratore-pergola/',
+    roof: '/configuratore-tetto/',
+    window: '/configuratore-finestre/',
+    hall: '/configuratore-capannone/',
+    solar: '/configuratore-fotovoltaico/',
+    fence: '/configuratore-recinzioni/',
+    cardbox: '/configuratore-scatole/',
   }),
 });
 
@@ -141,6 +177,51 @@ const EMAIL_COPY = Object.freeze({
     regards: 'Mit freundlichen Grüßen,',
     generated: 'Diese Angebotsanfrage wurde aus dem 360Configurator-Warenkorb erstellt.',
     product: Object.freeze({ window: 'Fenster', roof: 'Dach', pergola: 'Pergola', hall: 'Halle', solar: 'Solar', fence: 'Zaun', cardbox: 'Kartonbox' }),
+  }),
+  'es-ES': Object.freeze({
+    subject: 'Su solicitud de presupuesto',
+    preheader: 'Hemos recibido su solicitud de presupuesto y las configuraciones seleccionadas.',
+    greeting: 'Buenos días:',
+    intro: (company) => `Gracias por su solicitud de presupuesto. Hemos recibido las siguientes configuraciones en nombre de ${company}.`,
+    help: 'Tenga en cuenta que los precios indicados a continuación son orientativos y pueden variar. Para recibir el presupuesto definitivo, deberá revisar la solicitud con un representante de nuestra empresa.',
+    configuration: 'Configuración',
+    price: 'Precio',
+    summary: 'Total',
+    currency: 'Moneda del presupuesto',
+    closing: 'Un miembro de nuestro equipo revisará su solicitud y se pondrá en contacto con usted para indicarle los siguientes pasos.',
+    regards: 'Atentamente,',
+    generated: 'Esta solicitud de presupuesto se ha generado desde el carrito de 360Configurator.',
+    product: Object.freeze({ window: 'Ventana', roof: 'Tejado', pergola: 'Pérgola', hall: 'Nave', solar: 'Solar', fence: 'Valla', cardbox: 'Caja de cartón' }),
+  }),
+  'fr-FR': Object.freeze({
+    subject: 'Votre demande de devis',
+    preheader: 'Nous avons bien reçu votre demande de devis et les configurations sélectionnées.',
+    greeting: 'Bonjour,',
+    intro: (company) => `Merci pour votre demande de devis. Nous avons reçu les configurations ci-dessous au nom de ${company}.`,
+    help: 'Veuillez noter que les prix indiqués ci-dessous sont donnés à titre indicatif et peuvent évoluer. Pour obtenir le devis définitif, vous devrez examiner la demande avec un représentant de notre société.',
+    configuration: 'Configuration',
+    price: 'Prix',
+    summary: 'Total',
+    currency: 'Devise du devis',
+    closing: 'Un membre de notre équipe examinera votre demande et vous contactera pour les prochaines étapes.',
+    regards: 'Cordialement,',
+    generated: 'Cette demande de devis a été générée depuis le panier 360Configurator.',
+    product: Object.freeze({ window: 'Fenêtre', roof: 'Toiture', pergola: 'Pergola', hall: 'Hangar', solar: 'Solaire', fence: 'Clôture', cardbox: 'Boîte en carton' }),
+  }),
+  'it-IT': Object.freeze({
+    subject: 'La Sua richiesta di preventivo',
+    preheader: 'Abbiamo ricevuto la Sua richiesta di preventivo e le configurazioni selezionate.',
+    greeting: 'Buongiorno,',
+    intro: (company) => `La ringraziamo per la richiesta di preventivo. Abbiamo ricevuto le configurazioni riportate di seguito per conto di ${company}.`,
+    help: 'La preghiamo di notare che i prezzi indicati di seguito sono indicativi e possono variare. Per ricevere il preventivo definitivo dovrà valutare la richiesta con un rappresentante della nostra azienda.',
+    configuration: 'Configurazione',
+    price: 'Prezzo',
+    summary: 'Totale',
+    currency: 'Valuta del preventivo',
+    closing: 'Un membro del nostro team esaminerà la Sua richiesta e La contatterà per i passaggi successivi.',
+    regards: 'Cordiali saluti,',
+    generated: 'Questa richiesta di preventivo è stata generata dal carrello 360Configurator.',
+    product: Object.freeze({ window: 'Finestra', roof: 'Tetto', pergola: 'Pergola', hall: 'Capannone', solar: 'Fotovoltaico', fence: 'Recinzione', cardbox: 'Scatola di cartone' }),
   }),
 });
 

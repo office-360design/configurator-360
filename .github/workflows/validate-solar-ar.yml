@@ -1,0 +1,91 @@
+name: Validate Solar AR
+
+on:
+  pull_request:
+    paths:
+      - 'solar-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - 'bookshelf-configurator/tests/camera-guard.mjs'
+      - 'scripts/validation/validate_tenant_usage_metering.mjs'
+      - 'package*.json'
+      - '.github/workflows/validate-solar-ar.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'solar-configurator/**'
+      - 'shared-ui/**'
+      - 'shared-3d/**'
+      - 'firebase-share-backend/functions/hall-ar*'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - 'bookshelf-configurator/tests/camera-guard.mjs'
+      - 'scripts/validation/validate_tenant_usage_metering.mjs'
+      - 'package*.json'
+      - '.github/workflows/validate-solar-ar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solar-ar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Static import-map app: these offline tests use the bundled r160 fixture.
+      # The browser/runtime imports in production remain pinned to r169.
+      - name: Validate Solar geometry, AR, localization, policy and Firebase serving
+        run: |
+          npm run check:ar --prefix solar-configurator
+          node --test hall-configurator/tests/ar-policy.test.mjs scripts/validation/tenant-branding.test.mjs firebase-share-backend/functions/tests/hall-ar.test.cjs bookshelf-configurator/tests/camera-guard.test.mjs
+          node --check solar-configurator/js/app.js
+          node --check solar-configurator/js/scene.js
+          node --check solar-configurator/js/sharedShell.js
+          node --check solar-configurator/js/ar/controller.js
+          node --check solar-configurator/js/ar/exportSolar.js
+          node --check solar-configurator/js/ar/phone.js
+          node --check shared-ui/src/ar/dialog.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned offline browser test runner
+        run: |
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Test live Solar configurations, house inclusion and QR dialog
+        run: |
+          CHROMIUM="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          python solar-configurator/tests/ar-browser.py --chromium "$CHROMIUM" --artifacts /tmp/solar-ar-tests
+      - name: Install production-version Solar AR test dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix solar-configurator --ignore-scripts
+      - name: Test real production GLB and USDZ exporters, QR and phone launchers
+        env:
+          SOLAR_AR_ARTIFACTS: /tmp/solar-ar-runtime
+        run: |
+          export CHROMIUM_PATH="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          npm run check:ar:browser --prefix solar-configurator
+      - name: Upload Solar AR diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solar-ar-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            /tmp/solar-ar-tests/*.json
+            /tmp/solar-ar-tests/*.txt
+            /tmp/solar-ar-tests/*.png
+            /tmp/solar-ar-runtime/*.json
+            /tmp/solar-ar-runtime/*.png

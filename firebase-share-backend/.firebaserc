@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "configurator-360"
+  },
+  "targets": {
+    "configurator-360": {
+      "storage": {
+        "hall-ar": [
+          "configurator-360-hall-ar"
+        ]
+      }
+    }
   }
 }

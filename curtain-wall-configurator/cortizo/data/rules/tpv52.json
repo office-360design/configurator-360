@@ -1,0 +1,19 @@
+{
+  "id": "TPV52", "name": "TPV 52", "pages": "757–984",
+  "principle": "Inversul TPH: presor + capac pe montanți (verticale); pe laturile orizontale sticla e prinsă cu cleme SG și profil U, iar rostul orizontal se siliconează.",
+  "edges": { "vertical": "pressure", "horizontal": "clip" },
+  "max_glass_mm": 64,
+  "tests": { "air": "AE", "water": "RE1500", "wind": "2000 Pa", "pages": [771, 773] },
+  "deductions": { "glass_w": 22, "glass_h": 22, "_note": "Presorul vertical COR-9914 se prelucrează special pentru TPV (pag. 897)." },
+  "pressure_plate": "COR-9914",
+  "caps": [ { "code": "COR-9142", "label": "Capac 14 mm" }, { "code": "COR-9143", "label": "Capac 19 mm" }, { "code": "COR-9183", "label": "Capac vertical 100 mm" } ],
+  "glazing_variants": [ { "variant": "Standard", "pages": [785, 786, 787], "sealing": "silicone" } ],
+  "supports_from": { "system": "SG 52", "variant": "Standard siliconat – nivel 1", "_note": "Pe orizontală sticla stă pe cleme ca la SG; suporții, calele, clemele și garnitura de fund se iau din tabelul SG 52 cu aceeași foaie interioară." },
+  "clips": { "from_system": "SG 52", "double_slot": "6a", "single_slot": "6b", "screw_slot": "7", "first_after_support_mm": 30 },
+  "awning_window": {
+    "page": 907, "max_kg": 80, "Lm": [500, 1500], "Hm": [650, 1500], "glass": { "w": "L-85", "h": "H-58", "thickness_mm": 28 },
+    "profiles": [ { "code": "COR-9976", "role": "toc", "cuts": [["L-22", 2], ["H-22", 2]] }, { "code": "COR-9975", "role": "cercevea", "cuts": [["L-85", 2], ["H-84", 2]] }, { "code": "COR-9968", "role": "ramă exterioară", "cuts": [["L-22", 2], ["H-22", 2]] }, { "code": "770287", "role": "profil U", "cuts": [["H-25", 2]] } ],
+    "accessories": [ ["222085", 4], ["920135", 4], ["222085", 4], ["999123", 2], ["259101", 1], ["329811", 1], ["323003", 1], ["313016", 2] ],
+    "gaskets": [ ["253010", "2L+2H"], ["999118", "2L+2H"], ["999117", "2L+2H"], ["999003", "2L+2H"], ["999001", "2L"], ["999004", "2H"] ]
+  }
+}

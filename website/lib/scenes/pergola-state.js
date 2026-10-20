@@ -172,6 +172,10 @@ function normalizePreferences(state, incoming = {}, options = {}) {
   const profiles = {
     'en-US': { units: 'imperial', currency: 'USD' },
     'ro-RO': { units: 'metric', currency: 'RON' },
+    'de-DE': { units: 'metric', currency: 'EUR' },
+    'es-ES': { units: 'metric', currency: 'EUR' },
+    'fr-FR': { units: 'metric', currency: 'EUR' },
+    'it-IT': { units: 'metric', currency: 'EUR' },
   };
 
   const incomingLocale = typeof incoming.locale === 'string' && profiles[incoming.locale]

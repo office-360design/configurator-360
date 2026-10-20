@@ -1,3 +1,4 @@
+import { normalizeRegions, regionGeometry, triangulateRegions } from './pavingRegions.js';
 // Fence-compatible perimeter construction, plus planar clipping for paving.
 const EPS = 1e-8;
 export const cross = (a, b, c) => (b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x);
@@ -10,8 +11,15 @@ export const polygonArea = (p) =>
   ) / 2;
 const distance = (a, b) => Math.hypot(b.x - a.x, b.z - a.z);
 export function areaGeometry(s) {
+  if (s.shape === 'regions') return regionGeometry(normalizeRegions(s.areaRegions), s.areaOrigin);
   let points;
-  if (!s.shape || s.shape === 'rectangle')
+  if (s.shape === 'custom') {
+    if (!Array.isArray(s.areaPoints) || s.areaPoints.length < 3 || s.areaPoints.length > 64)
+      throw new Error('invalidArea');
+    points = s.areaPoints.map((p) => ({ x: Number(p?.x), z: Number(p?.z) }));
+    if (points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.z)))
+      throw new Error('invalidArea');
+  } else if (!s.shape || s.shape === 'rectangle')
     points = [
       { x: 0, z: 0 },
       { x: s.length, z: 0 },
@@ -64,19 +72,31 @@ export function areaGeometry(s) {
   const signed =
     points.reduce((a, p, i) => a + p.x * points[(i + 1) % n].z - p.z * points[(i + 1) % n].x, 0) /
     2;
-  if (signed < 0.1) throw new Error('invalidArea');
+  if (signed < (s.shape === 'custom' ? 1 : 0.1)) throw new Error('invalidArea');
   const minX = Math.min(...points.map((p) => p.x)),
     minZ = Math.min(...points.map((p) => p.z));
   points = points.map((p) => ({ x: p.x - minX, z: p.z - minZ }));
-  const lengths = points.map((p, i) => distance(p, points[(i + 1) % n]));
+  const lengths = points.map((p, i) => distance(p, points[(i + 1) % n])),
+    width = Math.max(...points.map((p) => p.x)),
+    depth = Math.max(...points.map((p) => p.z));
+  if (s.shape === 'custom' && (width < 1 || depth < 1 || width > 20 || depth > 20))
+    throw new Error('invalidArea');
   return {
     points,
     lengths,
+    minX: 0, minZ: 0, maxX: width, maxZ: depth,
+    centerX: width / 2, centerZ: depth / 2,
+    regions: [{ id: 'region-1', outer: points, holes: [], curbs: { outer: true, holes: [] } }],
+    boundaries: [{ key: 'region-1:0', region: 0, ring: 0, hole: false, points, lengths, enabled: true }],
     area: signed,
     perimeter: lengths.reduce((a, b) => a + b, 0),
-    width: Math.max(...points.map((p) => p.x)),
-    depth: Math.max(...points.map((p) => p.z)),
+    width,
+    depth,
   };
+}
+
+export function triangulateArea(geometry) {
+  return geometry.regionMode ? triangulateRegions(geometry.regions) : triangulate(geometry.points);
 }
 
 export function triangulate(points) {
@@ -140,6 +160,12 @@ export function clipRect(points, x, z, l, w) {
 }
 // Outward miter joins follow the actual outline; disabled neighbours get square ends.
 export function polygonCurbs(s, c, g) {
+  if (g.regionMode) return g.boundaries.flatMap((boundary, index) => {
+    if (!boundary.enabled) return [];
+    const edges = boundary.edges || Array(boundary.points.length).fill(true);
+    return polygonCurbs({ ...s, edges }, c, { points: boundary.points, boundedJoins: true })
+      .map((piece) => ({ ...piece, boundary: boundary.key, boundaryIndex: index }));
+  });
   const p = g.points,
     n = p.length;
   const directions = p.map((a, i) => {
@@ -156,7 +182,11 @@ export function polygonCurbs(s, c, g) {
     const e = directions[neighbour],
       q = normal(e),
       den = d.x * e.z - d.z * e.x;
-    const t = ((q.x - o.x) * e.z - (q.z - o.z) * e.x) / den;
+    // Dense detected contours can have almost parallel edges. Bound the join
+    // rather than creating metre-long spikes or NaN coordinates.
+    if (Math.abs(den) < 1e-8) return { x: v.x + o.x, z: v.z + o.z };
+    const rawT = ((q.x - o.x) * e.z - (q.z - o.z) * e.x) / den,
+      t = g.boundedJoins ? Math.max(-4 * c.width, Math.min(4 * c.width, rawT)) : rawT;
     return { x: v.x + o.x + t * d.x, z: v.z + o.z + t * d.z };
   }
   const result = [];

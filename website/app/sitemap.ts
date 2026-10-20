@@ -17,7 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: .9,
     })),
-    ...configurators.map((item) => ({
+    ...configurators.filter(item => !["bookshelf", "tiles"].includes(item.slug)).map((item) => ({
       url: configuratorUrl("en", item.slug),
       changeFrequency: "monthly" as const,
       priority: .72,

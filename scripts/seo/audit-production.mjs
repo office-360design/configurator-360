@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright';
+import { localizedRoutePath } from '../../website/scripts/static-routes.mjs';
 
 const HOSTS = {
   en: {
@@ -51,11 +52,58 @@ const HOSTS = {
       chair: '/stuhl-konfigurator/',
     },
   },
+  es: {
+    origin: 'https://www.360configurador.es',
+    lang: 'es',
+    hreflang: 'es-ES',
+    appPaths: {
+      window: '/configurador-ventanas/',
+      pergola: '/configurador-pergolas/',
+      roof: '/configurador-tejados/',
+      hall: '/configurador-naves/',
+      solar: '/configurador-solar/',
+      fence: '/configurador-vallas/',
+      cardbox: '/configurador-cajas-carton/',
+      chair: '/configurador-sillas/',
+    },
+  },
+  fr: {
+    origin: 'https://www.360configurateur.fr',
+    lang: 'fr',
+    hreflang: 'fr-FR',
+    appPaths: {
+      window: '/configurateur-fenetres/',
+      pergola: '/configurateur-pergola/',
+      roof: '/configurateur-toiture/',
+      hall: '/configurateur-hangar/',
+      solar: '/configurateur-solaire/',
+      fence: '/configurateur-cloture/',
+      cardbox: '/configurateur-cartons/',
+      chair: '/configurateur-chaises/',
+    },
+  },
+  it: {
+    origin: 'https://www.360configuratore.it',
+    lang: 'it',
+    hreflang: 'it-IT',
+    appPaths: {
+      window: '/configuratore-finestre/',
+      pergola: '/configuratore-pergola/',
+      roof: '/configuratore-tetto/',
+      hall: '/configuratore-capannone/',
+      solar: '/configuratore-fotovoltaico/',
+      fence: '/configuratore-recinzioni/',
+      cardbox: '/configuratore-scatole/',
+      chair: '/configuratore-sedie/',
+    },
+  },
 };
 
-const MARKETING_PRODUCTS = ['window', 'pergola', 'roof', 'hall', 'solar'];
-const APP_PRODUCTS = [...MARKETING_PRODUCTS, 'fence', 'cardbox'];
-const MARKETING_PATHS = ['/', '/about', '/contact', ...MARKETING_PRODUCTS.map((product) => `/configurators/${product}`)];
+const MARKETING_PRODUCTS = ['window', 'pergola', 'roof', 'hall', 'solar', 'fence', 'cardbox', 'chair', 'bookshelf', 'tiles'];
+// Full bookshelf/tiles apps are deliberately noindex; their marketing pages
+// above are indexable. Do not turn the app exclusions into audit failures.
+const APP_PRODUCTS = MARKETING_PRODUCTS.filter(product => !['bookshelf', 'tiles'].includes(product));
+const MARKETING_PATHS = ['/', '/about', '/contact', '/pricing', '/book-a-demo', ...MARKETING_PRODUCTS.map((product) => `/configurators/${product}`)];
 
 const args = new Set(process.argv.slice(2));
 const HEADED = args.has('--headed');
@@ -65,9 +113,10 @@ function canonicalUrl(origin, pathname) {
   return `${origin}${pathname}`;
 }
 
+// Marketing pages use each domain's own language slugs (website/lib/page-slugs.json).
 function alternateMapForMarketing(pathname) {
   return Object.fromEntries(
-    Object.values(HOSTS).map((host) => [host.hreflang, canonicalUrl(host.origin, pathname)]),
+    Object.entries(HOSTS).map(([locale, host]) => [host.hreflang, canonicalUrl(host.origin, localizedRoutePath(locale, pathname))]),
   );
 }
 
@@ -85,8 +134,8 @@ function expectedPages() {
         locale,
         kind: pathname.startsWith('/configurators/') ? 'marketing-product' : 'marketing',
         product: pathname.startsWith('/configurators/') ? pathname.split('/').pop() : null,
-        url: canonicalUrl(host.origin, pathname),
-        expectedCanonical: canonicalUrl(host.origin, pathname),
+        url: canonicalUrl(host.origin, localizedRoutePath(locale, pathname)),
+        expectedCanonical: canonicalUrl(host.origin, localizedRoutePath(locale, pathname)),
         expectedLang: host.lang,
         expectedAlternates: alternateMapForMarketing(pathname),
         expectedXDefault: canonicalUrl(HOSTS.en.origin, pathname),
@@ -114,37 +163,27 @@ function expectedPages() {
 
 const EXPECTED_PAGES = expectedPages();
 
+const COUNTRY_HOSTS = Object.entries(HOSTS).filter(([locale]) => locale !== 'en');
 const ROUTING_CHECKS = [
-  {
-    url: `${HOSTS.en.origin}/ro`,
+  // Old .com locale prefixes move to the country domain.
+  ...COUNTRY_HOSTS.flatMap(([locale, host]) => [
+    { url: `${HOSTS.en.origin}/${locale}`, expectedStatus: 301, expectedLocation: `${host.origin}/` },
+    {
+      url: `${HOSTS.en.origin}/${locale}/configurators/pergola`,
+      expectedStatus: 301,
+      expectedLocation: `${host.origin}${localizedRoutePath(locale, '/configurators/pergola')}`,
+    },
+  ]),
+  // Old English page slugs on a country domain move to the domain's own slug.
+  ...COUNTRY_HOSTS.flatMap(([locale, host]) => ['/about', '/pricing', '/configurators/window']
+    .filter((pathname) => localizedRoutePath(locale, pathname) !== pathname)
+    .map((pathname) => ({ url: `${host.origin}${pathname}`, expectedStatus: 301, expectedLocation: `${host.origin}${localizedRoutePath(locale, pathname)}` }))),
+  // English app routes on a country domain move to the localized alias.
+  ...COUNTRY_HOSTS.map(([, host]) => ({
+    url: `${host.origin}/pergola-configurator/`,
     expectedStatus: 301,
-    expectedLocation: `${HOSTS.ro.origin}/`,
-  },
-  {
-    url: `${HOSTS.en.origin}/ro/configurators/pergola`,
-    expectedStatus: 301,
-    expectedLocation: `${HOSTS.ro.origin}/configurators/pergola`,
-  },
-  {
-    url: `${HOSTS.en.origin}/de`,
-    expectedStatus: 301,
-    expectedLocation: `${HOSTS.de.origin}/`,
-  },
-  {
-    url: `${HOSTS.en.origin}/de/configurators/pergola`,
-    expectedStatus: 301,
-    expectedLocation: `${HOSTS.de.origin}/configurators/pergola`,
-  },
-  {
-    url: `${HOSTS.ro.origin}/pergola-configurator/`,
-    expectedStatus: 301,
-    expectedLocation: `${HOSTS.ro.origin}/configurator-pergola/`,
-  },
-  {
-    url: `${HOSTS.de.origin}/pergola-configurator/`,
-    expectedStatus: 301,
-    expectedLocation: `${HOSTS.de.origin}/pergola-konfigurator/`,
-  },
+    expectedLocation: `${host.origin}${host.appPaths.pergola}`,
+  })),
 ];
 
 const LEGACY_OBSERVATION_URLS = [
@@ -573,6 +612,17 @@ async function main() {
     const trace = await fetchRedirectTrace(spec.url);
     const metadata = await inspectRenderedPage(context, spec);
     const result = evaluatePage({ spec, trace, metadata, issues: [] }, spec);
+    // Marketing pages must work for crawlers without client-side metadata
+    // hoisting. Apps keep their existing JS-owned SEO and are checked above.
+    if (spec.kind !== 'app') {
+      const raw = await fetchNoRedirect(spec.url);
+      const head = raw.body.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] || '';
+      const canonicals = [...head.matchAll(/<link\b[^>]*rel=["']canonical["'][^>]*>/gi)];
+      const href = canonicals[0]?.[0].match(/\bhref=["']([^"']+)["']/i)?.[1];
+      if (canonicals.length !== 1 || normalizeUrl(href || '') !== normalizeUrl(spec.expectedCanonical)) {
+        addIssue(result, 'FAIL', 'INITIAL_HEAD_CANONICAL', 'Marketing self-canonical must appear exactly once in the initial HTML head, without JavaScript.');
+      }
+    }
     result.status = resultStatus(result.issues);
     pageResults.push(result);
   }

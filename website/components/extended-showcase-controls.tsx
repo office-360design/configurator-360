@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ConfiguratorSlug } from "../lib/configurators";
-import type { Locale } from "../lib/i18n";
+import { localeLanguageTags, type Locale } from "../lib/i18n";
 import { useMobileDeckSwipe } from "./use-mobile-deck-swipe";
 import { modulePresets } from "../lib/scenes/solar-state.js";
 import { deriveFenceMetrics } from "../../fence-configurator/js/state.js";
+import { RangeControl as Range } from "./scene-control-primitives";
 
 type SolarMetrics = {
   requestedPanels: number;
@@ -38,43 +39,15 @@ const dispatch = (
 const bearingCardinal = (degrees: number) =>
   ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round((((degrees % 360) + 360) % 360) / 45) % 8];
 
-function Range({
-  label,
-  value,
-  min,
-  max,
-  step,
-  unit = "",
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  unit?: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="scene-range">
-      <span>
-        {label}
-        <b>
-          {value}
-          {unit}
-        </b>
-      </span>
-      <input
-        type="range"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
-  );
-}
+// Accept-Language for OpenStreetMap Nominatim: the page language first, then English.
+const nominatimLanguages: Record<Locale, string> = {
+  en: "en,ro",
+  ro: "ro,en",
+  de: "de,en",
+  es: "es,en",
+  fr: "fr,en",
+  it: "it,en",
+};
 
 const copy = {
   en: {
@@ -341,6 +314,270 @@ const copy = {
     fitted: "Montierte Module",
     average: "Mittlere Tagesproduktion",
   },
+  es: {
+    controls: "Personalizar",
+    hide: "Ver modelo",
+    dimensions: "Estructura",
+    assembly: "Capas",
+    length: "Longitud",
+    width: "Luz",
+    height: "Altura de alero",
+    pitch: "Pendiente",
+    spacing: "Separación objetivo de pórticos",
+    doorW: "Ancho de puerta",
+    doorH: "Alto de puerta",
+    light: "Ligera",
+    standard: "Estándar",
+    heavy: "Pesada",
+    cladding: "Cerramientos",
+    secondary: "Vigas secundarias",
+    explode: "Despiezar",
+    assemble: "Montar",
+    site: "Ubicación y sol",
+    roof: "Tejado y FV",
+    energy: "Energía",
+    address: "Buscar una dirección de proyecto en Rumanía",
+    locate: "Cargar entorno",
+    locating: "Buscando…",
+    chooseMap: "Elegir en el mapa",
+    mapTitle: "Elija la ubicación exacta del proyecto",
+    mapHelp:
+      "Haga clic en el mapa para situar el tejado configurado y cargar su entorno real.",
+    loadingContext: "Cargando el terreno y los edificios cercanos…",
+    contextReady: "Contexto geográfico 3D cargado",
+    contextError: "Contexto no disponible: elija otro punto",
+    date: "Fecha y estación",
+    today: "Hoy",
+    hour: "Hora del día",
+    bearing: "Orientación del frente del tejado",
+    spring: "Primavera",
+    summer: "Verano",
+    autumn: "Otoño",
+    winter: "Invierno",
+    day: "Modo día",
+    night: "Vista nocturna",
+    roofLength: "Longitud del tejado",
+    roofDepth: "Fondo del tejado",
+    panels: "Paneles solicitados",
+    columns: "Columnas",
+    module: "Módulo solar",
+    fitWarning: (placed: number, requested: number) =>
+      `Solo caben ${placed} de los ${requested} paneles solicitados con la configuración actual de tejado, márgenes y retícula.`,
+    gable: "2 aguas",
+    hip: "4 aguas",
+    shed: "1 agua",
+    best: "Automático",
+    front: "Delante",
+    back: "Detrás",
+    both: "Ambos",
+    connection: "Conexión a red",
+    singlePhase: "Monofásica",
+    threePhase: "Trifásica",
+    bill: "Factura mensual",
+    tariff: "Tarifa eléctrica",
+    consumption: "Perfil de consumo",
+    away: "Fuera todo el día",
+    partial: "En casa a ratos",
+    home: "Alguien en casa",
+    optimized: "Optimizado solar",
+    battery: "Almacenamiento LiFePO₄",
+    autoBattery: "Dimensionado automático",
+    capacity: "Capacidad de batería",
+    analytics: "Abrir análisis energético",
+    nudge: "Posición de la casa en el entorno cargado",
+    position: "Posición",
+    nudgeStep: "Paso de desplazamiento",
+    east: "Este",
+    west: "Oeste",
+    north: "Norte",
+    south: "Sur",
+    close: "Cerrar",
+    production: "Producción y consumo",
+    generation: "Producción FV",
+    demand: "Consumo doméstico",
+    autonomy: "Autosuficiencia",
+    gridIn: "Importación de red",
+    gridOut: "Exportación a red",
+    installed: "Potencia instalada",
+    fitted: "Paneles colocados",
+    average: "Producción media/día",
+  },
+  fr: {
+    controls: "Personnaliser",
+    hide: "Voir le modèle",
+    dimensions: "Structure",
+    assembly: "Couches",
+    length: "Longueur",
+    width: "Portée",
+    height: "Hauteur à l’égout",
+    pitch: "Pente du toit",
+    spacing: "Entraxe cible des portiques",
+    doorW: "Largeur de porte",
+    doorH: "Hauteur de porte",
+    light: "Légère",
+    standard: "Standard",
+    heavy: "Lourde",
+    cladding: "Bardage",
+    secondary: "Poutres secondaires",
+    explode: "Éclater",
+    assemble: "Assembler",
+    site: "Site et soleil",
+    roof: "Toit et PV",
+    energy: "Énergie",
+    address: "Rechercher une adresse de projet en Roumanie",
+    locate: "Charger l’environnement",
+    locating: "Recherche…",
+    chooseMap: "Choisir sur la carte",
+    mapTitle: "Choisissez l’emplacement exact du projet",
+    mapHelp:
+      "Cliquez sur la carte pour placer la toiture configurée et charger son environnement réel.",
+    loadingContext: "Chargement du terrain et des bâtiments voisins…",
+    contextReady: "Contexte géographique 3D chargé",
+    contextError: "Contexte indisponible — choisissez un autre point",
+    date: "Date et saison",
+    today: "Aujourd’hui",
+    hour: "Heure de la journée",
+    bearing: "Orientation de la façade de toit",
+    spring: "Printemps",
+    summer: "Été",
+    autumn: "Automne",
+    winter: "Hiver",
+    day: "Mode jour",
+    night: "Aperçu de nuit",
+    roofLength: "Longueur du toit",
+    roofDepth: "Profondeur du toit",
+    panels: "Panneaux demandés",
+    columns: "Colonnes",
+    module: "Module solaire",
+    fitWarning: (placed: number, requested: number) =>
+      `Seuls ${placed} des ${requested} panneaux demandés tiennent avec les réglages actuels de toiture, de marges et de grille.`,
+    gable: "2 pans",
+    hip: "4 pans",
+    shed: "1 pan",
+    best: "Automatique",
+    front: "Avant",
+    back: "Arrière",
+    both: "Les deux",
+    connection: "Raccordement au réseau",
+    singlePhase: "Monophasé",
+    threePhase: "Triphasé",
+    bill: "Facture mensuelle",
+    tariff: "Tarif d’électricité",
+    consumption: "Profil de consommation",
+    away: "Absent toute la journée",
+    partial: "Présent par moments",
+    home: "Quelqu’un à la maison",
+    optimized: "Optimisé solaire",
+    battery: "Stockage LiFePO₄",
+    autoBattery: "Dimensionnement automatique",
+    capacity: "Capacité de stockage",
+    analytics: "Ouvrir l’analyse énergétique",
+    nudge: "Position de la maison dans l’environnement chargé",
+    position: "Position",
+    nudgeStep: "Pas de déplacement",
+    east: "Est",
+    west: "Ouest",
+    north: "Nord",
+    south: "Sud",
+    close: "Fermer",
+    production: "Production et consommation",
+    generation: "Production PV",
+    demand: "Consommation du foyer",
+    autonomy: "Autonomie",
+    gridIn: "Achat au réseau",
+    gridOut: "Injection réseau",
+    installed: "Puissance installée",
+    fitted: "Panneaux posés",
+    average: "Production moyenne/jour",
+  },
+  it: {
+    controls: "Personalizza",
+    hide: "Vedi modello",
+    dimensions: "Struttura",
+    assembly: "Strati",
+    length: "Lunghezza",
+    width: "Luce",
+    height: "Altezza di gronda",
+    pitch: "Pendenza tetto",
+    spacing: "Interasse target dei telai",
+    doorW: "Larghezza portone",
+    doorH: "Altezza portone",
+    light: "Leggera",
+    standard: "Standard",
+    heavy: "Pesante",
+    cladding: "Tamponamenti",
+    secondary: "Travi secondarie",
+    explode: "Esplodi",
+    assemble: "Assembla",
+    site: "Sito e sole",
+    roof: "Tetto e FV",
+    energy: "Energia",
+    address: "Cerca un indirizzo di progetto in Romania",
+    locate: "Carica contesto",
+    locating: "Ricerca…",
+    chooseMap: "Scegli sulla mappa",
+    mapTitle: "Scelga la posizione esatta del progetto",
+    mapHelp:
+      "Clicchi sulla mappa per posizionare il tetto configurato e caricare l’ambiente reale.",
+    loadingContext: "Caricamento di terreno ed edifici vicini…",
+    contextReady: "Contesto geografico 3D caricato",
+    contextError: "Contesto non disponibile — scelga un altro punto",
+    date: "Data e stagione",
+    today: "Oggi",
+    hour: "Ora del giorno",
+    bearing: "Orientamento del fronte del tetto",
+    spring: "Primavera",
+    summer: "Estate",
+    autumn: "Autunno",
+    winter: "Inverno",
+    day: "Modalità giorno",
+    night: "Anteprima notturna",
+    roofLength: "Lunghezza tetto",
+    roofDepth: "Profondità tetto",
+    panels: "Pannelli richiesti",
+    columns: "Colonne",
+    module: "Modulo fotovoltaico",
+    fitWarning: (placed: number, requested: number) =>
+      `Solo ${placed} dei ${requested} pannelli richiesti entrano con le impostazioni attuali di tetto, margini e griglia.`,
+    gable: "2 falde",
+    hip: "4 falde",
+    shed: "1 falda",
+    best: "Automatico",
+    front: "Fronte",
+    back: "Retro",
+    both: "Entrambi",
+    connection: "Allaccio alla rete",
+    singlePhase: "Monofase",
+    threePhase: "Trifase",
+    bill: "Bolletta mensile",
+    tariff: "Tariffa energia",
+    consumption: "Profilo di consumo",
+    away: "Fuori tutto il giorno",
+    partial: "In casa a tratti",
+    home: "Qualcuno in casa",
+    optimized: "Ottimizzato solare",
+    battery: "Accumulo LiFePO₄",
+    autoBattery: "Accumulo automatico",
+    capacity: "Capacità di accumulo",
+    analytics: "Apri analisi energetica",
+    nudge: "Posizione della casa nel contesto caricato",
+    position: "Posizione",
+    nudgeStep: "Passo di spostamento",
+    east: "Est",
+    west: "Ovest",
+    north: "Nord",
+    south: "Sud",
+    close: "Chiudi",
+    production: "Produzione e consumo",
+    generation: "Produzione FV",
+    demand: "Consumo domestico",
+    autonomy: "Autosufficienza",
+    gridIn: "Prelievo da rete",
+    gridOut: "Immissione in rete",
+    installed: "Potenza installata",
+    fitted: "Pannelli installati",
+    average: "Produzione media/giorno",
+  },
 } as const;
 
 export function HallControls({ locale }: { locale: Locale }) {
@@ -569,7 +806,7 @@ function SolarMapPicker({
         {
           headers: {
             "Accept-Language":
-              locale === "ro" ? "ro,en" : locale === "de" ? "de,en" : "en,ro",
+              nominatimLanguages[locale],
           },
         },
       );
@@ -827,14 +1064,29 @@ function FenceChoiceIcon({ value }: { value: string }) {
   return <span className={`fence-panel-icon fence-panel-icon-${value}`} aria-hidden="true" />;
 }
 
-export function FenceControls({ locale }: { locale: Locale }) {
-  const text = locale === "ro" ? {
-    title: "GARD / LIVE", controls: "Configurează", hide: "Vezi modelul", layout: "Traseu & dimensiuni", panels: "Panouri & finisaj", access: "Acces & montaj", straight: "Drept", l: "Formă L", u: "Formă U", closed: "Închis 4", closed5: "Închis 5", runA: "Latura A", runB: "Latura B", runC: "Latura C", runD: "Latura D", side: "Latura", angle: "Unghi B", height: "Înălțime", bay: "Lățime travee", vertical: "Vertical", horizontal: "Orizontal", privacy: "Plin", mesh: "Plasă", gap: "Spațiu lamele", anthracite: "Antracit", black: "Negru", white: "Alb", bronze: "Bronz", wood: "Lemn", noGate: "Fără poartă", pedestrian: "Pietonală", driveway: "Auto", concrete: "FUNDAȚIE\nBETON", baseplate: "PLĂCI DE\nBAZĂ", calculated: "calculată", closes: "Se actualizează automat pentru a închide perimetrul.", baySystem: "Sistem de travei", bays: "travei", averageBay: "travee medie",
-  } : locale === "de" ? {
-    title: "ZAUN / LIVE", controls: "Konfigurieren", hide: "Modell ansehen", layout: "Verlauf & Maße", panels: "Paneele & Oberfläche", access: "Zugang & Montage", straight: "Gerade", l: "L-Form", u: "U-Form", closed: "Geschlossen 4", closed5: "Geschlossen 5", runA: "Lauf A", runB: "Lauf B", runC: "Lauf C", runD: "Lauf D", side: "Seite", angle: "Winkel B", height: "Höhe", bay: "Zielfeldbreite", vertical: "Vertikal", horizontal: "Horizontal", privacy: "Sichtschutz", mesh: "Gitter", gap: "Lamellenabstand", anthracite: "Anthrazit", black: "Schwarz", white: "Weiß", bronze: "Bronze", wood: "Holz", noGate: "Kein Tor", pedestrian: "Personentor", driveway: "Einfahrtstor", concrete: "BETON-\nFUNDAMENT", baseplate: "FUSS-\nPLATTEN", calculated: "berechnet", closes: "Wird automatisch zum Schließen des Umfangs aktualisiert.", baySystem: "Feldsystem", bays: "Felder", averageBay: "mittlere Feldbreite",
-  } : {
+const fenceCopy = {
+  en: {
     title: "FENCE / LIVE", controls: "Customize", hide: "View model", layout: "Layout & dimensions", panels: "Panels & finish", access: "Access & installation", straight: "Straight", l: "L shape", u: "U shape", closed: "Closed 4", closed5: "Closed 5", runA: "Run A", runB: "Run B", runC: "Run C", runD: "Run D", side: "Side", angle: "Corner angle", height: "Height", bay: "Target bay width", vertical: "Vertical", horizontal: "Horizontal", privacy: "Privacy", mesh: "Mesh", gap: "Infill gap", anthracite: "Anthracite", black: "Black", white: "White", bronze: "Bronze", wood: "Wood", noGate: "No gate", pedestrian: "Pedestrian", driveway: "Driveway", concrete: "CONCRETE\nFOOTING", baseplate: "BASE\nPLATES", calculated: "calculated", closes: "Updates automatically to close the perimeter.", baySystem: "Bay system", bays: "bays", averageBay: "average bay",
-  };
+  },
+  ro: {
+    title: "GARD / LIVE", controls: "Configurează", hide: "Vezi modelul", layout: "Traseu & dimensiuni", panels: "Panouri & finisaj", access: "Acces & montaj", straight: "Drept", l: "Formă L", u: "Formă U", closed: "Închis 4", closed5: "Închis 5", runA: "Latura A", runB: "Latura B", runC: "Latura C", runD: "Latura D", side: "Latura", angle: "Unghi B", height: "Înălțime", bay: "Lățime travee", vertical: "Vertical", horizontal: "Orizontal", privacy: "Plin", mesh: "Plasă", gap: "Spațiu lamele", anthracite: "Antracit", black: "Negru", white: "Alb", bronze: "Bronz", wood: "Lemn", noGate: "Fără poartă", pedestrian: "Pietonală", driveway: "Auto", concrete: "FUNDAȚIE\nBETON", baseplate: "PLĂCI DE\nBAZĂ", calculated: "calculată", closes: "Se actualizează automat pentru a închide perimetrul.", baySystem: "Sistem de travei", bays: "travei", averageBay: "travee medie",
+  },
+  de: {
+    title: "ZAUN / LIVE", controls: "Konfigurieren", hide: "Modell ansehen", layout: "Verlauf & Maße", panels: "Paneele & Oberfläche", access: "Zugang & Montage", straight: "Gerade", l: "L-Form", u: "U-Form", closed: "Geschlossen 4", closed5: "Geschlossen 5", runA: "Lauf A", runB: "Lauf B", runC: "Lauf C", runD: "Lauf D", side: "Seite", angle: "Winkel B", height: "Höhe", bay: "Zielfeldbreite", vertical: "Vertikal", horizontal: "Horizontal", privacy: "Sichtschutz", mesh: "Gitter", gap: "Lamellenabstand", anthracite: "Anthrazit", black: "Schwarz", white: "Weiß", bronze: "Bronze", wood: "Holz", noGate: "Kein Tor", pedestrian: "Personentor", driveway: "Einfahrtstor", concrete: "BETON-\nFUNDAMENT", baseplate: "FUSS-\nPLATTEN", calculated: "berechnet", closes: "Wird automatisch zum Schließen des Umfangs aktualisiert.", baySystem: "Feldsystem", bays: "Felder", averageBay: "mittlere Feldbreite",
+  },
+  es: {
+    title: "VALLA / LIVE", controls: "Personalizar", hide: "Ver modelo", layout: "Trazado y medidas", panels: "Paneles y acabado", access: "Acceso y montaje", straight: "Recta", l: "Forma L", u: "Forma U", closed: "Cerrada 4", closed5: "Cerrada 5", runA: "Tramo A", runB: "Tramo B", runC: "Tramo C", runD: "Tramo D", side: "Lado", angle: "Ángulo de esquina", height: "Altura", bay: "Ancho de módulo objetivo", vertical: "Vertical", horizontal: "Horizontal", privacy: "Opaca", mesh: "Malla", gap: "Separación de lamas", anthracite: "Antracita", black: "Negro", white: "Blanco", bronze: "Bronce", wood: "Madera", noGate: "Sin puerta", pedestrian: "Peatonal", driveway: "Vehículos", concrete: "ZAPATA DE\nHORMIGÓN", baseplate: "PLACAS\nBASE", calculated: "calculado", closes: "Se actualiza automáticamente para cerrar el perímetro.", baySystem: "Sistema de módulos", bays: "módulos", averageBay: "módulo medio",
+  },
+  fr: {
+    title: "CLÔTURE / LIVE", controls: "Personnaliser", hide: "Voir le modèle", layout: "Tracé et dimensions", panels: "Panneaux et finition", access: "Accès et pose", straight: "Droite", l: "Forme L", u: "Forme U", closed: "Fermée 4", closed5: "Fermée 5", runA: "Côté A", runB: "Côté B", runC: "Côté C", runD: "Côté D", side: "Côté", angle: "Angle de coin", height: "Hauteur", bay: "Largeur de travée cible", vertical: "Vertical", horizontal: "Horizontal", privacy: "Occultant", mesh: "Grillage", gap: "Espacement des lames", anthracite: "Anthracite", black: "Noir", white: "Blanc", bronze: "Bronze", wood: "Bois", noGate: "Sans portail", pedestrian: "Portillon", driveway: "Portail", concrete: "MASSIF\nBÉTON", baseplate: "PLATINES\nDE BASE", calculated: "calculée", closes: "Mise à jour automatique pour fermer le périmètre.", baySystem: "Système de travées", bays: "travées", averageBay: "travée moyenne",
+  },
+  it: {
+    title: "RECINZIONE / LIVE", controls: "Personalizza", hide: "Vedi modello", layout: "Tracciato e misure", panels: "Pannelli e finitura", access: "Accesso e posa", straight: "Lineare", l: "Forma L", u: "Forma U", closed: "Chiusa 4", closed5: "Chiusa 5", runA: "Lato A", runB: "Lato B", runC: "Lato C", runD: "Lato D", side: "Lato", angle: "Angolo", height: "Altezza", bay: "Larghezza campata target", vertical: "Verticale", horizontal: "Orizzontale", privacy: "Coprente", mesh: "Rete", gap: "Distanza doghe", anthracite: "Antracite", black: "Nero", white: "Bianco", bronze: "Bronzo", wood: "Legno", noGate: "Nessun cancello", pedestrian: "Pedonale", driveway: "Carrabile", concrete: "PLINTO IN\nCALCESTRUZZO", baseplate: "PIASTRE\nDI BASE", calculated: "calcolata", closes: "Si aggiorna automaticamente per chiudere il perimetro.", baySystem: "Sistema di campate", bays: "campate", averageBay: "campata media",
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+export function FenceControls({ locale }: { locale: Locale }) {
+  const text = fenceCopy[locale];
   const [collapsed, setCollapsed] = useState(false);
   const deckSwipe = useMobileDeckSwipe(setCollapsed);
   const [tab, setTab] = useState<"layout" | "panels" | "access">("layout");
@@ -1027,7 +1279,7 @@ export function SolarControls({ locale }: { locale: Locale }) {
             signal: controller.signal,
             headers: {
               "Accept-Language":
-                locale === "ro" ? "ro,en" : locale === "de" ? "de,en" : "en,ro",
+                nominatimLanguages[locale],
             },
           },
         );
@@ -1144,7 +1396,7 @@ export function SolarControls({ locale }: { locale: Locale }) {
           <b>{location}</b>
           <strong className="live-price">
             EST.{" "}
-            {new Intl.NumberFormat(locale === "ro" ? "ro-RO" : "en-US").format(
+            {new Intl.NumberFormat(localeLanguageTags[locale]).format(
               estimate,
             )}{" "}
             RON

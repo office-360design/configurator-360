@@ -168,7 +168,8 @@ test('disabled, suspended and nonexistent tenants do not pass the bootstrap gate
       assert.equal(fixture.document.documentElement.dataset.tenantAccessBlocked, 'true', product);
     }
   }
-  for (const hostname of ['www.360configurator.com', 'aks.360configurator.com', 'www.360configurator.ro']) {
+  for (const hostname of ['www.360configurator.com', 'aks.360configurator.com', 'www.360configurator.ro',
+    'www.360konfigurator.de', 'www.360configurador.es', 'www.360configurateur.fr', 'www.360configuratore.it']) {
     const fixture = bootstrapHarness({ hostname });
     assert.equal(await fixture.api.requireTenantConfiguratorAccess('bookshelf'), null);
     assert.equal(fixture.requests(), 0);
@@ -180,7 +181,7 @@ test('renderer entry points are gated independently; bookshelf remains quotation
     const source = read(`${product}-configurator/js/app.js`);
     const gate = source.indexOf(`await requireTenantConfiguratorAccess('${product}')`);
     assert.ok(gate >= 0, `${product} is missing its app-level gate`);
-    const firstSideEffect = source.search(/document\.|new THREE\.|new ChairScene\(|mountLocationPicker\(/);
+    const firstSideEffect = source.search(/document\.|new THREE\.|new ChairScene\(|mountLocationPicker\(|installAreaEditor\(|installPhotoFlowShell\(/);
     assert.ok(firstSideEffect > gate, `${product} initializes before the entitlement gate`);
   }
   for (const product of ['bookshelf', 'cardbox']) {

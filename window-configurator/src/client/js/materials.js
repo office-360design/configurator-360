@@ -11,7 +11,7 @@ import {
 } from './config.js?v=platform-18';
 import { isDrainageCapProfile } from './profile-catalog.js?v=platform-18';
 import { getWindowPolymerSurface } from './window-polymer-materials.js?v=platform-18';
-import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js?v=platform-18';
+import { getWindowLocale, localizeFinishSelection, windowT } from './i18n.js?v=locales-6';
 
 export function createMaterialManager({
     surfaceLibrary = null,

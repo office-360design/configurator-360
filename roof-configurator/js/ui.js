@@ -1,6 +1,12 @@
+import { localizeFeature, featureText } from './featureI18n.js?v=custom-bom-1';
+import { SheetPlannerUI } from './sheetPlannerUI.js?v=locales-6';
+import { RoofLayoutEditor } from './layoutEditor.js?v=locales-6';
+import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=locales-6';
+import { defaultSketch } from './slopeSketch.js?v=sketch-1';
+import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
-import { pitchRules } from './state.js?v=platform-18';
-import { bomToCsv, calculateBom } from './bom.js?v=platform-18';
+import { pitchRules } from './state.js?v=drainage-48';
+import { bomToCsv, calculateBom } from './bom.js?v=custom-bom-1';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -9,9 +15,9 @@ import {
   fromDisplayLength,
   normalizeUnits,
   toDisplayLength,
-} from './preferences.js?v=platform-18';
+} from './preferences.js?v=locales-6';
 
-import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=panel-controls-3';
+import { applyRoofTranslations, pitchRuleText, roofName, roofRateSource, roofT } from './i18n.js?v=site-analytics-1';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth', 'wallHeight', 'overhang']);
 
@@ -26,7 +32,55 @@ export class RoofUI {
     this.lastMetrics = null;
     this.dimensionBindings = [];
     bindPanelAccordions(document.querySelector('.shared-panel-controls'));
+    this.layoutEditor = new RoofLayoutEditor(state, () => {
+      this.onChange({ fitCamera: true });
+      this.applyStateToControls();
+    });
+    document.querySelector('#editRoofLayout').addEventListener('click', () => {
+      try { this.layoutEditor.open(); }
+      catch (error) {
+        const message = document.querySelector('#layoutLaunch p');
+        message.classList.add('layout-launch-error');
+        message.setAttribute('role', 'alert');
+        message.textContent = `This preset cannot be edited at its current settings: ${error.message} Try adjusting its dimensions or pitch.`;
+      }
+    });
+    this.sketchEditor = new SlopeSketchEditor(state, () => {
+      this.onChange({ fitCamera: false });
+      this.applyStateToControls();
+    });
+    document.querySelector('#editSlopeSketch').addEventListener('click', () => this.sketchEditor.open());
+    this.sketchViewer = document.querySelector('#sketchViewer');
+    this.sketchViewerTranslation = localizeFeature(this.sketchViewer, () => this.state.locale);
+    this.surfaceLettersButton = document.querySelector('#surfaceLettersToggle');
+    this.surfaceLettersButton.addEventListener('click', () => {
+      state.showSurfaceLetters = !state.showSurfaceLetters;
+      this.surfaceLettersButton.setAttribute('aria-pressed', String(state.showSurfaceLetters));
+      this.onChange();
+    });
+    localizeFeature(this.surfaceLettersButton, () => state.locale);
+    this.sheetPlanner = new SheetPlannerUI(state);
+    document.querySelector('#sheetPlanOpenButton').addEventListener('click', () => this.sheetPlanner.open());
+    for (const key of ['showDrainage', 'drainagePosition', 'drainageDiameter', 'drainageColor']) {
+      document.getElementById(key).addEventListener('change', event => {
+        state[key] = key === 'showDrainage' ? event.target.checked : key === 'drainageDiameter' ? Number(event.target.value) : event.target.value;
+        this.onChange();
+      });
+    }
+    document.querySelector('#editDrainagePositions').addEventListener('click', () => {
+      this.layoutEditor.open();
+      this.layoutEditor.drainageTool.panel.open = true;
+      this.layoutEditor.dialog.classList.add('mobile-properties-open');
+      this.layoutEditor.dialog.querySelector('.layout-mobile-properties').setAttribute('aria-expanded','true');
+      this.layoutEditor.render();
+    });
+    localizeFeature(document.querySelector('#drainageControls'), () => state.locale);
     this.bindRoofTypes();
+    // The drawing modes sit above the stage; choosing one opens its editor at once.
+    document.querySelectorAll('[data-draw-mode]').forEach(button => button.addEventListener('click', () => {
+      if (button.dataset.roofType === 'sketch') this.sketchEditor.open();
+      else document.querySelector('#editRoofLayout').click();
+    }));
     this.bindRanges();
     this.bindCovering();
     this.bindSwatches();
@@ -34,12 +88,17 @@ export class RoofUI {
     this.bindBom();
     this.bindCustomPlan();
     this.updateCustomMode();
+    for (const selector of ['#layoutLaunch', '#sketchLaunch', '#sheetPlanOpenButton', '.draw-mode-switch']) {
+      localizeFeature(document.querySelector(selector), () => this.state.locale);
+    }
   }
 
   bindRoofTypes() {
     document.querySelectorAll('[data-roof-type]').forEach((button) => {
       button.addEventListener('click', () => {
         this.state.roofType = button.dataset.roofType;
+        if (this.state.roofType === 'layout') this.state.roofLayout ||= this.layoutEditor.atOrigin(defaultLayout());
+        if (this.state.roofType === 'sketch') this.state.slopeSketch ||= defaultSketch();
         document.querySelectorAll('[data-roof-type]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
         this.viewerTitle.textContent = roofName(this.state.locale, this.state.roofType);
         this.updateCustomMode();
@@ -91,7 +150,19 @@ export class RoofUI {
     this.syncDimensionControls();
   }
 
+  updateOverhangNote() {
+    const note = document.querySelector('#layoutOverhangNote');
+    if (!note) return;
+    note.hidden = this.state.roofType !== 'layout';
+    if (note.hidden) return;
+    const walls = layoutWallFootprint(this.state.roofLayout || defaultLayout(), this.state.overhang);
+    const applied = formatLength(walls.overhang, this.state.units);
+    note.textContent = roofT(this.state.locale, 'dimensions.layoutOverhang', { distance: applied })
+      + (walls.overhang < this.state.overhang - 0.001 ? ` ${roofT(this.state.locale, 'dimensions.layoutOverhangLimit')}` : '');
+  }
+
   syncDimensionControls() {
+    this.updateOverhangNote();
     const units = normalizeUnits(this.state.units);
     this.dimensionBindings.forEach((binding) => {
       const { key, range, number, output, isLength, baseMin, baseMax, baseStep } = binding;
@@ -196,6 +267,33 @@ export class RoofUI {
 
 
   updateCustomMode() {
+    document.querySelector('#drainageControls').hidden = ['custom', 'sketch'].includes(this.state.roofType);
+    for (const key of ['showDrainage', 'drainagePosition', 'drainageDiameter', 'drainageColor']) {
+      const input = document.getElementById(key);
+      if (key === 'showDrainage') input.checked = !!this.state[key];
+      else input.value = this.state[key] ?? ({drainagePosition:'both',drainageDiameter:100,drainageColor:'graphite'})[key];
+    }
+    this.surfaceLettersButton.hidden = ['custom', 'sketch'].includes(this.state.roofType);
+    this.surfaceLettersButton.setAttribute('aria-pressed', String(!!this.state.showSurfaceLetters));
+    const isLayout = this.state.roofType === 'layout';
+    const isSketch = this.state.roofType === 'sketch';
+    document.querySelector('#layoutLaunch').hidden = ['custom', 'sketch'].includes(this.state.roofType);
+    document.querySelector('#sketchLaunch').hidden = !isSketch;
+    // Slopes drawn one by one are 2D only: the overview replaces the 3D stage.
+    this.sketchViewer.hidden = !isSketch;
+    document.querySelectorAll('.stage-hint').forEach(element => { element.hidden = isSketch; });
+    document.querySelector('[data-accordion="dimensions"]').hidden = isSketch;
+    const launchMessage = document.querySelector('#layoutLaunch p');
+    launchMessage.classList.remove('layout-launch-error');
+    launchMessage.removeAttribute('role');
+    launchMessage.textContent = isLayout
+      ? 'Edit points, edges and slopes. Changes stay a draft until you apply the roof.'
+      : 'Start from this roof’s shape, dimensions and pitch. Apply roof saves it as a drawn layout; Cancel keeps the preset.';
+    ['length', 'depth', 'pitch'].forEach(key => {
+      document.querySelector(`[data-control="${key}"]`).hidden = isLayout;
+    });
+    this.pitchRuleNote.hidden = isLayout;
+    this.updateOverhangNote();
     const isCustom = this.state.roofType === 'custom';
     const panel = document.querySelector('#customPlanPanel');
     const notice = document.querySelector('#customViewerNotice');
@@ -305,7 +403,7 @@ export class RoofUI {
   }
 
   setAllBomLinesIncluded(included) {
-    if (!this.currentBom) return;
+    if (!this.currentBom || ['custom', 'layout'].includes(this.state.roofType)) return;
     const excluded = this.getExcludedBomItems();
     this.currentBom.lines.forEach((line) => {
       if (included) excluded.delete(line.key);
@@ -316,7 +414,7 @@ export class RoofUI {
   }
 
   exportBom() {
-    if (!this.currentBom) return;
+    if (!this.currentBom || ['custom', 'layout'].includes(this.state.roofType)) return;
     const csv = `﻿${bomToCsv(this.currentBom, this.state.locale)}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -360,10 +458,10 @@ export class RoofUI {
     }
 
     document.querySelector('#bomExportButton').disabled = false;
-    document.querySelector('#headerEstimateTotal').textContent = formatCurrency(bom.total, bom.currency);
-    document.querySelector('#bomSubtotal').textContent = formatCurrency(bom.subtotal, bom.currency);
-    document.querySelector('#bomVat').textContent = formatCurrency(bom.vat, bom.currency);
-    document.querySelector('#bomTotal').textContent = formatCurrency(bom.total, bom.currency);
+    document.querySelector('#headerEstimateTotal').textContent = formatCurrency(bom.total, bom.currency, this.state.locale);
+    document.querySelector('#bomSubtotal').textContent = formatCurrency(bom.subtotal, bom.currency, this.state.locale);
+    document.querySelector('#bomVat').textContent = formatCurrency(bom.vat, bom.currency, this.state.locale);
+    document.querySelector('#bomTotal').textContent = formatCurrency(bom.total, bom.currency, this.state.locale);
 
     const body = document.querySelector('#bomTableBody');
     body.replaceChildren(...bom.lines.map((line, index) => {
@@ -382,8 +480,8 @@ export class RoofUI {
         <td><strong>${line.name}</strong>${line.note ? `<small>${line.note}</small>` : ''}</td>
         <td>${line.unit}</td>
         <td>${line.quantity}</td>
-        <td>${formatCurrency(line.unitPrice, bom.currency)}</td>
-        <td>${formatCurrency(line.value, bom.currency)}</td>
+        <td>${formatCurrency(line.unitPrice, bom.currency, this.state.locale)}</td>
+        <td>${formatCurrency(line.value, bom.currency, this.state.locale)}</td>
       `;
       return row;
     }));
@@ -415,6 +513,8 @@ export class RoofUI {
       }
     }
 
+    if (bom.customEstimate && currencyNote) currencyNote.textContent += ' ' + bom.estimateNote;
+
     const assumptionGrid = document.querySelector('#bomAssumptions');
     assumptionGrid.replaceChildren(...assumptions.map(([label, value]) => {
       const item = document.createElement('div');
@@ -445,10 +545,12 @@ export class RoofUI {
   updateMetrics(metrics) {
     this.lastMetrics = metrics;
     const prefix = metrics.approximate ? '~' : '';
-    document.querySelector('#metricFootprint').textContent = `${prefix}${formatArea(metrics.footprint, this.state.units)}`;
+    const isSketch = this.state.roofType === 'sketch';
+    document.querySelector('#metricFootprint').textContent = isSketch ? '—' : `${prefix}${formatArea(metrics.footprint, this.state.units)}`;
     document.querySelector('#metricRoofArea').textContent = `${prefix}${formatArea(metrics.roofArea, this.state.units)}`;
-    document.querySelector('#metricRidge').textContent = formatLength(metrics.ridgeElevation, this.state.units);
-    document.querySelector('#metricPitch').textContent = `${Math.round(this.state.pitch)}°`;
+    document.querySelector('#metricRidge').textContent = isSketch ? '—' : formatLength(metrics.ridgeElevation, this.state.units);
+    document.querySelector('#metricPitch').textContent = isSketch ? '—' : `${Math.round(this.state.pitch)}°`;
+    if (isSketch) renderSketchViewer(this.sketchViewer, this.state, index => this.sketchEditor.open(index));
     this.updateBom(metrics);
   }
 }

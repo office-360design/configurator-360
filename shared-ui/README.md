@@ -262,3 +262,12 @@ other products mount their real shell without starting the renderer.
 Mobile collapse handles use `--shared-mobile-panel-toggle-bottom` from the shared
 styles. Keep the corresponding rules in `index.css` and `standalone.css` aligned.
 The demo CTA follows the handle's `aria-expanded` state on mobile only.
+
+### Solar energy drawer regression
+
+`CHROMIUM_PATH=/path/to/chromium node shared-ui/tests/solar-energy-mobile.mjs`
+runs Solar's actual renderer and shell at phone and desktop widths. It checks
+play/pause, advancing simulation time, day/night lighting, drawer accessibility,
+and mobile graph visibility without horizontal scrolling. It uses the same
+Playwright and Pergola Vite/Three dependencies as the mobile shell regression.
+External services are blocked.

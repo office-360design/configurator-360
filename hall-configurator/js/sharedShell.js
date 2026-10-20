@@ -1,13 +1,24 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-branding-1';
+import { HALL_TEMPLATES } from './templates.js?v=site-analytics-1';
+import { createHallTemplateDialog } from './templateDialog.js?v=site-analytics-1';
+import { mountTemplatesMenu } from '../../shared-ui/src/components/templatesMenu.js?v=templates-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
 import { SharedUndoManager } from '../../shared-ui/src/history/undoManager.js?v=platform-18';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
-import { createShareUrl } from '../../shared-ui/src/shareState.js?v=platform-18';
-import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=platform-18';
-import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
+import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
+import { applyHallTranslations, hallT, resolveHallLocale } from './i18n.js?v=site-analytics-1';
+import { requireTenantConfiguratorAccess } from '../../shared-ui/src/tenantBootstrap.js?v=locales-6';
 
 const tenantContext = await requireTenantConfiguratorAccess('hall');
 
 const initialLocale = resolveHallLocale();
+const HALL_AR_LOAD_ERROR = Object.freeze({
+  'en-US': 'AR could not load. Please try again.',
+  'ro-RO': 'AR nu s-a putut încărca. Încearcă din nou.',
+  'de-DE': 'AR konnte nicht geladen werden. Bitte erneut versuchen.',
+  'es-ES': 'No se pudo cargar la RA. Inténtelo de nuevo.',
+  'fr-FR': 'Impossible de charger la RA. Veuillez réessayer.',
+  'it-IT': 'Impossibile caricare la RA. Riprovi.',
+});
 applyHallTranslations(initialLocale);
 const mobileLayoutQuery = window.matchMedia('(max-width: 760px)');
 const t = (key, variables = {}, locale = null) => hallT(locale ?? window.HALL_CONFIGURATOR_SHARED_SHELL?.state?.locale ?? initialLocale, key, variables);
@@ -29,6 +40,31 @@ const toolItems = resolveSharedTools([
 ]);
 
 let shell;
+let templatesMenu = null;
+let templateDialog = null;
+let arDialog = null;
+let arDialogLoading = null;
+
+async function openHallAR() {
+  templatesMenu?.close();
+  window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
+  if (!arDialogLoading) {
+    arDialogLoading = import('./ar/dialog.js?v=site-analytics-1').then(({ createHallARDialog }) => {
+      arDialog = createHallARDialog({
+        getSnapshot: () => window.HALL_CONFIGURATOR_API?.captureState?.(),
+        getLocale: () => shell?.state.locale ?? initialLocale,
+        onFeedback: (message, kind, duration) => shell?.showFeedback?.(message, kind, duration),
+      });
+      return arDialog;
+    }).catch(error => { arDialogLoading = null; throw error; });
+  }
+  try { (await arDialogLoading).open(); } catch(error) {
+    console.error('Hall AR dialog could not load:', error);
+    const locale = shell?.state.locale ?? initialLocale;
+    shell?.showFeedback?.(HALL_AR_LOAD_ERROR[locale] ?? HALL_AR_LOAD_ERROR['en-US'], 'error', 5000);
+  }
+}
+
 shell = mountStandaloneConfiguratorShell({
   productType: 'Hall',
   productId: 'hall',
@@ -36,7 +72,7 @@ shell = mountStandaloneConfiguratorShell({
   brandSrc: tenantContext?.logoUrl || '../shared-ui/assets/360CONFIGURATOR.png',
   brandAlt: tenantContext?.companyName || '360 Configurator',
   capabilities: {
-    viewAR: false,
+    viewAR: true,
     save: true,
     undo: true,
     reset: true,
@@ -61,6 +97,7 @@ shell = mountStandaloneConfiguratorShell({
     geometry: 'floating-right',
   },
   callbacks: {
+    onViewAR() { void openHallAR(); },
     onUndo() { history.undo(); },
     async resetConfiguration() {
       const api = window.HALL_CONFIGURATOR_API;
@@ -84,10 +121,17 @@ shell = mountStandaloneConfiguratorShell({
     },
     onPreferenceChange(path, value, preferences) {
       if (path === 'darkMode') window.HALL_CONFIGURATOR_API?.setDarkMode?.(Boolean(value));
-      if (path === 'locale') applyHallTranslations(preferences.locale);
+      if (path === 'locale') {
+        applyHallTranslations(preferences.locale);
+        templatesMenu?.setLabels(hallTemplateLabels(preferences.locale));
+        templatesMenu?.setItems(hallTemplateItems(preferences.locale));
+        templateDialog?.refresh();
+        arDialog?.refresh();
+      }
       window.dispatchEvent(new CustomEvent('hall-preference-change', { detail: { name: path, value, preferences: { ...preferences } } }));
     },
     onToolsOpenChange(open) {
+      if (open) templatesMenu?.close();
       if (mobileLayoutQuery.matches && open) {
         shell?.setSettingsPanelCollapsed?.(true);
       }
@@ -96,6 +140,7 @@ shell = mountStandaloneConfiguratorShell({
     onSettingsPanelToggle(collapsed) {
       syncSidebarAccessibility(collapsed);
       if (mobileLayoutQuery.matches && !collapsed) {
+        templatesMenu?.close();
         if (shell?.toolsOpen) {
           shell.toolsOpen = false;
           shell.syncTools();
@@ -107,6 +152,46 @@ shell = mountStandaloneConfiguratorShell({
 });
 
 
+function hallTemplateLabels(locale = shell?.state.locale ?? initialLocale) {
+  return {
+    launcher: hallT(locale, 'templates.label'),
+    title: hallT(locale, 'templates.title'),
+    close: hallT(locale, 'templates.close'),
+    empty: hallT(locale, 'templates.empty'),
+  };
+}
+
+function hallTemplateItems(locale = shell?.state.locale ?? initialLocale) {
+  return HALL_TEMPLATES.map((item) => ({ ...item, name: hallT(locale, item.nameKey) }));
+}
+
+templateDialog = createHallTemplateDialog({
+  getLocale: () => shell?.state.locale ?? initialLocale,
+  applyTemplate(id) {
+    const api = window.HALL_CONFIGURATOR_API;
+    if (!api?.applyTemplate) throw new Error('Hall configurator is still loading.');
+    return api.applyTemplate(id);
+  },
+  onApplied() { shell?.showFeedback?.(t('templates.applied'), 'success', 2000); },
+});
+
+templatesMenu = mountTemplatesMenu({
+  enabled: true,
+  host: shell.host,
+  idPrefix: 'hall',
+  labels: hallTemplateLabels(),
+  items: hallTemplateItems(),
+  classes: { grid: 'hall-template-grid', image: 'hall-template-card-image' },
+  onSelect(item) {
+    templatesMenu?.close();
+    templateDialog.open(item);
+    return false;
+  },
+  beforeOpen() {
+    window.HALL_CONFIGURATOR_API?.closeToolPanels?.();
+    if (mobileLayoutQuery.matches) shell?.setSettingsPanelCollapsed?.(true);
+  },
+});
 
 history.bindSource(document.querySelector('.sidebar'));
 

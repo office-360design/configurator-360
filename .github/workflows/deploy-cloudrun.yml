@@ -41,6 +41,9 @@ jobs:
             window-configurator/package-lock.json
             pergola-configurator/package-lock.json
 
+      - name: Verify Solar AR and deployment compatibility
+        run: npm run check:ar --prefix solar-configurator
+
       - name: Install window configurator dependencies
         run: npm ci --prefix window-configurator
 
@@ -100,6 +103,9 @@ jobs:
       - name: Build static website
         run: npm run release:static --prefix website
 
+      - name: Verify website consent, lead events and native preview parity
+        run: npm run test:postlaunch --prefix website
+
       # ------------------------------------------------------------
       # Assemble exactly the same site currently sent to GitHub Pages
       # ------------------------------------------------------------
@@ -157,6 +163,17 @@ jobs:
           mkdir -p dist/site/chair-configurator
           cp -R chair-configurator/. dist/site/chair-configurator/
 
+          mkdir -p dist/site/cages-configurator
+          cp -R cages-configurator/. dist/site/cages-configurator/
+
+          mkdir -p dist/site/curtain-wall-configurator
+          cp -R curtain-wall-configurator/. dist/site/curtain-wall-configurator/
+          # Cortizo: publish the engine, the catalogue data and the logic map only.
+          (cd dist/site/curtain-wall-configurator/cortizo && rm -rf docs scripts tests CLAUDE.md README.md package.json .gitignore data/*.xlsx web/app.js web/template.html)
+
+      - name: Localize configurator page heads per domain
+        run: node scripts/seo/prerender-configurator-heads.mjs dist/site
+
       - name: Verify static site
         shell: bash
         run: |
@@ -174,6 +191,13 @@ jobs:
           test -f dist/site/tiles-configurator/index.html
           test -f dist/site/bookshelf-configurator/index.html
           test -f dist/site/chair-configurator/index.html
+          test -f dist/site/cages-configurator/index.html
+          test -f dist/site/curtain-wall-configurator/index.html
+          for product in window pergola roof hall solar fence chair cardbox; do
+            for locale in en-US ro-RO de-DE es-ES fr-FR it-IT; do
+              grep -q 'rel="canonical"' "dist/site/${product}-configurator/index.${locale}.html"
+            done
+          done
           test -d dist/site/shared-ui
           test -d dist/site/shared-3d
           test -f dist/site/shared-ui/admin/tenant-provisioning/index.html
@@ -265,6 +289,8 @@ jobs:
           curl -fsSL --retry 5 "${SERVICE_URL}/solar-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/hall-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/fence-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/cages-configurator/" > /dev/null
+          curl -fsSL --retry 5 "${SERVICE_URL}/curtain-wall-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/cardbox-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/bookshelf-configurator/" > /dev/null
           curl -fsSL --retry 5 "${SERVICE_URL}/internal/tenant-provisioning/" > /dev/null

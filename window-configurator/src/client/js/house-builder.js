@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createWindowGeometry } from './window-geometry.js?v=platform-18';
 import { getHouseDimensions } from './house-config.js?v=platform-18';
-import { getWindowLocale } from './i18n.js?v=platform-18';
+import { getWindowLocale } from './i18n.js?v=locales-6';
 
 // Resolve the tree relative to this module instead of the website root.
 // Local dev loads this module from /js/, while production mounts the
@@ -14,6 +14,9 @@ const ENVIRONMENT_LABELS = Object.freeze({
     'en-US': 'Environment',
     'ro-RO': 'Mediu',
     'de-DE': 'Umgebung',
+    'es-ES': 'Entorno',
+    'fr-FR': 'Environnement',
+    'it-IT': 'Ambiente',
 });
 
 /**

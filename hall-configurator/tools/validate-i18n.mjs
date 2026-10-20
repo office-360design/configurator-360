@@ -1,23 +1,29 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getHallMessages, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel } from '../js/i18n.js?v=platform-18';
-import { CONFIGURATOR_PUBLIC_PATHS } from '../../shared-ui/src/config.js?v=platform-18';
-import { buildBom, bomToCsv } from '../js/bom.js?v=platform-18';
-import { estimateHallPrice } from '../js/pricing.js?v=platform-18';
+import { getHallMessages, hallOpeningLabel, hallT, hallValueLabel, hallWallLabel } from '../js/i18n.js?v=site-analytics-1';
+import { CONFIGURATOR_PUBLIC_PATHS } from '../../shared-ui/src/config.js?v=localized-slugs-1';
+import { buildBom, bomToCsv } from '../js/bom.js?v=site-analytics-1';
+import { estimateHallPrice } from '../js/pricing.js?v=site-analytics-1';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
-const locales = ['en-US', 'ro-RO', 'de-DE'];
+const locales = ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT'];
 const baseKeys = Object.keys(getHallMessages('en-US')).sort();
 const failures = [];
 
 for (const locale of locales) {
+  if (locale !== 'en-US' && getHallMessages(locale) === getHallMessages('en-US')) failures.push(`${locale} has no message catalogue (falls back to English)`);
   const keys = Object.keys(getHallMessages(locale)).sort();
   const missing = baseKeys.filter((key) => !keys.includes(key));
   const extra = keys.filter((key) => !baseKeys.includes(key));
   if (missing.length) failures.push(`${locale} missing keys: ${missing.join(', ')}`);
   if (extra.length) failures.push(`${locale} extra keys: ${extra.join(', ')}`);
+  for (const key of baseKeys) {
+    if (!String(getHallMessages(locale)[key] ?? '').trim()) failures.push(`${locale} has empty message: ${key}`);
+    const placeholders = (text) => [...String(text ?? '').matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]).filter((name) => name !== 'suffix').sort().join(',');
+    if (placeholders(getHallMessages(locale)[key]) !== placeholders(getHallMessages('en-US')[key])) failures.push(`${locale} placeholder mismatch: ${key}`);
+  }
   if (!CONFIGURATOR_PUBLIC_PATHS[locale]?.hall) failures.push(`${locale} missing Hall public path`);
 }
 
@@ -46,7 +52,7 @@ for (const locale of locales) {
   const estimate = estimateHallPrice(structuredClone(state), build, locale);
   if (!estimate.items.some((item) => item.label === hallT(locale, 'pricing.primary'))) failures.push(`${locale} pricing labels not localized`);
   if (!hallOpeningLabel('window', locale) || !hallWallLabel('front', { locale })) failures.push(`${locale} opening/wall labels missing`);
-  if (!hallValueLabel('buildingUse', 'general', locale)) failures.push(`${locale} value labels missing`);
+  if (!hallValueLabel('climateSystem', 'none', locale)) failures.push(`${locale} value labels missing`);
 }
 
 const scene = fs.readFileSync(path.join(root, 'hall-configurator', 'js', 'scene.js'), 'utf8');

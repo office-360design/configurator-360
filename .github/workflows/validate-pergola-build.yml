@@ -1,0 +1,60 @@
+name: Validate Pergola production build
+
+on:
+  pull_request:
+    paths:
+      - 'pergola-configurator/**'
+      - 'shared-3d/**'
+      - 'shared-ui/**'
+      - '.github/workflows/validate-pergola-build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'pergola-configurator/**'
+      - 'shared-3d/**'
+      - 'shared-ui/**'
+      - '.github/workflows/validate-pergola-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pergola-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: pergola-configurator/package-lock.json
+
+      # Install only this package, exactly as deployment does. Installing Three
+      # at the repo root would mask missing resolution for sibling shared code.
+      - name: Install Pergola dependencies
+        run: npm ci --prefix pergola-configurator
+
+      - name: Check shared AR dependency resolution
+        env:
+          CI: 'true'
+        run: node --no-warnings --experimental-vm-modules --test pergola-configurator/tools/ar-build-resolution.test.mjs
+
+      - name: Validate Pergola sources and translations
+        run: npm run check --prefix pergola-configurator
+
+      - name: Build editor and AR phone page
+        run: npm run build --prefix pergola-configurator
+
+      - name: Verify both build entries exist
+        run: |
+          test -f pergola-configurator/dist/index.html
+          test -f pergola-configurator/dist/ar.html

@@ -9,7 +9,15 @@ const workspaceRoot = path.resolve(root, "..");
 const i18nModule = await import(pathToFileURL(path.join(root, "src/client/js/i18n.js")).href);
 const sharedConfig = await import(pathToFileURL(path.join(workspaceRoot, "shared-ui/src/config.js")).href);
 
-const locales = ["en-US", "ro-RO", "de-DE"];
+// Shared locale order: en-US, ro-RO, de-DE, es-ES, fr-FR, it-IT.
+const locales = ["en-US", "ro-RO", "de-DE", "es-ES", "fr-FR", "it-IT"];
+const localeNames = {
+  "ro-RO": "Romanian",
+  "de-DE": "German",
+  "es-ES": "Spanish",
+  "fr-FR": "French",
+  "it-IT": "Italian",
+};
 const messages = Object.fromEntries(
   locales.map((locale) => [locale, i18nModule.getWindowMessages(locale)])
 );
@@ -48,11 +56,20 @@ const criticalKeys = [
 ];
 
 for (const key of criticalKeys) {
-  if (messages["en-US"][key] === messages["ro-RO"][key]) {
-    failures.push(`Critical Romanian translation still matches English for ${key}.`);
+  for (const locale of locales.filter((code) => code !== "en-US")) {
+    if (messages["en-US"][key] === messages[locale][key]) {
+      failures.push(`Critical ${localeNames[locale]} translation still matches English for ${key}.`);
+    }
   }
-  if (messages["en-US"][key] === messages["de-DE"][key]) {
-    failures.push(`Critical German translation still matches English for ${key}.`);
+}
+
+// Placeholders such as {format} must survive translation unchanged.
+const placeholders = (value) => [...String(value).matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]).sort().join(",");
+for (const locale of locales) {
+  for (const key of englishKeys) {
+    if (placeholders(messages[locale][key]) !== placeholders(messages["en-US"][key])) {
+      failures.push(`${locale} placeholders differ from English for ${key}.`);
+    }
   }
 }
 
@@ -60,12 +77,29 @@ const expectedPaths = {
   "en-US": "/window-configurator/",
   "ro-RO": "/configurator-ferestre/",
   "de-DE": "/fenster-konfigurator/",
+  "es-ES": "/configurador-ventanas/",
+  "fr-FR": "/configurateur-fenetres/",
+  "it-IT": "/configuratore-finestre/",
 };
 for (const locale of locales) {
   const actual = sharedConfig.CONFIGURATOR_PUBLIC_PATHS?.[locale]?.window;
   if (actual !== expectedPaths[locale]) {
     failures.push(`${locale} Window public path should be ${expectedPaths[locale]}, got ${actual}.`);
   }
+}
+
+// The new AR copy is shared with Hall, with Window-specific text in each locale.
+const { AR_COPY, arT } = await import(pathToFileURL(path.join(workspaceRoot, "shared-ui/src/ar/i18n.js")).href);
+const arKeys = Object.keys(AR_COPY.window['en-US']).sort();
+// AR copy lives in shared-ui; every locale it provides for Hall must also exist for Window.
+const arLocales = locales.filter((locale) => AR_COPY.hall?.[locale]);
+const arPending = locales.filter((locale) => !AR_COPY.hall?.[locale]);
+if (arPending.length) console.warn(`Shared AR copy does not provide ${arPending.join(", ")} yet; Window AR text checked for ${arLocales.join(", ")}.`);
+for (const locale of arLocales) {
+  if (!AR_COPY.window[locale]) { failures.push(`${locale} Window AR copy is missing.`); continue; }
+  if (JSON.stringify(Object.keys(AR_COPY.window[locale]).sort()) !== JSON.stringify(arKeys)) failures.push(`${locale} AR translation keys differ.`);
+  for (const key of arKeys) if (!arT('window', locale, key)?.trim()) failures.push(`${locale} AR text missing for ${key}.`);
+  if (AR_COPY.window[locale].title === AR_COPY.hall[locale].title) failures.push(`${locale} Window AR still uses Hall's title.`);
 }
 
 const sourceChecks = [
@@ -93,12 +127,10 @@ const sourceChecks = [
   {
     file: "src/client/js/ar-controller.js",
     required: [
-      "ar.qrLibraryMissing",
-      "ar.descriptionSelected",
-      "ar.stepBuild",
-      "ar.httpsRequired",
-      "ar.view",
-      "formatLocalizedExportStats",
+      "createFirebaseARDialog",
+      "getWindowLocale",
+      "window-locale-applied",
+      "product: 'window'",
     ],
     forbidden: [
       "button.textContent = 'HTTPS required'",

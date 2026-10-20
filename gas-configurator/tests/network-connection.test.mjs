@@ -119,7 +119,7 @@ test('the connection workflow is present and translated in every supported local
   assert.match(root.innerHTML, /id="snapToNearestNetworkButton"/);
   assert.match(root.innerHTML, /id="connectionToleranceInput"/);
 
-  ['en-US', 'ro-RO', 'de-DE'].forEach((locale) => {
+  ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT'].forEach((locale) => {
     [
       'action.startRouteHere',
       'action.snapAtoNetwork',

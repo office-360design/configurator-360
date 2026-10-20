@@ -136,6 +136,24 @@ test('backend deployment copies match browser domain policy', async () => {
 test('public canonical paths remain localized; public URLs never become tenants', () => {
   assert.equal(new URL(getLocalizedConfiguratorUrl('ro-RO', 'roof', new URL('https://www.360configurator.com/'))).pathname, '/configurator-acoperis/');
   assert.equal(new URL(getLocalizedConfiguratorUrl('de-DE', 'roof', new URL('https://www.360configurator.ro/'))).hostname, 'www.360konfigurator.de');
+  for (const [locale, host, roof] of [
+    ['es-ES', 'www.360configurador.es', '/configurador-tejados/'],
+    ['fr-FR', 'www.360configurateur.fr', '/configurateur-toiture/'],
+    ['it-IT', 'www.360configuratore.it', '/configuratore-tetto/'],
+  ]) {
+    const url = new URL(getLocalizedConfiguratorUrl(locale, 'roof', new URL('https://www.360configurator.com/')));
+    assert.equal(url.hostname, host); assert.equal(url.pathname, roof);
+    assert.equal(getLocaleForHostname(host), locale);
+    assert.equal(getLocaleForHostname(host.replace(/^www\./, '')), locale);
+    assert.equal(new URL(getLocalizedConfiguratorUrl(locale, 'roof', new URL('https://acme.360configurator.com/'))).hostname, `acme.${host.slice(4)}`);
+  }
+});
+test('the six tenant roots follow the shared language order', () => {
+  assert.deepEqual(Object.keys(policy.TENANT_DOMAIN_ROOTS), ['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']);
+  assert.deepEqual(Object.keys(CONFIGURATOR_PUBLIC_PATHS), Object.keys(policy.TENANT_DOMAIN_ROOTS));
+  assert.equal(hosts.length, 6);
+  for (const origin of origins) assert.match(origin, policy.TENANT_ORIGIN_PATTERN);
+  assert.doesNotMatch('https://acme.360configurador.com', policy.TENANT_ORIGIN_PATTERN);
 });
 test('save, cart and analytics scopes are identical across aliases, isolated across tenants', async () => {
   const { api, documents } = backendHarness();
@@ -154,7 +172,7 @@ test('save, cart and analytics scopes are identical across aliases, isolated acr
   documents.set('/tenants/other', { ...tenant(), slug: 'other', domain: 'other.360configurator.com' });
   const other = await api.requireSavedConfigurationScope(request('https://other.360configurator.ro'), 'roof');
   assert.notEqual(api.userSavedItemsCollection('owner', 'roof', other.tenantSlug).path, scopes[0][0]);
-  for (const origin of ['https://www.360configurator.com', 'https://www.360configurator.ro', 'https://www.360konfigurator.de']) {
+  for (const origin of ['https://www.360configurator.com', 'https://www.360configurator.ro', 'https://www.360konfigurator.de', 'https://www.360configurador.es', 'https://www.360configurateur.fr', 'https://www.360configuratore.it']) {
     assert.equal((await api.requireSavedConfigurationScope(request(origin), 'roof')).tenantSlug, '');
     assert.equal((await api.configuratorAnalyticsScopeForRequest(request(origin), 'roof')).scopeId, 'platform');
   }
@@ -236,7 +254,7 @@ test('Solar aliases use one shared monthly quota and reject cross-tenant origins
   assert.equal([...documents.keys()].filter((path) => path.startsWith('/tenantUsage/')).length, 1);
   assert.equal(await api.resolveSolarRequestContext(new Request(`${origins[1]}/api/solar/pvgis`, { headers: { Origin: 'https://other.360configurator.ro' } })), null);
   assert.equal(await api.resolveSolarRequestContext(new Request('https://www.360configurator.ro/api/solar/pvgis', { headers: { Origin: origins[1] } })), null);
-  for (const host of ['www.360configurator.com', 'www.360configurator.ro', 'www.360konfigurator.de']) {
+  for (const host of ['www.360configurator.com', 'www.360configurator.ro', 'www.360konfigurator.de', 'www.360configurador.es', 'www.360configurateur.fr', 'www.360configuratore.it']) {
     assert.equal((await api.resolveSolarRequestContext(new Request(`https://${host}/api/solar/pvgis`))).kind, 'platform');
   }
 });

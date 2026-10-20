@@ -94,9 +94,19 @@ export function displayLengthInputConfig(minMeters, maxMeters, stepMeters, units
   };
 }
 
-export function formatCurrency(value, currency) {
+// Spanish, French and Italian pages format amounts in their own locale. The
+// original locales keep the established per-currency formatting.
+const CURRENCY_FORMAT_LOCALES = Object.freeze({ es: 'es-ES', fr: 'fr-FR', it: 'it-IT' });
+const CURRENCY_DEFAULT_FORMAT_LOCALES = Object.freeze({ RON: 'ro-RO', EUR: 'de-DE', USD: 'en-US' });
+
+export function currencyFormatLocale(currency, locale = null) {
+  const language = String(locale || '').trim().toLowerCase().split(/[-_]/)[0];
+  return CURRENCY_FORMAT_LOCALES[language] ?? CURRENCY_DEFAULT_FORMAT_LOCALES[normalizeCurrency(currency)];
+}
+
+export function formatCurrency(value, currency, displayLocale = null) {
   const normalizedCurrency = normalizeCurrency(currency);
-  const locale = normalizedCurrency === 'RON' ? 'ro-RO' : normalizedCurrency === 'EUR' ? 'de-DE' : 'en-US';
+  const locale = currencyFormatLocale(normalizedCurrency, displayLocale);
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: normalizedCurrency,

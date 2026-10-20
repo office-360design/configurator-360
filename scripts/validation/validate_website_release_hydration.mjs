@@ -4,12 +4,14 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { publicRoute } from "../../website/scripts/static-routes.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(here, "..", "..");
 const releaseRoot = path.join(projectRoot, "website", "outputs", "release-site");
 
-const routes = [
+// Internal routes; country trees are exported under their own language slugs.
+const internalRoutes = [
   "/configurators/window",
   "/configurators/pergola",
   "/configurators/roof",
@@ -26,6 +28,7 @@ const routes = [
   "/de/configurators/hall",
   "/de/configurators/solar",
 ];
+const routes = internalRoutes.map(publicRoute);
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",

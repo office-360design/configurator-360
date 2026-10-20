@@ -1,4 +1,4 @@
-import { validateWindowSizeLimits, WINDOW_SIZE_MIN_MM, WINDOW_SIZE_MAX_MM } from './windowSizeSettings.js?v=1';
+import { validateWindowSizeLimits, WINDOW_SIZE_MIN_MM, WINDOW_SIZE_MAX_MM } from './windowSizeSettings.js?v=size-limits-1';
 
 export function createWindowSettingsEditor({ onChange }) {
   const root = document.getElementById('window-size-fields');

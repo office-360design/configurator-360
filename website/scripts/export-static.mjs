@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { metadataRoutes, pageRoutes, routeOutputPath } from "./static-routes.mjs";
+import { locales, metadataRoutes, pageRoutes, routeOutputPath } from "./static-routes.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const websiteRoot = path.resolve(scriptDirectory, "..");
@@ -96,7 +96,10 @@ async function renderRoute(route, { allowNotFound = false } = {}) {
       const worker = await loadFreshWorker(route, attempt);
       const response = await worker.fetch(
         new Request(`https://360configurator.com${route}`, {
-          headers: { accept: "text/html,application/xhtml+xml" },
+          // Static files are served identically to every crawler. Ask the
+          // framework for blocking metadata so canonical/hreflang land in
+          // <head>, not in a streamed body segment that needs JS hoisting.
+          headers: { accept: "text/html,application/xhtml+xml", "user-agent": "Twitterbot/1.0" },
         }),
         { ASSETS: assets },
         { ...executionContext },
@@ -130,14 +133,15 @@ async function renderRoute(route, { allowNotFound = false } = {}) {
   );
 }
 
+const prefixedLocales = locales.filter((locale) => locale !== "en");
+
 function languageForRoute(route) {
-  if (route === "/ro" || route.startsWith("/ro/")) return "ro";
-  if (route === "/de" || route.startsWith("/de/")) return "de";
-  return "en";
+  return prefixedLocales.find((locale) => route === `/${locale}` || route.startsWith(`/${locale}/`)) ?? "en";
 }
 
-const legacyLocalePrefixedUrlPattern =
-  /https:\/\/(?:www\.)?360configurator\.com\/(?:ro|de)(?![A-Za-z0-9_-])/;
+const legacyLocalePrefixedUrlPattern = new RegExp(
+  String.raw`https:\/\/(?:www\.)?360configurator\.com\/(?:${prefixedLocales.join("|")})(?![A-Za-z0-9_-])`,
+);
 
 function assertNoLegacyLocalePrefixedUrls(html, route) {
   const match = html.match(legacyLocalePrefixedUrlPattern);

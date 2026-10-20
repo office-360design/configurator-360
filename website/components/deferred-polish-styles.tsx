@@ -1,20 +1,11 @@
-"use client";
-
-import { useEffect } from "react";
+import { polishStylesBootstrap } from '../lib/website-bootstrap.js';
 
 const POLISH_STYLESHEET = "/styles/homepage-polish.css";
 
 export function DeferredPolishStyles() {
-  useEffect(() => {
-    if (document.querySelector(`link[href="${POLISH_STYLESHEET}"]`)) return;
-
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = POLISH_STYLESHEET;
-    link.dataset.deferredPolish = "true";
-
-    requestAnimationFrame(() => document.head.appendChild(link));
-  }, []);
-
-  return null;
+  return <>
+    <link id="website-polish-styles" rel="stylesheet" href={POLISH_STYLESHEET} media="print" />
+    <script dangerouslySetInnerHTML={{__html: polishStylesBootstrap}} />
+    <noscript><link rel="stylesheet" href={POLISH_STYLESHEET} /></noscript>
+  </>;
 }

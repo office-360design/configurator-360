@@ -9,7 +9,7 @@ import {
     getProfileCatalogEntry,
 } from './profile-catalog.js?v=platform-18';
 import { resolveAccessoryPlacement } from './profile-compatibility.js?v=platform-18';
-import { getWindowLocale, localizeAccessoryGroup, localizeAccessoryPreset, windowPlural, windowT } from './i18n.js?v=platform-18';
+import { getWindowLocale, localizeAccessoryGroup, localizeAccessoryPreset, windowPlural, windowT } from './i18n.js?v=locales-6';
 
 const FALSE_VALUES = new Set(['0', 'false', 'off', 'no', 'disabled']);
 const TRUE_VALUES = new Set(['1', 'true', 'on', 'yes', 'enabled']);

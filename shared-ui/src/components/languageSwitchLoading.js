@@ -1,4 +1,4 @@
-import { sharedT } from '../i18n.js?v=platform-18';
+import { sharedT } from '../i18n.js?v=site-analytics-1';
 import { escapeHtml } from '../utils.js?v=platform-18';
 
 export function renderLanguageSwitchLoading(locale = 'en-US') {

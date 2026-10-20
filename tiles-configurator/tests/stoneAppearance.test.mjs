@@ -62,7 +62,7 @@ test('woven mixed finishes retain directional contrast through rotations and cut
           const base = stoneAppearance(p, COLORS.noir).base;
           roles[p.shadeRole].add(base);
           if (original.has(key(p))) assert.equal(base, original.get(key(p)));
-          if (!p.cut) assert.equal(p.shadeRole, (rotation === 90 ? p.w > p.l : p.l > p.w) ? 0 : 1);
+          if (!p.cut) assert.equal(p.shadeRole, (p.l > p.w) ? 0 : 1);
         }
         assert.equal(roles[0].size, 1);
         assert.equal(roles[1].size, 1);

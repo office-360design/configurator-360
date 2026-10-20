@@ -1,0 +1,5 @@
+{
+  "input": {"roofType":"gable","length":10,"depth":7,"wallHeight":3,"pitch":30,"overhang":0.4,"covering":"generic","roofColor":"#8c4037","locale":"en-US","currency":"RON"},
+  "output": {"footprint":70,"roofArea":97.27197335306815,"ridgeLength":10.8,"eavesLength":21.6,"panels":218,"ridgePieces":30,"gutterPieces":8},
+  "assumptions": {"panelEffectiveArea":0.47,"panelWastePercent":5,"ridgeEffectiveLength":0.37,"gutterLength":3}
+}

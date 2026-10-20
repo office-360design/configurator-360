@@ -2,7 +2,7 @@ import {
   callFirebaseProtectedShareFunction,
   getFirebaseShareProtectionStatus,
   isFirebaseAppCheckConfigured,
-} from './firebaseAppCheck.js?v=platform-18';
+} from './firebaseAppCheck.js?v=locales-6';
 
 const LEGACY_SHARE_PARAM = 'config';
 const COMPACT_SHARE_PARAM = 'c';

@@ -1,11 +1,13 @@
+import { refreshProductionLabels } from './productionGeometry.js?v=site-analytics-1';
+import { loadingSceneryExclusions } from './logistics.js?v=hall-production-1';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buildHallModel, applyExplodedView } from './hallFactory.js?v=platform-18';
-import { deriveHallMetrics } from './state.js?v=platform-18';
-import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=platform-18';
-import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=platform-18';
+import { buildHallModel, applyExplodedView } from './hallFactory.js?v=site-analytics-1';
+import { deriveHallMetrics } from './state.js?v=site-analytics-1';
+import { makeOpening, normalizeOpening, normalizeOpenings, validateOpenings } from './openings.js?v=site-analytics-1';
+import { hallCompassLabels, hallT, resolveHallLocale } from './i18n.js?v=site-analytics-1';
 
 function disposeObject(object) {
   object.traverse((child) => {
@@ -13,6 +15,7 @@ function disposeObject(object) {
     // Three's `removed` event only fires on the directly removed object, so nested
     // label DOM nodes would otherwise remain in CSS2DRenderer's overlay forever.
     if (child.element instanceof HTMLElement) child.element.remove();
+    if (child.userData?.productionLabelKey) child.material?.map?.dispose?.();
     child.geometry?.dispose?.();
     if (Array.isArray(child.material)) child.material.forEach((item) => item?.dispose?.());
     else child.material?.dispose?.();
@@ -239,6 +242,8 @@ export class HallScene {
     this.placement = null;
     this.openingDrag = null;
     this.openingResize = null;
+    this.openingPointerGesture = null;
+    this.lastOpeningTap = null;
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
     this.coarsePointer = window.matchMedia('(pointer: coarse)').matches;
@@ -291,9 +296,20 @@ export class HallScene {
 
   bindOpeningInteraction() {
     const canvas = this.renderer.domElement;
-    canvas.addEventListener('pointerdown', (event) => this.onOpeningPointerDown(event));
+    // Capture intentional edits before OrbitControls sees the pointer. An
+    // unselected component does not intercept a normal camera drag.
+    canvas.addEventListener('pointerdown', (event) => this.onOpeningPointerDown(event), true);
+    canvas.addEventListener('dblclick', (event) => this.onOpeningDoubleClick(event));
     canvas.addEventListener('pointermove', (event) => this.onOpeningPointerMove(event));
     window.addEventListener('pointerup', (event) => this.onOpeningPointerUp(event));
+    window.addEventListener('pointercancel', (event) => this.cancelOpeningGesture(event));
+    window.addEventListener('blur', () => this.cancelOpeningGesture());
+    window.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (this.openingDrag || this.openingResize) this.cancelOpeningGesture();
+      else if (this.placement) this.cancelOpeningPlacement(this.currentState);
+      else this.selectOpening(null, this.currentState);
+    });
     window.addEventListener('contextmenu', (event) => {
       if (!this.placement || !this.currentState) return;
       event.preventDefault();
@@ -359,7 +375,7 @@ export class HallScene {
     const meshes = [];
     const group = this.currentBuild?.root?.getObjectByName('openings');
     group?.traverse((object) => {
-      if (object.isMesh && object.userData?.openingId && !object.userData.resizeHandle) meshes.push(object);
+      if (object.isMesh && object.userData?.openingId && !object.userData.resizeHandle && this.isOpeningObjectVisible(object)) meshes.push(object);
     });
     return meshes;
   }
@@ -368,7 +384,7 @@ export class HallScene {
     const handles = [];
     const group = this.openingGroup(this.selectedOpeningId);
     group?.traverse((object) => {
-      if (object.isMesh && object.userData?.resizeHandle) handles.push(object);
+      if (object.isMesh && object.userData?.resizeHandle && this.isOpeningObjectVisible(object)) handles.push(object);
     });
     return handles;
   }
@@ -556,6 +572,23 @@ export class HallScene {
     this.callbacks.onOpeningChange?.({ immediate: true });
   }
 
+  clearOpeningInteraction() {
+    const pointerId = this.openingPointerGesture?.pointerId;
+    if (pointerId != null && this.renderer.domElement.hasPointerCapture?.(pointerId)) {
+      this.renderer.domElement.releasePointerCapture(pointerId);
+    }
+    this.placement = null;
+    this.openingDrag = null;
+    this.openingResize = null;
+    this.openingPointerGesture = null;
+    this.lastOpeningTap = null;
+    this.lastOpeningGestureMoved = false;
+    this.selectedOpeningId = null;
+    this.controls.enabled = true;
+    this.callbacks.onOpeningPlacementChange?.(null);
+    this.callbacks.onOpeningSelectionChange?.(null);
+  }
+
   deleteOpening(id, state = this.currentState) {
     if (!state || !id) return;
     if (this.placement?.id === id) this.placement = null;
@@ -577,10 +610,42 @@ export class HallScene {
     this.callbacks.onOpeningChange?.({ immediate: true });
   }
 
+  isOpeningObjectVisible(object) {
+    for (let current = object; current; current = current.parent) {
+      if (!current.visible) return false;
+    }
+    return true;
+  }
+
+  openingHitFromEvent(event) {
+    this.setRayFromEvent(event);
+    const hit = this.raycaster.intersectObjects(this.openingMeshes(), false)[0];
+    if (!hit) return null;
+    // Do not select a door on the far wall through the building's envelope.
+    const envelope = this.currentBuild?.root?.getObjectByName('envelope');
+    if (envelope?.visible) {
+      const wallHits = this.raycaster.intersectObject(envelope, true)
+        .filter((entry) => entry.object.isMesh && this.isOpeningObjectVisible(entry.object));
+      if (wallHits[0] && wallHits[0].distance < hit.distance - .005) return null;
+    }
+    return hit;
+  }
+
+  onOpeningDoubleClick(event) {
+    if (!this.currentState || this.placement || event.button !== 0) return;
+    if (this.lastOpeningGestureMoved) return;
+    const hit = this.openingHitFromEvent(event);
+    const id = hit?.object.userData.openingId ?? null;
+    if (id !== this.selectedOpeningId) this.selectOpening(id, this.currentState);
+    // Selection itself never moves or resizes the component.
+    event.preventDefault();
+  }
+
   onOpeningPointerDown(event) {
-    if (!this.currentState || event.button !== 0) return;
+    if (!this.currentState || event.button !== 0 || event.isPrimary === false) return;
     if (this.placement) {
       event.preventDefault();
+      event.stopImmediatePropagation();
       const opening = this.openingById(this.placement.id);
       const hit = this.wallHitFromEvent(event);
       if (!opening || !hit) return;
@@ -593,35 +658,50 @@ export class HallScene {
       this.confirmOpeningPlacement(this.currentState);
       return;
     }
+    this.openingPointerGesture = {
+      pointerId: event.pointerId,
+      x: event.clientX, y: event.clientY,
+      moved: false, editing: false,
+    };
     this.setRayFromEvent(event);
     const handleHit = this.raycaster.intersectObjects(this.resizeHandleMeshes(), false)[0];
+    const openingHit = this.openingHitFromEvent(event);
+    const id = handleHit?.object.userData.openingId ?? openingHit?.object.userData.openingId ?? null;
+    this.openingPointerGesture.openingId = id;
+    // Single clicks/drags on any unselected object belong to OrbitControls.
+    // Only an already double-click-selected component can be edited by dragging.
+    if (!id || id !== this.selectedOpeningId) return;
+    const opening = this.openingById(id);
+    if (!opening) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.controls.enabled = false;
+    this.openingPointerGesture.editing = true;
     if (handleHit) {
-      const opening = this.openingById(handleHit.object.userData.openingId);
-      if (!opening) return;
-      event.preventDefault();
-      this.controls.enabled = false;
-      this.openingResize = { id: opening.id, handle: handleHit.object.userData.resizeHandle, start: { ...opening } };
-      this.renderer.domElement.setPointerCapture?.(event.pointerId);
-      return;
+      this.openingResize = { id, handle: handleHit.object.userData.resizeHandle, start: { ...opening } };
+    } else {
+      const hit = this.wallHitFromEvent(event, opening.side);
+      this.openingDrag = {
+        id, start: { ...opening },
+        grabU: hit ? hit.u - opening.offset : 0,
+        grabV: hit ? hit.v - opening.bottom : opening.height / 2,
+      };
     }
-
-    const openingHit = this.raycaster.intersectObjects(this.openingMeshes(), true)[0];
-    if (openingHit) {
-      const id = openingHit.object.userData.openingId;
-      const opening = this.openingById(id);
-      if (!opening) return;
-      event.preventDefault();
-      this.selectOpening(id, this.currentState);
-      this.controls.enabled = false;
-      this.openingDrag = { id, start: { ...opening } };
-      this.renderer.domElement.setPointerCapture?.(event.pointerId);
-      return;
-    }
-    this.selectOpening(null, this.currentState);
+    this.renderer.domElement.setPointerCapture?.(event.pointerId);
   }
 
   onOpeningPointerMove(event) {
     if (!this.currentState) return;
+    const gesture = this.openingPointerGesture;
+    if (gesture && gesture.pointerId === event.pointerId) {
+      const distance = Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y);
+      if (!gesture.moved && distance >= (this.coarsePointer ? 10 : 5)) {
+        gesture.moved = true;
+        this.lastOpeningTap = null;
+        if (gesture.editing) window.HALL_CONFIGURATOR_UNDO_HISTORY?.record?.();
+      }
+    }
+    if ((this.openingDrag || this.openingResize) && (!gesture?.moved || gesture.pointerId !== event.pointerId)) return;
     if (this.placement) {
       const opening = this.openingById(this.placement.id);
       const hit = this.wallHitFromEvent(event);
@@ -639,8 +719,8 @@ export class HallScene {
       const hit = this.wallHitFromEvent(event);
       if (!opening || !hit) return;
       opening.side = hit.side;
-      opening.offset = hit.u;
-      opening.bottom = hit.v - opening.height / 2;
+      opening.offset = hit.u - this.openingDrag.grabU;
+      opening.bottom = hit.v - this.openingDrag.grabV;
       normalizeOpening(opening, this.currentState);
       this.applyOpeningPosePreview(opening);
       this.callbacks.onOpeningSelectionChange?.(opening.id);
@@ -681,12 +761,49 @@ export class HallScene {
   }
 
   onOpeningPointerUp(event) {
-    if (!this.currentState || (!this.openingDrag && !this.openingResize)) return;
+    const gesture = this.openingPointerGesture;
+    if (!this.currentState || !gesture || gesture.pointerId !== event.pointerId) return;
+    this.openingPointerGesture = null;
+    this.lastOpeningGestureMoved = gesture.moved;
+    const wasEditing = Boolean(this.openingDrag || this.openingResize);
     try { this.renderer.domElement.releasePointerCapture?.(event.pointerId); } catch { /* capture already released */ }
     this.openingDrag = null;
     this.openingResize = null;
-    this.controls.enabled = true;
-    this.callbacks.onOpeningChange?.({ immediate: true });
+    this.controls.enabled = !this.placement;
+    if (wasEditing && gesture.moved) this.callbacks.onOpeningChange?.({ immediate: true });
+    if (!gesture.moved) {
+      // Pointer taps also cover touch devices that do not emit native dblclick.
+      const tap = { id: gesture.openingId, x: event.clientX, y: event.clientY, time: event.timeStamp };
+      const previous = this.lastOpeningTap;
+      if (tap.id && previous?.id === tap.id && tap.time - previous.time <= 350
+        && Math.hypot(tap.x - previous.x, tap.y - previous.y) <= 14) {
+        if (tap.id !== this.selectedOpeningId) this.selectOpening(tap.id, this.currentState);
+        this.lastOpeningTap = null;
+      } else {
+        this.lastOpeningTap = tap;
+        if (!tap.id) this.selectOpening(null, this.currentState);
+      }
+    }
+  }
+
+  cancelOpeningGesture(event = null) {
+    const gesture = this.openingPointerGesture;
+    if (event && gesture && event.pointerId !== gesture.pointerId) return;
+    const edit = this.openingDrag || this.openingResize;
+    if (edit && this.currentState) {
+      const opening = this.openingById(edit.id);
+      if (opening) {
+        Object.assign(opening, edit.start);
+        this.applyOpeningPosePreview(opening);
+      }
+    }
+    try { this.renderer.domElement.releasePointerCapture?.(gesture?.pointerId); } catch { /* no capture */ }
+    this.openingDrag = null;
+    this.openingResize = null;
+    this.openingPointerGesture = null;
+    this.lastOpeningTap = null;
+    this.controls.enabled = !this.placement;
+    if (edit) this.callbacks.onOpeningSelectionChange?.(this.selectedOpeningId);
   }
 
   projectOpeningEditor() {
@@ -722,7 +839,11 @@ export class HallScene {
     this.sunLight = new THREE.DirectionalLight(0xffffff, 2.25);
     this.sunLight.position.set(-18, 28, -14);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.set(1024, 1024);
+    this.sunLight.shadow.mapSize.set(2048, 2048);
+    // A zero-bias, 120 m shadow frustum produced horizontal self-shadow bands
+    // on sunlit cladding. Keep real shadows but offset their depth comparison.
+    this.sunLight.shadow.bias = -.00015;
+    this.sunLight.shadow.normalBias = .025;
     this.sunLight.shadow.camera.left = -60;
     this.sunLight.shadow.camera.right = 60;
     this.sunLight.shadow.camera.top = 60;
@@ -733,6 +854,44 @@ export class HallScene {
     this.fillLight = new THREE.DirectionalLight(0xbcdcf0, .8);
     this.fillLight.position.set(22, 15, 25);
     this.scene.add(this.fillLight);
+  }
+
+  fitSunShadowCamera(state) {
+    const metrics = this.currentBuild?.metrics ?? deriveHallMetrics(state);
+    const halfW = state.width / 2;
+    const halfL = state.length / 2;
+    const margin = Math.max(4, metrics.ridgeElevation * .85);
+    const top = metrics.ridgeElevation + 5;
+    // Keep all of the hall in front of the sun's shadow camera on large layouts.
+    const distance = Math.hypot(halfW + margin, halfL + margin, top) * 1.35;
+    if (this.sunLight.position.length() < distance) this.sunLight.position.setLength(distance);
+    this.sunLight.updateMatrixWorld(true);
+    this.sunLight.target.updateMatrixWorld(true);
+    const shadow = this.sunLight.shadow;
+    shadow.updateMatrices(this.sunLight);
+    const bounds = new THREE.Box3();
+    for (const x of [-halfW - margin, halfW + margin]) {
+      for (const y of [-2, top]) {
+        for (const z of [-halfL - margin, halfL + margin]) {
+          bounds.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(shadow.camera.matrixWorldInverse));
+        }
+      }
+    }
+    shadow.camera.left = bounds.min.x;
+    shadow.camera.right = bounds.max.x;
+    shadow.camera.bottom = bounds.min.y;
+    shadow.camera.top = bounds.max.y;
+    shadow.camera.near = Math.max(.1, -bounds.max.z - 1);
+    shadow.camera.far = Math.max(shadow.camera.near + 1, -bounds.min.z + 1);
+    const texel = Math.max((bounds.max.x - bounds.min.x) / shadow.mapSize.x,
+      (bounds.max.y - bounds.min.y) / shadow.mapSize.y);
+    // Metric offsets remain consistent when the hall size/sun direction changes.
+    // Front-side cladding shadow casters (hallFactory) avoid the opposite skin
+    // becoming a second occluder on these thin, closed panel solids.
+    shadow.normalBias = Math.min(.09, Math.max(.025, texel * 1.5));
+    shadow.bias = -Math.max(.0001, texel * .65 / (shadow.camera.far - shadow.camera.near));
+    shadow.camera.updateProjectionMatrix();
+    shadow.needsUpdate = true;
   }
 
   async loadEnvironmentAssets() {
@@ -750,7 +909,9 @@ export class HallScene {
 
   updateEnvironment(state, { force = false } = {}) {
     this.currentState = state;
-    const key = `${state.width}|${state.length}|${state.showScenery}|${Boolean(this.environmentAssets.tree)}`;
+    const loadingSceneryKey = JSON.stringify([state.loadingApron, state.loadingApronDepth, state.warehouseLayout,
+      (state.openings || []).filter((o) => o.type === 'garage').map((o) => [o.side, o.offset, o.width, o.bottom, o.subtype])]);
+    const key = `${state.width}|${state.length}|${state.showScenery}|${Boolean(this.environmentAssets.tree)}|${loadingSceneryKey}`;
     if (!force && key === this.environmentKey) return;
     this.environmentKey = key;
     this.groundRoot.clear();
@@ -761,6 +922,7 @@ export class HallScene {
     const fogFar = Math.max(72, sceneSpan * 2.55 + 18);
     this.scene.fog.near = fogNear;
     this.scene.fog.far = fogFar;
+    this.updateLoadingFog(state);
     const size = Math.max(420, fogFar * 2.4);
     this.groundMaterial = new THREE.MeshStandardMaterial({ color: 0xcfd9d3, roughness: .95, metalness: 0 });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), this.groundMaterial);
@@ -800,7 +962,11 @@ export class HallScene {
       [-halfW - 8.5, halfL * .55, .74, 22],
     ];
 
+    const loadingExclusions = loadingSceneryExclusions(state);
     treeSpecs.forEach(([x, z, scale, rotation]) => {
+      const radius = 1.35 * scale + .6;
+      if (loadingExclusions.some((r) => x + radius > r.minX && x - radius < r.maxX
+        && z + radius > r.minZ && z - radius < r.maxZ)) return;
       const tree = fitAssetToBox(this.cloneAsset('tree') ?? makeTreeFallback(), new THREE.Vector3(2.7 * scale, 4.7 * scale, 2.7 * scale));
       tree.position.add(new THREE.Vector3(x, .008, z));
       tree.rotation.y = THREE.MathUtils.degToRad(rotation);
@@ -813,6 +979,7 @@ export class HallScene {
 
   setLocale(locale = resolveHallLocale()) {
     this.locale = locale;
+    refreshProductionLabels(this.currentBuild?.root, locale);
     const plane = this.compassRoot?.children?.[0];
     if (plane?.material) {
       plane.material.map?.dispose?.();
@@ -895,6 +1062,10 @@ export class HallScene {
     const openings = get('openings');
     const services = get('building-services');
     const planning = get('warehouse-planning');
+    const frontage = get('commercial-frontage');
+    const retail = get('retail-fitout');
+    const logistics = get('loading-logistics');
+    const production = get('production-fitout');
 
     const mode = state.inspectionMode ?? 'all';
     if (primary) primary.visible = mode === 'all' || mode === 'primary' || mode === 'secondary' || mode === 'connections' || mode === 'foundations';
@@ -903,6 +1074,10 @@ export class HallScene {
     if (foundation) foundation.visible = mode === 'all' || mode === 'foundations';
     if (envelope) envelope.visible = state.showCladding && (mode === 'all' || mode === 'envelope');
     if (openings) openings.visible = mode === 'all' || mode === 'envelope';
+    if (frontage) frontage.visible = mode === 'all' || mode === 'envelope';
+    if (retail) retail.visible = mode === 'all';
+    if (production) production.visible = state.productionLayout && (mode === 'all' || mode === 'services');
+    if (logistics) logistics.visible = mode === 'all' || mode === 'envelope';
     if (services) services.visible = mode === 'all' || mode === 'services';
     if (planning) planning.visible = (mode === 'all' || mode === 'services') && (state.warehouseRacking || state.forkliftClearance);
 
@@ -910,6 +1085,7 @@ export class HallScene {
       lighting: 'service-lighting',
       fire: 'service-fire',
       climate: 'service-climate',
+      production: 'service-production',
       drainage: 'service-drainage',
       skylights: 'service-skylights',
       coverage: 'service-coverage',
@@ -956,6 +1132,7 @@ export class HallScene {
     const angle = THREE.MathUtils.degToRad(-70 + state.sunPosition * 140 + state.northDirection);
     const radius = 34;
     this.sunLight.position.set(Math.sin(angle) * radius, 26 + Math.sin(state.sunPosition * Math.PI) * 8, Math.cos(angle) * radius);
+    this.fitSunShadowCamera(state);
 
     const season = state.season ?? 'winter';
     const night = Boolean(state.nightPreview);
@@ -984,10 +1161,47 @@ export class HallScene {
     this.updateCompass(state);
   }
 
+  updateLoadingFog(state) {
+    if (!['loading','production'].includes(state.cameraPreset) || !this.scene?.fog) return;
+    const span = Math.max(state.width, state.length);
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    // A portrait fit for a long loading hall can otherwise put the entire model in fog.
+    this.scene.fog.near = Math.max(32, distance + span);
+    this.scene.fog.far = this.scene.fog.near + Math.max(80, span * 2);
+  }
+
   fitCamera(state, metrics) {
+    if (['customer', 'loading', 'production'].includes(state.cameraPreset) && this.currentBuild?.root) {
+      // Fit the real commercial geometry (including canopy/forecourt) from the
+      // customer side. A fixed distance can crop a wide shopfront on phones.
+      this.currentBuild.root.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(this.currentBuild.root);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const towardCamera = (state.cameraPreset === 'loading'
+        ? new THREE.Vector3(1.5, .74, -.90) : state.cameraPreset === 'production'
+          ? new THREE.Vector3(1.10, .85, state.productionFlow === 'back-to-front' ? 1.4 : -1.4)
+          : new THREE.Vector3(.85, .42, -1.20)).normalize();
+      const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), towardCamera).normalize();
+      const up = new THREE.Vector3().crossVectors(towardCamera, right).normalize();
+      const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+      const tanH = tanV * this.camera.aspect;
+      let distance = 1;
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+        const q = new THREE.Vector3(x, y, z).sub(center);
+        distance = Math.max(distance, q.dot(towardCamera) + Math.max(Math.abs(q.dot(right)) / tanH, Math.abs(q.dot(up)) / tanV));
+      }
+      distance *= 1.12;
+      this.controls.maxDistance = Math.max(190, distance * 1.5);
+      this.controls.target.copy(center);
+      this.camera.position.copy(center).addScaledVector(towardCamera, distance);
+      this.camera.near = .1; this.camera.far = Math.max(300, distance * 8);
+      this.camera.updateProjectionMatrix(); this.controls.update();
+      this.updateLoadingFog?.(state);
+      return;
+    }
     const radius = Math.max(state.length, state.width, metrics.ridgeElevation) * .72;
     this.controls.target.set(0, Math.max(2, state.eaveHeight * .48), 0);
-    this.camera.position.set(radius * .88, radius * .62, radius * 1.12);
+    this.camera.position.set(radius * .88, radius * .62, radius * 1.12 * (state.cameraPreset === 'customer' ? -1 : 1));
     this.camera.near = .1;
     this.camera.far = Math.max(300, radius * 8);
     this.camera.updateProjectionMatrix();
@@ -998,7 +1212,10 @@ export class HallScene {
     const span = Math.max(state.length, state.width, metrics.ridgeElevation);
     const target = new THREE.Vector3(0, state.eaveHeight * .48, 0);
     this.controls.target.copy(target);
-    if (view === 'front') this.camera.position.set(0, state.eaveHeight * .62, -span * 1.45);
+    if (view === 'production') { this.fitCamera({ ...state, cameraPreset: 'production' }, metrics); return; }
+    if (view === 'loading') { this.fitCamera({ ...state, cameraPreset: 'loading' }, metrics); return; }
+    if (view === 'customer') { this.fitCamera({ ...state, cameraPreset: 'customer' }, metrics); return; }
+    else if (view === 'front') this.camera.position.set(0, state.eaveHeight * .62, -span * 1.45);
     else if (view === 'side') this.camera.position.set(span * 1.35, state.eaveHeight * .62, 0);
     else if (view === 'top') this.camera.position.set(0, span * 1.85, .001);
     else this.camera.position.set(span * .78, span * .55, span * 1.02);

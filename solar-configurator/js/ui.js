@@ -1,4 +1,4 @@
-import { modulePresets, regionPresets } from './state.js?v=platform-18';
+import { modulePresets, regionPresets } from './state.js?v=site-analytics-1';
 import {
   estimateAnnualProduction,
   estimateDailyConsumption,
@@ -6,9 +6,9 @@ import {
   localObstructionShadeAtSun,
   simulateDay,
   sunClearsPvgisHorizon,
-} from './energyModel.js?v=platform-18';
-import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=platform-18';
-import { getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=platform-18';
+} from './energyModel.js?v=site-analytics-1';
+import { calculateSolarEstimate, estimateToCsv } from './estimate.js?v=site-analytics-1';
+import { getActiveLocation, getSeasonForDate, getSolarContext } from './solarPosition.js?v=site-analytics-1';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -17,8 +17,8 @@ import {
   fromDisplayLength,
   normalizeUnits,
   toDisplayLength,
-} from './preferences.js?v=platform-18';
-import { applySolarTranslations, solarFormatAzimuth, solarModuleLabel, solarModuleNote, solarRateSourceLabel, solarRegionCity, solarRoofName, solarSeasonLabel, solarT, resolveSolarLocale } from './i18n.js?v=solar-panel-1';
+} from './preferences.js?v=locales-6';
+import { applySolarTranslations, solarFormatAzimuth, solarModuleLabel, solarModuleNote, solarRateSourceLabel, solarRegionCity, solarRoofName, solarSeasonLabel, solarT, resolveSolarLocale } from './i18n.js?v=site-analytics-1';
 
 const LENGTH_CONTROL_KEYS = new Set(['length', 'depth']);
 const numeric = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -41,6 +41,9 @@ export class SolarUI {
     this.bindBatteryControls();
     this.bindPricingControls();
     this.bindToggles();
+    const chart = document.querySelector('#simulationChart');
+    this.chartResizeObserver = new ResizeObserver(() => this.renderChart());
+    if (chart) this.chartResizeObserver.observe(chart);
     this.bindEstimate();
     this.syncAllControls();
   }
@@ -558,7 +561,9 @@ export class SolarUI {
   renderChart() {
     const svg = document.querySelector('#simulationChart');
     if (!svg || !this.currentSimulation) return;
-    const width = 720;
+    const compact = window.matchMedia('(max-width: 760px)').matches;
+    const width = compact ? Math.max(260, svg.clientWidth) : 720;
+    svg.setAttribute('viewBox', `0 0 ${width} 230`);
     const height = 230;
     const left = 42;
     const right = 16;
@@ -601,10 +606,10 @@ export class SolarUI {
   updateEstimate() {
     const estimate = this.currentEstimate;
     if (!estimate) return;
-    document.querySelector('#headerEstimateTotal').textContent = formatCurrency(estimate.total, estimate.currency);
-    document.querySelector('#estimateSubtotal').textContent = formatCurrency(estimate.subtotal, estimate.currency);
-    document.querySelector('#estimateVat').textContent = formatCurrency(estimate.vat, estimate.currency);
-    document.querySelector('#estimateTotal').textContent = formatCurrency(estimate.total, estimate.currency);
+    document.querySelector('#headerEstimateTotal').textContent = formatCurrency(estimate.total, estimate.currency, this.locale);
+    document.querySelector('#estimateSubtotal').textContent = formatCurrency(estimate.subtotal, estimate.currency, this.locale);
+    document.querySelector('#estimateVat').textContent = formatCurrency(estimate.vat, estimate.currency, this.locale);
+    document.querySelector('#estimateTotal').textContent = formatCurrency(estimate.total, estimate.currency, this.locale);
 
     const body = document.querySelector('#estimateTableBody');
     body?.replaceChildren(...estimate.lines.map((line, index) => {
@@ -616,8 +621,8 @@ export class SolarUI {
         <td><strong>${line.name}</strong>${line.note ? `<small>${line.note}</small>` : ''}</td>
         <td>${line.unit}</td>
         <td>${typeof line.quantity === 'number' ? Number(line.quantity.toFixed?.(2) ?? line.quantity) : line.quantity}</td>
-        <td>${formatCurrency(line.unitPrice, estimate.currency)}</td>
-        <td>${formatCurrency(line.value, estimate.currency)}</td>
+        <td>${formatCurrency(line.unitPrice, estimate.currency, this.locale)}</td>
+        <td>${formatCurrency(line.value, estimate.currency, this.locale)}</td>
       `;
       return row;
     }) || []);
@@ -627,7 +632,7 @@ export class SolarUI {
       [this.t('estimate.assumption.panels'), `${estimate.assumptions.panels}`],
       [this.t('estimate.assumption.arrayArea'), formatArea(estimate.assumptions.installedAreaM2, this.state.units, 1)],
       [this.t('estimate.assumption.storage'), this.state.batteryEnabled ? `${estimate.assumptions.batteryCapacity.toFixed(0)} kWh` : this.t('storage.none')],
-      [this.locale === 'ro-RO' ? 'Rețea' : this.locale === 'de-DE' ? 'Netz' : 'Grid', estimate.assumptions.gridConnection === 'three' ? (this.locale === 'ro-RO' ? 'Trifazat' : this.locale === 'de-DE' ? 'Dreiphasig' : 'Three-phase') : (this.locale === 'ro-RO' ? 'Monofazat' : this.locale === 'de-DE' ? 'Einphasig' : 'Single-phase')],
+      [this.t('estimate.assumption.grid'), this.t(estimate.assumptions.gridConnection === 'three' ? 'estimate.grid.threePhase' : 'estimate.grid.singlePhase')],
       [this.t('estimate.assumption.vat'), this.t('estimate.vatIncluded', { rate: Math.round(estimate.vatRate * 100) })],
     ];
     const grid = document.querySelector('#estimateAssumptions');

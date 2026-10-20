@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
 import test from 'node:test';
@@ -553,22 +554,46 @@ async function releaseFixture(run) {
   const release = 'website/outputs/release-site/';
   try {
     const routesSource = await read('website/scripts/static-routes.mjs');
-    const { pageRoutes, routeOutputPath } = await import(dataUrl(routesSource));
     await put('website/scripts/static-routes.mjs', routesSource);
+    // static-routes reads the page slugs next to it; import the copy, not a data: URL.
+    await put('website/lib/page-slugs.json', await read('website/lib/page-slugs.json'));
+    const { configurators, pageRoutes, routeOutputPath, localizedRoutePath } = await import(pathToFileURL(path.join(temporary, 'website/scripts/static-routes.mjs')).href);
     await put('website/scripts/validate-static-release.mjs', await read('website/scripts/validate-static-release.mjs'));
-    const domains = { en: 'https://www.360configurator.com', ro: 'https://www.360configurator.ro', de: 'https://www.360konfigurator.de' };
+    const domains = {
+      en: 'https://www.360configurator.com', ro: 'https://www.360configurator.ro', de: 'https://www.360konfigurator.de',
+      es: 'https://www.360configurador.es', fr: 'https://www.360configurateur.fr', it: 'https://www.360configuratore.it',
+    };
+    const hreflangs = { en: 'en', ro: 'ro-RO', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', it: 'it-IT' };
+    // Pages carry the SEO head the real static export produces: self-canonical,
+    // reciprocal hreflang alternates, indexable robots and product links.
+    // Every domain links and canonicalises its pages under its own language slugs.
+    const productLinks = locale => ['pergola', 'roof', 'window', 'hall', 'solar', 'fence', 'chair', 'cardbox', 'bookshelf', 'tiles']
+      .map(slug => `<a href="${localizedRoutePath(locale, `/configurators/${slug}`)}">${slug}</a>`).join('');
     for (const route of pageRoutes) {
-      const locale = /^\/ro(?:\/|$)/.test(route) ? 'ro' : /^\/de(?:\/|$)/.test(route) ? 'de' : 'en';
-      await put(release + routeOutputPath(route), `<html lang="${locale}"><head><link rel="canonical" href="${domains[locale]}${route}"></head><body class="site-shell detail-page"><a href="https://www.360configurator.com/roof-configurator/">Roof</a></body></html>`);
+      const locale = route.match(/^\/(ro|de|es|fr|it)(?=\/|$)/)?.[1] || 'en';
+      const publicPath = route.replace(/^\/(ro|de|es|fr|it)(?=\/|$)/, '') || '/';
+      const alternates = [...Object.entries(hreflangs).map(([short, language]) => [language, domains[short], short]), ['x-default', domains.en, 'en']]
+        .map(([language, origin, short]) => `<link rel="alternate" hreflang="${language}" href="${origin}${localizedRoutePath(short, publicPath)}">`).join('');
+      const head = `<link rel="canonical" href="${domains[locale]}${localizedRoutePath(locale, publicPath)}">${alternates}<meta name="robots" content="index, follow">`;
+      await put(release + routeOutputPath(route), `<html lang="${locale}"><head>${head}</head><body class="site-shell detail-page"><a href="https://www.360configurator.com/roof-configurator/">Roof</a>${productLinks(locale)}</body></html>`);
     }
     for (const file of ['404.html', '.nojekyll', 'release-manifest.json', 'robots.txt', 'favicon-32x32.png', 'favicon-192x192.png', 'favicon-512x512.png', 'apple-touch-icon.png']) await put(release + file);
+    // Per-domain machine-readable context files (llms.txt for .com, llms-<lang>.txt for the country domains).
+    for (const locale of Object.keys(domains)) {
+      const suffix = locale === 'en' ? '' : `-${locale}`;
+      await put(`${release}llms${suffix}.txt`, `# 360Configurator ${locale}\n`);
+      await put(`${release}llms-full${suffix}.txt`, `# 360Configurator ${locale}\n`);
+    }
     const apps = {
       en: ['/pergola-configurator/', '/roof-configurator/', '/window-configurator/', '/hall-configurator/', '/solar-configurator/', '/fence-configurator/', '/cardbox-configurator/', '/chair-configurator/'],
       ro: ['/configurator-pergola/', '/configurator-acoperis/', '/configurator-ferestre/', '/configurator-hala/', '/configurator-solar/', '/configurator-garduri/', '/configurator-cutii-carton/', '/configurator-scaune/'],
       de: ['/pergola-konfigurator/', '/dach-konfigurator/', '/fenster-konfigurator/', '/hallen-konfigurator/', '/solar-konfigurator/', '/zaun-konfigurator/', '/karton-konfigurator/', '/stuhl-konfigurator/'],
+      es: ['/configurador-pergolas/', '/configurador-tejados/', '/configurador-ventanas/', '/configurador-naves/', '/configurador-solar/', '/configurador-vallas/', '/configurador-cajas-carton/', '/configurador-sillas/'],
+      fr: ['/configurateur-pergola/', '/configurateur-toiture/', '/configurateur-fenetres/', '/configurateur-hangar/', '/configurateur-solaire/', '/configurateur-cloture/', '/configurateur-cartons/', '/configurateur-chaises/'],
+      it: ['/configuratore-pergola/', '/configuratore-tetto/', '/configuratore-finestre/', '/configuratore-capannone/', '/configuratore-fotovoltaico/', '/configuratore-recinzioni/', '/configuratore-scatole/', '/configuratore-sedie/'],
     };
     for (const [locale, domain] of Object.entries(domains)) {
-      const urls = ['/', '/about', '/contact', '/pricing', '/book-a-demo', ...['pergola', 'roof', 'window', 'hall', 'solar', 'fence'].map(id => `/configurators/${id}`), ...apps[locale]];
+      const urls = ['/', ...['/about', '/contact', '/pricing', '/book-a-demo', ...configurators.map(id => `/configurators/${id}`)].map(route => localizedRoutePath(locale, route)), ...apps[locale]];
       const xml = `<urlset>${urls.map(url => `<url><loc>${domain}${url}</loc></url>`).join('')}</urlset>`;
       await put(`${release}sitemap-${locale}.xml`, xml);
       if (locale === 'en') await put(`${release}sitemap.xml`, xml);
@@ -588,6 +613,14 @@ async function releaseFixture(run) {
 }
 test('website-only release validates all three editors against the real composed-site mount paths', () => releaseFixture(async ({ validate }) => {
   const result = validate(); assert.equal(result.status, 0, result.stdout + result.stderr);
+}));
+test('release validation rejects a missing configurator sitemap entry', () => releaseFixture(async ({ temporary, release, put, validate }) => {
+  const sitemap = `${release}sitemap-ro.xml`;
+  const xml = await readFile(path.join(temporary, sitemap), 'utf8');
+  await put(sitemap, xml.replace('<url><loc>https://www.360configurator.ro/configuratoare/pavaje</loc></url>', ''));
+  const result = validate();
+  assert.equal(result.status, 1);
+  assert.ok(result.stderr.includes('sitemap-ro.xml is missing https://www.360configurator.ro/configuratoare/pavaje'), result.stderr);
 }));
 for (const [file, reference] of [
   ['fence-configurator/index.html', '/fence-configurator/'],
@@ -957,7 +990,7 @@ const settingsSource = await read('window-configurator/src/client/js/window-sett
 // dependency as well as the size schema so the production module can link.
 const loadingTraceUrl = dataUrl(await read('window-configurator/src/client/js/loading-trace.js'));
 const { loadPublishedWindowSettings } = await import(dataUrl(settingsSource.replace(
-  "'../../../../shared-ui/src/windowSizeSettings.js?v=1'", JSON.stringify(sizeModelUrl),
+  "'../../../../shared-ui/src/windowSizeSettings.js?v=size-limits-1'", JSON.stringify(sizeModelUrl),
 ).replace(
   /(['"])\.\/loading-trace\.js(?:\?[^'"]*)?\1/g, JSON.stringify(loadingTraceUrl),
 )));
@@ -1035,7 +1068,29 @@ test('overall sizing respects published lower/upper bounds in preview and commit
   await manager.resizeOverall({ widthM: 100, heightM: .1 });
   assert.deepEqual(dimensions(), { widthM: 4, heightM: 1 });
   await manager.resizeOverall({ widthM: .1, heightM: 100 });
-  assert.deepEqual(dimensions(), { widthM: 2, heightM: 3 });
+  // One row: the overall height is one window, so the window maximum (2 m) wins over the overall 3 m.
+  assert.deepEqual(dimensions(), { widthM: 2, heightM: 2 });
+});
+test('overall maximum follows the layout: columns × window maximum, capped by the overall maximum', async () => {
+  const { manager, state, dimensions } = await sizingHarness({
+    overall: { width: { minMm: 450, maxMm: 25000 }, height: { minMm: 450, maxMm: 25000 } },
+    individual: { width: { minMm: 450, maxMm: 2500 }, height: { minMm: 450, maxMm: 2500 } },
+  });
+  assert.deepEqual(manager.getMaximumDimensions(), { widthM: 5, heightM: 2.5 });
+  await manager.resizeOverall({ widthM: 18.725, heightM: 13.244 });
+  assert.deepEqual(dimensions(), { widthM: 5, heightM: 2.5 });
+  // A window merged over both columns may only be one window wide.
+  const merged = { ...state(), windows: [{ id: 'all', rect: { x0: 0, x1: 2, y0: 0, y1: 1 } }] };
+  assert.deepEqual(manager.getMaximumDimensions(merged), { widthM: 2.5, heightM: 2.5 });
+});
+test('layouts above the maximum are brought back within it', async () => {
+  const { manager, state, dimensions } = await sizingHarness({
+    overall: { width: { minMm: 450, maxMm: 25000 }, height: { minMm: 450, maxMm: 25000 } },
+    individual: { width: { minMm: 450, maxMm: 1000 }, height: { minMm: 450, maxMm: 2500 } },
+  });
+  assert.equal(await manager.clampToLimits(), true);
+  assert.deepEqual(dimensions(), { widthM: 2, heightM: 1.5 });
+  assert.equal(await manager.clampToLimits(), false, 'nothing to do within the limits');
 });
 test('individual resizing respects published caps and keeps overall size and sibling minimums', async () => {
   const { manager, state, dimensions } = await sizingHarness(narrowLimits());

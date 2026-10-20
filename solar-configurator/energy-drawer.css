@@ -346,3 +346,50 @@ body.configurator-embed-preview .solar-energy-drawer.is-collapsed .solar-energy-
     transition: none;
   }
 }
+
+/* Put the full-day graph first on phones, with readable labels and no sideways
+   scrolling. The remaining daily totals stay available below it. */
+@media (max-width: 760px) {
+  .solar-energy-drawer > .solar-energy-drawer__body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: min(62dvh, 520px);
+    padding: 12px;
+  }
+
+  .solar-energy-drawer__body-heading { order: 0; flex-wrap: wrap; }
+  .solar-energy-drawer__body-heading .eyebrow { font-size: 11px; }
+  .solar-energy-drawer__body-heading #simulationPlayButton {
+    min-height: 44px;
+    font-size: 12px;
+  }
+
+  .solar-energy-drawer .simulation-chart-wrap {
+    order: 1;
+    flex-shrink: 0;
+    overflow: visible;
+    min-width: 0;
+  }
+  .solar-energy-drawer #simulationChart {
+    min-width: 0;
+    width: 100%;
+    height: 230px;
+  }
+  .solar-energy-drawer #simulationChart text { font-size: 12px; }
+  .solar-energy-drawer .chart-legend {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px 14px;
+    margin-top: 4px;
+    font-size: 11px;
+  }
+  .solar-energy-drawer .simulation-summary-grid { order: 2; margin: 0; }
+  .solar-energy-drawer .simulation-summary-grid span { font-size: 11px; }
+  .solar-energy-drawer .solar-energy-drawer__toggle { font-size: 12px; }
+  .solar-energy-drawer__toggle span { max-width: none; }
+
+  body:has(.solar-energy-drawer:not(.is-collapsed)) .shared-ui-host .book-demo-button {
+    display: none;
+  }
+}

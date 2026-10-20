@@ -275,26 +275,26 @@ const wood = (id, labels, color, spec) => Object.freeze({ id, labels, color, spe
 const fabric = (id, labels, color, spec) => Object.freeze({ id, labels, color, spec: Object.freeze(spec) });
 
 export const WOOD_TYPES = Object.freeze([
-  wood('beech', ['Beech', 'Fag', 'Buche'], '#b78352', { seed: 3, style: 'straight', grain: 10, contrast: .04, roughness: .52, open: .06, pores: .02, figure: .025, tile: [2.4, 0.22] }),
-  wood('ash', ['Ash', 'Frasin', 'Esche'], '#baa07c', { seed: 7, style: 'ring-porous', grain: 8.2, contrast: .09, roughness: .55, open: .2, pores: .12, figure: .075, tile: [2.35, 0.20] }),
-  wood('oak', ['Oak', 'Stejar', 'Eiche'], '#be8851', { seed: 5, style: 'oak', grain: 8, contrast: .12, roughness: .53, open: .12, pores: .105, figure: .072, rays: .035, baseTone: .86, minTone: .24, tile: [3.0, 0.28], size: 1024 }),
+  wood('beech', ['Beech', 'Fag', 'Buche', 'Haya', 'Hêtre', 'Faggio'], '#b78352', { seed: 3, style: 'straight', grain: 10, contrast: .04, roughness: .52, open: .06, pores: .02, figure: .025, tile: [2.4, 0.22] }),
+  wood('ash', ['Ash', 'Frasin', 'Esche', 'Fresno', 'Frêne', 'Frassino'], '#baa07c', { seed: 7, style: 'ring-porous', grain: 8.2, contrast: .09, roughness: .55, open: .2, pores: .12, figure: .075, tile: [2.35, 0.20] }),
+  wood('oak', ['Oak', 'Stejar', 'Eiche', 'Roble', 'Chêne', 'Rovere'], '#be8851', { seed: 5, style: 'oak', grain: 8, contrast: .12, roughness: .53, open: .12, pores: .105, figure: .072, rays: .035, baseTone: .86, minTone: .24, tile: [3.0, 0.28], size: 1024 }),
 ]);
 
 export const FABRIC_TYPES = Object.freeze([
-  fabric('linen', ['Linen', 'In', 'Leinen'], '#b88162', { pattern: 'linen', seed: 3, roughness: .92, fleck: .08, sheen: .16, sheenRoughness: .8 }),
-  fabric('canvas', ['Cotton canvas', 'Pânză de bumbac', 'Baumwollcanvas'], '#a86e50', { pattern: 'canvas', seed: 5, roughness: .91, fleck: .045, sheen: .12, sheenRoughness: .85 }),
-  fabric('wool', ['Wool', 'Lână', 'Wolle'], '#847b70', { pattern: 'wool', seed: 7, roughness: .96, fleck: .11, sheen: .18, sheenRoughness: .88 }),
-  fabric('tweed', ['Tweed', 'Tweed', 'Tweed'], '#6f716b', { pattern: 'tweed', seed: 11, roughness: .94, fleck: .13, sheen: .14, sheenRoughness: .9 }),
-  fabric('chenille', ['Chenille', 'Șenilă', 'Chenille'], '#8c625d', { pattern: 'chenille', seed: 13, roughness: .93, fleck: .09, sheen: .28, sheenRoughness: .78 }),
-  fabric('boucle', ['Bouclé', 'Bouclé', 'Bouclé'], '#d0c0aa', { pattern: 'boucle', seed: 17, roughness: .98, fleck: .10, sheen: .08, sheenRoughness: .95 }),
-  fabric('velvet', ['Velvet', 'Catifea', 'Samt'], '#6e3f4c', { pattern: 'velvet', seed: 19, roughness: .68, fleck: .025, sheen: .82, sheenRoughness: .42 }),
-  fabric('microfiber', ['Microfiber', 'Microfibră', 'Mikrofaser'], '#876a5b', { pattern: 'microfiber', seed: 23, roughness: .79, fleck: .04, sheen: .38, sheenRoughness: .64 }),
-  fabric('felt', ['Felt', 'Fetru', 'Filz'], '#747773', { pattern: 'felt', seed: 29, roughness: .98, fleck: .10, sheen: .06, sheenRoughness: .96 }),
-  fabric('herringbone', ['Herringbone', 'Herringbone', 'Fischgrat'], '#807267', { pattern: 'herringbone', seed: 31, roughness: .91, fleck: .045, sheen: .17, sheenRoughness: .84 }),
-  fabric('basket', ['Basket weave', 'Țesătură coș', 'Korbgewebe'], '#9b826a', { pattern: 'basket', seed: 37, roughness: .92, fleck: .04, sheen: .13, sheenRoughness: .86 }),
-  fabric('ribbed', ['Ribbed weave', 'Țesătură striată', 'Rippengewebe'], '#766760', { pattern: 'ribbed', seed: 41, roughness: .89, fleck: .04, sheen: .22, sheenRoughness: .78 }),
-  fabric('denim', ['Denim', 'Denim', 'Denim'], '#45627a', { pattern: 'denim', seed: 43, roughness: .88, fleck: .065, sheen: .12, sheenRoughness: .86 }),
-  fabric('melange', ['Melange', 'Melanj', 'Melange'], '#8e8882', { pattern: 'melange', seed: 47, roughness: .94, fleck: .14, sheen: .12, sheenRoughness: .9 }),
+  fabric('linen', ['Linen', 'In', 'Leinen', 'Lino', 'Lin', 'Lino'], '#b88162', { pattern: 'linen', seed: 3, roughness: .92, fleck: .08, sheen: .16, sheenRoughness: .8 }),
+  fabric('canvas', ['Cotton canvas', 'Pânză de bumbac', 'Baumwollcanvas', 'Lona de algodón', 'Toile de coton', 'Tela di cotone'], '#a86e50', { pattern: 'canvas', seed: 5, roughness: .91, fleck: .045, sheen: .12, sheenRoughness: .85 }),
+  fabric('wool', ['Wool', 'Lână', 'Wolle', 'Lana', 'Laine', 'Lana'], '#847b70', { pattern: 'wool', seed: 7, roughness: .96, fleck: .11, sheen: .18, sheenRoughness: .88 }),
+  fabric('tweed', ['Tweed', 'Tweed', 'Tweed', 'Tweed', 'Tweed', 'Tweed'], '#6f716b', { pattern: 'tweed', seed: 11, roughness: .94, fleck: .13, sheen: .14, sheenRoughness: .9 }),
+  fabric('chenille', ['Chenille', 'Șenilă', 'Chenille', 'Chenilla', 'Chenille', 'Ciniglia'], '#8c625d', { pattern: 'chenille', seed: 13, roughness: .93, fleck: .09, sheen: .28, sheenRoughness: .78 }),
+  fabric('boucle', ['Bouclé', 'Bouclé', 'Bouclé', 'Bouclé', 'Bouclé', 'Bouclé'], '#d0c0aa', { pattern: 'boucle', seed: 17, roughness: .98, fleck: .10, sheen: .08, sheenRoughness: .95 }),
+  fabric('velvet', ['Velvet', 'Catifea', 'Samt', 'Terciopelo', 'Velours', 'Velluto'], '#6e3f4c', { pattern: 'velvet', seed: 19, roughness: .68, fleck: .025, sheen: .82, sheenRoughness: .42 }),
+  fabric('microfiber', ['Microfiber', 'Microfibră', 'Mikrofaser', 'Microfibra', 'Microfibre', 'Microfibra'], '#876a5b', { pattern: 'microfiber', seed: 23, roughness: .79, fleck: .04, sheen: .38, sheenRoughness: .64 }),
+  fabric('felt', ['Felt', 'Fetru', 'Filz', 'Fieltro', 'Feutre', 'Feltro'], '#747773', { pattern: 'felt', seed: 29, roughness: .98, fleck: .10, sheen: .06, sheenRoughness: .96 }),
+  fabric('herringbone', ['Herringbone', 'Herringbone', 'Fischgrat', 'Espiga', 'Chevrons', 'Spina di pesce'], '#807267', { pattern: 'herringbone', seed: 31, roughness: .91, fleck: .045, sheen: .17, sheenRoughness: .84 }),
+  fabric('basket', ['Basket weave', 'Țesătură coș', 'Korbgewebe', 'Ligamento panamá', 'Armure natté', 'Armatura panama'], '#9b826a', { pattern: 'basket', seed: 37, roughness: .92, fleck: .04, sheen: .13, sheenRoughness: .86 }),
+  fabric('ribbed', ['Ribbed weave', 'Țesătură striată', 'Rippengewebe', 'Tejido acanalado', 'Tissu côtelé', 'Tessuto a coste'], '#766760', { pattern: 'ribbed', seed: 41, roughness: .89, fleck: .04, sheen: .22, sheenRoughness: .78 }),
+  fabric('denim', ['Denim', 'Denim', 'Denim', 'Denim', 'Denim', 'Denim'], '#45627a', { pattern: 'denim', seed: 43, roughness: .88, fleck: .065, sheen: .12, sheenRoughness: .86 }),
+  fabric('melange', ['Melange', 'Melanj', 'Melange', 'Melange', 'Chiné', 'Mélange'], '#8e8882', { pattern: 'melange', seed: 47, roughness: .94, fleck: .14, sheen: .12, sheenRoughness: .9 }),
 ]);
 
 export const WOOD_COLOURS = Object.freeze(['#d3ad7c','#b78352','#93663f','#70452e','#3e2b23','#1f1c1b','#d6c6a7','#9b5f3d','#7f5a3e','#b28a5d']);
@@ -331,7 +331,15 @@ export function registerChairMaterials(materials) {
   }
 }
 
+// Column order of every `labels` array: en-US, ro-RO, de-DE, es-ES, fr-FR, it-IT.
+export const MATERIAL_LABEL_LOCALES = Object.freeze(['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']);
+const MATERIAL_LABEL_INDEX = Object.freeze(Object.fromEntries(MATERIAL_LABEL_LOCALES.map((locale, index) => [locale, index])));
+
 export function materialLabel(item, locale = 'en-US') {
-  const index = locale === 'ro-RO' ? 1 : locale === 'de-DE' ? 2 : 0;
-  return item.labels[index] || item.labels[0];
+  const index = MATERIAL_LABEL_INDEX[locale];
+  if (index === undefined) {
+    console.warn(`[chair] Unsupported locale "${locale}" for material labels; showing en-US.`);
+    return item.labels[0];
+  }
+  return item.labels[index];
 }

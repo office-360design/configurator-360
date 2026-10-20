@@ -1,0 +1,37 @@
+# Include inside your EXISTING HTTPS server {}. Do not expose a second HTTP-only
+# public API. Keep the frontend's default apiBase to use /api/paving same-origin.
+# Add your site's auth_request / identity-gateway policy to BOTH locations below.
+# An X-Paving-Client value is job ownership, NOT an authenticated account.
+location = /api/paving/analyze {
+    limit_req zone=paving_jobs burst=2 nodelay;
+    limit_req_status 429;
+    client_max_body_size 13m;
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_connect_timeout 5s;
+    # The response stays open through queueing, model loading and inference.
+    proxy_read_timeout 360s;
+    proxy_send_timeout 30s;
+    proxy_buffering off;
+    proxy_cache off;
+}
+location ^~ /api/paving/ {
+    limit_req zone=paving_poll burst=30 nodelay;
+    limit_req_status 429;
+    client_max_body_size 13m;
+    # NO trailing slash on proxy_pass: preserve the /api/paving/ prefix.
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 360s;
+    proxy_send_timeout 30s;
+    proxy_buffering off;
+    proxy_cache off;
+}
+# No alias/static mount for the repository, Python sources, caches or uploads.
+# A proxy in another container must use paving-analysis:8000 instead of loopback
+# and trust only that proxy's address when enabling forwarded-proto handling.

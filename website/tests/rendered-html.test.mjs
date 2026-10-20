@@ -20,7 +20,7 @@ test("renders the public phone number on Contact and the shared footer", async (
 
   assert.match(contactHtml, /href="tel:\+40744142357"[^>]*>0744 142 357<\/a>/);
   assert.match(contactHtml, /"telephone":"\+40744142357"/);
-  assert.match(homepageHtml, /href="tel:\+40744142357"[^>]*>0744 142 357<\/a>/);
+  assert.match(homepageHtml, /href="tel:\+40744142357"[^>]*>\+40 744 142 357<\/a>/);
 });
 
 test("server-renders the 360Configurator homepage and native previews", async () => {
@@ -29,7 +29,7 @@ test("server-renders the 360Configurator homepage and native previews", async ()
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /Industrial 3D Product Configuration — 360Configurator/);
+  assert.match(html, /3D Product Configurator Software for Manufacturers — 360Configurator/);
   assert.match(html, /rel="canonical" href="https:\/\/www\.360configurator\.com"/);
   assert.match(html, /hrefLang="x-default"/);
   assert.match(html, /"@type":"WebSite"/);

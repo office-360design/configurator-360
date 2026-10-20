@@ -12,8 +12,8 @@ const RUNTIME_SERVICE_ACCOUNT = 'configurator-runtime@configurator-360.iam.gserv
 const PROFILE_VERSION = 1;
 const MAX_HISTORY_ITEMS = 50;
 const MAX_AVATAR_DATA_URL_LENGTH = 240_000;
-const LOCALES = new Set(['en-US', 'ro-RO', 'de-DE']);
-const DOMAINS = new Set(['com', 'ro', 'de']);
+const LOCALES = new Set(['en-US', 'ro-RO', 'de-DE', 'es-ES', 'fr-FR', 'it-IT']);
+const DOMAINS = new Set(['com', 'ro', 'de', 'es', 'fr', 'it']);
 const CURRENCIES = new Set(['USD', 'RON', 'EUR']);
 const MEASUREMENT_SYSTEMS = new Set(['metric', 'imperial']);
 const PROFILE_ALLOWED_ORIGINS = Object.freeze([
@@ -23,6 +23,12 @@ const PROFILE_ALLOWED_ORIGINS = Object.freeze([
   'https://www.360configurator.ro',
   'https://360konfigurator.de',
   'https://www.360konfigurator.de',
+  'https://360configurador.es',
+  'https://www.360configurador.es',
+  'https://360configurateur.fr',
+  'https://www.360configurateur.fr',
+  'https://360configuratore.it',
+  'https://www.360configuratore.it',
   'https://aks.360configurator.com',
   TENANT_ORIGIN_PATTERN,
   /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/,

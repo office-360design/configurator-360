@@ -1,0 +1,27 @@
+{
+  "id": "ST52", "name": "ST 52", "pages": "985–1098",
+  "principle": "Fiecare geam e lipit cu silicon structural pe o ramă proprie de aluminiu (COR-9982, îmbinată la 45°). Rama gata lipită se prinde pe structură cu cleme 999030 și profil de cuplare COR-9971. Aspect de rost deschis; prima barieră e o garnitură EPDM perimetrală pe fiecare modul. Fix și ferestre arată la fel.",
+  "edges": { "vertical": "frame", "horizontal": "frame" },
+  "max_glass_mm": 38,
+  "tests": { "air": "AE", "water": "RE750", "wind": "2000 Pa", "pages": [993, 995] },
+  "deductions": { "frame_w": 22, "frame_h": 22, "glass_w": 22, "glass_h": 22, "coupling_horizontal": 28.5, "coupling_vertical": 28.5, "pages": [1027, 1030], "_note": "Cuplajul vertical e luat simetric cu cel orizontal (L−28,5); desenul de la pag. 1027 nu dă cota explicit – de confirmat." },
+  "glass_frame": { "code": "COR-9982", "miter": true, "cleats": [ { "option": "injecție", "parts": [["222085", 4]], "page": 1031 }, { "option": "ensamblare", "parts": [["COR-3160", 4]], "cut_mm": 41.4, "page": 1033 } ] },
+  "structural_sealing_plate": { "code": "COR-7298", "interruption_per_support_mm": 100, "page": 1030 },
+  "structural_silicone": { "products": "SIKA SG500 sau Dow Corning DC 993", "bite_note": "X trebuie să acopere cel puțin 75 % din grosimea foii exterioare", "page": 1029 },
+  "coupling": { "code": "COR-9971", "screw": "999107", "first_from_end_mm": 30, "max_pitch_mm": 250, "min_screws": 2, "page": 1027 },
+  "transom_support": { "code": "COR-9942", "cut_mm": 100, "per_glass": 2, "position": "L/10", "page": 1028 },
+  "clips": { "code": "999030", "sides": "toate laturile ramei, mai puțin cea de jos", "chart": "common.clip_chart", "page": 1035 },
+  "frame_gaskets": [ ["999172", "2L+2H"], ["999173", "2L+2H"] ],
+  "glass_supports_by_thickness": {
+    "page": 1029, "_note": "Rezistență de calcul pe bucată [N]; 2 bucăți pe geam, la Lv/10. Corespunde tabelului de la pag. 251 (kg pe traversă).",
+    "rows": [ ["999204", 6, 16, 1750], ["999203", 8, 18, 1500], ["999202", 10, 20, 1250], ["999201", 12, 22, 1000], ["999198", 24, 33, 650], ["999197", 26, 35, 615], ["999196", 28, 37, 575], ["999195", 30, 39, 540], ["999194", 32, 41, 500], ["999193", 34, 43, 466], ["999192", 36, 45, 433], ["999191", 38, 47, 400] ],
+    "columns": ["ref", "glass_mm", "A_mm", "N_per_piece"]
+  },
+  "setting_block": { "code": "cală 3 mm", "page": 1029 },
+  "awning_window": {
+    "page": 1038, "max_kg": 80, "Lm": [500, 1500], "Hm": [650, 1500], "glass": { "w": "L-22", "h": "H-22", "thickness_mm": 28 },
+    "profiles": [ { "code": "COR-9972", "role": "cercevea", "cuts": [["L-22", 2], ["H-22", 2]] }, { "code": "COR-7298", "role": "platbandă etanșare", "cuts": [["L-31", 2], ["H-31", 2]] } ],
+    "accessories": [ ["222085", 4], ["999064", 2], ["259101", 1], ["329851", 1], ["323003", 1], ["999196", 2], ["313016", 2] ],
+    "gaskets": [ ["999172", "2L+2H"], ["999173", "2L+2H"], ["999000", "2L"], ["999003", "2H"] ]
+  }
+}

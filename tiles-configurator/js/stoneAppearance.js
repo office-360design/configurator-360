@@ -1,5 +1,6 @@
 // Hash nominal stone positions, never array indices: clipping/filtering a row
 // must not recolour its neighbours or create periodic palette stripes.
+import { STRIATED_GREY, STRIATED_VARIANTS } from './striatedStone.js';
 function mix(value) {
   value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
   value = Math.imul(value ^ (value >>> 15), 0x846ca68b);
@@ -23,5 +24,6 @@ export function stoneAppearance(stone, palette) {
     const tones = [...palette].sort((a, b) => luminance(a) - luminance(b));
     base = stone.shadeRole === 0 ? tones[0] : tones[tones.length - 1];
   }
-  return { base, brightness: 0.96 + (mix(seed ^ 0x68bc21eb) / 4294967296) * 0.08 };
+  return { base, brightness: 0.96 + (mix(seed ^ 0x68bc21eb) / 4294967296) * 0.08,
+    ...(palette === STRIATED_GREY ? {textureVariant: mix(seed ^ 0x3c6ef372) % STRIATED_VARIANTS} : {}) };
 }

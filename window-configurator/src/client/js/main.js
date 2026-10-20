@@ -4,21 +4,21 @@ import {
     WINDOW_HEIGHT_MIN_M,
     WINDOW_HEIGHT_MAX_M,
 } from './config.js?v=platform-18';
-import { createComponentSelection } from './component-selection.js?v=platform-18';
+import { createComponentSelection } from './component-selection.js?v=locales-6';
 import { createSceneContext } from './scene.js?v=platform-18';
-import { initializeUIControls } from './ui-controls.js?v=platform-18';
-import { createWindowBuilder } from './window-builder.js?v=platform-18';
-import { createMaterialManager } from './materials.js?v=platform-18';
-import { createARController } from './ar-controller.js?v=platform-18';
-import { createCadReferenceController } from './cad-reference.js?v=platform-18';
-import { createProfileController } from './profile-controller.js?v=platform-18';
-import { createAccessoryController } from './accessory-controller.js?v=platform-18';
-import { createProfileSelectionController } from './profile-selection-controller.js?v=platform-18';
+import { initializeUIControls } from './ui-controls.js?v=mobile-panels-1';
+import { createWindowBuilder } from './window-builder.js?v=locales-6';
+import { createMaterialManager } from './materials.js?v=locales-6';
+import { createARController } from './ar-controller.js?v=locales-6';
+import { createCadReferenceController } from './cad-reference.js?v=locales-6';
+import { createProfileController } from './profile-controller.js?v=locales-6';
+import { createAccessoryController } from './accessory-controller.js?v=locales-6';
+import { createProfileSelectionController } from './profile-selection-controller.js?v=locales-6';
 import {
     createWindowLayoutController,
     getWindowLayoutRequest,
-} from './window-layout-controller.js?v=platform-18';
-import { createLayoutSizingManager } from './layout-sizing-manager.js?v=platform-18';
+} from './window-layout-controller.js?v=locales-6';
+import { createLayoutSizingManager } from './layout-sizing-manager.js?v=size-limits-1';
 import { createSegmentedResizeOptimizer } from './segmented-resize-optimizer.js?v=platform-18';
 import { requireTenantConfiguratorAccess } from '../shared-ui/src/tenantBootstrap.js?v=tenant-domains-1';
 import { readShareState } from '../shared-ui/src/shareState.js?v=4';
@@ -40,7 +40,7 @@ window.WINDOW_CONFIGURATOR_SELF_RESTORES_SHARE = true;
 window.WINDOW_CONFIGURATOR_INITIAL_SHARE_RESTORED = false;
 import { resolveLegacyProfileSelection } from './profile-compatibility.js?v=platform-18';
 import { createProfileSelectionSignature } from './profile-composition.js?v=platform-18';
-import { createWindowLayoutOverlay } from './window-layout-overlay.js?v=platform-18';
+import { createWindowLayoutOverlay } from './window-layout-overlay.js?v=locales-6';
 import {
     DEFAULT_WINDOW_EDGE_EXTENSION_M,
     FIXED_WINDOW_TYPE,
@@ -49,12 +49,13 @@ import {
     getWindowActualSizeInState,
     getWindowUnmergeGuide,
 } from './window-layout-state.js?v=platform-18';
-import { createWindowSummaryController } from './window-summary.js?v=platform-18';
-import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
+import { createWindowSummaryController } from './window-summary.js?v=locales-6';
+import { getWindowLocale, windowT } from './i18n.js?v=locales-6';
 
 const pageParams = new URLSearchParams(window.location.search);
 const APP_BUILD = document.querySelector('meta[name="app-build"]')?.content || 'unknown';
-const isARMode = pageParams.get('ar') === '1';
+// QR links now use the Firebase phone page; legacy ?ar=1 loads the editor.
+const isARMode = false;
 const captureMode = pageParams.get('capture') === '1';
 
 const requestedCadAssemblyId = pageParams.get('cad_assembly')
@@ -874,6 +875,8 @@ windowLayoutOverlay = measureCadLoadingSync(
     onMergeWindows: async (cellAId, cellBId, type, handleSide) => {
         const result = await windowLayoutController.mergeWindows(cellAId, cellBId, type, { handleSide });
         layoutSizingManager?.resetModifiedFlags();
+        // A merged window spans several columns/rows and must stay within the window maximum.
+        await layoutSizingManager?.clampToLimits();
         layoutSizingManager?.syncOverallControls();
         selectWindowCell(null);
         return result;
@@ -894,7 +897,7 @@ arController = measureCadLoadingSync(
     camera,
     placementRoot,
     mainGroup,
-    applyCurrentPoseInstantly,
+    getExportMaterial: componentSelection.getMaterialForExport,
     materialManager,
     getProfilesReady: profileController.getProfilesReady,
     getProfilesData: profileController.getProfilesData,
@@ -973,6 +976,8 @@ window.applyConfiguration = async function applyConfiguration(configuration) {
         { notify: false }
     );
     layoutSizingManager?.resetModifiedFlags();
+    // Saved/shared layouts from before the size limits are brought within them.
+    await layoutSizingManager?.clampToLimits();
     layoutSizingManager?.syncOverallControls();
     const combinedProfileSelection = {
         ...selectedProfiles,
@@ -1169,12 +1174,8 @@ measureCadLoadingSync(
     updateComponentPictures,
     openCadReferenceModal: cadReferenceController.openModal,
     closeCadReferenceModal: cadReferenceController.closeModal,
-    setSelectedARPlatform: arController.setSelectedARPlatform,
     openQRModal: arController.openQRModal,
     closeQRModal: arController.closeQRModal,
-    downloadLatestARAsset: arController.downloadLatestARAsset,
-    checkLatestStaticModel: arController.checkLatestStaticModel,
-    startAR: arController.startAR,
     })
 );
 

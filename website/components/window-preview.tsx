@@ -77,10 +77,23 @@ function InstrumentRange({ label, value, min, max, step, unit, onChange }: {
 
 export function WindowHeroRuntime() {
   const frame = useRef<HTMLIFrameElement>(null);
+  const poster = useRef<HTMLDivElement>(null);
   const ready = useRef(false);
   const lastSignature = useRef("");
   const [mounted, setMounted] = useState(false);
   const [visualReady, setVisualReady] = useState(false);
+
+  useEffect(() => {
+    const hero = document.querySelector(".spatial-hero");
+    if (!hero) return;
+    // The fallback is fixed, just like the iframe. Keep it inside the hero's
+    // lifetime even if the native runtime is slow or cannot finish loading.
+    const observer = new IntersectionObserver(([entry]) => {
+      if (poster.current) poster.current.style.visibility = entry.isIntersecting ? "visible" : "hidden";
+    });
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
 
   const update = useCallback(() => {
     const hero = document.querySelector<HTMLElement>(".spatial-hero");
@@ -222,7 +235,7 @@ export function WindowHeroRuntime() {
 
   return (
     <>
-      <div className={`window-hero-poster${visualReady ? " is-hidden" : ""}`} aria-hidden="true">
+      <div ref={poster} className={`window-hero-poster${visualReady ? " is-hidden" : ""}`} aria-hidden="true">
         <div className="window-hero-poster-object">
           <div className="window-hero-poster-glass" />
           <i className="window-hero-poster-handle" />
@@ -248,17 +261,39 @@ const DETAIL_CAMERA = { position: [0.82, 0.46, 1.27], target: [-0.56, -0.14, 0] 
 const SHOWCASE_CAMERA_MOBILE = { position: [0.56, 0.34, 2.22], target: [0.02, -0.12, 0] } as const;
 const DETAIL_CAMERA_MOBILE = { position: [0.6, 0.38, 2.18], target: [0.02, -0.1, 0] } as const;
 
-export function WindowConfiguratorPreview({ locale = "en", placement = "showcase" }: { locale?: Locale; placement?: "showcase" | "detail" }) {
-  const text = locale === "ro" ? {
-    loading: "Se încarcă sistemul nativ B2-6", controls: "Personalizează", hide: "Vezi modelul",
-    width: "Lățime", height: "Înălțime", glass: "Sticlă", opening: "Deschidere", gasket: "Garnitură", bead: "Baghetă", side: "Batant", tilt: "Oscilo", explode: "Explodat", debug: "Diagnostic", section: "Secțiune",
-  } : locale === "de" ? {
-    loading: "Natives B2-6-System wird geladen", controls: "Konfigurieren", hide: "Modell ansehen",
-    width: "Breite", height: "Höhe", glass: "Glas", opening: "Öffnung", gasket: "Dichtung", bead: "Glasleiste", side: "Dreh", tilt: "Kipp", explode: "Explodieren", debug: "Diagnose", section: "Querschnitt",
-  } : {
+const windowControlsLabels: Record<Locale, string> = {
+  en: "Window profile controls", ro: "Comenzi profil fereastră", de: "Steuerung des Fensterprofils", es: "Controles del perfil de ventana", fr: "Commandes du profilé de fenêtre", it: "Comandi del profilo della finestra",
+};
+
+const windowPreviewCopy: Record<Locale, Record<"loading" | "controls" | "hide" | "width" | "height" | "glass" | "opening" | "gasket" | "bead" | "side" | "tilt" | "explode" | "debug" | "section", string>> = {
+  en: {
     loading: "Loading native B2-6 system", controls: "Customize", hide: "View model",
     width: "Width", height: "Height", glass: "Glass", opening: "Opening", gasket: "Gasket", bead: "Bead", side: "Side hung", tilt: "Tilt", explode: "Explode", debug: "Debug", section: "Section",
-  };
+  },
+  ro: {
+    loading: "Se încarcă sistemul nativ B2-6", controls: "Personalizează", hide: "Vezi modelul",
+    width: "Lățime", height: "Înălțime", glass: "Sticlă", opening: "Deschidere", gasket: "Garnitură", bead: "Baghetă", side: "Batant", tilt: "Oscilo", explode: "Explodat", debug: "Diagnostic", section: "Secțiune",
+  },
+  de: {
+    loading: "Natives B2-6-System wird geladen", controls: "Konfigurieren", hide: "Modell ansehen",
+    width: "Breite", height: "Höhe", glass: "Glas", opening: "Öffnung", gasket: "Dichtung", bead: "Glasleiste", side: "Dreh", tilt: "Kipp", explode: "Explodieren", debug: "Diagnose", section: "Querschnitt",
+  },
+  es: {
+    loading: "Cargando el sistema nativo B2-6", controls: "Personalizar", hide: "Ver modelo",
+    width: "Ancho", height: "Alto", glass: "Vidrio", opening: "Apertura", gasket: "Junta", bead: "Junquillo", side: "Practicable", tilt: "Abatible", explode: "Despiece", debug: "Diagnóstico", section: "Sección",
+  },
+  fr: {
+    loading: "Chargement du système natif B2-6", controls: "Personnaliser", hide: "Voir le modèle",
+    width: "Largeur", height: "Hauteur", glass: "Vitrage", opening: "Ouverture", gasket: "Joint", bead: "Parclose", side: "Battant", tilt: "Soufflet", explode: "Éclaté", debug: "Diagnostic", section: "Coupe",
+  },
+  it: {
+    loading: "Caricamento del sistema nativo B2-6", controls: "Personalizza", hide: "Vedi modello",
+    width: "Larghezza", height: "Altezza", glass: "Vetro", opening: "Apertura", gasket: "Guarnizione", bead: "Fermavetro", side: "Battente", tilt: "Vasistas", explode: "Esploso", debug: "Diagnostica", section: "Sezione",
+  },
+};
+
+export function WindowConfiguratorPreview({ locale = "en", placement = "showcase" }: { locale?: Locale; placement?: "showcase" | "detail" }) {
+  const text = windowPreviewCopy[locale];
   const frame = useRef<HTMLIFrameElement>(null);
   const shell = useRef<HTMLDivElement>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -431,7 +466,7 @@ export function WindowConfiguratorPreview({ locale = "en", placement = "showcase
       />}
       {coarse && <MobileSceneActions active={interaction} onToggle={() => setInteraction((value) => !value)} locale={locale} />}
       <div className={`runtime-loading mono-label ${ready ? "ready" : ""}`}>{text.loading}</div>
-      <div className={`window-instrument ${collapsed ? "is-collapsed" : ""}`} aria-label="Window profile controls">
+      <div className={`window-instrument ${collapsed ? "is-collapsed" : ""}`} aria-label={windowControlsLabels[locale]}>
         <div className="instrument-identity" {...deckSwipe}>
           <span>AW CT 65</span>
           <strong>B2-6</strong>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PricingPage } from "../../components/pricing-page";
+import { pricingGuideCopy } from "../../lib/commercial-content";
 import { pageMetadata } from "../../lib/seo";
 
-export const metadata: Metadata = pageMetadata({ locale: "en", path: "/pricing", title: "Deployment paths and pricing", description: "Compare subscription, adapted-system and custom-system deployment paths for 360Configurator." });
+export const metadata: Metadata = pageMetadata({ locale: "en", path: "/pricing", ...pricingGuideCopy.en.metadata });
 export default function Page() { return <PricingPage locale="en"/>; }

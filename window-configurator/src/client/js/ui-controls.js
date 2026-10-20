@@ -1,21 +1,6 @@
-import { getWindowLocale, windowT } from './i18n.js?v=platform-18';
 import { WINDOW_WIDTH_MAX_M } from './config.js?v=platform-18';
 
 const SIZE_REBUILD_INTERVAL_MS = 80;
-
-function setSidebarCollapsed(collapsed) {
-    const controlsPanel = document.getElementById('controls');
-    const toggleButton = document.getElementById('sidebar-toggle');
-    if (!controlsPanel || !toggleButton) return;
-
-    controlsPanel.classList.toggle('sidebar-collapsed', collapsed);
-    document.body.classList.toggle('sidebar-is-collapsed', collapsed);
-    toggleButton.setAttribute('aria-expanded', String(!collapsed));
-    const locale = getWindowLocale();
-    const sidebarLabel = windowT(locale, collapsed ? 'sidebar.show' : 'sidebar.hide');
-    toggleButton.setAttribute('aria-label', sidebarLabel);
-    toggleButton.title = sidebarLabel;
-}
 
 function stepDecimals(stepValue) {
     const text = String(stepValue ?? '');
@@ -57,18 +42,11 @@ export function initializeUIControls({
     updateComponentPictures,
     openCadReferenceModal,
     closeCadReferenceModal,
-    setSelectedARPlatform,
     openQRModal,
     closeQRModal,
-    downloadLatestARAsset,
-    checkLatestStaticModel,
-    startAR,
 }) {
-    document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-        const controlsPanel = document.getElementById('controls');
-        const collapsed = controlsPanel?.classList.contains('sidebar-collapsed') || false;
-        setSidebarCollapsed(!collapsed);
-    });
+    // The settings panel toggle belongs to the shared shell (settingsPanel in shared-shell.js);
+    // a second listener here undid every first tap.
 
     let pendingWindowRebuildTimer = null;
     let lastSizeRebuildAt = 0;
@@ -345,21 +323,7 @@ export function initializeUIControls({
         }
     });
 
-    document.querySelectorAll('.ar-platform-option').forEach(button => {
-        button.addEventListener('click', () => {
-            setSelectedARPlatform(button.dataset.platform);
-        });
-    });
-
-    document.getElementById('qr-ar-button').addEventListener('click', openQRModal);
-    document.getElementById('qr-close').addEventListener('click', closeQRModal);
-    document.getElementById('qr-download-model').addEventListener('click', downloadLatestARAsset);
-    document.getElementById('qr-check-published').addEventListener('click', checkLatestStaticModel);
-    document.getElementById('qr-modal').addEventListener('click', (event) => {
-        if (event.target.id === 'qr-modal') {
-            closeQRModal();
-        }
-    });
+    document.getElementById('qr-ar-button')?.addEventListener('click', openQRModal);
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
@@ -369,7 +333,6 @@ export function initializeUIControls({
         }
     });
 
-    document.getElementById('ar-start-button').addEventListener('click', startAR);
 
     let pendingViewportResizeFrame = null;
     window.addEventListener('resize', () => {

@@ -267,7 +267,6 @@ body.bookshelf-dark-mode .shelf-move-button:disabled, body.bookshelf-dark-mode .
 
 
 /* Bookshelf-only common UI overrides. Keep these out of shared-ui so other configurators are unchanged. */
-.shared-ui-host [data-action="view-ar"],
 .shared-ui-host [data-action="cart"],
 .shared-ui-host [data-cart-menu] {
   display: none !important;

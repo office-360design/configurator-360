@@ -4,7 +4,7 @@
 // Next/Vinext still prerenders Client Components to HTML on the initial load,
 // but the RSC payload now carries only this component reference + small props
 // instead of serializing the entire long SEO element tree.
-import type { ConfiguratorSlug } from "../lib/configurators";
+import type { LegacyConfiguratorSlug as ConfiguratorSlug } from "../lib/configurators";
 import { configuratorSeoContent } from "../lib/configurator-seo-content";
 import { localizedPath, type Locale } from "../lib/i18n";
 
@@ -84,7 +84,7 @@ export function ConfiguratorSeoSections({
       </div>
     </section>
 
-    <section className="pergola-faq solid-section">
+    <section className="pergola-faq solid-section" data-machine-section="questions">
       <div className="page-frame pergola-faq-grid">
         <div className="pergola-faq-heading" data-reveal>
           <span className="mono-label">{copy.faq.label}</span>

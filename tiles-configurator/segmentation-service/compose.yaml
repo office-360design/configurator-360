@@ -1,0 +1,32 @@
+services:
+  paving-analysis:
+    build:
+      context: .
+      args:
+        TORCH_INDEX: ${TORCH_INDEX:-https://download.pytorch.org/whl/cpu}
+    ports:
+      - "127.0.0.1:${PAVING_PORT:-8000}:8000"
+    environment:
+      PAVING_ALLOWED_ORIGINS: ${PAVING_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      PAVING_ALLOWED_HOSTS: ${PAVING_ALLOWED_HOSTS:-localhost,127.0.0.1,paving-analysis}
+      PAVING_ENABLE_LEGACY_API: "0"
+      PAVING_ENABLE_BACKGROUND_JOBS: "0"
+      PAVING_MAX_PENDING: ${PAVING_MAX_PENDING:-4}
+      PAVING_MAX_RESULTS: ${PAVING_MAX_RESULTS:-8}
+      PAVING_RESULT_TTL_SECONDS: ${PAVING_RESULT_TTL_SECONDS:-900}
+      PAVING_MAX_CLIENTS: ${PAVING_MAX_CLIENTS:-128}
+    volumes:
+      - model-cache:/home/paving/.cache/huggingface
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 90s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  model-cache:

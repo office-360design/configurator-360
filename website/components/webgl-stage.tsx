@@ -26,7 +26,7 @@ import {
 } from "../lib/scenes/extended-builders";
 import { loadGeographicEnvironment } from "../lib/scenes/solar-environment-loader.js";
 import { solarDirection } from "../lib/scenes/solar-position";
-import type { ConfiguratorSlug } from "../lib/configurators";
+import type { LegacyConfiguratorSlug as ConfiguratorSlug } from "../lib/configurators";
 
 type SceneKey = ConfiguratorSlug | "engine";
 
@@ -200,10 +200,20 @@ function buildPergolaInto(wrapper: THREE.Group, state: typeof DEFAULT_STATE) {
   wrapper.userData.model = assembly;
 }
 
+// The document language is always one of the website locales (set by the
+// static build); any other value uses the English profile.
+const roofLocaleProfiles: Record<string, { locale: string; currency: string }> = {
+  en: { locale: "en-US", currency: "USD" },
+  ro: { locale: "ro-RO", currency: "RON" },
+  de: { locale: "de-DE", currency: "EUR" },
+  es: { locale: "es-ES", currency: "EUR" },
+  fr: { locale: "fr-FR", currency: "EUR" },
+  it: { locale: "it-IT", currency: "EUR" },
+};
+
 function createRoofState() {
-  const language = document.documentElement.lang.toLowerCase();
-  const locale = language.startsWith("ro") ? "ro-RO" : language.startsWith("de") ? "de-DE" : "en-US";
-  const currency = locale === "ro-RO" ? "RON" : locale === "de-DE" ? "EUR" : "USD";
+  const language = document.documentElement.lang.toLowerCase().slice(0, 2);
+  const { locale, currency } = roofLocaleProfiles[language] ?? roofLocaleProfiles.en;
   return {
     roofType: "lshape", length: 10, depth: 7, wallHeight: 3, pitch: 30, overhang: 0.4,
     covering: "generic", roofColor: "#7f1d2d", showDimensions: false,
@@ -752,10 +762,17 @@ export function WebGLStage() {
       if (detail.zoom) state.zoom = THREE.MathUtils.clamp(state.zoom * Math.exp(detail.zoom * 0.0008), 0.58, 1.65);
     }
     const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-scene]"));
+    const independentSections = Array.from(document.querySelectorAll<HTMLElement>(".showcase-lite"));
     const hero = document.querySelector<HTMLElement>("[data-scene='engine']");
     let sceneSelectionDirty = true;
     let hasSpatialSectionInView = true;
     function updateActiveScene() {
+      // The new previews own their canvas. Never leave a previous fixed scene
+      // behind them when a legacy section is still at the viewport edge.
+      if (independentSections.some((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.top <= innerHeight / 2 && rect.bottom >= innerHeight / 2;
+      })) return false;
       let closest: { key: SceneKey; distance: number } | null = null;
       sections.forEach((element) => {
         const rect = element.getBoundingClientRect();
@@ -844,6 +861,9 @@ export function WebGLStage() {
       pointerY += (targetPointerY - pointerY) * 0.035;
       if (sceneSelectionDirty || desiredActive !== active) {
         hasSpatialSectionInView = updateActiveScene();
+        container.style.visibility = hasSpatialSectionInView ? "visible" : "hidden";
+        const hud = container.nextElementSibling as HTMLElement | null;
+        if (hud?.classList.contains("renderer-hud")) hud.style.visibility = container.style.visibility;
         sceneSelectionDirty = false;
       }
       if (!hasSpatialSectionInView) {

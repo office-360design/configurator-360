@@ -1,8 +1,11 @@
-import { stoneAppearance } from './stoneAppearance.js';
+import { stoneAppearance } from './stoneAppearance.js?v=tiles-striated-1';
+import { striatedStoneURL } from './striatedStone.js';
 import { COLORS, TILES, layout, normalize } from './model.js';
 
-// Use the real layout engine so thumbnails show the actual supported bonds,
-// proportions and orientation, including the chosen checkerboard colours.
+// Use the real layout engine so thumbnails show the actual supported bonds and
+// proportions, but keep them at a fixed reference orientation. The direction
+// slider controls the configured paving in the 3D scene and should not rotate
+// the pattern choice thumbnails.
 export function patternPreview(state, pattern) {
   const tile = TILES[state.tile] || TILES.parket;
   const size = Math.max(1, tile.length * 4);
@@ -12,13 +15,22 @@ export function patternPreview(state, pattern) {
     length: size,
     width: size,
     pattern,
+    rotation: 0,
     houseEnabled: false,
   });
   const scale = 120 / size;
+  const finishes = new Map();
   const stones = layout(sample)
     .map((piece) => {
       const palette = COLORS[piece.accent ? sample.accent : sample.color];
-      const color = stoneAppearance(piece, palette).base;
+      const look = stoneAppearance(piece, palette);
+      let color = look.base;
+      if (look.textureVariant !== undefined) {
+        const id = `striated-${pattern}-${look.textureVariant}`, url = striatedStoneURL(look.textureVariant);
+        finishes.set(id, url ? `<pattern id="${id}" width="1" height="1" patternContentUnits="objectBoundingBox"><image href="${url}" width="1" height="1" preserveAspectRatio="none"/></pattern>` :
+          `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">${palette.map((tone,i)=>`<stop offset="${i/(palette.length-1)}" stop-color="${tone}"/>`).join('')}</linearGradient>`);
+        color = `url(#${id})`;
+      }
       if (piece.outline)
         return `<polygon points="${piece.outline.map((p) => `${(p.x * scale).toFixed(3)},${(p.z * scale).toFixed(3)}`).join(' ')}" fill="${color}" stroke="#e8e3d9" stroke-width="1"/>`;
       const x = (piece.x - piece.l / 2) * scale,
@@ -26,5 +38,5 @@ export function patternPreview(state, pattern) {
       return `<rect x="${x.toFixed(3)}" y="${y.toFixed(3)}" width="${(piece.l * scale).toFixed(3)}" height="${(piece.w * scale).toFixed(3)}" fill="${color}" stroke="#e8e3d9" stroke-width="1"/>`;
     })
     .join('');
-  return `<svg class="pattern-preview" viewBox="0 0 120 120" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="120" fill="#e8e3d9"/>${stones}</svg>`;
+  return `<svg class="pattern-preview" viewBox="0 0 120 120" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg"><defs>${[...finishes.values()].join('')}</defs><rect width="120" height="120" fill="#e8e3d9"/>${stones}</svg>`;
 }
