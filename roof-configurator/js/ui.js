@@ -1,4 +1,4 @@
-import { localizeFeature, featureText } from './featureI18n.js?v=locales-6';
+import { localizeFeature, featureText } from './featureI18n.js?v=custom-bom-1';
 import { SheetPlannerUI } from './sheetPlannerUI.js?v=locales-6';
 import { RoofLayoutEditor } from './layoutEditor.js?v=locales-6';
 import { SlopeSketchEditor, renderSketchViewer } from './slopeSketchEditor.js?v=locales-6';
@@ -6,7 +6,7 @@ import { defaultSketch } from './slopeSketch.js?v=sketch-1';
 import { defaultLayout, layoutWallFootprint } from './roofLayout.js?v=layout-21';
 import { bindPanelAccordions } from '../../shared-ui/src/components/panelControls.js?v=panel-controls-1';
 import { pitchRules } from './state.js?v=drainage-48';
-import { bomToCsv, calculateBom } from './bom.js?v=site-analytics-1';
+import { bomToCsv, calculateBom } from './bom.js?v=custom-bom-1';
 import {
   displayLengthInputConfig,
   formatArea,
@@ -434,7 +434,7 @@ export class RoofUI {
     const bom = calculateBom(this.state, metrics);
     this.currentBom = bom;
 
-    if (['custom', 'layout', 'sketch'].includes(this.state.roofType)) {
+    if (this.state.roofType === 'custom') {
       document.querySelector('#headerEstimateTotal').textContent = roofT(this.state.locale, 'bom.awaitingPlan');
       document.querySelector('#bomSubtotal').textContent = '—';
       document.querySelector('#bomVat').textContent = '—';
@@ -453,18 +453,6 @@ export class RoofUI {
       assumptionGrid.replaceChildren(status);
       const currencyNote = document.querySelector('#bomCurrencyNote');
       if (currencyNote) currencyNote.textContent = roofT(this.state.locale, 'bom.customCurrencyNote');
-      if (['layout', 'sketch'].includes(this.state.roofType)) {
-        document.querySelector('#headerEstimateTotal').textContent = featureText(this.state.locale, 'Not estimated');
-        row.replaceChildren();
-        const cell = document.createElement('td');
-        cell.colSpan = 7;
-        cell.textContent = featureText(this.state.locale, this.state.roofType === 'sketch'
-          ? 'Prices are not yet available for slopes drawn one by one. Open Sheet cutting plan for panel lengths, quantities and trim lengths.'
-          : 'Custom layout quantities and prices are not yet available. Roof area is calculated from the drawn surfaces.');
-        row.appendChild(cell);
-        status.textContent = featureText(this.state.locale, `${metrics.roofArea.toLocaleString(this.state.locale, { maximumFractionDigits: 2 })} m² roof area`);
-        if (currencyNote) currencyNote.textContent = featureText(this.state.locale, 'Flashings, gutters and material quantities require a separate estimate.');
-      }
       document.querySelector('#bomExportButton').disabled = true;
       return;
     }
@@ -524,6 +512,8 @@ export class RoofUI {
         });
       }
     }
+
+    if (bom.customEstimate && currencyNote) currencyNote.textContent += ' ' + bom.estimateNote;
 
     const assumptionGrid = document.querySelector('#bomAssumptions');
     assumptionGrid.replaceChildren(...assumptions.map(([label, value]) => {
