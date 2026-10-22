@@ -4,23 +4,59 @@ on:
   pull_request:
     paths:
       - 'curtain-wall-configurator/**'
-      - 'shared-ui/**'
+      - 'shared-ui/src/ar/**'
+      - 'shared-ui/src/arPolicy.js'
+      - 'shared-ui/src/standaloneShell.js'
+      - 'shared-ui/src/components/topBar.js'
+      - 'shared-ui/src/config.js'
+      - 'shared-ui/src/tenantBootstrap.js'
+      - 'shared-ui/src/tenantCustomization.js'
+      - 'shared-ui/src/tenantShellCustomization.js'
+      - 'shared-ui/styles/ar.css'
+      - 'shared-ui/styles/index.css'
+      - 'shared-ui/styles/standalone.css'
+      - 'hall-configurator/js/ar/**'
+      - 'hall-configurator/ar.html'
+      - 'hall-configurator/tests/ar-policy.test.mjs'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - 'firebase-share-backend/functions/entry.js'
+      - 'firebase-share-backend/firestore.indexes.json'
+      - 'firebase-share-backend/storage*.rules'
+      - '.github/workflows/deploy-firebase-share.yml'
+      - 'scripts/validation/tenant-branding.test.mjs'
+      - 'package*.json'
       - 'shared-3d/**'
       - 'firebase-share-backend/functions/hall-ar*'
-      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
-      - 'bookshelf-configurator/tests/camera-guard.mjs'
-      - 'package*.json'
+      - 'bookshelf-configurator/tests/camera-guard*'
       - '.github/workflows/validate-curtain-wall-ar.yml'
   push:
     branches: [main, ar]
     paths:
       - 'curtain-wall-configurator/**'
-      - 'shared-ui/**'
+      - 'shared-ui/src/ar/**'
+      - 'shared-ui/src/arPolicy.js'
+      - 'shared-ui/src/standaloneShell.js'
+      - 'shared-ui/src/components/topBar.js'
+      - 'shared-ui/src/config.js'
+      - 'shared-ui/src/tenantBootstrap.js'
+      - 'shared-ui/src/tenantCustomization.js'
+      - 'shared-ui/src/tenantShellCustomization.js'
+      - 'shared-ui/styles/ar.css'
+      - 'shared-ui/styles/index.css'
+      - 'shared-ui/styles/standalone.css'
+      - 'hall-configurator/js/ar/**'
+      - 'hall-configurator/ar.html'
+      - 'hall-configurator/tests/ar-policy.test.mjs'
+      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
+      - 'firebase-share-backend/functions/entry.js'
+      - 'firebase-share-backend/firestore.indexes.json'
+      - 'firebase-share-backend/storage*.rules'
+      - '.github/workflows/deploy-firebase-share.yml'
+      - 'scripts/validation/tenant-branding.test.mjs'
+      - 'package*.json'
       - 'shared-3d/**'
       - 'firebase-share-backend/functions/hall-ar*'
-      - 'firebase-share-backend/functions/tests/hall-ar.test.cjs'
-      - 'bookshelf-configurator/tests/camera-guard.mjs'
-      - 'package*.json'
+      - 'bookshelf-configurator/tests/camera-guard*'
       - '.github/workflows/validate-curtain-wall-ar.yml'
   workflow_dispatch:
 
@@ -40,11 +76,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install browser and exact production Three.js version
+      - name: Install exact test and production dependencies
+        timeout-minutes: 3
         run: |
-          npm ci --ignore-scripts
-          npm ci --prefix curtain-wall-configurator --ignore-scripts
-          npx playwright install --with-deps chromium
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix curtain-wall-configurator --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium system dependencies
+        timeout-minutes: 5
+        run: |
+          # An unresponsive Ubuntu mirror previously consumed the entire job.
+          # Bound each network operation and the complete installation attempt.
+          printf '%s\n' 'Acquire::http::Timeout "20";' 'Acquire::https::Timeout "20";' 'Acquire::Retries "1";' | sudo tee /etc/apt/apt.conf.d/80-ar-ci-timeouts >/dev/null
+          timeout --kill-after=10s 120s npx --no-install playwright install-deps chromium || timeout --kill-after=10s 120s npx --no-install playwright install-deps chromium
+      - name: Download Chromium
+        timeout-minutes: 3
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '30000'
+        run: npx --no-install playwright install chromium
       - name: Validate façade models, native geometry and shared backend
         run: |
           npm run check:curtain-wall
@@ -56,7 +104,7 @@ jobs:
           CW_AR_ARTIFACTS: /tmp/curtain-wall-ar
         run: npm run check:curtain-wall:ar-browser
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: ${{ failure() || cancelled() }}
         with:
           name: curtain-wall-ar-diagnostics
           if-no-files-found: ignore
@@ -64,3 +112,4 @@ jobs:
           path: |
             /tmp/curtain-wall-ar/*.json
             /tmp/curtain-wall-ar/*.png
+
