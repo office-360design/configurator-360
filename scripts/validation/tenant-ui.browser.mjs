@@ -32,6 +32,14 @@ const server = createServer(async (request,response) => {
   try {
     const path = new URL(request.url,'http://localhost').pathname;
     if(path === '/fixture' || path === '/editor') {response.setHeader('Content-Type','text/html');response.end(path === '/fixture' ? fixture : editorFixture);return;}
+    if (path === '/roof-configurator/tenant-fixture') {
+      let html = (await readFile(resolve(root, 'roof-configurator/index.html'), 'utf8')).replace(/<script\b[\s\S]*?<\/script>/g, '');
+      const context = fixture.match(/const context = ([\s\S]*?);\nwindow/)[1].replace('custom ?', 'true ?');
+      html = html.replace('</body>', `<script type="module">window.__CFG360_TENANT_CONTEXT__ = ${context};
+        Object.assign(window.__CFG360_TENANT_CONTEXT__.customization.settings.theme, {primary:'#F5E76C',surface:'#334447',text:'#EBF3F5',muted:'#EBF3F5'});
+        await import('./js/sharedShell.js');</script></body>`);
+      response.setHeader('Content-Type','text/html');response.end(html);return;
+    }
     const file = resolve(root,'.'+decodeURIComponent(path));
     if(!file.startsWith(root+'/')) {response.writeHead(403).end();return;}
     response.setHeader('Content-Type', {'.js':'text/javascript','.css':'text/css','.json':'application/json'}[extname(file)] || 'application/octet-stream');
@@ -42,7 +50,7 @@ await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({headless:true});
+  browser = await chromium.launch({headless:true, executablePath:process.env.CHROMIUM_PATH || undefined});
   const page = await browser.newPage({viewport:{width:1280,height:900}});
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
@@ -80,6 +88,24 @@ try {
   assert.equal(await page.locator('body').getAttribute('data-tenant-theme'),null);
   assert.equal(await page.locator('[data-action="cart"]').count(),1);
   assert.equal(await page.locator('[data-shared-panel-add-to-cart]').isVisible(),true);
+  await page.route('**/roof-configurator/js/i18n.js*', route => route.fulfill({contentType:'text/javascript',body:`export const applyRoofTranslations=()=>{};export const resolveRoofLocale=()=> 'en-US';export const roofT=k=>k;`}));
+  await page.route('**/roof-configurator/js/ar/controller.js*', route => route.fulfill({contentType:'text/javascript',body:`export const createRoofARController=()=>({open(){}});`}));
+  await page.route('**/tenantBootstrap.js*', route => route.fulfill({contentType:'text/javascript',body:`export const requireTenantConfiguratorAccess=async()=>window.__CFG360_TENANT_CONTEXT__;`}));
+  await page.setViewportSize({width:1440,height:950});
+  await page.goto(origin+'/roof-configurator/tenant-fixture');
+  await page.waitForFunction(()=>window.ROOF_CONFIGURATOR_SHARED_SHELL);
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.control-label')).color==='rgb(235, 243, 245)');
+  assert.ok((await page.locator('.sidebar').boundingBox()).x < 25);
+  assert.ok((await page.locator('#roofSidebarToggle').boundingBox()).x < 400);
+  assert.ok((await page.locator('[data-shared-tools]').boundingBox()).y > 800);
+  assert.equal(await page.locator('.rule-note').first().evaluate(el=>getComputedStyle(el).color),'rgb(235, 243, 245)');
+  await page.screenshot({path:'artifacts/tenant-ui-roof-desktop.png'});
+  await page.locator('#roofSidebarToggle').click();
+  await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().right<=1);
+  await page.locator('#roofSidebarToggle').click();
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().left>=0);
+  await page.screenshot({path:'artifacts/tenant-ui-roof-mobile.png'});
   await page.goto(origin+'/editor');
   await page.waitForFunction(()=>document.querySelector('[data-custom-fields]')?.disabled === false);
   await page.locator('[data-custom-color="primary"]').fill('#166534');

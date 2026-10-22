@@ -94,3 +94,68 @@ body[data-tenant-theme] .shared-configurator-panel__add-button:focus-visible {
     pointer-events: none;
   }
 }
+
+/* Theme the shared controls as complete surfaces, including their explicit ink. */
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-panel-controls {
+  --shared-panel-ink: var(--tenant-text, #16232c);
+  --shared-panel-muted: var(--tenant-muted, #6f7f8a);
+  --shared-panel-border: var(--tenant-border, #dbe3e7);
+  --ink: var(--tenant-text, #16232c);
+  --muted: var(--tenant-muted, #6f7f8a);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-panel-controls :is(
+  .control-label, .select-label, .accordion-toggle, .number-input, select,
+  .toggle-row, .choice-card, .finish-swatch
+) {
+  color: var(--tenant-text, #16232c);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-panel-controls :is(
+  .section-copy, .rule-note, .accordion-summary, .toggle-row small, .layout-launch p
+) {
+  color: var(--tenant-muted, #6f7f8a);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-panel-controls :is(
+  .accordion-toggle, .number-input, select, .toggle-row, .choice-card, .finish-swatch
+) {
+  background: var(--tenant-surface, #fff);
+  border-color: var(--tenant-border, #dbe3e7);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-panel-controls :is(
+  .accordion-section:is(.is-open, [open]) .accordion-toggle,
+  .choice-card.selected, .choice-card[aria-pressed="true"], .finish-swatch.selected
+) {
+  color: var(--tenant-primary, #0878c9);
+  background: color-mix(in srgb, var(--tenant-primary, #0878c9) 12%, var(--tenant-surface, #fff));
+  border-color: var(--tenant-primary, #0878c9);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-ui-host .site-header :is(a, button, input, .configuration-name) {
+  color: var(--tenant-text, #172027);
+}
+
+/* Roof owns its drawer and toggle; use the same desktop side contract. */
+@media (min-width: 761px) {
+  body:has(.sidebar[data-tenant-panel-side="left"]) #roofSidebarToggle {
+    left: calc(var(--shared-settings-width) + var(--shared-settings-gap));
+    right: auto;
+    border-radius: 0 10px 10px 0;
+    border-left: 0;
+    border-right: 1px solid #dfe4e6;
+    transition: left .32s cubic-bezier(.22, 1, .36, 1);
+  }
+  body.roof-sidebar-collapsed:has(.sidebar[data-tenant-panel-side="left"]) #roofSidebarToggle {
+    left: 0;
+  }
+  body:has(.sidebar[data-tenant-panel-side="left"]) #roofSidebarToggle svg {
+    scale: -1 1;
+  }
+}
+
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-panel-controls .layout-launch button {
+  color: var(--tenant-primary-text, #fff);
+  background: var(--tenant-primary, #0878c9);
+  border-color: var(--tenant-primary, #0878c9);
+}
+body[data-tenant-theme]:not(.shared-ui-dark-mode) .shared-ui-host .project-name-input:is(:hover, :focus) {
+  background: var(--tenant-surface, #fff);
+  border-color: var(--tenant-border, #dbe3e7);
+}

@@ -1,4 +1,4 @@
-import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=site-analytics-1';
+import { mountStandaloneConfiguratorShell } from '../../shared-ui/src/standaloneShell.js?v=tenant-ui-2';
 import { startsWithPanelClosed } from '../../shared-ui/src/phoneLayout.js?v=mobile-panels-1';
 import { resolveSharedTools } from '../../shared-ui/src/tools/registry.js?v=platform-18';
 import { createShareUrl } from '../../shared-ui/src/shareState.js?v=locales-6';
@@ -122,6 +122,8 @@ window.dispatchEvent(new CustomEvent('roof-preference-change', {
 
 const sidebar = document.querySelector('.sidebar');
 const sidebarToggle = document.querySelector('#roofSidebarToggle');
+const tenantPanelSide = shell.tenantCustomization?.layout?.desktop?.panelSide;
+if (tenantPanelSide && sidebar) sidebar.dataset.tenantPanelSide = tenantPanelSide;
 
 function setSidebarCollapsed(collapsed) {
   sidebar?.classList.toggle('is-collapsed', collapsed);
@@ -130,6 +132,7 @@ function setSidebarCollapsed(collapsed) {
   const label = t(collapsed ? 'sidebar.show' : 'sidebar.hide');
   sidebarToggle?.setAttribute('aria-label', label);
   sidebarToggle?.setAttribute('title', label);
+  requestAnimationFrame(() => scheduleToolsPosition());
 }
 
 sidebarToggle?.addEventListener('click', () => {
@@ -197,8 +200,23 @@ function positionToolsUi() {
   const stageRect = viewerStage?.getBoundingClientRect();
   const anchorRect = toolsAnchor?.getBoundingClientRect();
   const compact = mobileLayoutQuery.matches;
-  const toolbarLeft = Math.round((stageRect?.left ?? anchorRect?.left ?? 0) + (compact ? 10 : 18));
-  const toolbarTop = Math.round((stageRect?.top ?? anchorRect?.top ?? 0) + (compact ? 10 : 16));
+  let toolbarLeft = Math.round((stageRect?.left ?? anchorRect?.left ?? 0) + (compact ? 10 : 18));
+  let toolbarTop = Math.round((stageRect?.top ?? anchorRect?.top ?? 0) + (compact ? 10 : 16));
+
+  const tenantPosition = shell.tenantCustomization?.layout?.desktop?.toolbarPosition;
+  if (!compact && tenantPosition) {
+    const bounds = relocatedToolsToolbar.getBoundingClientRect();
+    const onLeft = tenantPosition.endsWith('left');
+    toolbarLeft = onLeft ? 24 : window.innerWidth - bounds.width - 24;
+    toolbarTop = tenantPosition.startsWith('bottom')
+      ? window.innerHeight - bounds.height - 24
+      : Math.max(71, (stageRect?.top ?? 47) + 16);
+    if (sidebar && !sidebar.classList.contains('is-collapsed')) {
+      const panel = sidebar.getBoundingClientRect();
+      if (onLeft && tenantPanelSide === 'left') toolbarLeft = panel.right + 24;
+      if (!onLeft && tenantPanelSide !== 'left') toolbarLeft = panel.left - bounds.width - 24;
+    }
+  }
 
   relocatedToolsToolbar.style.setProperty('--roof-tools-left', `${toolbarLeft}px`);
   relocatedToolsToolbar.style.setProperty('--roof-tools-top', `${toolbarTop}px`);
@@ -407,4 +425,5 @@ requestAnimationFrame(() => {
 });
 
 window.ROOF_CONFIGURATOR_SHARED_SHELL = shell;
+
 

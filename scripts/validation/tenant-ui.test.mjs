@@ -79,3 +79,25 @@ test('disabled shared actions are guarded at their method entry points', async (
   assert.equal(await prototype.restoreCartEditTransport.call(shell,{}),false);
   assert.equal(await prototype.share.call(shell),undefined);
 });
+
+test('Roof toolbar honors tenant corners, clears its panel, and preserves mobile positioning', () => {
+  const source = readFileSync(new URL('../../roof-configurator/js/sharedShell.js', import.meta.url), 'utf8');
+  const position = source.slice(source.indexOf('function positionToolsUi()'), source.indexOf('function scheduleToolsPosition()'));
+  for (const compact of [false, true]) {
+    for (const collapsed of [false, true]) {
+      const values = new Map();
+      const context = vm.createContext({
+        toolsPositionFrame: 0,
+        relocatedToolsToolbar: {isConnected:true, getBoundingClientRect:()=>({width:74,height:46}), style:{setProperty:(k,v)=>values.set(k,v)}},
+        viewerStage:{getBoundingClientRect:()=>({left:0,top:100})}, toolsAnchor:null,
+        mobileLayoutQuery:{matches:compact}, window:{innerWidth:1440,innerHeight:950},
+        shell:{tenantCustomization:{layout:{desktop:{toolbarPosition:'bottom-left'}}}},
+        tenantPanelSide:'left', sidebar:{classList:{contains:()=>collapsed},getBoundingClientRect:()=>({left:20,right:380})},
+        environmentPanel:null,
+      });
+      vm.runInContext(position + '\npositionToolsUi();', context);
+      assert.equal(values.get('left'), compact ? '10px' : collapsed ? '24px' : '404px');
+      assert.equal(values.get('top'), compact ? '110px' : '880px');
+    }
+  }
+});

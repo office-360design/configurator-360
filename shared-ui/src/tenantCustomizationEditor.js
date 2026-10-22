@@ -20,7 +20,7 @@ export function mountTenantCustomizationEditor(root, { call, products }) {
         <label>Desktop floating panel<select data-custom-panel>${option('', 'Keep existing position')}${option('left','Left')}${option('right','Right')}</select></label>
         ${Object.entries(FEATURES).map(([key,label]) => `<label>${label}<select data-custom-feature="${key}">${option('','Inherit')}${option('true','Show / allow')}${option('false','Hide / disable')}</select></label>`).join('')}
       </div>
-      <p class="tenant-custom-note">Panel side applies to shared floating panels (including Pergola). Desktop toolbar positions apply where the shared toolbar is present. Bookshelf keeps its product-specific quotation flow. Price visibility here affects the shared footer, not product-specific estimates.</p>
+      <p class="tenant-custom-note">Panel side applies to shared floating panels (including Pergola and Roof). Desktop toolbar positions apply where the shared toolbar is present. Bookshelf keeps its product-specific quotation flow. Price visibility here affects the shared footer, not product-specific estimates.</p>
       <div class="actions">
         <button type="button" class="button button--secondary" data-custom-clear>Clear overrides for this scope</button>
         <button type="button" class="button button--secondary" data-custom-action="save">Save draft</button>
