@@ -27,6 +27,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Solar AR changes
+        id: solar-ar
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: bash scripts/ci/detect-solar-ar-changes.sh
 
       # ------------------------------------------------------------
       # Build window configurator
@@ -42,6 +51,7 @@ jobs:
             pergola-configurator/package-lock.json
 
       - name: Verify Solar AR and deployment compatibility
+        if: steps.solar-ar.outputs.relevant == 'true'
         run: npm run check:ar --prefix solar-configurator
 
       - name: Install window configurator dependencies
@@ -296,3 +306,4 @@ jobs:
           curl -fsSL --retry 5 "${SERVICE_URL}/internal/tenant-provisioning/" > /dev/null
       
           echo "All production routes responded successfully."
+
