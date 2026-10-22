@@ -69,7 +69,7 @@ export function loadTenantShellStyles() {
   if (document.querySelector('link[data-tenant-shell-styles]')) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = new URL('../styles/tenantUi.css?v=shared-ui-1', import.meta.url).href;
+  link.href = new URL('../styles/tenantUi.css?v=tenant-ui-2', import.meta.url).href;
   link.dataset.tenantShellStyles = '';
   document.head.append(link);
 }

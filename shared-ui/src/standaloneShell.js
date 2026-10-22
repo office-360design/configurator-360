@@ -1,4 +1,4 @@
-import { resolveTenantShellOptions, applyTenantShellTheme, loadTenantShellStyles } from './tenantShellCustomization.js?v=shared-ui-1';
+import { resolveTenantShellOptions, applyTenantShellTheme, loadTenantShellStyles } from './tenantShellCustomization.js?v=tenant-ui-2';
 import { isConfiguratorAREnabled } from './arPolicy.js?v=curtainwall-ar-1';
 import {openConfigurationQuotation, quotationLabel} from './configurationQuotation.js?v=tenant-ui-1';
 import { LANGUAGE_PROFILES, LOCALE_HOSTS, WEBSITE_DEMO_PATHS, getLanguageProfile, getLocaleForHostname, getLocalizedConfiguratorUrl } from './config.js?v=localized-slugs-1';
